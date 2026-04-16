@@ -19,13 +19,20 @@ export default class Tank implements Animatable {
   }
 
   update(dt: number): void {
-    // console.log(game.input.mouse.getMouse());
-    if (game.input.mouse.isDown()) {
+    if (game.input.mouse.wasPressed()) {
       this.projectiles.push(
-        new Projectile(this.x + this.image.width, this.y, 45, 10),
+        new Projectile(this.x + this.image.width, this.y, 45, 500),
       );
     }
 
-    this.projectiles.forEach((projectile) => projectile.update(dt));
+    for (let i = 0; i < this.projectiles.length; ++i) {
+      const projectile = this.projectiles[i];
+      if (projectile.done) {
+        this.projectiles.splice(i, 1);
+        i--;
+        continue;
+      }
+      projectile.update(dt);
+    }
   }
 }
