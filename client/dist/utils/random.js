@@ -1,6 +1,8 @@
-export function randInt(m, n) {
-    return m + Math.floor(Math.random() * (n - m + 1));
-}
-export function randBool() {
-    return randInt(0, 1) == 1;
+export default class Random {
+    static bool() {
+        return this.int(0, 1) == 1;
+    }
+    static int(m, n) {
+        return m + Math.floor(Math.random() * (n - m + 1));
+    }
 }
