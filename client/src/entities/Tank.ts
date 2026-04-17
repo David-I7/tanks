@@ -19,7 +19,7 @@ export default class Tank implements Animatable {
   }
 
   update(dt: number): void {
-    if (game.input.mouseGestures.wasPressed()) {
+    if (game.input.mouse.wasPressed()) {
       this.projectiles.push(
         new Projectile(this.x + this.image.width, this.y, 45, 500),
       );
