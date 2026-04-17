@@ -1,4 +1,4 @@
-export const gGameConfig = {
+export const gameSettings = {
   font: {
     family: {
       primary: {
@@ -19,3 +19,5 @@ export const gGameConfig = {
     scaler: 1,
   },
 };
+
+export type GameSettings = typeof gameSettings;
