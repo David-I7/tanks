@@ -1,6 +1,6 @@
 // import Tank from "./entities/Tank.js";
 // import game from "./Game.js";
-import { MouseGestures, MouseInput } from "./input/Mouse.js";
+import { MouseGestures, MouseInput } from "./input/MouseInput.js";
 // window.addEventListener("DOMContentLoaded", async () => {
 //   const canvas = document.getElementById("canvas1") as HTMLCanvasElement;
 //   const ctx = canvas.getContext("2d")!;

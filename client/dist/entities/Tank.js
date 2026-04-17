@@ -15,7 +15,7 @@ export default class Tank {
         this.projectiles.forEach((projectile) => projectile.draw(ctx));
     }
     update(dt) {
-        if (game.input.mouseGestures.wasPressed()) {
+        if (game.input.mouse.wasPressed()) {
             this.projectiles.push(new Projectile(this.x + this.image.width, this.y, 45, 500));
         }
         for (let i = 0; i < this.projectiles.length; ++i) {

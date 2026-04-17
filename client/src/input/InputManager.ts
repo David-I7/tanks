@@ -1,22 +1,22 @@
-import KeyboardEventHandler from "./KeyboardEventHandler.js";
-import { MouseInput, MouseGestures } from "./Mouse.js";
+import KeyboardInput from "./KeyboardInput.js";
+import { MouseInput, MouseGestures } from "./MouseInput.js";
 
 export class InputManager {
-  keyboard: KeyboardEventHandler;
-  mouseGestures: MouseGestures;
-  mouseInput: MouseInput;
+  keyboard: KeyboardInput;
+  mouse: MouseGestures;
+  private mouseInput: MouseInput;
   canvas: HTMLCanvasElement;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
     this.mouseInput = new MouseInput(canvas);
-    this.mouseGestures = new MouseGestures(this.mouseInput);
-    this.keyboard = new KeyboardEventHandler(canvas);
+    this.mouse = new MouseGestures(this.mouseInput);
+    this.keyboard = new KeyboardInput();
   }
 
   update(): void {
     this.mouseInput.update();
-    this.mouseGestures.update();
+    this.mouse.update();
     this.keyboard.update();
   }
 }
