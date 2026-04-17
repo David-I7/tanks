@@ -6,11 +6,11 @@ export default class KeyboardEventHandler {
   private releasedBuffer: Set<string> = new Set();
   private signals!: AbortController[];
 
-  constructor() {
-    this.init();
+  constructor(canvas: HTMLCanvasElement) {
+    this.init(canvas);
   }
 
-  private init() {
+  init(canvas: HTMLCanvasElement) {
     this.signals = Array.from({ length: 2 }, (_) => new AbortController());
 
     let i = 0;
@@ -64,11 +64,11 @@ export default class KeyboardEventHandler {
     this.releasedBuffer.clear();
   }
 
-  reset() {
+  reset(canvas: HTMLCanvasElement) {
     this.keysDown.clear();
     this.keysReleased.clear();
     this.keysPressed.clear();
     this.signals.forEach((signal) => signal.abort());
-    this.init();
+    this.init(canvas);
   }
 }

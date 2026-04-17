@@ -1,4 +1,4 @@
-export const gGameConfig = {
+export const gameSettings = {
     font: {
         family: {
             primary: {

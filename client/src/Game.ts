@@ -1,41 +1,21 @@
+import { GameSettings, gameSettings } from "./config/gameConfig.js";
 import { InputManager } from "./input/InputManager.js";
-
-const GRAPHICS_URLS = {
-  tank: "/assets/graphics/tank.png",
-};
+import ResourceManager, { Resources } from "./ResourceManager.js";
 
 class Game {
-  graphics: Record<string, ImageBitmap> = {};
-  loaded: Promise<boolean>;
-  input: InputManager = new InputManager();
-  settings = {
-    viewport: {
-      width: 0,
-      height: 0,
-      dpi: 1,
-    },
-  };
-  constructor() {
-    this.loaded = this.load();
-  }
+  input!: InputManager;
+  settings: GameSettings = gameSettings;
+  canvas!: HTMLCanvasElement;
+  ctx!: CanvasRenderingContext2D;
+  resources!: Resources;
 
-  private async load(): Promise<boolean> {
-    return new Promise(async (res, rej) => {
-      const promises = Object.entries(GRAPHICS_URLS).map(
-        async ([entity, url]) => {
-          const image = new Image();
-          image.src = url;
+  constructor() {}
 
-          await image.decode();
-
-          this.graphics[entity] = await createImageBitmap(image);
-        },
-      );
-
-      await Promise.all(promises);
-
-      res(true);
-    });
+  async init(canvas: HTMLCanvasElement) {
+    this.resources = await ResourceManager.load();
+    this.canvas = canvas;
+    this.ctx = canvas.getContext("2d")!;
+    this.input = new InputManager(this.canvas);
   }
 
   update(dt: number) {

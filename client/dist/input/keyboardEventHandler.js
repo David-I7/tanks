@@ -5,10 +5,10 @@ export default class KeyboardEventHandler {
     pressedBuffer = new Set();
     releasedBuffer = new Set();
     signals;
-    constructor() {
-        this.init();
+    constructor(canvas) {
+        this.init(canvas);
     }
-    init() {
+    init(canvas) {
         this.signals = Array.from({ length: 2 }, (_) => new AbortController());
         let i = 0;
         window.addEventListener("keydown", (e) => {
@@ -50,11 +50,11 @@ export default class KeyboardEventHandler {
         }
         this.releasedBuffer.clear();
     }
-    reset() {
+    reset(canvas) {
         this.keysDown.clear();
         this.keysReleased.clear();
         this.keysPressed.clear();
         this.signals.forEach((signal) => signal.abort());
-        this.init();
+        this.init(canvas);
     }
 }
