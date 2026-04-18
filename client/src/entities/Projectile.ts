@@ -13,11 +13,8 @@ export default class Projectile implements Animatable {
     this.x = x;
     this.y = y;
 
-    // convert degrees → radians
-    const rad = -(angle * Math.PI) / 180;
-
-    this.vx = Math.cos(rad) * speed;
-    this.vy = Math.sin(rad) * speed;
+    this.vx = Math.cos(angle) * speed;
+    this.vy = Math.sin(angle) * speed;
   }
 
   update(dt: number): void {

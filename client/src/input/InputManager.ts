@@ -1,8 +1,9 @@
-import KeyboardInput from "./KeyboardInput.js";
+import { KeyboardInput, KeyboardGestures } from "./KeyboardInput.js";
 import { MouseInput, MouseGestures } from "./MouseInput.js";
 
 export class InputManager {
-  keyboard: KeyboardInput;
+  keyboard: KeyboardGestures;
+  private keyboardInput: KeyboardInput;
   mouse: MouseGestures;
   private mouseInput: MouseInput;
   canvas: HTMLCanvasElement;
@@ -11,7 +12,8 @@ export class InputManager {
     this.canvas = canvas;
     this.mouseInput = new MouseInput(canvas);
     this.mouse = new MouseGestures(this.mouseInput);
-    this.keyboard = new KeyboardInput();
+    this.keyboardInput = new KeyboardInput();
+    this.keyboard = new KeyboardGestures(this.keyboardInput);
   }
 
   update(): void {
