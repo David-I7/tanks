@@ -19,10 +19,32 @@ export default class Tank implements Animatable {
   }
 
   update(dt: number): void {
-    if (game.input.mouse.wasPressed()) {
-      this.projectiles.push(
-        new Projectile(this.x + this.image.width, this.y, 45, 500),
-      );
+    if (game.input.mouse.hasMouseMoved()) {
+      const moves = game.input.mouse.getMouseMoves();
+
+      const lastMove = moves[0];
+
+      const mx = lastMove.x;
+      const my = lastMove.y;
+
+      const tx = this.x + this.image.width;
+      const ty = this.y;
+
+      const dx = mx - tx;
+      const dy = my - ty;
+
+      const angle = Math.atan2(-dy, dx);
+      const distance = Math.sqrt(dx * dx + dy * dy);
+
+      const power = Math.min(distance * 2, 800);
+
+      console.log(`Angle: ${angle}; Power: ${power}; Distance: ${distance}`);
+
+      if (game.input.mouse.wasClicked()) {
+        this.projectiles.push(
+          new Projectile(this.x + this.image.width, this.y, angle, power),
+        );
+      }
     }
 
     for (let i = 0; i < this.projectiles.length; ++i) {

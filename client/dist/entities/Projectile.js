@@ -9,10 +9,8 @@ export default class Projectile {
     constructor(x, y, angle, speed) {
         this.x = x;
         this.y = y;
-        // convert degrees → radians
-        const rad = -(angle * Math.PI) / 180;
-        this.vx = Math.cos(rad) * speed;
-        this.vy = Math.sin(rad) * speed;
+        this.vx = Math.cos(angle) * speed;
+        this.vy = Math.sin(angle) * speed;
     }
     update(dt) {
         const gravity = 300; // px/s² (tune this)

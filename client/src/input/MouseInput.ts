@@ -118,13 +118,14 @@ export class MouseInput {
 
 export class MouseGestures {
   private lastMouseDownBeforeRelease: CanvasMouseEvent | null = null;
+  private lastMouseReleaseBeforeDown: CanvasMouseEvent | null = null;
   private lastClickTime: number | null = null;
 
-  private dragging = false;
-  private mouseDown = false;
-  private mouseUp = false;
-  private mouseMoving = false;
-  private mouseLeave = false;
+  private isDragging = false;
+  private isMouseDown = false;
+  private isMouseUp = false;
+  private isMouseMoving = false;
+  private isMouseLeave = false;
 
   private click: CanvasMouseEvent | null = null;
   private doubleClick: CanvasMouseEvent | null = null;
@@ -148,44 +149,47 @@ export class MouseGestures {
     this.dragEnd = null;
     this.dragMoves.length = 0;
 
-    this.mouseDown = false;
-    this.mouseMoving = false;
-    this.mouseLeave = false;
-    this.mouseUp = false;
+    this.isMouseDown = false;
+    this.isMouseMoving = false;
+    this.isMouseLeave = false;
+    this.isMouseUp = false;
 
     const downs = this.mouse.getMouseDowns();
     const moves = this.mouse.getMouseMoves();
     const ups = this.mouse.getMouseUps();
     const leaves = this.mouse.getMouseLeaves();
 
-    // DOWN
+    // Detects mouse downs
     if (downs.length) {
+      this.lastMouseReleaseBeforeDown = null;
       const last = downs[downs.length - 1];
       this.lastMouseDownBeforeRelease = last;
-      this.dragging = false;
-      this.mouseDown = true;
+      this.isDragging = false;
+      this.isMouseDown = true;
     }
 
     if (moves.length) {
-      this.mouseMoving = true;
+      this.isMouseMoving = true;
     }
     if (leaves.length) {
-      this.mouseLeave = true;
+      this.isMouseLeave = true;
     }
     if (ups.length) {
-      this.mouseUp = true;
+      this.isMouseUp = true;
     }
 
     // Drag Detection
 
     for (const e of moves) {
-      if (this.lastMouseDownBeforeRelease && !this.dragging) {
+      // Detects drag start
+      if (this.lastMouseDownBeforeRelease && !this.isDragging) {
+        // The user must move at least MIN_DRAG_START_DISTANCE_SQ before a drag start is considered
         const dx = e.x - this.lastMouseDownBeforeRelease.x;
         const dy = e.y - this.lastMouseDownBeforeRelease.y;
         const distSq = dx * dx + dy * dy;
 
         if (distSq >= this.MIN_DRAG_START_DISTANCE_SQ) {
-          this.dragging = true;
+          this.isDragging = true;
           this.dragStart = {
             ...this.lastMouseDownBeforeRelease,
             type: "dragStart",
@@ -196,7 +200,9 @@ export class MouseGestures {
         }
       }
 
-      if (this.dragging && e.time !== this.dragStart?.time) {
+      // Detect drag moves
+      // isDragging is true only if the user started dragging
+      if (this.isDragging && e.time !== this.dragStart?.time) {
         const nextDragMove: CanvasDragEvent = {
           ...e,
           type: "dragMove",
@@ -208,10 +214,13 @@ export class MouseGestures {
       }
     }
 
-    // Click, doubleClick, dragEnds
+    // Detects click, doubleClick and dragEnd events
     for (const e of ups) {
-      if (this.dragging) {
-        this.dragging = false;
+      this.lastMouseReleaseBeforeDown = e;
+
+      // Detects drag end
+      if (this.isDragging) {
+        this.isDragging = false;
         this.dragEnd = {
           ...e,
           type: "dragEnd",
@@ -221,9 +230,11 @@ export class MouseGestures {
         this.lastDragMoveBeforeDragEnd = null;
       }
 
+      // Detects clicks and double clicks
       if (this.lastMouseDownBeforeRelease) {
+        // For a click to be created, the user must press and release the mouse within MAX_CLICK_DURATION,
+        // and must not move more than MAX_CLICK_DISTANCE_SQ
         const duration = e.time - this.lastMouseDownBeforeRelease.time;
-
         const dx = e.x - this.lastMouseDownBeforeRelease.x;
         const dy = e.y - this.lastMouseDownBeforeRelease.y;
         const distSq = dx * dx + dy * dy;
@@ -234,6 +245,7 @@ export class MouseGestures {
         ) {
           this.click = { ...e, type: "click" };
 
+          // The user must click 2 times within DOUBLE_CLICK_DELAY to trigger a double click event
           if (
             this.lastClickTime &&
             e.time - this.lastClickTime <= this.DOUBLE_CLICK_DELAY
@@ -247,22 +259,36 @@ export class MouseGestures {
       }
     }
 
-    if (this.mouseLeave && this.dragging) {
-      this.dragging = false;
-      this.dragEnd = null;
-      this.lastMouseDownBeforeRelease = null;
-      this.lastDragMoveBeforeDragEnd = null;
+    // Mouse left the canvas, we cleanup state
+    if (this.isMouseLeave) {
+      if (this.isDragging) {
+        const e = leaves[leaves.length - 1];
+        this.dragEnd = {
+          ...e,
+          deltaX: e.x - this.lastDragMoveBeforeDragEnd!.x,
+          deltaY: (e.y = this.lastDragMoveBeforeDragEnd!.y),
+          type: "dragEnd",
+        };
+        this.lastDragMoveBeforeDragEnd = null;
+        this.isDragging = false;
+      }
     }
   }
 
-  // ===== PUBLIC API =====
-
   wasPressed(): boolean {
-    return this.mouseDown;
+    return this.isMouseDown;
+  }
+
+  getMousePress() {
+    return this.lastMouseDownBeforeRelease;
   }
 
   wasReleased(): boolean {
-    return this.mouseUp;
+    return this.isMouseUp;
+  }
+
+  getMouseRelease() {
+    return this.lastMouseReleaseBeforeDown;
   }
 
   wasClicked(): boolean {
@@ -281,24 +307,20 @@ export class MouseGestures {
     return this.doubleClick;
   }
 
-  isMouseLeaving() {
-    return this.mouseLeave;
+  hasMouseLeft() {
+    return this.isMouseLeave;
   }
 
   getMouseLeaves() {
     return this.mouse.getMouseLeaves();
   }
 
-  isMouseMoving() {
-    return this.mouseMoving;
+  hasMouseMoved() {
+    return this.isMouseMoving;
   }
 
   getMouseMoves() {
     return this.mouse.getMouseMoves();
-  }
-
-  isDragging(): boolean {
-    return this.dragging;
   }
 
   getDragStart() {
@@ -314,7 +336,7 @@ export class MouseGestures {
   }
 
   hasDragMoved() {
-    return this.dragging && this.dragMoves.length > 0;
+    return this.isDragging && this.dragMoves.length > 0;
   }
 
   getDragEnd() {
