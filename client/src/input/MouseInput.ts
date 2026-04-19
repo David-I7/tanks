@@ -136,9 +136,9 @@ export class MouseGestures {
   private lastDragMoveBeforeDragEnd: CanvasDragEvent | null = null;
 
   private readonly MAX_CLICK_DURATION = 200;
-  private readonly MAX_CLICK_DISTANCE_SQ = 25;
+  private readonly MAX_CLICK_DISTANCE_SQ = 1000;
   private readonly DOUBLE_CLICK_DELAY = 300;
-  private readonly MIN_DRAG_START_DISTANCE_SQ = 25;
+  private readonly MIN_DRAG_START_DISTANCE_SQ = 50;
 
   constructor(private mouse: MouseInput) {}
 
