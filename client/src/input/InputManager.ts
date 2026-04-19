@@ -19,6 +19,7 @@ export class InputManager {
   update(): void {
     this.mouseInput.update();
     this.mouse.update();
+    this.keyboardInput.update();
     this.keyboard.update();
   }
 }
