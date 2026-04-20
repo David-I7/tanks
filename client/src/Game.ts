@@ -10,6 +10,7 @@ class Game {
   ctx!: CanvasRenderingContext2D;
   resources!: Resources;
   terrain!: Terrain;
+  private isDragging: boolean = false;
 
   constructor() {}
 
@@ -26,6 +27,18 @@ class Game {
 
   update(dt: number) {
     this.input.update();
+
+    if (this.isDragging) {
+      if (this.input.mouse.hasDragMoved()) {
+        for (const e of this.input.mouse.getDragMoves()) {
+          this.ctx.translate(e.deltaX, 0);
+        }
+      }
+    } else if (this.input.mouse.hasDragStarted()) {
+      this.isDragging = true;
+    } else {
+      this.isDragging = false;
+    }
   }
 
   draw(ctx: CanvasRenderingContext2D) {
