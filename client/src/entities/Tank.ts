@@ -14,7 +14,7 @@ export default class Tank implements Animatable {
   private MAX_SLOPE = 0.7;
 
   constructor(private image: ImageBitmap) {
-    this.y = game.terrain.getHeight(this.x);
+    this.y = game.terrain.getSurfaceY(this.x, 0);
     const n = game.terrain.getNormal(this.x);
     this.angle = Math.atan2(n.ny, n.nx) - Math.PI / 2;
     this.projectile = new Projectile(
@@ -45,14 +45,16 @@ export default class Tank implements Animatable {
   update(dt: number): void {
     let input = 0;
 
-    if (game.input.keyboard.isHeld("a")) input = -1;
-    if (game.input.keyboard.isHeld("d")) input = 1;
+    if (game.input.keyboard.isHeld("a") && game.input.keyboard.isHeld("d"))
+      input = 0;
+    else if (game.input.keyboard.isHeld("a")) input = -1;
+    else if (game.input.keyboard.isHeld("d")) input = 1;
 
     if (input !== 0) {
       this.x += input * 100 * dt;
       this.x = Math.max(0, Math.min(game.terrain.width, this.x));
 
-      const groundY = game.terrain.getHeight(this.x);
+      const groundY = game.terrain.getSurfaceY(this.x, 0);
       this.y = groundY;
 
       const n = game.terrain.getNormal(this.x);
