@@ -1,5 +1,3 @@
-import Drawable from "../interfaces/drawable.js";
-
 export function displayFps(
   unit: "ms" | "sec" = "sec",
   opt: {
@@ -29,6 +27,10 @@ export function displayFps(
     ctx.fillText(`FPS: ${prevCnt}`, opt.x || 24, opt.y || 24);
     ctx.restore();
   };
+}
+
+export function toDegrees(radians: number): number {
+  return (radians * 180) / Math.PI;
 }
 
 // export function AABBColides(a: Drawable, b: Drawable): boolean {

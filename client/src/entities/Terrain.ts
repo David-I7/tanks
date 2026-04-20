@@ -1,7 +1,7 @@
 export default class Terrain {
-  heights: number[] = [];
   width: number;
   height: number;
+  private imageData!: ImageData;
 
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
@@ -17,27 +17,92 @@ export default class Terrain {
     this.ctx = this.canvas.getContext("2d")!;
 
     this.generate();
-    this.redraw();
   }
 
   private generate() {
-    for (let x = 0; x < Math.floor(this.width); x++) {
-      this.heights[x] =
-        this.height * 0.6 + Math.sin(x * 0.01) * 50 + Math.sin(x * 0.03) * 25;
+    const h = this.canvas.height;
+
+    this.ctx.fillStyle = "green";
+    this.ctx.beginPath();
+    this.ctx.moveTo(0, h);
+
+    for (let x = 0; x < this.canvas.width; x++) {
+      const y = h * 0.6 + Math.sin(x * 0.01) * 50 + Math.sin(x * 0.03) * 25;
+
+      this.ctx.lineTo(x, y);
+    }
+
+    this.ctx.lineTo(this.canvas.width, h);
+    this.ctx.closePath();
+    this.ctx.fill();
+
+    this.imageData = this.ctx.getImageData(
+      0,
+      0,
+      this.canvas.width,
+      this.canvas.height,
+    );
+  }
+
+  private isSolid(x: number, y: number): boolean {
+    const ix = Math.floor(x);
+    const iy = Math.floor(y);
+
+    if (
+      ix < 0 ||
+      ix >= this.imageData.width ||
+      iy < 0 ||
+      iy >= this.imageData.height
+    )
+      return false;
+
+    const index = (iy * this.imageData.width + ix) * 4;
+    const alpha = this.imageData.data[index + 3];
+
+    return alpha > 10;
+  }
+
+  intersects(x: number, y: number) {
+    return this.isSolid(x, y);
+  }
+
+  intersectsCircle(cx: number, cy: number, r: number) {
+    const samples = 12;
+    for (let i = 0; i < samples; i++) {
+      const angle = (i / samples) * Math.PI * 2;
+
+      const x = cx + Math.cos(angle) * r;
+      const y = cy + Math.sin(angle) * r;
+
+      if (this.isSolid(x, y)) {
+        return true;
+      }
     }
   }
 
-  getHeight(x: number): number {
-    const xi = Math.max(0, Math.min(Math.floor(this.width) - 1, Math.floor(x)));
-    return this.heights[xi];
+  getSurfaceY(x: number, startY: number): number {
+    const isSolidStart = this.isSolid(x, startY) === true;
+    if (isSolidStart) {
+      for (let y = startY - 1; y > 0; y--) {
+        if (!this.isSolid(x, y)) {
+          return y + 1;
+        }
+      }
+
+      return 0;
+    } else {
+      for (let y = startY + 1; y < this.canvas.height; y++) {
+        if (this.isSolid(x, y)) {
+          return y;
+        }
+      }
+      return this.canvas.height;
+    }
   }
 
   getNormal(x: number) {
-    const x0 = Math.max(0, Math.floor(x) - 1);
-    const x1 = Math.min(Math.floor(this.width) - 1, Math.floor(x) + 1);
-
-    const dy = this.heights[x1] - this.heights[x0];
-    const dx = x1 - x0;
+    const dx = 4;
+    const dy = this.getSurfaceY(x + 2, 0) - this.getSurfaceY(x - 2, 0);
 
     const nx = -dy;
     const ny = dx;
@@ -47,54 +112,30 @@ export default class Terrain {
     return { nx: nx / len, ny: ny / len };
   }
 
-  isSolid(x: number, y: number, radius: number = 0): boolean {
-    return y + radius >= this.getHeight(x);
+  getDirectionVector(x: number, y: number) {
+    const dx = 2;
+    const dy = this.getSurfaceY(x + 1, y) - this.getSurfaceY(x - 1, y);
+
+    const len = Math.sqrt(dx * dx + dy * dy);
+
+    return { x: dx / len, y: -dy / len };
   }
 
   destroy(cx: number, cy: number, explosionRadius: number) {
-    for (
-      let x = Math.floor(cx - explosionRadius);
-      x <= cx + explosionRadius;
-      x++
-    ) {
-      if (x < 0 || x >= this.width) continue;
+    // The existing content is kept where it doesn't overlap the new shape.
+    this.ctx.globalCompositeOperation = "destination-out";
 
-      // Relative x
-      const dx = x - cx;
-      // x^2
-      const distSq = dx * dx;
-
-      const groundY = this.getHeight(x);
-
-      // x^2 + y^2 = r^2 => y = sqrt(r^2 - x^2)
-      const depth = Math.sqrt(explosionRadius * explosionRadius - distSq);
-
-      // actual y on the screen
-      const targetY = cy + depth;
-
-      // only push terrain downward if below explosion curve
-      if (targetY > groundY) {
-        this.heights[x] = Math.min(this.height, targetY);
-      }
-    }
-
-    this.redraw();
-  }
-
-  private redraw() {
-    this.ctx.clearRect(0, 0, this.width, this.height);
-
-    this.ctx.fillStyle = "green";
     this.ctx.beginPath();
-    this.ctx.moveTo(0, this.height);
-
-    for (let x = 0; x < this.width; x++) {
-      this.ctx.lineTo(x, this.heights[x]);
-    }
-
-    this.ctx.lineTo(this.width, this.height);
-    this.ctx.closePath();
+    this.ctx.arc(cx, cy, explosionRadius, 0, Math.PI * 2);
     this.ctx.fill();
+    // This is the default setting and draws new shapes on top of the existing canvas content.
+    this.ctx.globalCompositeOperation = "source-over";
+    this.imageData = this.ctx.getImageData(
+      0,
+      0,
+      this.canvas.width,
+      this.canvas.height,
+    );
   }
 
   draw(ctx: CanvasRenderingContext2D) {

@@ -45,7 +45,7 @@ export default class Projectile implements Animatable {
         break;
       }
 
-      if (game.terrain.isSolid(x, y)) break;
+      if (game.terrain.intersects(x, y)) break;
 
       if (i % step == 0) {
         ctx.beginPath();
@@ -69,17 +69,7 @@ export default class Projectile implements Animatable {
     this.x += this.vx * dt;
     this.y += this.vy * dt;
 
-    //const steps = 5;
-
-    // for (let i = 0; i <= steps; i++) {
-    //   const t = i / steps;
-
-    //   const ix = prevX + (this.x - prevX) * t;
-    //   const iy = prevY + (this.y - prevY) * t;
-
-    // }
-
-    if (game.terrain.isSolid(this.x, this.y, this.radius)) {
+    if (game.terrain.intersectsCircle(this.x, this.y, this.radius)) {
       game.terrain.destroy(this.x, this.y, 25);
       this.done = true;
       return;

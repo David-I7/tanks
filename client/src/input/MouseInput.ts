@@ -1,3 +1,19 @@
+interface OneTimeEvent {
+  type: string;
+  x: number;
+  y: number;
+  time: number;
+}
+
+interface RelativeEvent {
+  type: string;
+  x: number;
+  y: number;
+  time: number;
+  deltaX: number;
+  deltaY: number;
+}
+
 type MouseEventType =
   | "mouseDown"
   | "mouseUp"
@@ -8,29 +24,28 @@ type MouseEventType =
 
 type DragEventType = "dragStart" | "dragEnd" | "dragMove";
 
-interface CanvasMouseEvent {
+type WheelEventType = "wheel";
+
+interface CanvasMouseEvent extends OneTimeEvent {
   type: MouseEventType;
-  x: number;
-  y: number;
-  time: number;
 }
 
-interface CanvasDragEvent {
+interface CanvasDragEvent extends RelativeEvent {
   type: DragEventType;
-  deltaX: number;
-  deltaY: number;
-  x: number;
-  y: number;
-  time: number;
+}
+
+interface CanvasWheelEvent extends RelativeEvent {
+  type: WheelEventType;
 }
 
 export class MouseInput {
-  private queue: CanvasMouseEvent[] = [];
+  private queue: (CanvasMouseEvent | CanvasWheelEvent)[] = [];
 
   private mouseDowns: CanvasMouseEvent[] = [];
   private mouseUps: CanvasMouseEvent[] = [];
   private mouseMoves: CanvasMouseEvent[] = [];
   private mouseLeaves: CanvasMouseEvent[] = [];
+  private wheelMoves: CanvasWheelEvent[] = [];
 
   private rect!: DOMRect;
 
@@ -65,6 +80,17 @@ export class MouseInput {
       this.queue.push({ type: "mouseLeave", ...p, time: performance.now() });
     });
 
+    canvas.addEventListener("wheel", (e) => {
+      const p = getPos(e);
+      this.queue.push({
+        type: "wheel",
+        ...p,
+        time: performance.now(),
+        deltaX: e.deltaX,
+        deltaY: e.deltaY,
+      });
+    });
+
     window.addEventListener("mouseup", (e) => {
       const p = getPos(e);
       this.queue.push({ type: "mouseUp", ...p, time: performance.now() });
@@ -76,6 +102,7 @@ export class MouseInput {
     this.mouseUps.length = 0;
     this.mouseMoves.length = 0;
     this.mouseLeaves.length = 0;
+    this.wheelMoves.length = 0;
 
     for (const ev of this.queue) {
       if (ev.type === "mouseDown") {
@@ -93,6 +120,10 @@ export class MouseInput {
       if (ev.type === "mouseLeave") {
         this.mouseLeaves.push(ev);
       }
+
+      if (ev.type === "wheel") {
+        this.wheelMoves.push(ev);
+      }
     }
 
     this.queue.length = 0;
@@ -108,6 +139,9 @@ export class MouseInput {
     return this.mouseMoves;
   }
   getMouseLeaves() {
+    return this.mouseLeaves;
+  }
+  getWheelMoves() {
     return this.mouseLeaves;
   }
 }
@@ -345,5 +379,13 @@ export class MouseGestures {
 
   hasDragEnded() {
     return this.dragEnd !== null;
+  }
+
+  hasWheelMoved() {
+    return this.mouse.getWheelMoves().length > 0;
+  }
+
+  getWheelMoves() {
+    return this.mouse.getWheelMoves();
   }
 }
