@@ -37,6 +37,27 @@ export function toRadians(degrees: number): number {
   return (degrees * Math.PI) / 180;
 }
 
+export function drawVector(
+  ctx: CanvasRenderingContext2D,
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  options: { strokeStyle?: string; lineWidth?: number; magnitude?: number },
+) {
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(x1, x2);
+  ctx.lineTo(
+    x1 + x2 * (options.magnitude || 10),
+    y1 + y2 * (options.magnitude || 10),
+  );
+  ctx.lineWidth = options.lineWidth || 2;
+  ctx.strokeStyle = options.strokeStyle || "red";
+  ctx.stroke();
+  ctx.restore();
+}
+
 // export function AABBColides(a: Drawable, b: Drawable): boolean {
 //   return (
 //     a.x < b.x + b.width &&

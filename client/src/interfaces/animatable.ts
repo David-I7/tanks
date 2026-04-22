@@ -1,4 +1,4 @@
-import Drawable from "./drawable";
+import Drawable from "./Drawable";
 
 export default interface Animatable extends Drawable {
   draw(ctx: CanvasRenderingContext2D): void;

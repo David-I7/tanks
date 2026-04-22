@@ -1,4 +1,6 @@
-export default class Terrain {
+import Drawable from "../../interfaces/Drawable.js";
+
+export default class Terrain implements Drawable {
   width: number;
   height: number;
   private imageData!: ImageData;

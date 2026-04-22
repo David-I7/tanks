@@ -1,29 +1,47 @@
-import game from "../Game.js";
-import Animatable from "../interfaces/animatable";
-import { toDegrees, toRadians } from "../utils/utils.js";
+import Terrain from "./Terrain.js";
+import { InputManager } from "../../input/InputManager.js";
+import Camera from "../../ui/Camera.js";
+import { GAME_CONFIG } from "../../config/gameConfig.js";
+import Animatable from "../../interfaces/Animatable.js";
+import Drawable from "../../interfaces/Drawable.js";
+import { toRadians } from "../../utils/game.js";
 import Projectile from "./Projectile.js";
 
-export default class Tank implements Animatable {
+export default class Tank implements Animatable, Drawable {
+  private terrain: Terrain;
+  private input: InputManager;
+  private camera: Camera;
   private projectile: Projectile;
 
   private projectileLaunched = false;
 
-  private x: number = 50;
-  private y: number;
+  x: number = 50;
+  y: number;
 
   private angle: number = 0;
   // 75 degrees in radians
   private MAX_ANGLE = toRadians(75);
 
-  constructor(private image: ImageBitmap) {
-    this.y = game.terrain.getSurfaceY(this.x, 0);
-    const n = game.terrain.getSlopeVector(this.x);
-    this.angle = Math.atan2(n.y, n.x);
+  constructor(
+    private image: ImageBitmap,
+    terrain: Terrain,
+    input: InputManager,
+    camera: Camera,
+  ) {
+    this.terrain = terrain;
+    this.input = input;
+    this.camera = camera;
+    this.y = this.terrain.getSurfaceY(this.x, 0);
+    const slope = this.terrain.getSlopeVector(this.x);
+    this.angle = Math.atan2(slope.y, slope.x);
     this.projectile = new Projectile(
       this.x + this.image.width / 2,
       this.y - this.image.height / 2,
       0,
       0,
+      this.terrain,
+      camera.width,
+      camera.height,
     );
   }
 
@@ -47,15 +65,22 @@ export default class Tank implements Animatable {
   private calculateNextXPosition(dt: number): number {
     let input = 0;
 
-    if (game.input.keyboard.isHeld("a") && game.input.keyboard.isHeld("d"))
+    if (this.input.keyboard.isHeld("a") && this.input.keyboard.isHeld("d"))
       input = 0;
-    else if (game.input.keyboard.isHeld("a")) input = -1;
-    else if (game.input.keyboard.isHeld("d")) input = 1;
+    else if (this.input.keyboard.isHeld("a")) input = -1;
+    else if (this.input.keyboard.isHeld("d")) input = 1;
 
     if (input === -1 && this.angle >= this.MAX_ANGLE) return this.x;
     else if (input === 1 && this.angle <= -this.MAX_ANGLE) return this.x;
 
-    return Math.max(0, Math.min(game.terrain.width, this.x + input * 100 * dt));
+    return Math.max(0, Math.min(this.terrain.width, this.x + input * 100 * dt));
+  }
+
+  getMouseWorld(x: number, y: number) {
+    return {
+      x: this.camera.x + x / this.camera.zoom,
+      y: this.camera.y + y / this.camera.zoom,
+    };
   }
 
   update(dt: number): void {
@@ -64,21 +89,21 @@ export default class Tank implements Animatable {
     if (nextX !== this.x) {
       this.x = nextX;
 
-      const groundY = game.terrain.getSurfaceY(this.x, 0);
+      const groundY = this.terrain.getSurfaceY(this.x, 0);
       this.y = groundY;
 
-      const n = game.terrain.getSlopeVector(this.x);
+      const n = this.terrain.getSlopeVector(this.x);
       //this.normal = n;
       this.angle = Math.atan2(n.y, n.x);
     }
 
-    if (game.input.mouse.hasMouseMoved() && !this.projectileLaunched) {
-      const moves = game.input.mouse.getMouseMoves();
+    if (this.input.mouse.hasMouseMoved() && !this.projectileLaunched) {
+      const moves = this.input.mouse.getMouseMoves();
 
       const lastMove = moves[moves.length - 1];
 
-      const mx = lastMove.x;
-      const my = lastMove.y;
+      const mx = lastMove.cameraX;
+      const my = lastMove.cameraY;
 
       const tx = this.x + this.image.width;
       const ty = this.y;
@@ -99,7 +124,7 @@ export default class Tank implements Animatable {
       this.projectile.y = this.y - this.image.width / 2;
     }
 
-    if (game.input.mouse.wasClicked() && !this.projectileLaunched) {
+    if (this.input.mouse.wasClicked() && !this.projectileLaunched) {
       this.projectileLaunched = true;
     }
 
