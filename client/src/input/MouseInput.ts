@@ -1,42 +1,8 @@
-interface OneTimeEvent {
-  type: string;
-  x: number;
-  y: number;
-  time: number;
-}
-
-interface RelativeEvent {
-  type: string;
-  x: number;
-  y: number;
-  time: number;
-  deltaX: number;
-  deltaY: number;
-}
-
-type MouseEventType =
-  | "mouseDown"
-  | "mouseUp"
-  | "mouseMove"
-  | "mouseLeave"
-  | "click"
-  | "doubleClick";
-
-type DragEventType = "dragStart" | "dragEnd" | "dragMove";
-
-type WheelEventType = "wheel";
-
-interface CanvasMouseEvent extends OneTimeEvent {
-  type: MouseEventType;
-}
-
-interface CanvasDragEvent extends RelativeEvent {
-  type: DragEventType;
-}
-
-interface CanvasWheelEvent extends RelativeEvent {
-  type: WheelEventType;
-}
+import CanvasDragEvent from "../interfaces/events/CanvasDragEvent";
+import CanvasMouseEvent from "../interfaces/events/CanvasMouseEvent";
+import CanvasWheelEvent from "../interfaces/events/CanvasWheelEvents";
+import Camera from "../ui/Camera";
+import Viewport from "../ui/Viewport";
 
 export class MouseInput {
   private queue: (CanvasMouseEvent | CanvasWheelEvent)[] = [];
@@ -47,22 +13,16 @@ export class MouseInput {
   private mouseLeaves: CanvasMouseEvent[] = [];
   private wheelMoves: CanvasWheelEvent[] = [];
 
-  private rect!: DOMRect;
-
-  constructor(private canvas: HTMLCanvasElement) {
-    const updateRect = () => {
-      this.rect = canvas.getBoundingClientRect();
-    };
-
-    const observer = new ResizeObserver(updateRect);
-
-    observer.observe(canvas);
-
-    window.addEventListener("scroll", updateRect, true);
-
+  constructor(
+    private canvas: HTMLCanvasElement,
+    viewport: Viewport,
+    camera: Camera,
+  ) {
     const getPos = (e: MouseEvent) => ({
-      x: e.clientX - this.rect.left,
-      y: e.clientY - this.rect.top,
+      clientX: e.clientX - viewport.rect.left,
+      clientY: e.clientY - viewport.rect.top,
+      cameraX: camera.x + (e.clientX - viewport.rect.left) / camera.zoom,
+      cameraY: camera.y + (e.clientY - viewport.rect.top) / camera.zoom,
     });
 
     canvas.addEventListener("mousedown", (e) => {
@@ -80,16 +40,20 @@ export class MouseInput {
       this.queue.push({ type: "mouseLeave", ...p, time: performance.now() });
     });
 
-    canvas.addEventListener("wheel", (e) => {
-      const p = getPos(e);
-      this.queue.push({
-        type: "wheel",
-        ...p,
-        time: performance.now(),
-        deltaX: e.deltaX,
-        deltaY: e.deltaY,
-      });
-    });
+    canvas.addEventListener(
+      "wheel",
+      (e) => {
+        e.preventDefault();
+        const p = getPos(e);
+        this.queue.push({
+          type: "wheel",
+          ...p,
+          time: performance.now(),
+          delta: e.deltaY,
+        });
+      },
+      { passive: false },
+    );
 
     window.addEventListener("mouseup", (e) => {
       const p = getPos(e);
@@ -142,7 +106,7 @@ export class MouseInput {
     return this.mouseLeaves;
   }
   getWheelMoves() {
-    return this.mouseLeaves;
+    return this.wheelMoves;
   }
 }
 
@@ -218,8 +182,8 @@ export class MouseGestures {
       // Detects drag start
       if (this.lastMouseDownBeforeRelease && !this.isDragging) {
         // The user must move at least MIN_DRAG_START_DISTANCE_SQ before a drag start is considered
-        const dx = e.x - this.lastMouseDownBeforeRelease.x;
-        const dy = e.y - this.lastMouseDownBeforeRelease.y;
+        const dx = e.clientX - this.lastMouseDownBeforeRelease.clientX;
+        const dy = e.clientY - this.lastMouseDownBeforeRelease.clientY;
         const distSq = dx * dx + dy * dy;
 
         if (distSq >= this.MIN_DRAG_START_DISTANCE_SQ) {
@@ -240,8 +204,8 @@ export class MouseGestures {
         const nextDragMove: CanvasDragEvent = {
           ...e,
           type: "dragMove",
-          deltaX: e.x - this.lastDragMoveBeforeDragEnd!.x,
-          deltaY: e.y - this.lastDragMoveBeforeDragEnd!.y,
+          deltaX: e.clientX - this.lastDragMoveBeforeDragEnd!.clientX,
+          deltaY: e.clientY - this.lastDragMoveBeforeDragEnd!.clientY,
         };
         this.dragMoves.push(nextDragMove);
         this.lastDragMoveBeforeDragEnd = nextDragMove;
@@ -258,8 +222,8 @@ export class MouseGestures {
         this.dragEnd = {
           ...e,
           type: "dragEnd",
-          deltaX: e.x - this.lastDragMoveBeforeDragEnd!.x,
-          deltaY: e.y - this.lastDragMoveBeforeDragEnd!.y,
+          deltaX: e.clientX - this.lastDragMoveBeforeDragEnd!.clientX,
+          deltaY: e.clientY - this.lastDragMoveBeforeDragEnd!.clientY,
         };
         this.lastDragMoveBeforeDragEnd = null;
       }
@@ -269,8 +233,8 @@ export class MouseGestures {
         // For a click to be created, the user must press and release the mouse within MAX_CLICK_DURATION,
         // and must not move more than MAX_CLICK_DISTANCE_SQ
         const duration = e.time - this.lastMouseDownBeforeRelease.time;
-        const dx = e.x - this.lastMouseDownBeforeRelease.x;
-        const dy = e.y - this.lastMouseDownBeforeRelease.y;
+        const dx = e.clientX - this.lastMouseDownBeforeRelease.clientX;
+        const dy = e.clientY - this.lastMouseDownBeforeRelease.clientY;
         const distSq = dx * dx + dy * dy;
 
         if (
@@ -299,8 +263,8 @@ export class MouseGestures {
         const e = leaves[leaves.length - 1];
         this.dragEnd = {
           ...e,
-          deltaX: e.x - this.lastDragMoveBeforeDragEnd!.x,
-          deltaY: (e.y = this.lastDragMoveBeforeDragEnd!.y),
+          deltaX: e.clientX - this.lastDragMoveBeforeDragEnd!.clientX,
+          deltaY: (e.clientY = this.lastDragMoveBeforeDragEnd!.clientY),
           type: "dragEnd",
         };
         this.lastDragMoveBeforeDragEnd = null;
@@ -385,7 +349,7 @@ export class MouseGestures {
     return this.mouse.getWheelMoves().length > 0;
   }
 
-  getWheelMoves() {
+  getWheelMoves(): CanvasWheelEvent[] {
     return this.mouse.getWheelMoves();
   }
 }

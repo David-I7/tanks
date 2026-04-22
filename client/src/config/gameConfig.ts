@@ -1,4 +1,4 @@
-export const gameSettings = {
+export const GAME_CONFIG = {
   font: {
     family: {
       primary: {
@@ -12,12 +12,14 @@ export const gameSettings = {
       secondary: "rgba(14, 220, 235, 1)",
     },
   },
-  viewport: {
+  camera: {
     width: 0,
     height: 0,
     dpi: 1,
-    scaler: 1,
+    scale: 1,
+  },
+  game: {
+    width: 0,
+    height: 0,
   },
 };
-
-export type GameSettings = typeof gameSettings;

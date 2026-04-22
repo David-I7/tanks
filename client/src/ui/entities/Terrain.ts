@@ -1,4 +1,6 @@
-export default class Terrain {
+import Drawable from "../../interfaces/Drawable.js";
+
+export default class Terrain implements Drawable {
   width: number;
   height: number;
   private imageData!: ImageData;
@@ -112,13 +114,13 @@ export default class Terrain {
     return { nx: nx / len, ny: ny / len };
   }
 
-  getDirectionVector(x: number, y: number) {
-    const dx = 2;
-    const dy = this.getSurfaceY(x + 1, y) - this.getSurfaceY(x - 1, y);
+  getSlopeVector(x: number) {
+    const dx = 4;
+    const dy = this.getSurfaceY(x + 2, 0) - this.getSurfaceY(x - 2, 0);
 
     const len = Math.sqrt(dx * dx + dy * dy);
 
-    return { x: dx / len, y: -dy / len };
+    return { x: dx / len, y: dy / len };
   }
 
   destroy(cx: number, cy: number, explosionRadius: number) {
