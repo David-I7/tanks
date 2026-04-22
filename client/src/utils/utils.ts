@@ -33,6 +33,10 @@ export function toDegrees(radians: number): number {
   return (radians * 180) / Math.PI;
 }
 
+export function toRadians(degrees: number): number {
+  return (degrees * Math.PI) / 180;
+}
+
 // export function AABBColides(a: Drawable, b: Drawable): boolean {
 //   return (
 //     a.x < b.x + b.width &&

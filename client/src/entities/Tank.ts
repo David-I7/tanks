@@ -1,5 +1,6 @@
 import game from "../Game.js";
 import Animatable from "../interfaces/animatable";
+import { toDegrees, toRadians } from "../utils/utils.js";
 import Projectile from "./Projectile.js";
 
 export default class Tank implements Animatable {
@@ -11,12 +12,13 @@ export default class Tank implements Animatable {
   private y: number;
 
   private angle: number = 0;
-  private MAX_SLOPE = 0.7;
+  // 75 degrees in radians
+  private MAX_ANGLE = toRadians(75);
 
   constructor(private image: ImageBitmap) {
     this.y = game.terrain.getSurfaceY(this.x, 0);
-    const n = game.terrain.getNormal(this.x);
-    this.angle = Math.atan2(n.ny, n.nx) - Math.PI / 2;
+    const n = game.terrain.getSlopeVector(this.x);
+    this.angle = Math.atan2(n.y, n.x);
     this.projectile = new Projectile(
       this.x + this.image.width / 2,
       this.y - this.image.height / 2,
@@ -42,7 +44,7 @@ export default class Tank implements Animatable {
     }
   }
 
-  update(dt: number): void {
+  private calculateNextXPosition(dt: number): number {
     let input = 0;
 
     if (game.input.keyboard.isHeld("a") && game.input.keyboard.isHeld("d"))
@@ -50,15 +52,24 @@ export default class Tank implements Animatable {
     else if (game.input.keyboard.isHeld("a")) input = -1;
     else if (game.input.keyboard.isHeld("d")) input = 1;
 
-    if (input !== 0) {
-      this.x += input * 100 * dt;
-      this.x = Math.max(0, Math.min(game.terrain.width, this.x));
+    if (input === -1 && this.angle >= this.MAX_ANGLE) return this.x;
+    else if (input === 1 && this.angle <= -this.MAX_ANGLE) return this.x;
+
+    return Math.max(0, Math.min(game.terrain.width, this.x + input * 100 * dt));
+  }
+
+  update(dt: number): void {
+    let nextX = this.calculateNextXPosition(dt);
+
+    if (nextX !== this.x) {
+      this.x = nextX;
 
       const groundY = game.terrain.getSurfaceY(this.x, 0);
       this.y = groundY;
 
-      const n = game.terrain.getNormal(this.x);
-      this.angle = Math.atan2(n.ny, n.nx) - Math.PI / 2;
+      const n = game.terrain.getSlopeVector(this.x);
+      //this.normal = n;
+      this.angle = Math.atan2(n.y, n.x);
     }
 
     if (game.input.mouse.hasMouseMoved() && !this.projectileLaunched) {
