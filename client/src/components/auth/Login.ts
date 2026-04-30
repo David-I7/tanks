@@ -1,0 +1,12 @@
+export default function Login() {
+  return `
+    <form class="grid">
+  <input autocomplete="true" name="name" class="input" type="text" placeholder="Enter name..." />
+
+  <button class="btn btn-primary">Create Private Lobby</button>
+
+  <button class="btn btn-outline">Single Player</button>
+  <buton class="btn btn-outline">Two Players</buton>
+</form>
+  `;
+}
