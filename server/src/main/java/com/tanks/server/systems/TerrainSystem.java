@@ -27,16 +27,16 @@ public class TerrainSystem {
 
         double cx = projectile.getX();
         double cy = projectile.getX();
-        int radius = projectile.getRadius();
         int explosionRadius = projectile.getExplosionRadius();
 
-        int startX = (int) Math.max(0, cx - radius);
-        int endX = (int) Math.min(width - 1, cx + radius);
-        int startY = (int) Math.max(0, cy - radius);
-        int endY = (int) Math.min(height - 1, cy + radius);
+        int startX = (int) Math.max(0, cx - explosionRadius);
+        int endX = (int) Math.min(width - 1, cx + explosionRadius);
+        int startY = (int) Math.max(0, cy - explosionRadius);
+        int endY = (int) Math.min(height - 1, cy + explosionRadius);
 
-        double radiusSq = radius * radius;
+        double radiusSq = explosionRadius * explosionRadius;
 
+        // Remove all points within the explosion radius of the circle
         for (int x = startX; x <= endX; x++) {
             for (int y = startY; y <= endY; y++) {
                 double dx = x - cx;

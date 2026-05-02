@@ -1,11 +1,10 @@
-package com.tanks.server.dao;
+package com.tanks.server.game;
 
-import com.tanks.server.game.Match;
 import org.springframework.stereotype.Component;
 import java.util.HashMap;
 
 @Component
-public class MatchDao {
+public class MatchManager {
     private final HashMap<String, Match> activeMatches = new HashMap<>();
 
     public void save(String matchId, Match initialState) {
