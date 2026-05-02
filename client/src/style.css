@@ -1,5 +1,38 @@
 @import "tailwindcss";
 
+@theme {
+  --color-*: initial;
+  --color-primary: #facc15;
+  --color-secondary: #22c55e;
+  --color-surface-low: #ffffff;
+  --color-surface: #f9fafb;
+
+  --color-on-primary: white;
+  --color-on-secondary: white;
+  --color-text: #111827;
+  --color-text-muted: #6b7280;
+  --color-text-inverse: #f9fafb;
+
+  --font-headings: Poppins, serif;
+  --font-body: Inter, monospace;
+}
+
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
+
+[data-theme="dark"] {
+  --color-surface: #1f2933;
+  --color-border: #374151;
+  --color-surface-low: #000;
+  --color-surface: ##111827;
+
+  --color-text: #f9fafb;
+  --color-text-muted: #9ca3af;
+  --color-text-inverse: #111827;
+
+  --color-primary: #fde047;
+  --color-secondary: #4ade80;
+}
+
 *,
 *::before,
 *::after {
@@ -8,86 +41,8 @@
   margin: 0;
 }
 
-:root {
-  /* Core palette */
-  --color-primary: #facc15; /* yellow-400 */
-  --color-primary-strong: #eab308; /* yellow-500 */
-  --color-secondary: #22c55e; /* green-500 */
-  --color-secondary-strong: #16a34a; /* green-600 */
-
-  /* Neutral scale (light theme default) */
-  --color-bg: #ffffff;
-  --color-surface: #f9fafb;
-  --color-border: #e5e7eb;
-
-  --color-text: #111827;
-  --color-text-muted: #6b7280;
-  --color-text-inverse: #ffffff;
-
-  /* States */
-  --color-success: var(--color-secondary);
-  --color-warning: var(--color-primary);
-  --color-error: #ef4444;
-
-  /* Typography */
-  --font-headings: Poppins, serif;
-  --font-body: Inter, monospace;
-
-  --font-light: 300;
-  --font-regular: 400;
-  --font-medium: 600;
-  --font-bold: 700;
-
-  --text-xs: 0.75rem;
-  --text-sm: 0.875rem;
-  --text-md: 1rem;
-  --text-lg: 1.125rem;
-  --text-xl: 1.25rem;
-
-  /* Spacing (8px grid) */
-  --space-1: 0.25rem;
-  --space-2: 0.5rem;
-  --space-3: 0.75rem;
-  --space-4: 1rem;
-  --space-6: 1.5rem;
-  --space-8: 2rem;
-
-  /* Radius */
-  --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-
-  /* Shadows */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
-
-  /* Transitions */
-  --transition-fast: 0.1s ease;
-  --transition-regular: 0.2s ease;
-  --transition-slow: 0.4s ease;
-}
-
 #app {
   min-height: 100vh;
-}
-
-/* =========================
-   DARK THEME
-========================= */
-[data-theme="dark"] {
-  --color-bg: #111827;
-  --color-surface: #1f2933;
-  --color-border: #374151;
-
-  --color-text: #f9fafb;
-  --color-text-muted: #9ca3af;
-  --color-text-inverse: #111827;
-
-  /* Slightly adjusted accents for contrast */
-  --color-primary: #fde047; /* brighter yellow */
-  --color-primary-strong: #facc15;
-  --color-secondary: #4ade80; /* brighter green */
-  --color-secondary-strong: #22c55e;
 }
 
 /* =========================
@@ -96,98 +51,16 @@
 * {
   font-family: var(--font-body);
   font-size: var(--text-md);
-  font-weight: var(--font-regular);
-  background-color: var(--color-bg);
+  font-weight: var(--font-weight-normal);
+  background-color: var(--color-surface-low);
   color: var(--color-text);
 }
 
-/* =========================
-   TYPOGRAPHY
-========================= */
 h1,
 h2,
 h3,
 h4 {
-  margin: 0 0 var(--space-3);
-  font-weight: var(--font-bold);
+  margin: 0 0 var(--spacing-4);
+  font-weight: var(--font-weight-bold);
   font-family: var(--font-headings);
-}
-
-p {
-  color: var(--color-text-muted);
-}
-
-/* =========================
-   COMPONENTS
-========================= */
-
-/* Button */
-.btn {
-  display: inline-block;
-  padding: var(--space-2) var(--space-4);
-  border-radius: var(--radius-md);
-  border: 1px solid transparent;
-  cursor: pointer;
-  font-size: var(--text-sm);
-  font-family: var(--font-headings);
-  font-weight: var(--font-medium);
-  transition: var(--transition-regular);
-}
-
-/* Primary button */
-.btn-primary {
-  background: var(--color-primary);
-  color: var(--color-text-inverse);
-}
-.btn-primary:hover {
-  background: var(--color-primary-strong);
-}
-
-/* Secondary button */
-.btn-secondary {
-  background: var(--color-secondary);
-  color: var(--color-text-inverse);
-}
-.btn-secondary:hover {
-  background: var(--color-secondary-strong);
-}
-
-/* Outline button */
-.btn-outline {
-  border-color: var(--color-border);
-  background: transparent;
-  color: var(--color-text);
-}
-.btn-outline:hover {
-  background: var(--color-surface);
-}
-
-/* Input */
-.input {
-  width: 100%;
-  padding: var(--space-2);
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--color-border);
-  background: var(--color-bg);
-  color: var(--color-text);
-}
-.input:focus {
-  outline: none;
-  border-color: var(--color-primary);
-}
-
-/* =========================
-   UTILITIES
-========================= */
-.text-center {
-  text-align: center;
-}
-.flex {
-  display: flex;
-}
-.gap-2 {
-  gap: var(--space-2);
-}
-.mt-4 {
-  margin-top: var(--space-4);
 }

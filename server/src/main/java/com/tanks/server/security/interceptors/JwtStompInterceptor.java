@@ -1,43 +1,59 @@
-package com.tanks.server.security;
+package com.tanks.server.security.interceptors;
 
 import com.tanks.server.security.services.JwtService;
+import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.MalformedJwtException;
+import io.jsonwebtoken.security.SignatureException;
 import lombok.AllArgsConstructor;
-import org.jspecify.annotations.Nullable;
-import org.springframework.http.server.ServerHttpRequest;
-import org.springframework.http.server.ServerHttpResponse;
-import org.springframework.http.server.ServletServerHttpRequest;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.messaging.Message;
+import org.springframework.messaging.MessageChannel;
+import org.springframework.messaging.MessagingException;
+import org.springframework.messaging.simp.stomp.StompCommand;
+import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
+import org.springframework.messaging.support.ChannelInterceptor;
+import org.springframework.messaging.support.MessageHeaderAccessor;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
-import org.springframework.web.socket.WebSocketHandler;
-import org.springframework.web.socket.server.HandshakeInterceptor;
-
-import java.util.Map;
 
 @Component
 @AllArgsConstructor
-public class JwtHandshakeInterceptor implements HandshakeInterceptor {
+@Slf4j
+public class JwtStompInterceptor implements ChannelInterceptor {
 
-    private JwtService jwtService;
+    private final String TOKEN_PREFIX = "Bearer ";
+
+    private final JwtService jwtService;
 
     @Override
-    public boolean beforeHandshake(ServerHttpRequest request, ServerHttpResponse response, WebSocketHandler wsHandler, Map<String, Object> attributes) throws Exception {
-        if (request instanceof ServletServerHttpRequest servletRequest) {
+    public Message<?> preSend(Message<?> message, MessageChannel channel) {
 
-            String token = servletRequest.getServletRequest()
-                    .getParameter("token"); // e.g. ws://.../ws?token=xxx
+        StompHeaderAccessor accessor =
+                MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
 
-            if (token != null) {
-                Authentication auth = jwtService.validate(token);
-                SecurityContextHolder.getContext().setAuthentication(auth);
+        if (StompCommand.CONNECT.equals(accessor.getCommand())) {
+
+            String authHeader = accessor.getFirstNativeHeader("Authorization");
+
+            if (authHeader == null || !authHeader.startsWith(TOKEN_PREFIX)) {
+                throw new MessagingException("AUTH_ERROR:MISSING_TOKEN");
             }
+
+            String token = authHeader.substring(TOKEN_PREFIX.length());
+
+            try{
+                Authentication authentication = jwtService.validate(token);
+                accessor.setUser(authentication);
+            } catch (SignatureException | MalformedJwtException e) {
+                log.error("Invalid JWT token: {}", e.getMessage());
+                throw new MessagingException("AUTH_ERROR:INVALID_TOKEN");
+            } catch (ExpiredJwtException e){
+                log.error("JWT has expired: {}", e.getMessage());
+                throw new MessagingException("AUTH_ERROR:EXPIRED_TOKEN");
+            }
+
         }
 
-        return true;
-    }
-
-    @Override
-    public void afterHandshake(ServerHttpRequest request, ServerHttpResponse response, WebSocketHandler wsHandler, @Nullable Exception exception) {
-
+        return message;
     }
 }

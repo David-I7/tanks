@@ -5,7 +5,7 @@ import lombok.Getter;
 
 @AllArgsConstructor
 @Getter
-public class JwtPrincipal {
+public class GuestUser {
     private String username;
-    private String guestId;
+    private String id;
 }
