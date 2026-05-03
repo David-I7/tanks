@@ -41,16 +41,16 @@ public class JwtStompInterceptor implements ChannelInterceptor {
 
             String token = authHeader.substring(TOKEN_PREFIX.length());
 
-            try{
-                Authentication authentication = jwtService.validate(token);
-                accessor.setUser(authentication);
-            } catch (SignatureException | MalformedJwtException e) {
-                log.error("Invalid JWT token: {}", e.getMessage());
-                throw new MessagingException("AUTH_ERROR:INVALID_TOKEN");
-            } catch (ExpiredJwtException e){
-                log.error("JWT has expired: {}", e.getMessage());
-                throw new MessagingException("AUTH_ERROR:EXPIRED_TOKEN");
-            }
+//            try{
+//                Authentication authentication = jwtService.validate(token);
+//                accessor.setUser(authentication);
+//            } catch (SignatureException | MalformedJwtException e) {
+//                log.error("Invalid JWT token: {}", e.getMessage());
+//                throw new MessagingException("AUTH_ERROR:INVALID_TOKEN");
+//            } catch (ExpiredJwtException e){
+//                log.error("JWT has expired: {}", e.getMessage());
+//                throw new MessagingException("AUTH_ERROR:EXPIRED_TOKEN");
+//            }
 
         }
 

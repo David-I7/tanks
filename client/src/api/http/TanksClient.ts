@@ -33,7 +33,7 @@ export default class TanksClient {
         throw new ApiError(err.response.data, err.response.status!);
       }
 
-      throw new NetworkError();
+      throw new NetworkError("Failed to fetch the resource");
     }
   }
 }

@@ -1,7 +1,18 @@
-import { createContext, useContext, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  type ReactNode,
+} from "react";
 import TanksClient from "../api/http/TanksClient";
 import type { User } from "../state/auth";
 import LoginCommand from "../api/http/LoginCommand";
+import AuthStatusCommand from "../api/http/AuthStatusCommand";
+import RefreshCommand from "../api/http/RefreshCommand";
+import { ApiError } from "../errors/ApiError";
+import NetworkError from "../errors/NetworkError";
+import LogoutCommand from "../api/http/LogoutCommand";
 
 type AuthContextState = {
   user: User | undefined | null;
@@ -33,9 +44,37 @@ const useAuthContext = (): AuthContextState => {
   }
 
   async function handleLogout() {
-    setAccessToken(null);
-    setUser(null);
+    try {
+      await new TanksClient({}).send(new LogoutCommand());
+
+      setAccessToken(null);
+      setUser(null);
+    } catch (err) {
+      throw err;
+    }
   }
+
+  useEffect(() => {
+    async function fetchUser() {
+      try {
+        const response = await new TanksClient({}).send(new RefreshCommand());
+
+        setAccessToken(response.accessToken);
+        setUser(response.user);
+      } catch (err) {
+        if (err instanceof ApiError) {
+          if (err.status === 401) {
+            setAccessToken(null);
+            setUser(null);
+          }
+        } else {
+          throw err;
+        }
+      }
+    }
+
+    fetchUser();
+  }, []);
 
   return { user, accessToken, handleLogin, handleLogout };
 };

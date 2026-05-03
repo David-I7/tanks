@@ -1,7 +1,11 @@
 import type { AxiosHeaders, Method } from "axios";
 import type { User } from "../../state/auth";
 import { TanksCommand } from "./TanksCommand";
-import type { LoginRequest } from "./dto/LoginRequest";
+
+export interface LoginRequest {
+  username: string;
+  password: string;
+}
 
 export type LoginResponse = {
   user: User;

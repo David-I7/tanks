@@ -1,5 +1,6 @@
 package com.tanks.server.security.entities;
 
+import com.tanks.server.dto.UserDto;
 import org.jspecify.annotations.Nullable;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
@@ -10,9 +11,9 @@ import java.util.List;
 public class JwtAuthentication implements Authentication {
 
     private boolean isAuthenticated = true;
-    private GuestUser principal;
+    private UserDto principal;
 
-    public JwtAuthentication(GuestUser principal){
+    public JwtAuthentication(UserDto principal){
         this.principal = principal;
     }
 
@@ -48,6 +49,6 @@ public class JwtAuthentication implements Authentication {
 
     @Override
     public String getName() {
-        return principal.getUsername();
+        return principal.username();
     }
 }

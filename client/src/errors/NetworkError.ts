@@ -1,5 +1,5 @@
 export default class NetworkError extends Error {
-  constructor() {
-    super("A network error has occurred");
+  constructor(message: string) {
+    super(message);
   }
 }
