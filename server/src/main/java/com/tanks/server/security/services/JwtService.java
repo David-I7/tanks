@@ -1,22 +1,15 @@
 package com.tanks.server.security.services;
 
-import com.tanks.server.security.entities.JwtAuthentication;
-import com.tanks.server.security.entities.GuestUser;
-import com.tanks.server.utils.IdFactory;
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.ExpiredJwtException;
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.MalformedJwtException;
+import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
-import io.jsonwebtoken.security.SignatureException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
+import java.util.Map;
 
 @Service
 @Slf4j
@@ -25,34 +18,56 @@ public class JwtService {
     @Value("${app.jwt.secret}")
     private String jwtSecret;
 
-    @Value("${app.jwt.expiration}")
-    private long jwtExpirationMS;
+    @Value("${app.jwt.access.token.expiration}")
+    private long jwtAccessTokenExpirationMS;
 
-    public String generateAccessToken(GuestUser user){
+    @Value("${app.jwt.access.token.expiration}")
+    private long jwtRefreshTokenExpirationMS;
+
+    public String generateAccessToken(String subject,Map<String,Object> claims){
+       return generateToken(subject,claims,jwtAccessTokenExpirationMS);
+    }
+
+    public String generateRefreshToken(String subject,Map<String,Object> claims){
+        return generateToken(subject, claims,jwtRefreshTokenExpirationMS);
+    }
+
+    private String generateToken(String subject,Map<String,Object> claims, long expirationMS){
         Date now = new Date();
-        Date expirationDate = new Date(now.getTime() + jwtExpirationMS);
+        Date expirationDate = new Date(now.getTime() + expirationMS);
 
         return Jwts.builder()
                 .issuedAt(now)
                 .expiration(expirationDate)
                 .signWith(getSignInKey())
-                .subject(user.getUsername())
-                .claim("id", user.getId())
+                .subject(subject)
+                .claims(claims)
                 .compact();
     }
 
-    public SecretKey getSignInKey(){
+    private SecretKey getSignInKey(){
         byte[] keyBytes = jwtSecret.getBytes(StandardCharsets.UTF_8);
         return Keys.hmacShaKeyFor(keyBytes);
     }
 
-    public Authentication validate(String token){
-        Claims claims = Jwts.parser()
+    public Claims getClaims(String token){
+        return Jwts.parser()
                 .verifyWith(getSignInKey())
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
+    }
 
-        return new JwtAuthentication(new GuestUser(claims.getSubject(),claims.get("id",String.class)));
+    public boolean isValidToken(String token){
+        try {
+            Jwts.parser()
+                    .verifyWith(getSignInKey())
+                    .build()
+                    .parseSignedClaims(token);
+            return true;
+        }catch (JwtException ex){
+            log.debug("Invalid jwt detected: {}",ex.getMessage());
+            return false;
+        }
     }
 }

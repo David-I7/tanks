@@ -1,0 +1,23 @@
+name: tanks
+
+services:
+  postgres:
+    image: postgres:18-alpine3.23
+    restart: always
+    environment:
+      POSTGRES_USER: david
+      POSTGRES_PASSWORD: david
+      POSTGRES_DB: prod
+    volumes:
+      - pgdata:/var/lib/postgresql
+    ports:
+      - 5432:5432
+
+  adminer:
+    image: adminer
+    restart: always
+    ports:
+      - 3000:8080
+
+volumes:
+  pgdata:
