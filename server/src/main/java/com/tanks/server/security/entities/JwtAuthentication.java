@@ -8,14 +8,15 @@ import org.springframework.security.core.GrantedAuthority;
 import java.util.Collection;
 import java.util.List;
 
+
 public class JwtAuthentication implements Authentication {
+    boolean authenticated = true;
+    UserDto userDto;
 
-    private boolean isAuthenticated = true;
-    private UserDto principal;
-
-    public JwtAuthentication(UserDto principal){
-        this.principal = principal;
+    public JwtAuthentication(UserDto userDto){
+        this.userDto = userDto;
     }
+
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
@@ -34,21 +35,21 @@ public class JwtAuthentication implements Authentication {
 
     @Override
     public @Nullable Object getPrincipal() {
-        return principal;
+        return userDto;
     }
 
     @Override
     public boolean isAuthenticated() {
-        return false;
+        return authenticated;
     }
 
     @Override
     public void setAuthenticated(boolean isAuthenticated) throws IllegalArgumentException {
-        this.isAuthenticated = true;
+        this.authenticated = isAuthenticated;
     }
 
     @Override
     public String getName() {
-        return principal.username();
+        return userDto.username();
     }
 }
