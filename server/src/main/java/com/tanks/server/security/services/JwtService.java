@@ -1,7 +1,9 @@
 package com.tanks.server.security.services;
 
+import com.tanks.server.security.properties.JwtProperties;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
+import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -13,23 +15,17 @@ import java.util.Map;
 
 @Service
 @Slf4j
+@AllArgsConstructor
 public class JwtService {
 
-    @Value("${app.jwt.secret}")
-    private String jwtSecret;
-
-    @Value("${app.jwt.access.token.expiration}")
-    private long jwtAccessTokenExpirationMS;
-
-    @Value("${app.jwt.access.token.expiration}")
-    private long jwtRefreshTokenExpirationMS;
+    private JwtProperties jwtProperties;
 
     public String generateAccessToken(String subject,Map<String,Object> claims){
-       return generateToken(subject,claims,jwtAccessTokenExpirationMS);
+       return generateToken(subject,claims,jwtProperties.getAccessTokenExpirationMS());
     }
 
     public String generateRefreshToken(String subject,Map<String,Object> claims){
-        return generateToken(subject, claims,jwtRefreshTokenExpirationMS);
+        return generateToken(subject, claims,jwtProperties.getRefreshTokenExpirationMS());
     }
 
     private String generateToken(String subject,Map<String,Object> claims, long expirationMS){
@@ -46,7 +42,7 @@ public class JwtService {
     }
 
     private SecretKey getSignInKey(){
-        byte[] keyBytes = jwtSecret.getBytes(StandardCharsets.UTF_8);
+        byte[] keyBytes = jwtProperties.getSecret().getBytes(StandardCharsets.UTF_8);
         return Keys.hmacShaKeyFor(keyBytes);
     }
 
