@@ -9,11 +9,11 @@ import java.util.Collection;
 import java.util.List;
 
 
-public class JwtAuthentication implements Authentication {
+public class JwtAuthenticationToken implements Authentication {
     boolean authenticated = true;
     UserDto userDto;
 
-    public JwtAuthentication(UserDto userDto){
+    public JwtAuthenticationToken(UserDto userDto){
         this.userDto = userDto;
     }
 

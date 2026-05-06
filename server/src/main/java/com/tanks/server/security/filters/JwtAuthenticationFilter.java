@@ -1,7 +1,7 @@
 package com.tanks.server.security.filters;
 
-import com.tanks.server.dto.ErrorResponse;
-import com.tanks.server.security.entities.JwtAuthentication;
+import com.tanks.server.factories.ErrorResponseWriter;
+import com.tanks.server.security.entities.JwtAuthenticationToken;
 import com.tanks.server.security.mappers.ClaimsToUserDtoMapper;
 import com.tanks.server.security.services.JwtService;
 import io.jsonwebtoken.Claims;
@@ -15,14 +15,11 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
-import tools.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
-import java.time.Instant;
 import java.util.Arrays;
 import java.util.Optional;
 
@@ -30,15 +27,15 @@ import java.util.Optional;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private String TOKEN_PREFIX = "Bearer ";
 
-    private ObjectMapper objectMapper;
-
     private JwtService jwtService;
 
     private ClaimsToUserDtoMapper mapper = new ClaimsToUserDtoMapper();
 
-    public JwtAuthenticationFilter(JwtService jwtService,ObjectMapper objectMapper){
-        this.objectMapper = objectMapper;
+    private ErrorResponseWriter errorResponseWriter;
+
+    public JwtAuthenticationFilter(JwtService jwtService, ErrorResponseWriter errorResponseWriter){
         this.jwtService = jwtService;
+        this.errorResponseWriter = errorResponseWriter;
     }
 
     @Override
@@ -61,7 +58,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 filterChain.doFilter(request,response);
                 return;
             }else{
-                writeErrorResponse(request,response,HttpStatus.UNAUTHORIZED.value(),"No refreshToken cookie is present");
+                errorResponseWriter.write(request,response,HttpStatus.UNAUTHORIZED.value(),"No refreshToken cookie is present");
                 return;
             }
         }
@@ -76,7 +73,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
 
         if(authHeader == null || !authHeader.startsWith(TOKEN_PREFIX)){
-            writeErrorResponse(request,response, HttpStatus.UNAUTHORIZED.value(), "Missing or invalid authorization header");
+            errorResponseWriter.write(request,response, HttpStatus.UNAUTHORIZED.value(), "Missing or invalid authorization header");
             return;
         }
 
@@ -84,37 +81,20 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         try{
             Claims claims = jwtService.getClaims(token);
-            SecurityContextHolder.getContext().setAuthentication(new JwtAuthentication(mapper.apply(claims)));
+            SecurityContextHolder.getContext().setAuthentication(new JwtAuthenticationToken(mapper.apply(claims)));
 
         }catch (MalformedJwtException ex){
-            writeErrorResponse(request,response, HttpStatus.UNAUTHORIZED.value(), "Malformed access token");
+            errorResponseWriter.write(request,response, HttpStatus.UNAUTHORIZED.value(), "Malformed access token");
             return;
         }catch (ExpiredJwtException ex){
-            writeErrorResponse(request,response, HttpStatus.UNAUTHORIZED.value(), "Expired access token");
+            errorResponseWriter.write(request,response, HttpStatus.UNAUTHORIZED.value(), "Expired access token");
             return;
         }catch (JwtException ex){
-            writeErrorResponse(request,response, HttpStatus.UNAUTHORIZED.value(), "Could not validate the access token");
+            errorResponseWriter.write(request,response, HttpStatus.UNAUTHORIZED.value(), "Could not validate the access token");
             return;
         }
 
         filterChain.doFilter(request,response);
     }
 
-    private void writeErrorResponse(HttpServletRequest request,
-                                    HttpServletResponse response,
-                                    int status,
-                                    String message) throws IOException {
-
-        ErrorResponse errorResponse = new ErrorResponse(
-                Instant.now().toString(),
-                status,
-                message,
-                request.getRequestURI()
-        );
-
-        response.setStatus(status);
-        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-
-        objectMapper.writeValue(response.getWriter(), errorResponse);
-    }
 }
