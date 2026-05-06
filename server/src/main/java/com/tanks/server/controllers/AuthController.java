@@ -1,6 +1,6 @@
 package com.tanks.server.controllers;
 
-import com.tanks.server.dto.auth.UserDtoAndAccessTokenResponse;
+import com.tanks.server.dto.auth.RefreshTokenResponse;
 import com.tanks.server.dto.auth.RegisterRequest;
 import com.tanks.server.entities.User;
 import com.tanks.server.mappers.user.RegisterRequestToUserMapper;
@@ -25,14 +25,14 @@ import java.util.Map;
 @AllArgsConstructor
 public class AuthController {
 
-    private JwtService jwtService;
-
     private UserService userService;
+
+    private JwtService jwtService;
 
     private AuthService authService;
 
     @PostMapping("/register")
-    public ResponseEntity<UserDtoAndAccessTokenResponse> register(@Valid @RequestBody RegisterRequest request){
+    public ResponseEntity<RefreshTokenResponse> register(@Valid @RequestBody RegisterRequest request){
         User user = new RegisterRequestToUserMapper().apply(request);
 
         userService.register(user);
@@ -45,7 +45,7 @@ public class AuthController {
         return ResponseEntity
                 .ok()
                 .header(HttpHeaders.SET_COOKIE,refreshCookie.toString())
-                .body(new UserDtoAndAccessTokenResponse(accessToken,new UserToUserDtoMapper().apply(user)));
+                .body(new RefreshTokenResponse(accessToken,new UserToUserDtoMapper().apply(user)));
     }
 
 
