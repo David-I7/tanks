@@ -8,6 +8,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.Optional;
+
 @Service
 @AllArgsConstructor
 public class UserService {
@@ -25,4 +27,17 @@ public class UserService {
 
         repository.save(user);
     }
+
+    public Optional<User> findById(Long id){
+        return repository.findById(id);
+    }
+
+    public Optional<User> findByUsername(String username){
+        return repository.findByUsername(username);
+    }
+
+    public Optional<User> findByEmail(String email){
+        return repository.findByEmail(email);
+    }
+
 }

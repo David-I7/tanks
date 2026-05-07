@@ -11,6 +11,7 @@ public class LoginRequestToUserMapper implements Function<LoginRequest, User> {
         return User.builder()
                 .password(loginRequest.getPassword())
                 .username(loginRequest.getUsername())
+                .email(loginRequest.getEmail())
                 .build();
     }
 }

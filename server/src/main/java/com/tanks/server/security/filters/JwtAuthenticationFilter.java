@@ -1,7 +1,7 @@
 package com.tanks.server.security.filters;
 
 import com.tanks.server.factories.ErrorResponseWriter;
-import com.tanks.server.security.entities.JwtAuthenticationToken;
+import com.tanks.server.security.entities.JwtAuthentication;
 import com.tanks.server.security.mappers.ClaimsToUserDtoMapper;
 import com.tanks.server.security.services.JwtService;
 import io.jsonwebtoken.Claims;
@@ -81,7 +81,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         try{
             Claims claims = jwtService.getClaims(token);
-            SecurityContextHolder.getContext().setAuthentication(new JwtAuthenticationToken(mapper.apply(claims)));
+            SecurityContextHolder.getContext().setAuthentication(new JwtAuthentication(mapper.apply(claims)));
 
         }catch (MalformedJwtException ex){
             errorResponseWriter.write(request,response, HttpStatus.UNAUTHORIZED.value(), "Malformed access token");

@@ -28,7 +28,7 @@ public class JwtService {
         return generateToken(subject, claims,jwtProperties.getRefreshTokenExpirationMS());
     }
 
-    private String generateToken(String subject,Map<String,Object> claims, long expirationMS){
+    public String generateToken(String subject,Map<String,Object> claims, long expirationMS){
         Date now = new Date();
         Date expirationDate = new Date(now.getTime() + expirationMS);
 
