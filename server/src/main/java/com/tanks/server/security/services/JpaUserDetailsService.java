@@ -2,9 +2,8 @@ package com.tanks.server.security.services;
 
 import com.tanks.server.entities.User;
 import com.tanks.server.repositories.UserRepository;
-import com.tanks.server.security.entities.SecurityUser;
+import com.tanks.server.security.entities.JpaUserDetails;
 import lombok.AllArgsConstructor;
-import org.springframework.context.annotation.Profile;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -12,7 +11,6 @@ import org.springframework.stereotype.Service;
 
 @Service
 @AllArgsConstructor
-@Profile("example")
 public class JpaUserDetailsService implements UserDetailsService {
 
     private UserRepository userRepository;
@@ -21,8 +19,16 @@ public class JpaUserDetailsService implements UserDetailsService {
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
 
         User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new UsernameNotFoundException("User '" + username +  "' does not exist"));
+                .orElseThrow(() -> new UsernameNotFoundException("User with username '" + username +  "' does not exist"));
 
-        return new SecurityUser(user);
+        return new JpaUserDetails(user);
+    }
+
+    public UserDetails loadUserByEmail(String email) throws UsernameNotFoundException {
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new UsernameNotFoundException("User with email '" + email +  "' does not exist"));
+
+        return new JpaUserDetails(user);
     }
 }

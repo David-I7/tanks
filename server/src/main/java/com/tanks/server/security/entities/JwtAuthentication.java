@@ -1,6 +1,7 @@
 package com.tanks.server.security.entities;
 
-import com.tanks.server.dto.auth.LoginRequest;
+
+import com.tanks.server.dto.UserDto;
 import org.jspecify.annotations.Nullable;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
@@ -8,12 +9,12 @@ import org.springframework.security.core.GrantedAuthority;
 import java.util.Collection;
 import java.util.List;
 
-public class JwtAuthenticationToken implements Authentication {
-    boolean authenticated = false;
-    LoginRequest loginRequest;
+public class JwtAuthentication  implements Authentication {
 
-    public JwtAuthenticationToken(LoginRequest loginRequest){
-        this.loginRequest = loginRequest;
+    private UserDto userDto;
+
+    public JwtAuthentication(UserDto userDto){
+        this.userDto = userDto;
     }
 
     @Override
@@ -23,7 +24,7 @@ public class JwtAuthenticationToken implements Authentication {
 
     @Override
     public @Nullable Object getCredentials() {
-        return loginRequest.getPassword();
+        return null;
     }
 
     @Override
@@ -33,27 +34,21 @@ public class JwtAuthenticationToken implements Authentication {
 
     @Override
     public @Nullable Object getPrincipal() {
-        return null;
+        return userDto;
     }
 
     @Override
     public boolean isAuthenticated() {
-        return authenticated;
+        return true;
     }
 
     @Override
     public void setAuthenticated(boolean isAuthenticated) throws IllegalArgumentException {
-        this.authenticated = isAuthenticated;
+
     }
 
     @Override
     public String getName() {
-        return null;
+        return "";
     }
-
-    public String getUsername(){return loginRequest.getUsername();}
-
-    public String getEmail(){return loginRequest.getEmail();}
-
-    public String getPassword(){return loginRequest.getPassword();}
 }

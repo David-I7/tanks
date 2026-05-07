@@ -11,6 +11,7 @@ public class RegisterRequestToUserMapper implements Function<RegisterRequest, Us
         return User.builder()
                 .password(registerRequest.getPassword())
                 .username(registerRequest.getUsername())
+                .email(registerRequest.getEmail())
                 .build();
     }
 }

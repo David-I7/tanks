@@ -6,6 +6,7 @@ import com.tanks.server.entities.UserIdentity;
 import com.tanks.server.entities.UserIdentityID;
 import com.tanks.server.factories.ErrorResponseWriter;
 import com.tanks.server.security.services.JwtService;
+import com.tanks.server.services.AuthService;
 import com.tanks.server.services.UserIdentityService;
 import com.tanks.server.services.UserService;
 import jakarta.servlet.ServletException;
@@ -19,13 +20,14 @@ import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 
 import java.io.IOException;
+import java.util.Map;
 import java.util.Optional;
 
 @Configuration
 @AllArgsConstructor
 public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
 
-    private JwtService jwtService;
+    private AuthService authService;
 
     private UserService userService;
 
@@ -48,7 +50,8 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
         Optional<UserIdentity> userIdentity = userIdentityService.findById(new UserIdentityID(IdentityProvider.fromString(provider),providerUserId));
 
         if(userIdentity.isPresent()){
-
+            User user = userIdentity.get().getUser();
+            String accessToken = authService.generateAccessToken(user.getId().toString(), Map.of())
         }else{
             User user = User.builder()
                     .email(email)
