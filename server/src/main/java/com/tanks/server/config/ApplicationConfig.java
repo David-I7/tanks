@@ -1,7 +1,7 @@
 package com.tanks.server.config;
 
 import com.tanks.server.security.properties.JwtProperties;
-import com.tanks.server.utils.IdFactory;
+import com.tanks.server.factories.IdFactory;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -16,26 +16,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 @Configuration
 @EnableConfigurationProperties(JwtProperties.class)
 public class ApplicationConfig {
-
-    @Bean
-    public IdFactory idFactory(){
-        return new IdFactory(8);
-    }
-
-    @Bean
-    @Profile("example")
-    public DaoAuthenticationProvider daoAuthenticationProvider(UserDetailsService userDetailsService, PasswordEncoder passwordEncoder){
-        DaoAuthenticationProvider provider = new DaoAuthenticationProvider(userDetailsService);
-        provider.setPasswordEncoder(passwordEncoder);
-
-        return provider;
-    }
-
-    @Bean
-    @Profile("example")
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) {
-        return config.getAuthenticationManager();
-    }
 
 
     @Bean

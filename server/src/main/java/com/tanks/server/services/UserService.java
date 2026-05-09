@@ -6,6 +6,7 @@ import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Optional;
@@ -18,26 +19,34 @@ public class UserService {
 
     private PasswordEncoder passwordEncoder;
 
+    @Transactional
     public void register(User user){
-        if(repository.existsByUsername(user.getUsername())){
-            throw new ResponseStatusException(HttpStatus.CONFLICT,"Username already exists");
+        Optional<User> existingUser = repository.findByUsernameOrEmail(user.getUsername(),user.getEmail());
+        if(existingUser.isPresent()){
+            boolean sameEmail = user.getEmail().equals(existingUser.get().getEmail());
+            boolean sameUsername = user.getUsername().equals(existingUser.get().getUsername());
+            String message = sameUsername && sameEmail ? "Username and email are already taken" : sameUsername ? "Username is taken" : "Email is taken";
+            throw new ResponseStatusException(HttpStatus.CONFLICT,message);
         }
 
         user.setPassword(passwordEncoder.encode(user.getPassword()));
-
         repository.save(user);
+
     }
 
-    public Optional<User> findById(Long id){
-        return repository.findById(id);
+    public User findById(Long id){
+        return repository.findById(id)
+                .orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND));
     }
 
-    public Optional<User> findByUsername(String username){
-        return repository.findByUsername(username);
+    public User findByUsername(String username){
+        return repository.findByUsername(username)
+                .orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND));
     }
 
-    public Optional<User> findByEmail(String email){
-        return repository.findByEmail(email);
+    public User findByEmail(String email){
+        return repository.findByEmail(email)
+                .orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND));
     }
 
 }

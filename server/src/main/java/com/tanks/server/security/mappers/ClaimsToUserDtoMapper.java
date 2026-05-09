@@ -9,6 +9,6 @@ public class ClaimsToUserDtoMapper implements Function<Claims, UserDto> {
 
     @Override
     public UserDto apply(Claims claims) {
-        return new UserDto(claims.get("id",Long.class),claims.getSubject());
+        return new UserDto(claims.get("sub",Long.class),claims.get("username",String.class),claims.get("email",String.class));
     }
 }

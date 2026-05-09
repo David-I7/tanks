@@ -1,5 +1,6 @@
 package com.tanks.server.security.filters;
 
+import com.tanks.server.exceptions.InvalidJwtException;
 import com.tanks.server.factories.ErrorResponseWriter;
 import com.tanks.server.security.entities.JwtAuthentication;
 import com.tanks.server.security.mappers.ClaimsToUserDtoMapper;
@@ -41,35 +42,22 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
         // User is logging in or registering
-        if(     request.getServletPath().startsWith("/auth/register") ||
-                request.getServletPath().startsWith("/auth/login")){
+        System.out.println("\n\n\n\n\n\nHELLLLLLLLLOOOOOO\n\n\n\n\n\n");
+        if(     request.getServletPath().startsWith("/api/v1/auth/register") ||
+                request.getServletPath().startsWith("/api/v1/auth/login")    ||
+                request.getServletPath().startsWith("/api/v1/auth/oauth2/authorization") ||
+                request.getServletPath().startsWith("/api/v1/auth/refresh")){
 
             filterChain.doFilter(request,response);
             return;
         }
-        // User is trying to refresh their access token
-        else if(request.getServletPath().startsWith("/auth/refresh")){
-            Optional<Cookie> refreshCookie =  Arrays.stream(request.getCookies())
-                                                    .filter(cookie -> cookie.getName().equals("refreshToken"))
-                                                    .findFirst();
-
-            // Let the refresh endpoint handle the token refresh if the cookie is present
-            if(refreshCookie.isPresent()){
-                filterChain.doFilter(request,response);
-                return;
-            }else{
-                errorResponseWriter.write(request,response,HttpStatus.UNAUTHORIZED.value(),"No refreshToken cookie is present");
-                return;
-            }
-        }
-        // User has been logged in buy some other filter
+        // User has been logged in by some other filter
         else if(SecurityContextHolder.getContext().getAuthentication() != null){
             filterChain.doFilter(request,response);
             return;
         }
 
         // Extract user from access token
-
         String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
 
         if(authHeader == null || !authHeader.startsWith(TOKEN_PREFIX)){
@@ -80,17 +68,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String token = authHeader.substring(TOKEN_PREFIX.length());
 
         try{
-            Claims claims = jwtService.getClaims(token);
+            Claims claims = jwtService.parseClaims(token);
             SecurityContextHolder.getContext().setAuthentication(new JwtAuthentication(mapper.apply(claims)));
 
-        }catch (MalformedJwtException ex){
-            errorResponseWriter.write(request,response, HttpStatus.UNAUTHORIZED.value(), "Malformed access token");
-            return;
-        }catch (ExpiredJwtException ex){
-            errorResponseWriter.write(request,response, HttpStatus.UNAUTHORIZED.value(), "Expired access token");
-            return;
-        }catch (JwtException ex){
-            errorResponseWriter.write(request,response, HttpStatus.UNAUTHORIZED.value(), "Could not validate the access token");
+        }catch (InvalidJwtException e){
+            errorResponseWriter.write(request,response,HttpStatus.UNAUTHORIZED.value(), e.getMessage());
             return;
         }
 

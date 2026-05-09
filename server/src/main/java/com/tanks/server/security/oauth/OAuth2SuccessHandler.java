@@ -1,39 +1,41 @@
 package com.tanks.server.security.oauth;
 
-import com.tanks.server.entities.IdentityProvider;
+import com.tanks.server.dto.auth.RefreshTokenResponse;
 import com.tanks.server.entities.User;
-import com.tanks.server.entities.UserIdentity;
-import com.tanks.server.entities.UserIdentityID;
 import com.tanks.server.factories.ErrorResponseWriter;
+import com.tanks.server.model.JwtSession;
 import com.tanks.server.security.services.JwtService;
 import com.tanks.server.services.AuthService;
-import com.tanks.server.services.UserIdentityService;
 import com.tanks.server.services.UserService;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.AllArgsConstructor;
-import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
+import org.springframework.stereotype.Component;
+import org.springframework.web.server.ResponseStatusException;
+import tools.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
-import java.util.Map;
-import java.util.Optional;
 
-@Configuration
+@Component
 @AllArgsConstructor
 public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
 
     private AuthService authService;
 
+    private JwtService jwtService;
+
     private UserService userService;
 
-    private ErrorResponseWriter errorResponseWriter;
+    private ObjectMapper objectMapper;
 
-    private UserIdentityService userIdentityService;
+    private ErrorResponseWriter errorResponseWriter;
 
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication) throws IOException, ServletException {
@@ -47,18 +49,26 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
         String providerUserId = oauthUser.getAttribute("sub");
         String email = oauthUser.getAttribute("email");
 
-        Optional<UserIdentity> userIdentity = userIdentityService.findById(new UserIdentityID(IdentityProvider.fromString(provider),providerUserId));
+        try{
+            User user = userService.findByEmail(email);
 
-        if(userIdentity.isPresent()){
-            User user = userIdentity.get().getUser();
-            String accessToken = authService.generateAccessToken(user.getId().toString(), Map.of())
-        }else{
-            User user = User.builder()
-                    .email(email)
-                    .build();
-            userService.register(user);
+            JwtSession session = authService.createSession(user);
 
+            response.addHeader("Set-Cookie", session.cookie().toString());
+            response.setStatus(HttpStatus.OK.value());
+            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
 
+            objectMapper.writeValue(response.getWriter(),new RefreshTokenResponse(session.accessToken(),session.userDto()));
+
+        }catch (ResponseStatusException ex){
+            // User does not exist
+
+            response.setStatus(HttpStatus.NOT_IMPLEMENTED.value());
+            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+            objectMapper.writeValue(response.getWriter(),"Oauth registration not implemented yet");
+            return;
         }
+
+
     }
 }

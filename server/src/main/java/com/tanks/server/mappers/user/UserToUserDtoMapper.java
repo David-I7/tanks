@@ -9,6 +9,6 @@ public class UserToUserDtoMapper implements Function<User, UserDto> {
 
     @Override
     public UserDto apply(User user) {
-        return new UserDto(user.getId(),user.getUsername());
+        return new UserDto(user.getId(),user.getUsername(), user.getEmail());
     }
 }
