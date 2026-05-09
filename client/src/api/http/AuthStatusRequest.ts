@@ -1,12 +1,12 @@
 import type { AxiosHeaders, Method } from "axios";
-import { TanksCommand } from "./TanksCommand";
+import { TanksRequest } from "./TanksRequest";
 import type User from "./dto/User";
 
 export type AuthStatusResponse = {
   user: User;
 };
 
-export default class AuthStatusCommand extends TanksCommand<User> {
+export default class AuthStatusRequest extends TanksRequest<User> {
   getPath(): string {
     return "/auth/status";
   }

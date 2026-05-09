@@ -1,10 +1,11 @@
 import type { AxiosHeaders, Method } from "axios";
 import type { User } from "../../state/auth";
-import { TanksCommand } from "./TanksCommand";
+import { TanksRequest } from "./TanksRequest";
 
-export interface LoginRequest {
-  username: string;
+export interface LoginRequestDto {
+  username?: string;
   password: string;
+  email?: string;
 }
 
 export type LoginResponse = {
@@ -12,8 +13,8 @@ export type LoginResponse = {
   accessToken: string;
 };
 
-export default class LoginCommand extends TanksCommand<LoginResponse> {
-  constructor(private loginRequest: LoginRequest) {
+export default class LoginRequest extends TanksRequest<LoginResponse> {
+  constructor(private loginRequest: LoginRequestDto) {
     super();
   }
 

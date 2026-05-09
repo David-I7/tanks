@@ -2,7 +2,7 @@ package com.tanks.server.security.oauth;
 
 import com.tanks.server.dto.auth.RefreshTokenResponse;
 import com.tanks.server.entities.User;
-import com.tanks.server.factories.ErrorResponseWriter;
+import com.tanks.server.factories.ProblemDetailWriter;
 import com.tanks.server.model.JwtSession;
 import com.tanks.server.security.services.JwtService;
 import com.tanks.server.services.AuthService;
@@ -35,7 +35,7 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
 
     private ObjectMapper objectMapper;
 
-    private ErrorResponseWriter errorResponseWriter;
+    private ProblemDetailWriter problemDetailWriter;
 
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication) throws IOException, ServletException {

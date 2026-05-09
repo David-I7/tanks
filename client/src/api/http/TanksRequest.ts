@@ -1,7 +1,7 @@
 import type { Method } from "axios";
 
-export abstract class TanksCommand<T> {
-  declare readonly _responseType?: T;
+export abstract class TanksRequest<Data> {
+  declare readonly _responseType?: Data;
 
   abstract getPath(): string;
   abstract getMethod(): Method;
