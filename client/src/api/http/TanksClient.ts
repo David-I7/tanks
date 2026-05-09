@@ -1,7 +1,7 @@
 import axios, { isAxiosError, type AxiosInstance } from "axios";
-import type { TanksCommand } from "./TanksCommand";
+import type { TanksRequest } from "./TanksRequest";
 import { ApiError } from "../../errors/ApiError";
-import type ErrorResponse from "./dto/ErrorResponse";
+import type ProblemDetail from "./dto/ProblemDetail";
 import NetworkError from "../../errors/NetworkError";
 
 export default class TanksClient {
@@ -17,19 +17,19 @@ export default class TanksClient {
     });
   }
 
-  async send<T>(command: TanksCommand<T>): Promise<T> {
+  async send<T>(request: TanksRequest<T>): Promise<T> {
     try {
       const response = await this.api.request<T>({
-        url: command.getPath(),
-        method: command.getMethod(),
-        headers: command.getHeaders(),
-        data: command.getBody(),
-        params: command.getParams(),
+        url: request.getPath(),
+        method: request.getMethod(),
+        headers: request.getHeaders(),
+        data: request.getBody(),
+        params: request.getParams(),
       });
 
       return response.data;
     } catch (err) {
-      if (isAxiosError<ErrorResponse>(err) && err.response) {
+      if (isAxiosError<ProblemDetail>(err) && err.response) {
         throw new ApiError(err.response.data, err.response.status!);
       }
 

@@ -3,6 +3,7 @@ import { fetchWithRetry } from "../utils/fetch";
 export type User = {
   username: string;
   id: string;
+  email: string;
 };
 
 export type AuthResponse = {
@@ -10,7 +11,9 @@ export type AuthResponse = {
 } & User;
 
 export type AuthRequest = {
-  username: string;
+  username?: string;
+  email?: string;
+  password: string;
 };
 
 export type AuthState = Partial<AuthResponse>;

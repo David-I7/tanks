@@ -1,9 +1,9 @@
 import type { Method } from "axios";
-import { TanksCommand } from "./TanksCommand";
+import { TanksRequest } from "./TanksRequest";
 
 export type LogoutResponse = void;
 
-export default class LogoutCommand extends TanksCommand<LogoutResponse> {
+export default class LogoutRequest extends TanksRequest<LogoutResponse> {
   getPath(): string {
     return "/auth/logout";
   }

@@ -1,10 +1,10 @@
-import type ErrorResponse from "../api/http/dto/ErrorResponse";
+import type ProblemDetail from "../api/http/dto/ProblemDetail";
 
 export class ApiError extends Error {
   constructor(
-    public readonly data: ErrorResponse,
+    public readonly data: ProblemDetail,
     public readonly status: number,
   ) {
-    super(data.error);
+    super(data.detail ? data.detail : data.title);
   }
 }

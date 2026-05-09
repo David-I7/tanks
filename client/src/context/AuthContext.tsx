@@ -7,12 +7,10 @@ import {
 } from "react";
 import TanksClient from "../api/http/TanksClient";
 import type { User } from "../state/auth";
-import LoginCommand from "../api/http/LoginCommand";
-import AuthStatusCommand from "../api/http/AuthStatusCommand";
-import RefreshCommand from "../api/http/RefreshCommand";
+import LoginRequest from "../api/http/LoginRequest";
+import RefreshRequest from "../api/http/RefreshRequest";
 import { ApiError } from "../errors/ApiError";
-import NetworkError from "../errors/NetworkError";
-import LogoutCommand from "../api/http/LogoutCommand";
+import LogoutRequest from "../api/http/LogoutRequest";
 
 type AuthContextState = {
   user: User | undefined | null;
@@ -33,7 +31,7 @@ const useAuthContext = (): AuthContextState => {
     try {
       const { user, accessToken: token } = await new TanksClient({
         accessToken,
-      }).send(new LoginCommand({ username: "a", password: "a" }));
+      }).send(new LoginRequest({ username: "a", password: "a" }));
 
       setAccessToken(token);
       setUser(user);
@@ -45,7 +43,7 @@ const useAuthContext = (): AuthContextState => {
 
   async function handleLogout() {
     try {
-      await new TanksClient({}).send(new LogoutCommand());
+      await new TanksClient({}).send(new LogoutRequest());
 
       setAccessToken(null);
       setUser(null);
@@ -57,7 +55,7 @@ const useAuthContext = (): AuthContextState => {
   useEffect(() => {
     async function fetchUser() {
       try {
-        const response = await new TanksClient({}).send(new RefreshCommand());
+        const response = await new TanksClient({}).send(new RefreshRequest());
 
         setAccessToken(response.accessToken);
         setUser(response.user);
