@@ -1,32 +1,28 @@
 package com.tanks.server.services;
 
+import com.tanks.server.dto.auth.RefreshTokenResponse;
 import com.tanks.server.entities.RefreshToken;
 import com.tanks.server.entities.User;
+import com.tanks.server.exceptions.InvalidJwtException;
+import com.tanks.server.mappers.user.UserToUserDtoMapper;
 import com.tanks.server.model.JwtSession;
-import com.tanks.server.repositories.RefreshTokenRepository;
 import com.tanks.server.security.properties.JwtProperties;
 import com.tanks.server.security.services.JwtService;
-import com.tanks.server.utils.IdFactory;
+import com.tanks.server.factories.IdFactory;
 import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.JwtException;
-import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
-import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Duration;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 
 @Service
-@AllArgsConstructor
 @Slf4j
 public class AuthService {
 
@@ -34,11 +30,15 @@ public class AuthService {
 
     private JwtService jwtService;
 
-    private IdFactory idFactory;
+    private RefreshTokenService refreshTokenService;
 
-    private RefreshTokenRepository tokenRepository;
+    public AuthService(JwtService jwtService,RefreshTokenService refreshTokenService,JwtProperties jwtProperties){
+        this.jwtService = jwtService;
+        this.refreshTokenService = refreshTokenService;
+        this.jwtProperties = jwtProperties;
+    }
 
-    private PasswordEncoder passwordEncoder;
+    private UserToUserDtoMapper userDtoMapper = new UserToUserDtoMapper();
 
     private ResponseCookie createRefreshCookie(String refreshToken){
         return ResponseCookie.from("refreshToken", refreshToken)
@@ -51,68 +51,74 @@ public class AuthService {
     }
 
     public JwtSession createSession(User user){
-        UUID jti = idFactory.randomUUID();
         OffsetDateTime expiration = OffsetDateTime.now().plusSeconds(jwtProperties.getRefreshTokenExpirationMS() / 1000);
-
-        String refreshToken = jwtService.generateToken(user.getId().toString(),Map.of("jti",jti), expiration.toInstant().toEpochMilli());
-
-        JwtSession session = new JwtSession(
-                this.generateAccessToken(user),
-                refreshToken,
-                this.createRefreshCookie(refreshToken)
-        );
-
         RefreshToken token = RefreshToken.builder()
-                .id(jti)
-                .tokenHash(passwordEncoder.encode(refreshToken))
                 .expiresAt(expiration)
                 .revoked(false)
                 .user(user)
                 .build();
 
-        tokenRepository.save(token);
+        refreshTokenService.save(token);
+
+        String refreshToken = jwtService.generateToken(user.getId().toString(),Map.of("jti",token.getId().toString()), expiration.toInstant().toEpochMilli());
+
+        JwtSession session = new JwtSession(
+                this.generateAccessToken(user),
+                this.createRefreshCookie(refreshToken),
+                userDtoMapper.apply(user)
+        );
 
         return session;
     }
 
+    // Returns null if the refreshToken can be reused, otherwise it creates a new jwtSession.
     public JwtSession rollingSession(String refreshToken){
         try{
-            Claims claims = jwtService.getClaims(refreshToken);
-            long expiresAt = Long.parseLong((String)claims.get("expiration"));
+            Claims claims = jwtService.parseClaims(refreshToken);
+        long expiresAt = claims.get("exp",Long.class);
 
-            if(!shouldRollSession(expiresAt)) return null;
+        if(!shouldCreateNewSession(expiresAt)) return null;
 
-            UUID jti = UUID.fromString((String) claims.get("jti"));
+        UUID jti = UUID.fromString((String) claims.get("jti"));
 
-            Optional<RefreshToken> token = tokenRepository.findById(jti);
+        RefreshToken token = refreshTokenService.findById(jti);
 
-            // Token reuse detected
-            if(!token.isPresent() || (token.isPresent() && token.get().getRevoked() == true) ){
-                log.warn("Token reuse detected");
-                return null;
-            }
+        // Token reuse detected
+        if( token.getRevoked() == true){
+            log.warn("Token reuse detected");
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
+        }
 
-            User user = token.get().getUser();
-            tokenRepository.revokeById(jti);
+        User user = token.getUser();
+        refreshTokenService.revokeById(token.getId());
 
-            JwtSession session = this.createSession(user);
+        JwtSession session = this.createSession(user);
 
-            return session;
+        return session;
 
-        }catch (JwtException ex){
-            return null;
+        } catch (InvalidJwtException e) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
         }
     }
 
-    @Transactional
-    public void revokeRefreshToken(String refreshToken){
-        UUID jti;
+    // Issues a new access token
+    public RefreshTokenResponse refresh(String refreshToken){
+        try {
+            Claims claims = jwtService.parseClaims(refreshToken);
+            RefreshToken token = refreshTokenService.findById(UUID.fromString((String) claims.get("jti")));
+            User user = token.getUser();
+            return new RefreshTokenResponse(generateAccessToken(user), userDtoMapper.apply(user));
+        } catch (InvalidJwtException e) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
+        }
+    }
 
-        try{
-            Claims claims = jwtService.getClaims(refreshToken);
-            tokenRepository.revokeById(UUID.fromString((String) claims.get("jti")));
-        }catch (JwtException ex){
-            return;
+    public void revokeRefreshToken(String refreshToken){
+        try {
+            Claims claims = jwtService.parseClaims(refreshToken);
+            refreshTokenService.revokeById(UUID.fromString((String) claims.get("jti")));
+        } catch (InvalidJwtException e) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
         }
     }
 
@@ -121,18 +127,12 @@ public class AuthService {
     }
 
     private String generateRefreshToken(User user){
-        return  jwtService.generateRefreshToken(user.getId().toString(),Map.of("jti", idFactory.randomUUID()));
+        return  jwtService.generateRefreshToken(user.getId().toString(),Map.of("jti", IdFactory.randomUUID()));
     }
 
-    @Scheduled(fixedDelay = 1,timeUnit = TimeUnit.DAYS)
-    @Transactional
-    private void removeExpiredTokens(){
-        tokenRepository.deleteExpiredTokens();
-    }
-
-    private boolean shouldRollSession(long expiration){
+    private boolean shouldCreateNewSession(long expiration){
         long timeTilExpires =  expiration - Instant.now().toEpochMilli();
 
-        return timeTilExpires > 0 && timeTilExpires <= 1000L * 60 * 60 * 60 * 24;
+        return timeTilExpires > 0 && timeTilExpires <= 1000L * 60 * 60 * 60 * 24; // 1 DAY
     }
 }

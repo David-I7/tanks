@@ -1,0 +1,1 @@
+insert into users values (default,'ggs','jamesRodriguez@gmail.com',now(),default);

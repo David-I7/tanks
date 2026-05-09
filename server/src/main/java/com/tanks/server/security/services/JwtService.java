@@ -1,11 +1,13 @@
 package com.tanks.server.security.services;
 
+import com.tanks.server.exceptions.InvalidJwtException;
 import com.tanks.server.security.properties.JwtProperties;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
@@ -46,12 +48,29 @@ public class JwtService {
         return Keys.hmacShaKeyFor(keyBytes);
     }
 
-    public Claims getClaims(String token){
-        return Jwts.parser()
-                .verifyWith(getSignInKey())
-                .build()
-                .parseSignedClaims(token)
-                .getPayload();
+    public Claims parseClaims(String token){
+        try {
+            return Jwts.parser()
+                    .verifyWith(getSignInKey())
+                    .build()
+                    .parseSignedClaims(token)
+                    .getPayload();
+        }catch (JwtException e){
+            throw mapToInvalidJwtException(e);
+        }
+    }
+
+    private InvalidJwtException mapToInvalidJwtException(JwtException e){
+        String message;
+        if ( e instanceof MalformedJwtException){
+            message = "Malformed jwt token";
+        }else if (e instanceof ExpiredJwtException ){
+            message = "Expired jwt token";
+        }else{
+            message = "Failed to parse jwt token";
+        }
+
+        return new InvalidJwtException(message);
     }
 
     public boolean isValidToken(String token){

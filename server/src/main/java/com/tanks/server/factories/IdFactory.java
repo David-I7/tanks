@@ -1,27 +1,20 @@
-package com.tanks.server.utils;
-
-import com.tanks.server.exceptions.InvalidArgumentException;
+package com.tanks.server.factories;
 
 import java.util.Random;
 import java.util.UUID;
 
 public class IdFactory {
-    private final Random random = new Random();
-    private final int ALPHA_NUM_CHAR_COUNT = 62;
-    private final int len;
+    private static final Random random = new Random();
+    private static final int ALPHA_NUM_CHAR_COUNT = 62;
+    private static final int LEN = 8;
 
-    public IdFactory(int len){
-        if (len <= 0) throw new InvalidArgumentException("Argument 'len' must be a positive integer");
-        this.len = len;
-    }
-
-    public UUID randomUUID(){
+    public static UUID randomUUID(){
         return UUID.randomUUID();
     }
 
-    public  String randomAlphaNumID(){
-        char[] str = new char[len];
-        for(int i = 0; i < len; ++i){
+    public static String randomAlphaNumID(){
+        char[] str = new char[LEN];
+        for(int i = 0; i < LEN; ++i){
             int n = random.nextInt(ALPHA_NUM_CHAR_COUNT);
 
             // 0-9 map to integers
