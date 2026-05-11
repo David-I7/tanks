@@ -2,16 +2,77 @@
 
 @theme {
   --color-*: initial;
-  --color-primary: #facc15;
-  --color-secondary: #22c55e;
-  --color-surface-low: #ffffff;
-  --color-surface: #f9fafb;
 
-  --color-on-primary: white;
-  --color-on-secondary: white;
-  --color-text: #111827;
-  --color-text-muted: #6b7280;
-  --color-text-inverse: #f9fafb;
+  /* =====================================================
+     PRIMARY
+     ===================================================== */
+
+  --color-primary-main: #ebc80e;
+  --color-primary-low: #f6da45;
+  --color-primary-high: #c7a800;
+  --color-on-primary: #000000;
+
+  /* =====================================================
+     SECONDARY
+     ===================================================== */
+
+  --color-secondary-main: #000000;
+  --color-secondary-low: #2b2b2b;
+  --color-secondary-high: #000000;
+  --color-on-secondary: #ffffff;
+
+  /* =====================================================
+     BACKGROUND / SURFACE
+     ===================================================== */
+
+  --color-background: #f7f7f7;
+  --color-background-high: #ffffff;
+  --color-surface-main: #ffffff;
+  --color-surface-high: #ffffff;
+  --color-surface-inverse: #121212;
+
+  /* =====================================================
+     TEXT
+     ===================================================== */
+
+  --color-text-headings: rgba(0, 0, 0, 0.92);
+  --color-text-body: rgba(0, 0, 0, 0.68);
+  --color-text-body-low: rgba(0, 0, 0, 0.55);
+  --color-text-disabled: rgba(0, 0, 0, 0.42);
+
+  /* =====================================================
+     STATES
+     ===================================================== */
+
+  --color-success-main: #2e7d32;
+  --color-success-low: #4caf50;
+  --color-success-high: #1b5e20;
+  --color-on-success: #ffffff;
+
+  --color-error-main: #d32f2f;
+  --color-error-low: #ef5350;
+  --color-error-high: #b71c1c;
+  --color-on-error: #ffffff;
+
+  /* =====================================================
+     BORDER / DIVIDER
+     ===================================================== */
+
+  --color-divider: rgba(0, 0, 0, 0.12);
+  --color-border-main: rgba(0, 0, 0, 0.16);
+  --color-border-low: rgba(0, 0, 0, 0.28);
+
+  /* =====================================================
+     TRANSITIONS
+     ===================================================== */
+
+  --transition-duration-fast: 150ms;
+  --transition-duration-normal: 250ms;
+  --transition-duration-slow: 400ms;
+
+  /* =====================================================
+    FONTS
+    ===================================================== */
 
   --font-headings: Poppins, serif;
   --font-body: Inter, monospace;
@@ -20,47 +81,67 @@
 @custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
 
 [data-theme="dark"] {
-  --color-surface: #1f2933;
-  --color-border: #374151;
-  --color-surface-low: #000;
-  --color-surface: ##111827;
+  /* =====================================================
+     PRIMARY
+     ===================================================== */
 
-  --color-text: #f9fafb;
-  --color-text-muted: #9ca3af;
-  --color-text-inverse: #111827;
+  --color-primary-main: #ebc80e;
+  --color-primary-low: #f6da45;
+  --color-primary-high: #c7a800;
+  --color-on-primary: #000000;
 
-  --color-primary: #fde047;
-  --color-secondary: #4ade80;
-}
+  /* =====================================================
+     SECONDARY
+     ===================================================== */
 
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-  padding: 0;
-  margin: 0;
+  --color-secondary-main: #ffffff;
+  --color-secondary-low: #ffffff;
+  --color-secondary-high: #d9d9d9;
+  --color-on-secondary: #000000;
+
+  /* =====================================================
+     BACKGROUND / SURFACE
+     ===================================================== */
+
+  --color-background: #0f0f10;
+  --color-background-high: #171717;
+  --color-surface-main: #1b1b1c;
+  --color-surface-high: rgb(38, 38, 41);
+  --color-surface-inverse: #ffffff;
+
+  /* =====================================================
+     TEXT
+     ===================================================== */
+
+  --color-text-headings: rgba(255, 255, 255, 0.94);
+  --color-text-body: rgba(255, 255, 255, 0.7);
+  --color-text-body-low: rgba(255, 255, 255, 0.55);
+  --color-text-disabled: rgba(255, 255, 255, 0.42);
+
+  /* =====================================================
+     STATES
+     ===================================================== */
+
+  --color-success-main: #66bb6a;
+  --color-success-low: #81c784;
+  --color-success-high: #388e3c;
+  --color-on-success: #000000;
+
+  --color-error-main: #ef5350;
+  --color-error-low: #e57373;
+  --color-error-high: #c62828;
+  --color-on-error: #000000;
+
+  /* =====================================================
+     BORDER / DIVIDER
+     ===================================================== */
+
+  --color-divider: rgba(255, 255, 255, 0.1);
+  --color-border-main: rgba(255, 255, 255, 0.25);
+  --color-border-low: rgba(255, 255, 255, 0.15);
+  --color-border-high: rgba(255, 255, 255, 0.5);
 }
 
 #app {
   min-height: 100vh;
-}
-
-/* =========================
-   BASE STYLES
-========================= */
-* {
-  font-family: var(--font-body);
-  font-size: var(--text-md);
-  font-weight: var(--font-weight-normal);
-  background-color: var(--color-surface-low);
-  color: var(--color-text);
-}
-
-h1,
-h2,
-h3,
-h4 {
-  margin: 0 0 var(--spacing-4);
-  font-weight: var(--font-weight-bold);
-  font-family: var(--font-headings);
 }
