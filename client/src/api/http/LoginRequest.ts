@@ -1,17 +1,12 @@
 import type { AxiosHeaders, Method } from "axios";
-import type { User } from "../../state/auth";
 import { TanksRequest } from "./TanksRequest";
+import type LoginResponse from "./dto/LoginRequestDto";
 
 export interface LoginRequestDto {
   username?: string;
   password: string;
   email?: string;
 }
-
-export type LoginResponse = {
-  user: User;
-  accessToken: string;
-};
 
 export default class LoginRequest extends TanksRequest<LoginResponse> {
   constructor(private loginRequest: LoginRequestDto) {

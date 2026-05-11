@@ -1,11 +1,14 @@
 import { useAuth } from "./context/AuthContext";
+import AuthPage from "./pages/auth/AuthenticationPage";
 
 export default function App() {
   const { user } = useAuth();
 
-  if (user === undefined) return <div>Loading user info...</div>;
-  else if (user === null) {
-  } else {
-    return <h1>Welcome {user.username}!</h1>;
-  }
+  return (
+    <main className="bg-background font-body text-text-body">
+      {user === undefined && <div>Loading user info...</div>}
+      {user === null && <AuthPage />}
+      {user && <h1>Welcome {user.username}!</h1>}
+    </main>
+  );
 }

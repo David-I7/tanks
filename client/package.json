@@ -21,8 +21,11 @@
     "@stomp/stompjs": "^7.3.0",
     "@tailwindcss/vite": "^4.2.4",
     "axios": "^1.15.2",
+    "lucide-react": "^1.14.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
-    "tailwindcss": "^4.2.4"
+    "tailwind-merge": "^3.6.0",
+    "tailwindcss": "^4.2.4",
+    "zod": "^4.4.3"
   }
 }
