@@ -1,13 +1,8 @@
 import type { Method } from "axios";
-import type User from "./dto/User";
 import { TanksRequest } from "./TanksRequest";
+import type RefreshResponseDto from "../dto/RefreshResponseDto";
 
-type RefreshResponse = {
-  accessToken: string;
-  user: User;
-};
-
-export default class RefreshRequest extends TanksRequest<RefreshResponse> {
+export default class RefreshRequest extends TanksRequest<RefreshResponseDto> {
   getPath(): string {
     return "/auth/refresh";
   }

@@ -1,6 +1,5 @@
-import type User from "./User";
-
-export default interface LoginResponse {
-  user: User;
-  accessToken: string;
+export default interface LoginRequestDto {
+  email?: string;
+  password: string;
+  username?: string;
 }

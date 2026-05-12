@@ -1,25 +1,29 @@
 import axios, { isAxiosError, type AxiosInstance } from "axios";
-import type { TanksRequest } from "./TanksRequest";
+import type { TanksRequest } from "./requests/TanksRequest";
 import { ApiError } from "../../errors/ApiError";
-import type ProblemDetail from "./dto/ProblemDetail";
+import type ProblemDetail from "./dto/ProblemDetailDto";
 import NetworkError from "../../errors/NetworkError";
 
 export default class TanksClient {
-  private api: AxiosInstance;
+  private static api: AxiosInstance;
 
-  constructor(options: { accessToken?: string | null }) {
-    this.api = axios.create({
+  constructor() {
+    TanksClient.api = axios.create({
       baseURL: import.meta.env.VITE_BASE_URL.concat("/api/v1"),
-      headers: options.accessToken
-        ? { Authorization: `Bearer ${options.accessToken}` }
-        : {},
       withCredentials: true,
+    });
+  }
+
+  static setAccessToken(accessToken: string): void {
+    TanksClient.api.interceptors.request.use((config) => {
+      config.headers.set("Authorization", `Bearer ${accessToken}`);
+      return config;
     });
   }
 
   async send<T>(request: TanksRequest<T>): Promise<T> {
     try {
-      const response = await this.api.request<T>({
+      const response = await TanksClient.api.request<T>({
         url: request.getPath(),
         method: request.getMethod(),
         headers: request.getHeaders(),

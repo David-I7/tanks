@@ -1,14 +1,19 @@
 import type { ReactNode, SubmitEvent } from "react";
+import { twMerge } from "tailwind-merge";
 
 type FormProps = {
   children: ReactNode;
-  onSubmit: (e: SubmitEvent) => void;
+  onSubmit: (e: SubmitEvent<HTMLFormElement>) => void;
+  className?: string;
 };
 
-export default function Form({ onSubmit, children }: FormProps) {
+export default function Form({ onSubmit, children, className }: FormProps) {
   return (
     <form
-      className="bg-surface-high grid-cols-1 grid-rows-1 px-8 py-4 rounded-2xl h-full max-h-100 w-full max-w-sm overflow-y-auto"
+      className={twMerge(
+        "bg-surface-high flex flex-col px-8 py-4 rounded-2xl h-full max-h-125 w-full max-w-sm overflow-y-auto",
+        className,
+      )}
       onSubmit={onSubmit}
     >
       {children}
