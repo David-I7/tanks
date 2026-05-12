@@ -6,9 +6,10 @@ export const usernameSchema = z
   .regex(/^[A-Za-z0-9_]+$/, {
     message:
       "Username must only include uppercase, lowercase, digit, and underscore characters.",
-  })
-  .optional();
-export const emailSchema = z.email("Invalid email address").optional();
+  });
+
+export const emailSchema = z.email("Invalid email address");
+
 export const passwordSchema = z
   .string()
   .regex(/^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[a-zA-Z]).{8,}$/, {
@@ -17,6 +18,12 @@ export const passwordSchema = z
   });
 
 export const loginRequestSchema = z.object({
+  username: usernameSchema.optional(),
+  email: emailSchema.optional(),
+  password: passwordSchema,
+});
+
+export const registerRequestSchema = z.object({
   username: usernameSchema,
   email: emailSchema,
   password: passwordSchema,

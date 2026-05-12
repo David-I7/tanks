@@ -22,19 +22,16 @@ const VARIANTS = {
       error: "bg-error-main text-on-error",
     },
     outline: {
-      secondary:
-        "border border-secondary-main text-secondary-main hover:bg-surface-hover",
-      primary:
-        "border border-primary-main text-primary-main hover:bg-surface-hover",
-      success:
-        "border bg-success-main text-success-main hover:bg-surface-hover",
-      error: "border bg-error-main text-error-main hover:bg-surface-hover",
+      secondary: "border border-secondary-main text-secondary-main",
+      primary: "border border-primary-main text-primary-main",
+      success: "border border-success-main text-success-main",
+      error: "border border-error-main text-error-main",
     },
     ghost: {
-      secondary: "text-secondary-main hover:bg-surface-hover",
-      primary: "text-primary-main hover:bg-surface-hover",
-      success: "text-success-main hover:bg-surface-hover",
-      error: "text-error-main hover:bg-surface-hover",
+      secondary: "text-secondary-main",
+      primary: "text-primary-main",
+      success: "text-success-main",
+      error: "text-error-main",
     },
   },
 };
@@ -54,13 +51,13 @@ export default function Button({
       disabled={disabled}
       type={type}
       className={twMerge(
-        "cursor-pointer min-h-10 px-8 gap-2 flex items-center justify-center font-bold rounded-lg hover:brightness-85 dark:brightness-115 transition-colors duration-fast",
+        "cursor-pointer min-h-10 px-8 gap-2 flex items-center justify-center font-bold rounded-lg hover:brightness-85 dark:brightness-115 transition-colors duration-fast font-headings text-sm",
         VARIANTS["color"][variant][color],
         leftIcon !== undefined ? "pl-4" : "",
         rightIcon !== undefined ? "pr-4" : "",
         disabled === undefined || disabled === false
           ? ""
-          : "brightness-125 dark:brightness-75 pointer-events-none",
+          : "brightness-75 pointer-events-none",
       )}
       onClick={onClick}
     >

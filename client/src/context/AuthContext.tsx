@@ -6,18 +6,22 @@ import {
   type ReactNode,
 } from "react";
 import TanksClient from "../api/http/TanksClient";
-import LoginRequest, { type LoginRequestDto } from "../api/http/LoginRequest";
-import RefreshRequest from "../api/http/RefreshRequest";
 import { ApiError } from "../errors/ApiError";
-import LogoutRequest from "../api/http/LogoutRequest";
-import type User from "../api/http/dto/User";
-import GoogleLoginRequest from "../api/http/GoogleLoginRequest";
+import LogoutRequest from "../api/http/requests/LogoutRequest";
+import type User from "../api/http/dto/UserDto";
+import GoogleLoginRequest from "../api/http/requests/GoogleLoginRequest";
+import type LoginRequestDto from "../api/http/dto/LoginRequestDto";
+import LoginRequest from "../api/http/requests/LoginRequest";
+import RegisterRequest from "../api/http/requests/RegisterRequest";
+import type RegisterRequestDto from "../api/http/dto/RegisterRequestDto";
+import RefreshRequest from "../api/http/requests/RefreshRequest";
 
 type AuthContextState = {
   user: User | undefined | null;
   accessToken: string | null;
   handleLogout: () => Promise<void>;
   handleLogin: (loginRequest: LoginRequestDto) => Promise<void>;
+  handleRegister: (registerRequest: RegisterRequestDto) => Promise<void>;
 };
 
 export const AuthContext = createContext<AuthContextState | undefined>(
@@ -30,10 +34,26 @@ const useAuthContext = (): AuthContextState => {
 
   async function handleLogin(loginRequest: LoginRequestDto) {
     try {
-      const { user, accessToken: token } = await new TanksClient({
-        accessToken,
-      }).send(new LoginRequest(loginRequest));
+      const { user, accessToken: token } = await new TanksClient().send(
+        new LoginRequest(loginRequest),
+      );
 
+      TanksClient.setAccessToken(token);
+      setAccessToken(token);
+      setUser(user);
+    } catch (err) {
+      setAccessToken(null);
+      setUser(null);
+    }
+  }
+
+  async function handleRegister(registerRequest: RegisterRequestDto) {
+    try {
+      const { user, accessToken: token } = await new TanksClient().send(
+        new RegisterRequest(registerRequest),
+      );
+
+      TanksClient.setAccessToken(token);
       setAccessToken(token);
       setUser(user);
     } catch (err) {
@@ -44,10 +64,11 @@ const useAuthContext = (): AuthContextState => {
 
   async function handleGoogleLogin() {
     try {
-      const { user, accessToken: token } = await new TanksClient({
-        accessToken,
-      }).send(new GoogleLoginRequest());
+      const { user, accessToken: token } = await new TanksClient().send(
+        new GoogleLoginRequest(),
+      );
 
+      TanksClient.setAccessToken(token);
       setAccessToken(token);
       setUser(user);
     } catch (err) {
@@ -58,8 +79,9 @@ const useAuthContext = (): AuthContextState => {
 
   async function handleLogout() {
     try {
-      await new TanksClient({}).send(new LogoutRequest());
+      await new TanksClient().send(new LogoutRequest());
 
+      TanksClient.setAccessToken("");
       setAccessToken(null);
       setUser(null);
     } catch (err) {
@@ -70,8 +92,9 @@ const useAuthContext = (): AuthContextState => {
   useEffect(() => {
     async function fetchUser() {
       try {
-        const response = await new TanksClient({}).send(new RefreshRequest());
+        const response = await new TanksClient().send(new RefreshRequest());
 
+        TanksClient.setAccessToken(response.accessToken);
         setAccessToken(response.accessToken);
         setUser(response.user);
       } catch (err) {
@@ -89,7 +112,7 @@ const useAuthContext = (): AuthContextState => {
     fetchUser();
   }, []);
 
-  return { user, accessToken, handleLogin, handleLogout };
+  return { user, accessToken, handleLogin, handleLogout, handleRegister };
 };
 
 export function useAuth() {

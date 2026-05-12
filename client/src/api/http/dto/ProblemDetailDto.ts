@@ -1,4 +1,4 @@
-export default interface ProblemDetail {
+export default interface ProblemDetailDto {
   title: string;
   status: number;
   type: string;

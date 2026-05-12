@@ -32,7 +32,7 @@ export default function TextInput({
         name={name}
         placeholder={placeholder}
         style={error ? { borderColor: "var(--color-error-main)" } : undefined}
-        className="border border-border-high flex-1 rounded-sm focus:border-primary-main focus:border-2 min-h-10 h-10 px-2 outline-none"
+        className="border border-border-high flex-1 rounded-sm text-text-body-high focus:border-primary-main focus:border-2 min-h-10 h-10 px-2 outline-none"
       />
 
       {error && errorMessage && (
