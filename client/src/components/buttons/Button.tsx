@@ -51,13 +51,13 @@ export default function Button({
       disabled={disabled}
       type={type}
       className={twMerge(
-        "cursor-pointer min-h-10 px-8 gap-2 flex items-center justify-center font-bold rounded-lg hover:brightness-85 dark:brightness-115 transition-colors duration-fast font-headings text-sm",
+        "cursor-pointer min-h-10 px-8 gap-2 flex items-center justify-center font-bold rounded-lg hover:brightness-85 dark:hover:brightness-115 transition-colors duration-fast font-headings text-sm",
         VARIANTS["color"][variant][color],
         leftIcon !== undefined ? "pl-4" : "",
         rightIcon !== undefined ? "pr-4" : "",
         disabled === undefined || disabled === false
           ? ""
-          : "brightness-75 pointer-events-none",
+          : "brightness-75  pointer-events-none",
       )}
       onClick={onClick}
     >

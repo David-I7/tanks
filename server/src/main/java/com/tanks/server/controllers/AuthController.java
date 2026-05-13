@@ -4,18 +4,13 @@ import com.tanks.server.dto.auth.LoginRequest;
 import com.tanks.server.dto.auth.RefreshTokenResponse;
 import com.tanks.server.dto.auth.RegisterRequest;
 import com.tanks.server.entities.User;
-import com.tanks.server.mappers.user.LoginRequestToUserMapper;
 import com.tanks.server.mappers.user.RegisterRequestToUserMapper;
-import com.tanks.server.mappers.user.UserToUserDtoMapper;
 import com.tanks.server.model.JwtSession;
-import com.tanks.server.security.services.JwtService;
 import com.tanks.server.services.AuthService;
-import com.tanks.server.services.UserService;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -24,16 +19,13 @@ import org.springframework.web.bind.annotation.*;
 @AllArgsConstructor
 public class AuthController {
 
-    private UserService userService;
-
     private AuthService authService;
 
     @PostMapping("/register")
     public ResponseEntity<RefreshTokenResponse> register(@Valid @RequestBody RegisterRequest request){
         User user = new RegisterRequestToUserMapper().apply(request);
 
-        userService.register(user);
-        JwtSession session = authService.createSession(user);
+        JwtSession session = authService.register(user);
 
         return ResponseEntity
                 .ok()
@@ -44,14 +36,7 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<RefreshTokenResponse> login(@Valid @RequestBody LoginRequest loginRequest){
 
-        User user;
-        if(loginRequest.getUsername() != null){
-            user = userService.findByUsername(loginRequest.getUsername());
-        }else{
-            user = userService.findByEmail(loginRequest.getEmail());
-        }
-
-        JwtSession session = authService.createSession(user);
+        JwtSession session = authService.login(loginRequest);
 
         return ResponseEntity
                 .ok()
@@ -61,9 +46,9 @@ public class AuthController {
 
     @PostMapping("/refresh")
     public ResponseEntity<RefreshTokenResponse> refresh(@CookieValue("refreshToken") String refreshToken){
-        JwtSession newSession = authService.rollingSession(refreshToken);
 
-        if(newSession != null){
+        if(authService.shouldRollSession(refreshToken)){
+            JwtSession newSession = authService.extendSession(refreshToken);
             return ResponseEntity
                     .ok()
                     .header(HttpHeaders.SET_COOKIE,newSession.cookie().toString())
@@ -71,6 +56,15 @@ public class AuthController {
         }else{
             return ResponseEntity.ok(authService.refresh(refreshToken));
         }
+    }
 
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(@CookieValue("refreshToken") String refreshToken){
+        ResponseCookie expiredCookie = authService.deleteSession(refreshToken);
+
+        return ResponseEntity
+                .ok()
+                .header(HttpHeaders.SET_COOKIE,expiredCookie.toString())
+                .build();
     }
 }

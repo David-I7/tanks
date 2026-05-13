@@ -4,7 +4,7 @@ import type RefreshResponseDto from "../dto/RefreshResponseDto";
 
 export default class GoogleLoginRequest extends TanksRequest<RefreshResponseDto> {
   public getPath(): string {
-    return "/auth/login/oauth2/callback/google";
+    return "/auth/oauth2/authorization/google";
   }
 
   public getMethod(): Method {

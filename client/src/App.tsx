@@ -1,14 +1,12 @@
-import { useAuth } from "./context/AuthContext";
-import AuthPage from "./pages/auth/AuthenticationPage";
+import type { ReactNode } from "react";
 
-export default function App() {
-  const { user } = useAuth();
+type AppProps = { children: ReactNode };
 
+export default function App({ children }: AppProps) {
   return (
-    <main className="bg-background font-body text-text-body">
-      {user === undefined && <div>Loading user info...</div>}
-      {user === null && <AuthPage />}
-      {user && <h1>Welcome {user.username}!</h1>}
+    <main className="bg-background font-body text-text-body min-h-screen">
+      {/* <TestPage /> */}
+      {children}
     </main>
   );
 }

@@ -1,18 +1,11 @@
-import { useState } from "react";
-import LoginForm from "./LoginForm";
-import RegisterForm from "./RegisterForm";
+import type { ReactNode } from "react";
 
-export type ActiveForm = "REGISTER" | "LOGIN" | "PARTIAL_REGISTER";
+type AuthPageProps = { children: ReactNode };
 
-export default function AuthPage() {
-  const [activeForm, setActiveForm] = useState<ActiveForm>("LOGIN");
-
+export default function AuthPage({ children }: AuthPageProps) {
   return (
     <div className="p-4 md:p-6 lg:p-8 h-screen min-h-screen grid place-items-center">
-      {activeForm === "LOGIN" && <LoginForm setActiveForm={setActiveForm} />}
-      {activeForm === "REGISTER" && (
-        <RegisterForm setActiveForm={setActiveForm} />
-      )}
+      {children}
     </div>
   );
 }

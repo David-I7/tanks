@@ -9,7 +9,7 @@ export default class RegisterRequest extends TanksRequest<RefreshResponseDto> {
   }
 
   getPath(): string {
-    return "/auth/refresh";
+    return "/auth/register";
   }
 
   getMethod(): Method {
