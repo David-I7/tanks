@@ -1,6 +1,7 @@
 package com.tanks.server.dto.auth;
 
 import com.tanks.server.validation.ValidPassword;
+import com.tanks.server.validation.ValidUsername;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -13,7 +14,7 @@ public class RegisterRequest {
     private String password;
 
     @Size(min = 3,message = "Username must be at least 3 characters long")
-    @NotBlank
+    @ValidUsername
     private String username;
 
     @Email

@@ -18,16 +18,12 @@ import Label from "../../components/form/Label";
 import TextInput from "../../components/form/input/TextInput";
 import Password from "../../components/form/input/Password";
 import Button from "../../components/buttons/Button";
-import LinkButton from "../../components/buttons/LinkButton";
 import Or from "../../components/separators/Or";
 import GoogleLogin from "./GoogleLogin";
-import type { ActiveForm } from "./AuthenticationPage";
+import DefaultLink from "../../components/links/DefaultLink";
+import H1 from "../../components/headings/H1";
 
-type RegisterFormProps = {
-  setActiveForm: (activeForm: ActiveForm) => void;
-};
-
-export default function RegisterForm({ setActiveForm }: RegisterFormProps) {
+export default function RegisterForm() {
   const { handleRegister } = useAuth();
   const [username, setUsername] = useState<string | undefined>(undefined);
   const [password, setPassword] = useState<string | undefined>(undefined);
@@ -39,7 +35,7 @@ export default function RegisterForm({ setActiveForm }: RegisterFormProps) {
   const handleSubmit = (e: SubmitEvent) => {
     e.preventDefault();
 
-    if (!username || !password || !email) return;
+    if (!isValidForm()) return;
 
     const result = registerRequestSchema.safeParse({
       username,
@@ -122,7 +118,7 @@ export default function RegisterForm({ setActiveForm }: RegisterFormProps) {
 
   const handleEmailChange = debounce((e: ChangeEvent<HTMLInputElement>) => {
     const newEmail = e.target.value || undefined;
-    setUsername(newEmail);
+    setEmail(newEmail);
 
     function resetError() {
       setErros({ ...errors, email: null });
@@ -150,8 +146,10 @@ export default function RegisterForm({ setActiveForm }: RegisterFormProps) {
     return (
       password !== undefined &&
       username !== undefined &&
+      email !== undefined &&
       errors.password === null &&
-      errors.username === null
+      errors.username === null &&
+      errors.email === null
     );
   };
 
@@ -170,9 +168,7 @@ export default function RegisterForm({ setActiveForm }: RegisterFormProps) {
   return (
     <Form onSubmit={handleSubmit}>
       <div className="flex flex-col flex-1">
-        <h1 className="text-text-headings font-bold text-4xl text-center py-4 font-headings">
-          Sign Up
-        </h1>
+        <H1 className="text-center py-4">Sign Up</H1>
         <div className="flex flex-col flex-1 justify-between pt-4">
           <div className="flex flex-col">
             <div className="h-25">
@@ -208,20 +204,18 @@ export default function RegisterForm({ setActiveForm }: RegisterFormProps) {
             </div>
           </div>
           <Button
+            type="submit"
             color="primary"
             variant="filled"
-            disabled={isValidForm() ? false : true}
+            disabled={!isValidForm()}
           >
             Sign Up
           </Button>
           <div className="text-xs text-text-disabled mt-4">
             Already have an account?{" "}
-            <LinkButton
-              onClick={() => setActiveForm("LOGIN")}
-              className="text-xs"
-            >
+            <DefaultLink to={"/login"} className="text-xs">
               Log In
-            </LinkButton>
+            </DefaultLink>
           </div>
         </div>
         <Or className="min-h-20" />

@@ -1,4 +1,4 @@
-package com.tanks.server.factories;
+package com.tanks.server.utils;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;

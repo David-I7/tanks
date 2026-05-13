@@ -1,58 +1,5 @@
 @import "tailwindcss";
-.hello {
-  /* =====================================================
-     PRIMARY
-     ===================================================== */
 
-  --color-primary-main: #ebc80e;
-  --color-primary-low: #f6da45;
-  --color-primary-high: #c7a800;
-  --color-on-primary: #000000;
-
-  /* =====================================================
-     SECONDARY
-     ===================================================== */
-
-  --color-secondary-main: #000000;
-  --color-secondary-low: #2b2b2b;
-  --color-secondary-high: #000000;
-  --color-on-secondary: #ffffff;
-
-  /* =====================================================
-     SCROLLBAR
-     ===================================================== */
-
-  --color-scrollbar: rgb(172, 172, 172);
-  --color-scrollbar-hover: rgb(158, 158, 158);
-
-  /* =====================================================
-     BACKGROUND / SURFACE
-     ===================================================== */
-
-  --color-background: #f7f7f7;
-  --color-background-high: #e8e8e8;
-  --color-surface-main: #d8d8d8;
-  --color-surface-high: #dddbdb;
-  --color-surface-inverse: #121212;
-
-  /* =====================================================
-     TEXT
-     ===================================================== */
-
-  --color-text-headings: rgba(0, 0, 0, 0.92);
-  --color-text-body-high: rgba(0, 0, 0, 0.78);
-  --color-text-body: rgba(0, 0, 0, 0.68);
-  --color-text-body-low: rgba(0, 0, 0, 0.55);
-  --color-text-disabled: rgba(0, 0, 0, 0.42);
-
-  /* =====================================================
-     BORDER / DIVIDER
-     ===================================================== */
-
-  --color-divider: rgba(0, 0, 0, 0.12);
-  --color-border-main: rgba(0, 0, 0, 0.16);
-  --color-border-low: rgba(0, 0, 0, 0.28);
-}
 @theme {
   --color-*: initial;
 
@@ -120,6 +67,7 @@
   --color-divider: rgba(0, 0, 0, 0.12);
   --color-border-main: rgba(0, 0, 0, 0.16);
   --color-border-low: rgba(0, 0, 0, 0.28);
+  --color-border-high: rgba(0, 0, 0, 0.5);
 
   /* =====================================================
      TRANSITIONS

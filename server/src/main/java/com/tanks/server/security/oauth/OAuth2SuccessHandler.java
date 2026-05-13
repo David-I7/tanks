@@ -2,7 +2,7 @@ package com.tanks.server.security.oauth;
 
 import com.tanks.server.dto.auth.RefreshTokenResponse;
 import com.tanks.server.entities.User;
-import com.tanks.server.factories.ProblemDetailWriter;
+import com.tanks.server.utils.ProblemDetailWriter;
 import com.tanks.server.model.JwtSession;
 import com.tanks.server.security.services.JwtService;
 import com.tanks.server.services.AuthService;

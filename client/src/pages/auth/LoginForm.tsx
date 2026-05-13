@@ -15,14 +15,10 @@ import Button from "../../components/buttons/Button";
 import Label from "../../components/form/Label";
 import Or from "../../components/separators/Or";
 import GoogleLogin from "./GoogleLogin";
-import LinkButton from "../../components/buttons/LinkButton";
-import type { ActiveForm } from "./AuthenticationPage";
+import DefaultLink from "../../components/links/DefaultLink";
+import H1 from "../../components/headings/H1";
 
-type LoginFormProps = {
-  setActiveForm: (activeForm: ActiveForm) => void;
-};
-
-export default function LoginForm({ setActiveForm }: LoginFormProps) {
+export default function LoginForm() {
   const { handleLogin } = useAuth();
   const [username, setUsername] = useState<string | undefined>(undefined);
   const [password, setPassword] = useState<string | undefined>(undefined);
@@ -147,9 +143,7 @@ export default function LoginForm({ setActiveForm }: LoginFormProps) {
   return (
     <Form onSubmit={handleSubmit}>
       <div className="flex flex-col flex-1">
-        <h1 className="text-text-headings font-bold text-4xl text-center py-4">
-          Login
-        </h1>
+        <H1 className="text-center py-4">Log In</H1>
         <div className="flex flex-col flex-1 justify-between pt-4">
           <div className="flex flex-col">
             <div className="h-25">
@@ -173,17 +167,19 @@ export default function LoginForm({ setActiveForm }: LoginFormProps) {
               />
             </div>
           </div>
-          <Button color="primary" variant="filled" disabled={!isValidForm()}>
+          <Button
+            type="submit"
+            color="primary"
+            variant="filled"
+            disabled={!isValidForm()}
+          >
             Log In
           </Button>
           <div className="text-xs text-text-disabled mt-4">
             Don't have an account?{" "}
-            <LinkButton
-              onClick={() => setActiveForm("REGISTER")}
-              className="text-xs"
-            >
+            <DefaultLink to={"/signup"} className="text-xs">
               Sign Up
-            </LinkButton>
+            </DefaultLink>
           </div>
         </div>
         <Or className="min-h-20" />

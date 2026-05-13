@@ -1,4 +1,4 @@
-package com.tanks.server.factories;
+package com.tanks.server.utils;
 
 import java.util.Random;
 import java.util.UUID;

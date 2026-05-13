@@ -8,10 +8,15 @@ type GoogleLoginProps = {
 };
 
 export default function GoogleLogin({}: GoogleLoginProps) {
-  const {} = useAuth();
+  const { handleGoogleLogin } = useAuth();
 
   return (
-    <Button color="secondary" variant="outline" leftIcon={<Google />}>
+    <Button
+      onClick={() => handleGoogleLogin()}
+      color="secondary"
+      variant="outline"
+      leftIcon={<Google />}
+    >
       Continue with Google
     </Button>
   );

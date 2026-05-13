@@ -1,6 +1,6 @@
 package com.tanks.server.game;
 
-import com.tanks.server.factories.IdFactory;
+import com.tanks.server.utils.IdFactory;
 import org.springframework.stereotype.Component;
 
 import java.util.concurrent.ConcurrentHashMap;

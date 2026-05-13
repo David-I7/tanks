@@ -22,6 +22,7 @@ type AuthContextState = {
   handleLogout: () => Promise<void>;
   handleLogin: (loginRequest: LoginRequestDto) => Promise<void>;
   handleRegister: (registerRequest: RegisterRequestDto) => Promise<void>;
+  handleGoogleLogin(): Promise<void>;
 };
 
 export const AuthContext = createContext<AuthContextState | undefined>(
@@ -112,7 +113,14 @@ const useAuthContext = (): AuthContextState => {
     fetchUser();
   }, []);
 
-  return { user, accessToken, handleLogin, handleLogout, handleRegister };
+  return {
+    user,
+    accessToken,
+    handleGoogleLogin,
+    handleLogin,
+    handleLogout,
+    handleRegister,
+  };
 };
 
 export function useAuth() {

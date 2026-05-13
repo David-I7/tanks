@@ -9,7 +9,7 @@ export default class TanksClient {
 
   constructor() {
     TanksClient.api = axios.create({
-      baseURL: import.meta.env.VITE_BASE_URL.concat("/api/v1"),
+      baseURL: import.meta.env.VITE_BASE_API_URL,
       withCredentials: true,
     });
   }

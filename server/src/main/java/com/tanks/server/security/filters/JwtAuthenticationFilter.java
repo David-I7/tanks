@@ -1,7 +1,7 @@
 package com.tanks.server.security.filters;
 
 import com.tanks.server.exceptions.InvalidJwtException;
-import com.tanks.server.factories.ProblemDetailWriter;
+import com.tanks.server.utils.ProblemDetailWriter;
 import com.tanks.server.security.entities.JwtAuthentication;
 import com.tanks.server.security.mappers.ClaimsToUserDtoMapper;
 import com.tanks.server.security.services.JwtService;
@@ -35,9 +35,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
-        // User is logging in or registering
+        // User is logging in, registering, or logging out.
         if(     request.getServletPath().startsWith("/api/v1/auth/register") ||
                 request.getServletPath().startsWith("/api/v1/auth/login")    ||
+                request.getServletPath().startsWith("/api/v1/auth/logout")    ||
                 request.getServletPath().startsWith("/api/v1/auth/oauth2/authorization") ||
                 request.getServletPath().startsWith("/api/v1/auth/refresh")){
 
