@@ -6,6 +6,9 @@
     <title>Tanks</title>
 </head>
 <body>
-
+    <script th:inline="javascript">
+        const oauth2LoginResponse = [[${oauth2LoginResponse}]]
+        console.log("Entire object:", oauth2LoginResponse);
+    </script>
 </body>
 </html>
