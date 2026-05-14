@@ -1,20 +1,28 @@
 package com.tanks.server.controllers;
 
 import com.tanks.server.dto.auth.LoginRequest;
+import com.tanks.server.dto.auth.OAuth2LoginResponse;
 import com.tanks.server.dto.auth.RefreshTokenResponse;
 import com.tanks.server.dto.auth.RegisterRequest;
 import com.tanks.server.entities.User;
 import com.tanks.server.mappers.user.RegisterRequestToUserMapper;
 import com.tanks.server.model.JwtSession;
 import com.tanks.server.services.AuthService;
+import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
+import lombok.Getter;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
-@RestController
+import java.util.HashMap;
+import java.util.Map;
+
+@Controller
 @RequestMapping("/api/v1/auth")
 @AllArgsConstructor
 public class AuthController {
@@ -66,5 +74,14 @@ public class AuthController {
                 .ok()
                 .header(HttpHeaders.SET_COOKIE,expiredCookie.toString())
                 .build();
+    }
+
+    @GetMapping("/login/oauth2/response")
+    public String oauth2LoginResponse(Model model, HttpSession session){
+        OAuth2LoginResponse response = (OAuth2LoginResponse) session.getAttribute("oauth2LoginResponse");
+
+        model.addAttribute("oauth2LoginResponse",response);
+
+        return "OAuth2LoginResponse";
     }
 }

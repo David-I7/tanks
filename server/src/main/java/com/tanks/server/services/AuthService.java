@@ -5,9 +5,14 @@ import com.tanks.server.dto.auth.RefreshTokenResponse;
 import com.tanks.server.entities.User;
 import com.tanks.server.model.JwtSession;
 import lombok.AllArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.util.Objects;
 
 
 @Service
@@ -17,6 +22,8 @@ public class AuthService {
     private UserService userService;
 
     private JwtSessionService jwtSessionService;
+
+    private PasswordEncoder passwordEncoder;
 
     @Transactional
     public JwtSession register(User user) {
@@ -46,6 +53,10 @@ public class AuthService {
             user = userService.findByUsername(loginRequest.getUsername());
         }else{
             user = userService.findByEmail(loginRequest.getEmail());
+        }
+
+        if (!Objects.equals(passwordEncoder.encode(loginRequest.getPassword()), user.getPassword())){
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Incorrect password");
         }
 
         return jwtSessionService.createSession(user);
