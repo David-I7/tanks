@@ -1,35 +1,38 @@
 package com.tanks.server.controllers;
 
-import com.tanks.server.dto.auth.LoginRequest;
-import com.tanks.server.dto.auth.OAuth2LoginResponse;
-import com.tanks.server.dto.auth.RefreshTokenResponse;
-import com.tanks.server.dto.auth.RegisterRequest;
+import com.tanks.server.dto.auth.*;
 import com.tanks.server.entities.User;
 import com.tanks.server.mappers.user.RegisterRequestToUserMapper;
 import com.tanks.server.model.JwtSession;
 import com.tanks.server.services.AuthService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.env.Environment;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.util.UriComponentsBuilder;
 
-import java.util.HashMap;
-import java.util.Map;
 
 @Controller
 @RequestMapping("/api/v1/auth")
-@AllArgsConstructor
 public class AuthController {
 
     private AuthService authService;
 
-    @PostMapping("/register")
+    @Value("${app.isDev:false}")
+    private boolean isDev;
+
+    public AuthController(AuthService authService){
+        this.authService = authService;
+    }
+
+    @PostMapping("/register/password")
     public ResponseEntity<RefreshTokenResponse> register(@Valid @RequestBody RegisterRequest request){
         User user = new RegisterRequestToUserMapper().apply(request);
 
@@ -41,10 +44,32 @@ public class AuthController {
                 .body(new RefreshTokenResponse(session.accessToken(),session.userDto()));
     }
 
-    @PostMapping("/login")
+    @PostMapping("/register/postOAuth2")
+    public ResponseEntity<RefreshTokenResponse> postOAuth2Register(@Valid @RequestBody PostOAuth2RegisterRequest request){
+
+        JwtSession session = authService.postOAuth2Register(request);
+
+        return ResponseEntity
+                .ok()
+                .header(HttpHeaders.SET_COOKIE,session.cookie().toString())
+                .body(new RefreshTokenResponse(session.accessToken(),session.userDto()));
+    }
+
+    @PostMapping("/login/password")
     public ResponseEntity<RefreshTokenResponse> login(@Valid @RequestBody LoginRequest loginRequest){
 
         JwtSession session = authService.login(loginRequest);
+
+        return ResponseEntity
+                .ok()
+                .header(HttpHeaders.SET_COOKIE,session.cookie().toString())
+                .body(new RefreshTokenResponse(session.accessToken(),session.userDto()));
+    }
+
+    @PostMapping("/login/postOAuth2")
+    public ResponseEntity<RefreshTokenResponse> postOAuth2Login(@Valid @RequestBody PostOAuth2LoginRequest loginRequest){
+
+        JwtSession session = authService.postOAuth2Login(loginRequest);
 
         return ResponseEntity
                 .ok()
@@ -77,10 +102,26 @@ public class AuthController {
     }
 
     @GetMapping("/login/oauth2/response")
-    public String oauth2LoginResponse(Model model, HttpSession session){
+    public String oauth2LoginResponse(Model model, HttpSession session, HttpServletRequest request, Environment environment){
         OAuth2LoginResponse response = (OAuth2LoginResponse) session.getAttribute("oauth2LoginResponse");
-
         model.addAttribute("oauth2LoginResponse",response);
+
+        if(isDev){
+            String clientOrigin = environment.getProperty("clientOrigin");
+            model.addAttribute("origin",clientOrigin);
+        }else{
+            String origin = UriComponentsBuilder.newInstance()
+                    .scheme(request.getScheme())
+                    .host(request.getServerName())
+                    .port(
+                            (request.getServerPort() == 80 || request.getServerPort() == 443)
+                                    ? null
+                                    : request.getServerPort()
+                    )
+                    .build()
+                    .toUriString();
+            model.addAttribute("origin",origin);
+        }
 
         return "OAuth2LoginResponse";
     }

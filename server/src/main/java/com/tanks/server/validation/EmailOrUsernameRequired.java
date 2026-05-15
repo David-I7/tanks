@@ -12,7 +12,7 @@ import java.lang.annotation.Target;
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
 public @interface EmailOrUsernameRequired {
-    String message() default "Either email or username must be provided";
+    String message() default "Either email or username must be provided.";
     Class<?>[] groups() default {};
     Class<? extends Payload>[] payload() default {};
 }

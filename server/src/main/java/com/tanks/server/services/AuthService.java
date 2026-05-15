@@ -1,9 +1,14 @@
 package com.tanks.server.services;
 
 import com.tanks.server.dto.auth.LoginRequest;
+import com.tanks.server.dto.auth.PostOAuth2LoginRequest;
+import com.tanks.server.dto.auth.PostOAuth2RegisterRequest;
 import com.tanks.server.dto.auth.RefreshTokenResponse;
 import com.tanks.server.entities.User;
+import com.tanks.server.exceptions.InvalidJwtException;
 import com.tanks.server.model.JwtSession;
+import com.tanks.server.security.services.JwtService;
+import io.jsonwebtoken.Claims;
 import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
@@ -22,6 +27,8 @@ public class AuthService {
     private UserService userService;
 
     private JwtSessionService jwtSessionService;
+
+    private JwtService jwtService;
 
     private PasswordEncoder passwordEncoder;
 
@@ -65,5 +72,34 @@ public class AuthService {
     public ResponseCookie deleteSession(String refreshToken){
         jwtSessionService.revokeRefreshToken(refreshToken);
         return jwtSessionService.expireRefreshCookie(refreshToken);
+    }
+
+    public JwtSession postOAuth2Login(PostOAuth2LoginRequest loginRequest){
+        try {
+            Claims claims = jwtService.parseClaims(loginRequest.getToken());
+            String email = claims.getSubject();
+            User user = userService.findByEmail(email);
+            return jwtSessionService.createSession(user);
+        }catch (InvalidJwtException e){
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, e.getMessage());
+        }
+    }
+
+    public JwtSession postOAuth2Register(PostOAuth2RegisterRequest registerRequest){
+        try{
+            Claims claims = jwtService.parseClaims(registerRequest.getToken());
+            String email = claims.getSubject();
+            User user  = User.builder()
+                    .email(email)
+                    .username(registerRequest.getUsername())
+                    .build();
+
+            userService.register(user);
+
+            return jwtSessionService.createSession(user);
+
+        }catch (InvalidJwtException e){
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,e.getMessage());
+        }
     }
 }

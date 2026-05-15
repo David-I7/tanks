@@ -55,13 +55,6 @@ public class SecurityConfig {
                     ;
                 })
                 .sessionManagement(session->session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .exceptionHandling(ex -> ex
-                        .authenticationEntryPoint(
-                                (request, response, authException) -> {
-                                    response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
-                                }
-                        )
-                )
                 .build();
     }
 
