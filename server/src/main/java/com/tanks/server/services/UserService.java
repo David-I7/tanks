@@ -49,4 +49,8 @@ public class UserService {
                 .orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND));
     }
 
+    public boolean existsByUsername(String username){
+        return repository.existsByUsername(username);
+    }
+
 }

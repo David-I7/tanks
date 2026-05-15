@@ -8,7 +8,8 @@
 <body>
     <script th:inline="javascript">
         const oauth2LoginResponse = [[${oauth2LoginResponse}]]
-        console.log("Entire object:", oauth2LoginResponse);
+        const origin = [[${origin}}]]
+        window.postMessage(oauth2LoginResponse,origin);
     </script>
 </body>
 </html>

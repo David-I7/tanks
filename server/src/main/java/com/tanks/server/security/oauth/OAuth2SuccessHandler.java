@@ -50,7 +50,7 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
 
         try{
             User user = userService.findByEmail(email);
-            String token = jwtService.generateToken(user.getId().toString(), Map.of(),OAUTH2_SUCCESS_TOKEN_EXPIRATION_DURATION_MS);
+            String token = jwtService.generateToken(user.getEmail(), Map.of(),OAUTH2_SUCCESS_TOKEN_EXPIRATION_DURATION_MS);
             request.getSession().setAttribute("oauth2LoginResponse",new OAuth2LoginResponse(OAuth2LoginResponseType.OAUTH2_SUCCESS,token));
             request.getRequestDispatcher("/api/v1/auth/login/oauth2/response").forward(request,response);
         }catch (ResponseStatusException ex){

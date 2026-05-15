@@ -9,6 +9,9 @@ import java.util.Optional;
 
 public interface UserRepository extends CrudRepository<User,Long> {
 
+    @Query("SELECT COUNT(u) > 0 FROM User u WHERE u.username = :username")
+    boolean existsByUsername(@Param("username") String username);
+
     @Query("SELECT u FROM User u WHERE u.username = :username or u.email = :email")
     Optional<User> findByUsernameOrEmail(@Param("username") String username,@Param("email") String email);
 

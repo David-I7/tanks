@@ -7,7 +7,7 @@ import jakarta.validation.ConstraintValidatorContext;
 public class EmailOrUsernameValidator implements ConstraintValidator<EmailOrUsernameRequired, LoginRequest> {
     @Override
     public boolean isValid(LoginRequest value, ConstraintValidatorContext constraintValidatorContext) {
-        if (value == null) {return false;}
+        if (value == null) return false;
 
         return value.getEmail() != null || value.getUsername() != null;
     }
