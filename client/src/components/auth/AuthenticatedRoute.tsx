@@ -16,7 +16,7 @@ export default function AuthenticatedRoute({
   }
 
   if (user === null) {
-    return <Navigate to={"/"} />;
+    return <Navigate to={"/login"} />;
   }
 
   return children;

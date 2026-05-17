@@ -37,7 +37,7 @@ export default class TanksClient {
         throw new ApiError(err.response.data, err.response.status!);
       }
 
-      throw new NetworkError("Failed to fetch the resource");
+      throw new NetworkError("Failed to fetch the resource. Are you online?");
     }
   }
 }

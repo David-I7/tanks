@@ -7,9 +7,9 @@
 </head>
 <body>
     <script th:inline="javascript">
-        const oauth2LoginResponse = [[${oauth2LoginResponse}]]
-        const origin = [[${origin}}]]
-        window.postMessage(oauth2LoginResponse,origin);
+        const oauth2LoginResponse = [[${oauth2LoginResponse}]];
+        const origin = [[${origin}]];
+        window.opener.postMessage(oauth2LoginResponse,origin);
     </script>
 </body>
 </html>

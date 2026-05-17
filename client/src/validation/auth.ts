@@ -10,12 +10,9 @@ export const usernameSchema = z
 
 export const emailSchema = z.email("Invalid email address");
 
-export const passwordSchema = z
-  .string()
-  .regex(/^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[a-zA-Z]).{8,}$/, {
-    message:
-      "Password must be at least 8 characters long and include uppercase, lowercase, and a digit character.",
-  });
+export const passwordSchema = z.string().min(8, {
+  message: "Password must be at least 8 characters long.",
+});
 
 export const loginRequestSchema = z.object({
   username: usernameSchema.optional(),

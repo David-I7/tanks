@@ -9,12 +9,17 @@ import TanksClient from "../api/http/TanksClient";
 import { ApiError } from "../errors/ApiError";
 import LogoutRequest from "../api/http/requests/LogoutRequest";
 import type User from "../api/http/dto/UserDto";
-import GoogleLoginRequest from "../api/http/requests/GoogleLoginRequest";
 import type LoginRequestDto from "../api/http/dto/LoginRequestDto";
 import LoginRequest from "../api/http/requests/LoginRequest";
 import RegisterRequest from "../api/http/requests/RegisterRequest";
 import type RegisterRequestDto from "../api/http/dto/RegisterRequestDto";
 import RefreshRequest from "../api/http/requests/RefreshRequest";
+import type PostOauth2LoginRequestDto from "../api/http/dto/PostOauth2LoginRequestDto";
+import PostOauth2LoginRequest from "../api/http/requests/PostOAuth2LoginRequest";
+import type PostOauth2RegisterRequestDto from "../api/http/dto/PostOauth2RegisterRequestDto";
+import PostOauth2RegisterRequest from "../api/http/requests/PostOauth2RegisterRequest";
+import type { TanksRequest } from "../api/http/requests/TanksRequest";
+import type RefreshResponseDto from "../api/http/dto/RefreshResponseDto";
 
 type AuthContextState = {
   user: User | undefined | null;
@@ -22,7 +27,10 @@ type AuthContextState = {
   handleLogout: () => Promise<void>;
   handleLogin: (loginRequest: LoginRequestDto) => Promise<void>;
   handleRegister: (registerRequest: RegisterRequestDto) => Promise<void>;
-  handleGoogleLogin(): Promise<void>;
+  handlePostOAuth2Register(
+    registerRequest: PostOauth2RegisterRequestDto,
+  ): Promise<void>;
+  handlePostOAuth2Login(loginRequest: PostOauth2LoginRequestDto): Promise<void>;
 };
 
 export const AuthContext = createContext<AuthContextState | undefined>(
@@ -33,49 +41,40 @@ const useAuthContext = (): AuthContextState => {
   const [user, setUser] = useState<AuthContextState["user"]>(undefined);
   const [accessToken, setAccessToken] = useState<string | null>(null);
 
-  async function handleLogin(loginRequest: LoginRequestDto) {
+  const tanksClient = new TanksClient();
+
+  async function handleFormAuthentication(
+    request: TanksRequest<RefreshResponseDto>,
+  ) {
     try {
-      const { user, accessToken: token } = await new TanksClient().send(
-        new LoginRequest(loginRequest),
-      );
+      const { user, accessToken: token } = await tanksClient.send(request);
 
       TanksClient.setAccessToken(token);
-      setAccessToken(token);
       setUser(user);
+      setAccessToken(token);
     } catch (err) {
       setAccessToken(null);
       setUser(null);
+      throw err;
     }
+  }
+
+  async function handleLogin(loginRequest: LoginRequestDto) {
+    await handleFormAuthentication(new LoginRequest(loginRequest));
   }
 
   async function handleRegister(registerRequest: RegisterRequestDto) {
-    try {
-      const { user, accessToken: token } = await new TanksClient().send(
-        new RegisterRequest(registerRequest),
-      );
-
-      TanksClient.setAccessToken(token);
-      setAccessToken(token);
-      setUser(user);
-    } catch (err) {
-      setAccessToken(null);
-      setUser(null);
-    }
+    await handleFormAuthentication(new RegisterRequest(registerRequest));
   }
 
-  async function handleGoogleLogin() {
-    try {
-      const { user, accessToken: token } = await new TanksClient().send(
-        new GoogleLoginRequest(),
-      );
+  async function handlePostOAuth2Login(request: PostOauth2LoginRequestDto) {
+    await handleFormAuthentication(new PostOauth2LoginRequest(request));
+  }
 
-      TanksClient.setAccessToken(token);
-      setAccessToken(token);
-      setUser(user);
-    } catch (err) {
-      setAccessToken(null);
-      setUser(null);
-    }
+  async function handlePostOAuth2Register(
+    request: PostOauth2RegisterRequestDto,
+  ) {
+    await handleFormAuthentication(new PostOauth2RegisterRequest(request));
   }
 
   async function handleLogout() {
@@ -99,14 +98,8 @@ const useAuthContext = (): AuthContextState => {
         setAccessToken(response.accessToken);
         setUser(response.user);
       } catch (err) {
-        if (err instanceof ApiError) {
-          if (err.status === 401) {
-            setAccessToken(null);
-            setUser(null);
-          }
-        } else {
-          throw err;
-        }
+        setAccessToken(null);
+        setUser(null);
       }
     }
 
@@ -116,7 +109,8 @@ const useAuthContext = (): AuthContextState => {
   return {
     user,
     accessToken,
-    handleGoogleLogin,
+    handlePostOAuth2Login,
+    handlePostOAuth2Register,
     handleLogin,
     handleLogout,
     handleRegister,

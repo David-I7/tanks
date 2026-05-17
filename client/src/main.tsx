@@ -7,11 +7,11 @@ import App from "./App";
 import AuthProvider from "./context/AuthContext";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import HomePage from "./pages/home/HomePage";
-import AuthPage from "./pages/auth/AuthenticationPage";
-import LoginForm from "./pages/auth/LoginForm";
-import RegisterForm from "./pages/auth/RegisterForm";
 import UnauthenticatedRoute from "./components/auth/UnauthenticatedRoute";
 import AuthenticatedRoute from "./components/auth/AuthenticatedRoute";
+import LobbyPage from "./pages/lobby/LobbyPage";
+import LoginPage from "./pages/login/LoginPage";
+import RegisterPage from "./pages/register/RegisterPage";
 
 const router = createBrowserRouter([
   { path: "/", element: <HomePage /> },
@@ -19,9 +19,7 @@ const router = createBrowserRouter([
     path: "/login",
     element: (
       <UnauthenticatedRoute>
-        <AuthPage>
-          <LoginForm />
-        </AuthPage>
+        <LoginPage />
       </UnauthenticatedRoute>
     ),
   },
@@ -29,17 +27,15 @@ const router = createBrowserRouter([
     path: "/signup",
     element: (
       <UnauthenticatedRoute>
-        <AuthPage>
-          <RegisterForm />
-        </AuthPage>
+        <RegisterPage />
       </UnauthenticatedRoute>
     ),
   },
   {
-    path: "/lobby",
+    path: "/lobby/:id",
     element: (
       <AuthenticatedRoute>
-        <div>Lobby</div>
+        <LobbyPage />
       </AuthenticatedRoute>
     ),
   },

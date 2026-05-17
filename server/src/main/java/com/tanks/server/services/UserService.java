@@ -36,21 +36,16 @@ public class UserService {
 
     public User findById(Long id){
         return repository.findById(id)
-                .orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND));
+                .orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND,"User with id '"+ id + "' does not exist."));
     }
 
     public User findByUsername(String username){
         return repository.findByUsername(username)
-                .orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND));
+                .orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND,"User with username '"+ username + "' does not exist."));
     }
 
     public User findByEmail(String email){
         return repository.findByEmail(email)
-                .orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND));
+                .orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND,"User with email '"+ email + "' does not exist."));
     }
-
-    public boolean existsByUsername(String username){
-        return repository.existsByUsername(username);
-    }
-
 }
