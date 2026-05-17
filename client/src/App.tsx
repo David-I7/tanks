@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import TestPage from "./pages/test/TestPage";
 
 type AppProps = { children: ReactNode };
 

@@ -1,8 +1,8 @@
 import type React from "react";
-import type { JSX, MouseEvent, ReactElement, ReactNode } from "react";
+import type { JSX, MouseEvent, ReactNode } from "react";
 import { twMerge } from "tailwind-merge";
 
-type ButtonProps = {
+export type ButtonProps = {
   onClick?: (e: MouseEvent) => void;
   children: ReactNode;
   type?: React.ButtonHTMLAttributes<HTMLButtonElement>["type"];

@@ -1,16 +1,18 @@
 import React, { useEffect, useRef, useState } from "react";
-import Button from "../../components/buttons/Button";
 import GoogleLoginRequest from "../../api/http/requests/GoogleLoginRequest";
+import Button from "../../components/buttons/Button";
+import type OAuth2LoginResponseDto from "../../api/http/dto/OAuth2LoginResponseDto";
+
+const ORIGIN = import.meta.env.VITE_BASE_API_URL.concat(
+  new GoogleLoginRequest().getPath(),
+);
 
 export default function TestPage() {
   const popup = useRef<WindowProxy>(null);
   const [isOpen, setIsOpen] = useState<boolean>(false);
 
   const handlePopupOpen = () => {
-    const googleLoginRequest = new GoogleLoginRequest();
-    const URL = import.meta.env.VITE_BASE_API_URL.concat(
-      googleLoginRequest.getPath(),
-    );
+    const URL = "https://example.com";
     popup.current = window.open(URL, "", "");
     setIsOpen(true);
   };
@@ -40,19 +42,19 @@ export default function TestPage() {
     window.addEventListener(
       "message",
       (e) => {
-        console.log("hello");
         if (!(origin === e.origin)) return;
-        //if (!(e.data?.source === "graph calculator")) return;
-        console.log(e);
 
         cleanupPopupPoll();
-        //if(popup.current?.origin)
         popup.current?.close();
         popup.current = null;
-        if (e.data.type === "oauth_success") {
+
+        const response: OAuth2LoginResponseDto = e.data;
+
+        if (response.type === "OAUTH2_SUCCESS") {
           // register user
-        } else {
+        } else if (response.type === "OAUTH2_PARTIAL") {
           setIsOpen(false);
+        } else {
         }
       },
       { signal: abortController.signal },

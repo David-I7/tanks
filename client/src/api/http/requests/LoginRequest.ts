@@ -9,7 +9,7 @@ export default class LoginRequest extends TanksRequest<RefreshResponse> {
   }
 
   getPath(): string {
-    return "/auth/login";
+    return "/auth/login/password";
   }
 
   getMethod(): Method {

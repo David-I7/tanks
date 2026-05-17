@@ -1,15 +1,19 @@
 import type { AxiosHeaders, Method } from "axios";
+import type PostOauth2RegisterRequestDto from "../dto/PostOauth2RegisterRequestDto";
 import { TanksRequest } from "./TanksRequest";
 import type RefreshResponseDto from "../dto/RefreshResponseDto";
-import type RegisterRequestDto from "../dto/RegisterRequestDto";
 
-export default class RegisterRequest extends TanksRequest<RefreshResponseDto> {
-  constructor(private requestBody: RegisterRequestDto) {
+export default class PostOauth2RegisterRequest extends TanksRequest<RefreshResponseDto> {
+  constructor(private body: PostOauth2RegisterRequestDto) {
     super();
   }
 
+  getBody(): any {
+    return this.body;
+  }
+
   getPath(): string {
-    return "/auth/register/password";
+    return "/auth/register/postOAuth2";
   }
 
   getMethod(): Method {
@@ -18,9 +22,5 @@ export default class RegisterRequest extends TanksRequest<RefreshResponseDto> {
 
   getHeaders(): AxiosHeaders[""] | undefined {
     return { "content-type": "application/json" };
-  }
-
-  getBody() {
-    return this.requestBody;
   }
 }

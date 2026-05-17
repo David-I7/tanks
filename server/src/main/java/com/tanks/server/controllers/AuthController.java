@@ -5,11 +5,11 @@ import com.tanks.server.entities.User;
 import com.tanks.server.mappers.user.RegisterRequestToUserMapper;
 import com.tanks.server.model.JwtSession;
 import com.tanks.server.services.AuthService;
+import jakarta.annotation.PostConstruct;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.env.Environment;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
@@ -28,8 +28,12 @@ public class AuthController {
     @Value("${app.isDev:false}")
     private boolean isDev;
 
+    @Value("${app.client.origin}")
+    private String clientOrigin;
+
     public AuthController(AuthService authService){
         this.authService = authService;
+
     }
 
     @PostMapping("/register/password")
@@ -102,12 +106,11 @@ public class AuthController {
     }
 
     @GetMapping("/login/oauth2/response")
-    public String oauth2LoginResponse(Model model, HttpSession session, HttpServletRequest request, Environment environment){
+    public String oauth2LoginResponse(Model model, HttpSession session, HttpServletRequest request){
         OAuth2LoginResponse response = (OAuth2LoginResponse) session.getAttribute("oauth2LoginResponse");
         model.addAttribute("oauth2LoginResponse",response);
 
         if(isDev){
-            String clientOrigin = environment.getProperty("clientOrigin");
             model.addAttribute("origin",clientOrigin);
         }else{
             String origin = UriComponentsBuilder.newInstance()
