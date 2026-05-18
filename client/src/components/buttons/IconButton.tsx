@@ -3,12 +3,12 @@ import type { MouseEvent, ReactNode } from "react";
 
 type IconButtonProps = {
   onClick?: (e: MouseEvent) => void;
-  children: ReactNode;
+  icon: ReactNode;
   type?: React.ButtonHTMLAttributes<HTMLButtonElement>["type"];
 };
 
 export default function IconButton({
-  children,
+  icon,
   onClick,
   type = "button",
 }: IconButtonProps) {
@@ -18,7 +18,7 @@ export default function IconButton({
       className="cursor-pointer h-10 w-10 grid place-content-center rounded-full"
       onClick={onClick}
     >
-      {children}
+      {icon}
     </button>
   );
 }
