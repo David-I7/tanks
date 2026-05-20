@@ -1,11 +1,8 @@
 package com.tanks.server.security.filters;
 
-import com.tanks.server.exceptions.InvalidJwtException;
+import com.tanks.server.services.AuthService;
 import com.tanks.server.utils.ProblemDetailWriter;
 import com.tanks.server.security.entities.JwtAuthentication;
-import com.tanks.server.security.mappers.ClaimsToUserDtoMapper;
-import com.tanks.server.security.services.JwtService;
-import io.jsonwebtoken.Claims;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -15,6 +12,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
 
@@ -22,14 +20,12 @@ import java.io.IOException;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private String TOKEN_PREFIX = "Bearer ";
 
-    private JwtService jwtService;
-
-    private ClaimsToUserDtoMapper mapper = new ClaimsToUserDtoMapper();
+    private AuthService authService;
 
     private ProblemDetailWriter problemDetailWriter;
 
-    public JwtAuthenticationFilter(JwtService jwtService, ProblemDetailWriter problemDetailWriter){
-        this.jwtService = jwtService;
+    public JwtAuthenticationFilter(AuthService authService, ProblemDetailWriter problemDetailWriter){
+        this.authService = authService;
         this.problemDetailWriter = problemDetailWriter;
     }
 
@@ -40,6 +36,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 request.getServletPath().startsWith("/api/v1/auth/login")    ||
                 request.getServletPath().startsWith("/api/v1/auth/logout")    ||
                 request.getServletPath().startsWith("/api/v1/auth/oauth2/authorization") ||
+                request.getServletPath().startsWith("/ws") ||
                 request.getServletPath().startsWith("/api/v1/auth/refresh")){
 
             filterChain.doFilter(request,response);
@@ -62,10 +59,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String token = authHeader.substring(TOKEN_PREFIX.length());
 
         try{
-            Claims claims = jwtService.parseClaims(token);
-            SecurityContextHolder.getContext().setAuthentication(new JwtAuthentication(mapper.apply(claims)));
-
-        }catch (InvalidJwtException e){
+            SecurityContextHolder.getContext().setAuthentication(new JwtAuthentication(authService.parseUser(token)));
+        }catch (ResponseStatusException e){
             problemDetailWriter.write(request,response,HttpStatus.UNAUTHORIZED, e.getMessage());
             return;
         }

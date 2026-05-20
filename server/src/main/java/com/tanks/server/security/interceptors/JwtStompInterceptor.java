@@ -1,29 +1,34 @@
 package com.tanks.server.security.interceptors;
 
-import com.tanks.server.security.services.JwtService;
-import io.jsonwebtoken.ExpiredJwtException;
-import io.jsonwebtoken.MalformedJwtException;
-import io.jsonwebtoken.security.SignatureException;
-import lombok.AllArgsConstructor;
+import com.tanks.server.exceptions.StompException;
+import com.tanks.server.security.entities.JwtAuthentication;
+import com.tanks.server.services.AuthService;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
-import org.springframework.messaging.MessagingException;
+import org.springframework.messaging.MessageDeliveryException;
 import org.springframework.messaging.simp.stomp.StompCommand;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.messaging.support.ChannelInterceptor;
 import org.springframework.messaging.support.MessageHeaderAccessor;
-import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.net.URI;
 
 @Component
-@AllArgsConstructor
 @Slf4j
 public class JwtStompInterceptor implements ChannelInterceptor {
 
     private final String TOKEN_PREFIX = "Bearer ";
 
-    private final JwtService jwtService;
+    private final AuthService authService;
+
+
+    public JwtStompInterceptor(AuthService authService){
+        this.authService = authService;
+    }
 
     @Override
     public Message<?> preSend(Message<?> message, MessageChannel channel) {
@@ -36,21 +41,17 @@ public class JwtStompInterceptor implements ChannelInterceptor {
             String authHeader = accessor.getFirstNativeHeader("Authorization");
 
             if (authHeader == null || !authHeader.startsWith(TOKEN_PREFIX)) {
-                throw new MessagingException("AUTH_ERROR:MISSING_TOKEN");
+                throw new StompException(HttpStatus.UNAUTHORIZED,"Missing or invalid authorization header.", URI.create("/ws"));
             }
 
             String token = authHeader.substring(TOKEN_PREFIX.length());
 
-//            try{
-//                Authentication authentication = jwtService.validate(token);
-//                accessor.setUser(authentication);
-//            } catch (SignatureException | MalformedJwtException e) {
-//                log.error("Invalid JWT token: {}", e.getMessage());
-//                throw new MessagingException("AUTH_ERROR:INVALID_TOKEN");
-//            } catch (ExpiredJwtException e){
-//                log.error("JWT has expired: {}", e.getMessage());
-//                throw new MessagingException("AUTH_ERROR:EXPIRED_TOKEN");
-//            }
+            try{
+                // set user in the web socket session
+                accessor.setUser(new JwtAuthentication(authService.parseUser(token)));
+            }catch ( ResponseStatusException e){
+                throw new StompException(HttpStatus.UNAUTHORIZED,e.getReason(), URI.create("/ws"));
+            }
 
         }
 

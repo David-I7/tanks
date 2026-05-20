@@ -1,5 +1,6 @@
-package com.tanks.server.controllers;
+package com.tanks.server.controllers.http;
 
+import com.tanks.server.dto.UserDto;
 import com.tanks.server.dto.auth.*;
 import com.tanks.server.entities.User;
 import com.tanks.server.mappers.user.RegisterRequestToUserMapper;
@@ -12,10 +13,13 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponentsBuilder;
+
+import java.security.Principal;
 
 
 @Controller
@@ -32,7 +36,11 @@ public class AuthController {
 
     public AuthController(AuthService authService){
         this.authService = authService;
+    }
 
+    @PostMapping("/status")
+    public ResponseEntity<UserDto> status(Authentication authentication){
+        return ResponseEntity.ok((UserDto)authentication.getPrincipal());
     }
 
     @PostMapping("/register/password")

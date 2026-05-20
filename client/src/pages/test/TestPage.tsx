@@ -1,77 +1,132 @@
-import React, { createContext, useContext, useState } from "react";
-import H1 from "../../components/headings/H1";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useAuth } from "../../context/AuthContext";
+import AuthenticatedRoute from "../../components/auth/AuthenticatedRoute";
+import TanksWSClient from "../../api/ws/TanksWebSocketClient";
+import TextInput from "../../components/form/input/TextInput";
 import Button from "../../components/buttons/Button";
-import IconButton from "../../components/buttons/IconButton";
-import { ArrowLeft } from "lucide-react";
-import StateMachineProvider, {
-  useScreenStack,
-} from "../../context/ScreenStack";
+import type ProblemDetailDto from "../../api/http/dto/ProblemDetailDto";
 
 export default function TestPage() {
-  const screens = {
-    root: <RootState />,
-    onlineMenu: <OnlineMenu />,
-    offlineMenu: <OfflineMenu />,
-  };
   return (
-    <StateMachineProvider screens={screens}>
-      <Layout />
-    </StateMachineProvider>
+    <AuthenticatedRoute>
+      <Layout>
+        <ChatContainer />
+      </Layout>
+    </AuthenticatedRoute>
   );
 }
 
-function Layout() {
-  const { screen } = useScreenStack();
+type PropsWithChildren = {
+  children: ReactNode;
+};
+
+function Layout({ children }: PropsWithChildren) {
   return (
     <div className="p-4 md:p-6 lg:p-8 h-screen min-h-screen grid place-items-center">
-      <div className="bg-surface-high">{screen}</div>
+      <div className="bg-surface-high">{children}</div>
     </div>
   );
 }
 
-function RootState() {
-  const { pushScreen, state } = useScreenStack();
-  const [count, setCount] = useState(state ?? 0);
+type ChatMessageDto = {
+  sender: string;
+  message: string;
+};
+
+function ChatContainer() {
+  const { user, handleRefresh, accessToken } = useAuth();
+  const [messages, setMessages] = useState<ChatMessageDto[]>([]);
+  const client = useRef<TanksWSClient>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    client.current = new TanksWSClient({
+      accessToken: accessToken!,
+      onConnect: (e, client) => {
+        console.log(`On connect: ${e}`);
+
+        client.subscribe("/topic/chat", (message) =>
+          setMessages((prev) => [...prev, JSON.parse(message.body)]),
+        );
+        client.publish({
+          destination: "/topic/chat",
+          body: JSON.stringify({
+            type: "CHAT_JOIN",
+            sender: user!.username,
+            message: `${user!.username} joined the chat`,
+          }),
+        });
+      },
+      onDisconnect: (e) => {
+        console.log(`On disconnect: ${e}`);
+      },
+      onStompError: (e) => {
+        console.log(`On stomp Error: ${e}`);
+        if (
+          e.headers["content-type"] &&
+          e.headers["content-type"] === "application/json"
+        ) {
+          const jsonError: ProblemDetailDto = JSON.parse(e.body);
+          if (jsonError.status === 401) {
+            handleRefresh();
+          }
+          console.log(jsonError);
+        }
+      },
+    });
+
+    return () => {
+      client.current!.disconnect();
+    };
+  }, []);
+
   return (
-    <>
-      <H1 className="text-center py-4">Welcome to Tanks!</H1>
-      <Button onClick={() => pushScreen("onlineMenu", count)} color="primary">
-        Online
-      </Button>
-      <Button
-        onClick={() => pushScreen("offlineMenu", count)}
-        color="secondary"
-      >
-        Offline
-      </Button>
-      <Button color="primary" onClick={() => setCount(count + 1)}>
-        Increment
-      </Button>
-      {count}
-    </>
+    <div className="h-96 overflow-y-auto flex flex-col justify-between">
+      <div>
+        {messages.map((message) => (
+          <ChatMessage username={user!.username} message={message} />
+        ))}
+      </div>
+      <div className="flex min-h-10">
+        <TextInput ref={inputRef} id="chat_message" name="chat" />
+        <Button
+          disabled={inputRef.current?.value !== ""}
+          color="primary"
+          onClick={() => {
+            client.current!.publish({
+              destination: "/topic/chat",
+              body: JSON.stringify({
+                type: "CHAT_MESSAGE",
+                sender: user!.username,
+                message: inputRef.current?.value,
+              }),
+            });
+          }}
+        >
+          Send
+        </Button>
+      </div>
+    </div>
   );
 }
 
-function OnlineMenu() {
-  const { popScreen } = useScreenStack();
-  return (
-    <>
-      <H1 className="text-center py-4">Welcome to Tanks!</H1>
-      <IconButton onClick={() => popScreen()} icon={<ArrowLeft />} />
-      <Button color="primary">Play</Button>
-      <Button color="secondary">Create Private Room</Button>
-    </>
-  );
-}
+type ChatMessageProps = {
+  username: string;
+  message: ChatMessageDto;
+};
 
-function OfflineMenu() {
-  const { popScreen } = useScreenStack();
+function ChatMessage({ username, message }: ChatMessageProps) {
   return (
-    <>
-      <H1 className="text-center py-4">Welcome to Tanks!</H1>
-      <IconButton onClick={() => popScreen()} icon={<ArrowLeft />} />
-      <Button color="primary">Single Player</Button>
-      <Button color="secondary">Two Players</Button>
-    </>
+    <div className={`flex`}>
+      {username === message.sender ? (
+        <div className="text-right">
+          {message.message}: {message.sender}
+        </div>
+      ) : (
+        <div>
+          {message.sender}: {message.message}
+        </div>
+      )}
+    </div>
   );
 }

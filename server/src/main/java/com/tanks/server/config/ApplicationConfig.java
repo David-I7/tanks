@@ -11,7 +11,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 @EnableConfigurationProperties(JwtProperties.class)
 public class ApplicationConfig {
 
-
     @Bean
     public PasswordEncoder passwordEncoder(){
         return new BCryptPasswordEncoder();

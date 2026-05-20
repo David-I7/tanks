@@ -3,7 +3,6 @@ package com.tanks.server.config;
 import com.tanks.server.security.filters.JwtAuthenticationFilter;
 import com.tanks.server.security.oauth.OAuth2SuccessHandler;
 import jakarta.servlet.DispatcherType;
-import jakarta.servlet.http.HttpServletResponse;
 import lombok.AllArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
