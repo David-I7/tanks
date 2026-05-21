@@ -2,7 +2,7 @@ import type { ChangeEvent, RefObject } from "react";
 
 type TextInputProps = {
   onChange?: (e: ChangeEvent<HTMLInputElement>) => void;
-  ref?: RefObject<HTMLInputElement>;
+  ref?: RefObject<HTMLInputElement | null>;
   value?: string;
   error?: boolean;
   errorMessage?: string;

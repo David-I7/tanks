@@ -91,7 +91,7 @@ export default function PostOAuth2RegisterForm({
   };
 
   return (
-    <Form onSubmit={handleSubmit}>
+    <Form className="max-h-80" onSubmit={handleSubmit}>
       <div className="flex flex-col flex-1">
         <H1 className="text-center py-4">Please enter your username</H1>
         {errors.form !== null && (

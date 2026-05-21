@@ -20,6 +20,7 @@ import type PostOauth2RegisterRequestDto from "../api/http/dto/PostOauth2Registe
 import PostOauth2RegisterRequest from "../api/http/requests/PostOauth2RegisterRequest";
 import type { TanksRequest } from "../api/http/requests/TanksRequest";
 import type RefreshResponseDto from "../api/http/dto/RefreshResponseDto";
+import AuthStatusRequest from "../api/http/requests/AuthStatusRequest";
 
 type AuthContextState = {
   user: User | undefined | null;
@@ -31,6 +32,7 @@ type AuthContextState = {
     registerRequest: PostOauth2RegisterRequestDto,
   ): Promise<void>;
   handlePostOAuth2Login(loginRequest: PostOauth2LoginRequestDto): Promise<void>;
+  handleRefresh(): Promise<void>;
 };
 
 export const AuthContext = createContext<AuthContextState | undefined>(
@@ -39,7 +41,8 @@ export const AuthContext = createContext<AuthContextState | undefined>(
 
 const useAuthContext = (): AuthContextState => {
   const [user, setUser] = useState<AuthContextState["user"]>(undefined);
-  const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [accessToken, setAccessToken] =
+    useState<AuthContextState["accessToken"]>(null);
 
   const tanksClient = new TanksClient();
 
@@ -53,8 +56,8 @@ const useAuthContext = (): AuthContextState => {
       setUser(user);
       setAccessToken(token);
     } catch (err) {
-      setAccessToken(null);
       setUser(null);
+      setAccessToken(null);
       throw err;
     }
   }
@@ -89,22 +92,35 @@ const useAuthContext = (): AuthContextState => {
     }
   }
 
-  useEffect(() => {
-    async function fetchUser() {
-      try {
-        const response = await new TanksClient().send(new RefreshRequest());
-
-        TanksClient.setAccessToken(response.accessToken);
-        setAccessToken(response.accessToken);
-        setUser(response.user);
-      } catch (err) {
-        setAccessToken(null);
-        setUser(null);
-      }
+  async function handleRefreshUser() {
+    try {
+      const response = await new TanksClient().send(new RefreshRequest());
+      setUser(response.user);
+      TanksClient.setAccessToken(response.accessToken);
+      setAccessToken(response.accessToken);
+      return response;
+    } catch (err) {
+      setUser(null);
+      setAccessToken(null);
+      TanksClient.setAccessToken("");
+      throw err;
     }
+  }
 
-    fetchUser();
+  TanksClient.setRefreshHandler(handleRefreshUser);
+
+  async function handleRefresh() {
+    try {
+      await handleRefreshUser();
+    } catch (err) {}
+  }
+
+  useEffect(() => {
+    // Fetch user
+    handleRefresh();
   }, []);
+
+  console.log(accessToken !== null, user != null);
 
   return {
     user,
@@ -114,6 +130,7 @@ const useAuthContext = (): AuthContextState => {
     handleLogin,
     handleLogout,
     handleRegister,
+    handleRefresh,
   };
 };
 

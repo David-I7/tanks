@@ -34,7 +34,6 @@ public class JwtSessionService{
 
     private JwtProperties jwtProperties;
 
-
     public JwtSessionService(JwtProperties jwtProperties,JwtService jwtService,RefreshTokenService refreshTokenService){
         this.jwtProperties = jwtProperties;
         this.refreshTokenService = refreshTokenService;
@@ -108,7 +107,7 @@ public class JwtSessionService{
             return session;
 
         } catch (InvalidJwtException e) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,e.getMessage());
         }
     }
 
@@ -129,7 +128,7 @@ public class JwtSessionService{
             Claims claims = jwtService.parseClaims(refreshToken);
             refreshTokenService.revokeById(UUID.fromString((String) claims.get("jti")));
         } catch (InvalidJwtException e) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, e.getMessage());
         }
     }
 
@@ -146,7 +145,7 @@ public class JwtSessionService{
             Claims claims = jwtService.parseClaims(refreshToken);
             return shouldCreateNewSession(claims.get("exp",Long.class));
         } catch (InvalidJwtException e) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,e.getMessage());
         }
     }
 

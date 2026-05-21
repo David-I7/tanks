@@ -7,7 +7,7 @@ import org.springframework.stereotype.Controller;
 @Controller
 public class LobbyController {
 
-    @MessageMapping("/lobby/create")
+    @MessageMapping("/lobby")
     public void createLobby(Authentication authentication){
         System.out.println(authentication);
     }
