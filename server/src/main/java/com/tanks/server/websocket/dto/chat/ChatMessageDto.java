@@ -1,5 +1,6 @@
 package com.tanks.server.websocket.dto.chat;
 
+import com.tanks.server.websocket.validation.ValidChatMessage;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Null;
@@ -12,6 +13,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
+@ValidChatMessage
 public class ChatMessageDto{
 
     @NotNull
