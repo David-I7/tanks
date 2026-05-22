@@ -66,8 +66,6 @@ export default function LoginForm() {
       form: null,
     };
 
-    console.log(loginValidationResult);
-
     if (loginValidationResult.success) {
       try {
         await handleLogin(loginValidationResult.data);

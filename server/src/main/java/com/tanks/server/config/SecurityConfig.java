@@ -34,7 +34,7 @@ public class SecurityConfig {
     @Bean
     SecurityFilterChain httpSecurity(HttpSecurity http){
         return http
-                .csrf(csrf -> csrf.disable())
+                .csrf(csrf -> csrf.ignoringRequestMatchers("/**"))
                 .cors(Customizer.withDefaults())
                 .logout(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth

@@ -120,8 +120,6 @@ const useAuthContext = (): AuthContextState => {
     handleRefresh();
   }, []);
 
-  console.log(accessToken !== null, user != null);
-
   return {
     user,
     accessToken,
