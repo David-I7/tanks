@@ -7,9 +7,10 @@ import com.tanks.server.dto.auth.PostOAuth2RegisterRequest;
 import com.tanks.server.dto.auth.RefreshTokenResponse;
 import com.tanks.server.entities.User;
 import com.tanks.server.exceptions.InvalidJwtException;
-import com.tanks.server.model.JwtSession;
+import com.tanks.server.security.model.JwtSession;
 import com.tanks.server.security.mappers.ClaimsToUserDtoMapper;
 import com.tanks.server.security.services.JwtService;
+import com.tanks.server.security.services.JwtSessionService;
 import io.jsonwebtoken.Claims;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
@@ -17,8 +18,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
-
-import java.util.Objects;
 
 
 @Service
@@ -67,7 +66,7 @@ public class AuthService {
             user = userService.findByEmail(loginRequest.getEmail());
         }
 
-        if (!Objects.equals(passwordEncoder.encode(loginRequest.getPassword()), user.getPassword())){
+        if (!passwordEncoder.matches(loginRequest.getPassword(),user.getPassword())){
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Incorrect password");
         }
 

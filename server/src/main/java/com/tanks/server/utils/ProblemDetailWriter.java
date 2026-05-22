@@ -1,6 +1,6 @@
 package com.tanks.server.utils;
 
-import com.tanks.server.exceptions.StompException;
+import com.tanks.server.websocket.exceptions.StompException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.AllArgsConstructor;

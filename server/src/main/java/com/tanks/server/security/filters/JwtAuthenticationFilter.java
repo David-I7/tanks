@@ -2,7 +2,7 @@ package com.tanks.server.security.filters;
 
 import com.tanks.server.services.AuthService;
 import com.tanks.server.utils.ProblemDetailWriter;
-import com.tanks.server.security.entities.JwtAuthentication;
+import com.tanks.server.security.model.JwtAuthentication;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;

@@ -20,6 +20,7 @@ export default class TanksWSClient {
   constructor(activateRequest: ActivateRequest) {
     this.client = new Client({
       brokerURL: import.meta.env.VITE_BASE_WEBSOCKETS_URL,
+      reconnectDelay: 0,
       connectHeaders: {
         Authorization: `Bearer ${activateRequest.accessToken}`,
       },
