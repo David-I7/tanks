@@ -55,12 +55,12 @@ public class JwtService {
                     .build()
                     .parseSignedClaims(token)
                     .getPayload();
-        }catch (JwtException e){
+        }catch (Exception e){
             throw mapToInvalidJwtException(e);
         }
     }
 
-    private InvalidJwtException mapToInvalidJwtException(JwtException e){
+    private InvalidJwtException mapToInvalidJwtException(Exception e){
         String message;
         if ( e instanceof MalformedJwtException){
             message = "Malformed jwt token";

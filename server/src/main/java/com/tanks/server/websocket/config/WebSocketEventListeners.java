@@ -2,7 +2,8 @@ package com.tanks.server.websocket.config;
 
 import com.tanks.server.dto.UserDto;
 import com.tanks.server.security.model.JwtAuthentication;
-import com.tanks.server.websocket.dto.chat.ChatMessageDto;
+import com.tanks.server.websocket.dto.chat.ChatMessageRequestDto;
+import com.tanks.server.websocket.dto.chat.ChatMessageResponseDto;
 import com.tanks.server.websocket.dto.chat.ChatMessageType;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,7 +31,7 @@ public class WebSocketEventListeners {
         if(accessor.getUser() != null) {
             UserDto user = (UserDto) ((JwtAuthentication) accessor.getUser()).getPrincipal();
 
-            ChatMessageDto message = ChatMessageDto.builder()
+            ChatMessageResponseDto message = ChatMessageResponseDto.builder()
                     .message(user.username() + " left the chat")
                     .type(ChatMessageType.DISCONNECT)
                     .sender(user.username())

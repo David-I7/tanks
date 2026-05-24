@@ -1,6 +1,7 @@
 package com.tanks.server.websocket.controllers;
 
-import com.tanks.server.websocket.dto.chat.ChatMessageDto;
+import com.tanks.server.websocket.dto.chat.ChatMessageRequestDto;
+import com.tanks.server.websocket.dto.chat.ChatMessageResponseDto;
 import jakarta.validation.Valid;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.SendTo;
@@ -13,10 +14,15 @@ public class ChatController {
 
     @MessageMapping("/chat/send")
     @SendTo("/topic/chat")
-    public ChatMessageDto sendMessage(@Valid ChatMessageDto chatMessage, Principal principal){
-        chatMessage.setSender(principal.getName());
+    public ChatMessageResponseDto sendMessage(@Valid ChatMessageRequestDto chatMessage, Principal principal){
 
-        return chatMessage;
+        ChatMessageResponseDto responseDto = ChatMessageResponseDto.builder()
+                .type(chatMessage.getType())
+                .message(chatMessage.getMessage())
+                .sender(principal.getName())
+                .build();
+
+        return responseDto;
     }
 
 }
