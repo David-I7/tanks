@@ -6,10 +6,10 @@ import jakarta.validation.Payload;
 import java.lang.annotation.*;
 
 @Documented
-@Constraint(validatedBy = ChatMessageDtoValidator.class)
+@Constraint(validatedBy = ChatMessageRequestDtoValidator.class)
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
-public @interface ValidChatMessage {
+public @interface ValidChatMessageRequestDto {
 
     String message() default "Invalid chat message";
 
