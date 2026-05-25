@@ -8,10 +8,10 @@ type AuthenticatedRouteProps = {
 export default function AuthenticatedRoute({
   children,
 }: AuthenticatedRouteProps) {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
 
   // loading
-  if (user === undefined) {
+  if (loading) {
     return <div>Loading User...</div>;
   }
 

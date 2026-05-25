@@ -1,12 +1,14 @@
-package com.tanks.server.controllers;
+package com.tanks.server.websocket.controllers;
 
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.messaging.handler.annotation.MessageMapping;
+import org.springframework.security.core.Authentication;
+import org.springframework.stereotype.Controller;
 
-@RestController
-@RequestMapping("/api/lobbies")
+@Controller
 public class LobbyController {
 
-
-
+    @MessageMapping("/lobby")
+    public void createLobby(Authentication authentication){
+        System.out.println(authentication);
+    }
 }
