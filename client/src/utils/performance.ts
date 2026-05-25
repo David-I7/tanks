@@ -43,10 +43,10 @@ export function throttle<T>(cb: (...args: T[]) => void, delayMS: number) {
     cancel: () => {
       if (timeoutId !== null) {
         clearTimeout(timeoutId);
-        shouldWait = false;
-        timeoutId = null;
-        waitingArgs = null;
       }
+      shouldWait = false;
+      timeoutId = null;
+      waitingArgs = null;
     },
   };
 }

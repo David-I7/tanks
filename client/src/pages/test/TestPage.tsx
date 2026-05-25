@@ -5,7 +5,7 @@ import TanksWSClient from "../../api/ws/TanksWebSocketClient";
 import TextInput from "../../components/form/input/TextInput";
 import Button from "../../components/buttons/Button";
 import type ProblemDetailDto from "../../api/http/dto/ProblemDetailDto";
-import { debounce } from "../../utils/performance";
+import { debounce, throttle } from "../../utils/performance";
 
 export default function TestPage() {
   return (
@@ -29,11 +29,17 @@ function Layout({ children }: PropsWithChildren) {
   );
 }
 
-type ChatMessageDto = {
-  sender: string | null;
-  message: string | null;
-  type: "MESSAGE" | "TYPING" | "DISCONNECT" | "CONNECT";
+type HeadersOnlyMessageDto = {
+  type: "TYPING" | "DISCONNECT" | "CONNECT";
 };
+
+type MessageDto = {
+  type: "MESSAGE";
+  message: string;
+};
+
+type ChatMessageRequestDto = HeadersOnlyMessageDto | MessageDto;
+type ChatMessageResponseDto = ChatMessageRequestDto & { sender: string };
 
 const testMessages = [
   { type: "CONNECT", sender: "me", message: `You've connected` },
@@ -41,20 +47,21 @@ const testMessages = [
   { type: "MESSAGE", sender: "other", message: `How are you?` },
 ];
 
-const debounceTyping = debounce((client: TanksWSClient) => {
+const throttleTyping = throttle((client: TanksWSClient) => {
   client.publish({
-    destination: "/app/chat/send",
-    body: JSON.stringify({
+    destination: "/app/chat/:id/send",
+    body: {
       type: "TYPING",
-      sender: null,
-      message: "typing",
-    } as ChatMessageDto),
+    },
   });
 }, 500).fn;
 
 function ChatContainer() {
-  const { user, handleRefresh, accessToken } = useAuth();
-  const [messages, setMessages] = useState<ChatMessageDto[]>([]);
+  const { user } = useAuth();
+
+  if (user == null) throw new Error("User has not been authenticated");
+
+  const [messages, setMessages] = useState<ChatMessageResponseDto[]>([]);
   const client = useRef<TanksWSClient>(null);
   const [message, setMessage] = useState<string>("");
   const [typingUser, setTypingUser] = useState<string | null>(null);
@@ -62,61 +69,62 @@ function ChatContainer() {
   useEffect(() => {
     const typingTimeout = debounce(() => {
       setTypingUser(null);
-    }, 5000);
+    }, 1000);
 
-    client.current = new TanksWSClient({
-      accessToken: accessToken!,
-      onConnect: (e, client) => {
-        console.log(`On connect: ${e}`);
+    client.current = new TanksWSClient();
 
-        client.subscribe("/topic/chat", (message) => {
-          console.log(`On message: ${message}`);
+    const currentClient = client.current!;
 
-          const chatMessageDto = JSON.parse(message.body) as ChatMessageDto;
+    currentClient.setOnConnect((frame) => {
+      console.log(`On connect: ${frame}`);
 
-          if (chatMessageDto.type === "TYPING") {
-            if (chatMessageDto.sender === user?.username) return;
-            setTypingUser(chatMessageDto.sender);
+      currentClient.subscribe<ProblemDetailDto>({
+        destination: "/user/queue/errors",
+        onMessage: (message) => {
+          console.log(`On message queue error: ${message}`);
+        },
+      });
+
+      currentClient.subscribe<ChatMessageResponseDto>({
+        destination: "/topic/lobby/:id/game",
+        id: 1,
+        onMessage: (message) => {
+          console.log(`Game message: ${message}`);
+        },
+      });
+
+      currentClient.subscribe<ChatMessageResponseDto>({
+        destination: "/topic/lobby/:id/chat",
+        id: 1,
+        onMessage: (message) => {
+          console.log(`Chat message: ${message}`);
+
+          const chatMessage = message.body;
+
+          if (chatMessage.type === "TYPING") {
+            if (chatMessage.sender === user.username) return;
+            setTypingUser(chatMessage.sender);
             typingTimeout.fn();
             return;
+          } else if (chatMessage.type !== "CONNECT") {
+            if (chatMessage.sender !== user.username) {
+              typingTimeout.cancel();
+              setTypingUser(null);
+            }
           }
 
-          setMessages((prev) => [...prev, chatMessageDto]);
-        });
+          setMessages((prev) => [...prev, chatMessage]);
+        },
+      });
 
-        client.subscribe("/user/queue/errors", (message) => {
-          console.log(`On message queue error: ${message}`);
-        });
-
-        client.publish({
-          destination: "/app/chat/send",
-          body: JSON.stringify({
-            type: "CONNECT",
-            sender: null,
-            message: `${user!.username} joined the chat`,
-          }),
-        });
-      },
-      onDisconnect: (e) => {
-        console.log(`On disconnect: ${e}`);
-      },
-      onStompError: (e) => {
-        console.log(`On stomp Error: ${e}`);
-        if (
-          e.headers["content-type"] &&
-          e.headers["content-type"] === "application/json"
-        ) {
-          const jsonError: ProblemDetailDto = JSON.parse(e.body);
-          // if (jsonError.status === 401) {
-          //   handleRefresh();
-          // }
-          console.log(jsonError);
-        }
-      },
+      currentClient.publish({
+        destination: "/app/chat/:id/send",
+        body: { type: "CONNECT" },
+      });
     });
 
     return () => {
-      client.current!.disconnect();
+      client.current!.deactivate();
       typingTimeout.cancel();
     };
   }, []);
@@ -143,27 +151,21 @@ function ChatContainer() {
           value={message}
           onChange={(e) => {
             setMessage(e.target.value);
-            debounceTyping(client.current!);
+            throttleTyping(client.current!);
           }}
           id="chat_message"
           name="chat"
         />
         <Button
-          disabled={message === ""}
+          disabled={message.trim() === ""}
           color="primary"
           onClick={() => {
-            // setMessages((prev) => [
-            //   ...prev,
-            //   { type: "MESSAGE", sender: user?.username!, message },
-            // ]);
-
             client.current!.publish({
-              destination: "/app/chat/send",
-              body: JSON.stringify({
+              destination: "/app/chat/:id/send",
+              body: {
                 type: "MESSAGE",
-                sender: null,
-                message: message,
-              }),
+                message: message.trim(),
+              },
             });
             setMessage("");
           }}
@@ -177,29 +179,39 @@ function ChatContainer() {
 
 type ChatMessageProps = {
   username: string;
-  message: ChatMessageDto;
+  message: ChatMessageResponseDto;
 };
 
 function ChatMessage({ username, message }: ChatMessageProps) {
   if (message.type === "CONNECT" || message.type === "DISCONNECT") {
     return (
       <div className="text-center text-sm text-text-body-low">
-        {username === message.sender ? "You've connected" : message.message}
+        {username === message.sender &&
+          message.type === "CONNECT" &&
+          "You've connected"}
+        {username !== message.sender &&
+          message.type === "CONNECT" &&
+          `${message.sender} joined`}
+        {username !== message.sender &&
+          message.type === "DISCONNECT" &&
+          `${message.sender} left`}
+      </div>
+    );
+  } else if (message.type === "MESSAGE") {
+    return (
+      <div>
+        {username === message.sender ? (
+          <div className="text-right">
+            {message.message}: {message.sender}
+          </div>
+        ) : (
+          <div>
+            {message.sender}: {message.message}
+          </div>
+        )}
       </div>
     );
   }
 
-  return (
-    <div>
-      {username === message.sender ? (
-        <div className="text-right">
-          {message.message}: {message.sender}
-        </div>
-      ) : (
-        <div>
-          {message.sender}: {message.message}
-        </div>
-      )}
-    </div>
-  );
+  throw new Error("Unknown type");
 }
