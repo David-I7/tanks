@@ -2,7 +2,6 @@ package com.tanks.server.websocket.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Profile;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.simp.SimpMessageType;
 import org.springframework.messaging.support.ChannelInterceptor;
@@ -24,7 +23,7 @@ public class WebSocketSecurityConfig {
                     SimpMessageType.HEARTBEAT
             ).permitAll()
             .simpDestMatchers("/app/**").authenticated()
-            .simpSubscribeDestMatchers("/topic/chat","/user/**").authenticated()
+            .simpSubscribeDestMatchers("/topic/**","/user/**").authenticated()
             .anyMessage().denyAll();
         return messages.build();
     }

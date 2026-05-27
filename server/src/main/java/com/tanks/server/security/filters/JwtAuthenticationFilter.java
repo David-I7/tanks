@@ -37,6 +37,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 request.getServletPath().startsWith("/api/v1/auth/logout")    ||
                 request.getServletPath().startsWith("/api/v1/auth/oauth2/authorization") ||
                 request.getServletPath().startsWith("/ws") ||
+                request.getServletPath().startsWith("/api/v1/test") ||
                 request.getServletPath().startsWith("/api/v1/auth/refresh")){
 
             filterChain.doFilter(request,response);

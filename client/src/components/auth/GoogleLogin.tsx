@@ -2,7 +2,7 @@ import type OAuth2LoginResponseDto from "../../api/http/dto/OAuth2LoginResponseD
 import Button from "../buttons/Button";
 import Google from "../icons/Google";
 import { useAuth } from "../../context/AuthContext";
-import GoogleLoginRequest from "../../api/http/requests/GoogleLoginRequest";
+import GoogleLoginRequest from "../../api/http/requests/auth/GoogleLoginRequest";
 import { usePopup } from "../../hooks/usePopup";
 import { useNavigate } from "react-router-dom";
 

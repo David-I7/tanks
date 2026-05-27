@@ -1,8 +1,9 @@
 DROP TABLE if EXISTS users CASCADE;
 DROP TABLE if EXISTS refresh_tokens CASCADE;
+DROP TABLE if EXISTS lobbies CASCADE;
 DROP TYPE if EXISTS lobby_type;
 DROP TYPE if EXISTS lobby_status;
-DROP TABLE if EXISTS lobbies CASCADE;
+
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
@@ -30,5 +31,5 @@ CREATE TABLE lobbies(
     type lobby_type not null,
     status lobby_status not null default 'WAITING',
     host_id bigint not null references users(id),
-    opponent_id bigint references users(id),
+    opponent_id bigint references users(id)
 );

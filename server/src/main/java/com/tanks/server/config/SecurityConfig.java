@@ -41,7 +41,7 @@ public class SecurityConfig {
                         // Only allow internal forwards to this endpoint
                         .dispatcherTypeMatchers(DispatcherType.FORWARD).permitAll()
                         .requestMatchers("/api/v1/auth/login/oauth2/response").denyAll()
-                        .requestMatchers("/api/v1/auth/**","/ws").permitAll()
+                        .requestMatchers("/api/v1/auth/**","/ws","/api/v1/test").permitAll()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)

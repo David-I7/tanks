@@ -1,7 +1,6 @@
 import {
   Client,
   StompHeaders,
-  type IFrame,
   type IMessage,
   type IPublishParams,
   type StompSubscription,
@@ -51,6 +50,7 @@ export default class TanksWSClient {
       brokerURL: import.meta.env.VITE_BASE_WEBSOCKETS_URL,
       reconnectDelay: 5000, // 5 seconds
       onStompError: async (err) => {
+        if (import.meta.env.DEV) console.log(err);
         try {
           if (
             err.headers["content-type"] &&
@@ -116,7 +116,11 @@ export default class TanksWSClient {
       finalParams.body = JSON.stringify(finalParams.body);
     }
 
-    if (finalParams.id && finalParams.destination.includes(":id")) {
+    if (finalParams.destination.includes(":id")) {
+      if (finalParams.id === undefined)
+        throw new Error(
+          "Id is not defined for path '" + finalParams.destination + "'",
+        );
       finalParams.destination.replace(":id", finalParams.id.toString());
     }
 
@@ -146,7 +150,12 @@ export default class TanksWSClient {
       }
     }
 
-    if (finalParams.id && finalParams.destination.includes(":id")) {
+    if (finalParams.destination.includes(":id")) {
+      if (finalParams.id === undefined)
+        throw new Error(
+          "Id is not defined for path '" + finalParams.destination + "'",
+        );
+
       finalParams.destination.replace(":id", finalParams.id.toString());
     }
 

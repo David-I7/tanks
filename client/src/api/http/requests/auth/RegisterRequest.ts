@@ -1,7 +1,7 @@
 import type { AxiosHeaders, Method } from "axios";
-import { TanksRequest } from "./TanksRequest";
-import type RefreshResponseDto from "../dto/RefreshResponseDto";
-import type RegisterRequestDto from "../dto/RegisterRequestDto";
+import { TanksRequest } from "../TanksRequest";
+import type RefreshResponseDto from "../../dto/RefreshResponseDto";
+import type RegisterRequestDto from "../../dto/RegisterRequestDto";
 
 export default class RegisterRequest extends TanksRequest<RefreshResponseDto> {
   constructor(private requestBody: RegisterRequestDto) {

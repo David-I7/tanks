@@ -1,16 +1,16 @@
 import { createContext, useContext, type ReactNode } from "react";
 import TanksClient from "../api/http/TanksClient";
-import LogoutRequest from "../api/http/requests/LogoutRequest";
+import LogoutRequest from "../api/http/requests/auth/LogoutRequest";
 import type User from "../api/http/dto/UserDto";
 import type LoginRequestDto from "../api/http/dto/LoginRequestDto";
-import LoginRequest from "../api/http/requests/LoginRequest";
-import RegisterRequest from "../api/http/requests/RegisterRequest";
+import LoginRequest from "../api/http/requests/auth/LoginRequest";
+import RegisterRequest from "../api/http/requests/auth/RegisterRequest";
 import type RegisterRequestDto from "../api/http/dto/RegisterRequestDto";
-import RefreshRequest from "../api/http/requests/RefreshRequest";
+import RefreshRequest from "../api/http/requests/auth/RefreshRequest";
 import type PostOauth2LoginRequestDto from "../api/http/dto/PostOauth2LoginRequestDto";
-import PostOauth2LoginRequest from "../api/http/requests/PostOAuth2LoginRequest";
+import PostOauth2LoginRequest from "../api/http/requests/auth/PostOAuth2LoginRequest";
 import type PostOauth2RegisterRequestDto from "../api/http/dto/PostOauth2RegisterRequestDto";
-import PostOauth2RegisterRequest from "../api/http/requests/PostOauth2RegisterRequest";
+import PostOauth2RegisterRequest from "../api/http/requests/auth/PostOauth2RegisterRequest";
 import type { TanksRequest } from "../api/http/requests/TanksRequest";
 import type RefreshResponseDto from "../api/http/dto/RefreshResponseDto";
 import TanksWSClient from "../api/ws/TanksWebSocketClient";
@@ -41,6 +41,7 @@ async function handleRefreshUser() {
     const response = await new TanksClient().send(new RefreshRequest());
     TanksClient.setAccessToken(response.accessToken);
     TanksWSClient.setAccessToken(response.accessToken);
+
     return response;
   } catch (err) {
     TanksClient.setAccessToken("");
@@ -62,6 +63,7 @@ const useAuthContext = (): AuthContextState => {
       const data = await tanksClient.send(request);
 
       TanksClient.setAccessToken(data.accessToken);
+      TanksWSClient.setAccessToken(data.accessToken);
       setData(data);
     } catch (err) {
       throw err;
@@ -90,6 +92,7 @@ const useAuthContext = (): AuthContextState => {
     try {
       await new TanksClient().send(new LogoutRequest());
 
+      TanksClient.setAccessToken("");
       TanksClient.setAccessToken("");
       setIdle();
     } catch (err) {

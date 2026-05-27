@@ -22,13 +22,16 @@ export function debounce<T extends unknown[]>(
   };
 }
 
-export function throttle<T>(cb: (...args: T[]) => void, delayMS: number) {
+export function throttle<T extends unknown[]>(
+  cb: (...args: T) => void,
+  delayMS: number,
+) {
   let timeoutId: number | null = null;
-  let waitingArgs: T[] | null = null;
+  let waitingArgs: T | null = null;
   let shouldWait = false;
 
   return {
-    fn: (...args: T[]) => {
+    fn: (...args: T) => {
       waitingArgs = args;
 
       if (!shouldWait) {
