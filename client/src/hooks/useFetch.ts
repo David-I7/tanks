@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 type FetchState<Data, Err = Error> = {
   data: Data | null;
@@ -52,12 +52,15 @@ export function useFetch<Data, Err = Error>(
   const trigger = useCallback(async () => {
     const fetchId = ++lastFetchId.current;
 
-    setFetchState((prev) => ({
-      ...prev,
-      loading: true,
-      state: "loading",
-      error: null,
-    }));
+    setFetchState((prev) => {
+      if (prev.loading) return prev;
+      return {
+        ...prev,
+        loading: true,
+        state: "loading",
+        error: null,
+      };
+    });
 
     try {
       const result = await fetchFN();

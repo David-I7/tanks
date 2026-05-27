@@ -17,6 +17,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import org.springframework.web.util.UriComponentsBuilder;
 
 
@@ -114,6 +115,7 @@ public class AuthController {
     public String oauth2LoginResponse(Model model, HttpSession session, HttpServletRequest request){
         OAuth2LoginResponse response = (OAuth2LoginResponse) session.getAttribute("oauth2LoginResponse");
         model.addAttribute("oauth2LoginResponse",response);
+
 
         if(isDev){
             model.addAttribute("origin",clientOrigin);

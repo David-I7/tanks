@@ -13,13 +13,15 @@ import LoginPage from "./pages/login/LoginPage";
 import RegisterPage from "./pages/register/RegisterPage";
 import AppLayout from "./components/layouts/AppLayout";
 import TestPage from "./pages/test/TestPage";
+import GlobalErrorPage from "./pages/error/GlobalErrorPage";
 
 const router = createBrowserRouter([
   {
     path: "/",
     element: <AppLayout />,
+    errorElement: <GlobalErrorPage />,
     children: [
-      { index: true, element: <TestPage /> },
+      { index: true, element: <HomePage /> },
       {
         path: "login",
         element: (

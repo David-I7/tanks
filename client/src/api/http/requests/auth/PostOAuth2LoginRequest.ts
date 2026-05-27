@@ -1,7 +1,7 @@
 import type { AxiosHeaders, Method } from "axios";
-import type RefreshResponseDto from "../dto/RefreshResponseDto";
-import { TanksRequest } from "./TanksRequest";
-import type PostOauth2LoginRequestDto from "../dto/PostOauth2LoginRequestDto";
+import type RefreshResponseDto from "../../dto/RefreshResponseDto";
+import { TanksRequest } from "../TanksRequest";
+import type PostOauth2LoginRequestDto from "../../dto/PostOauth2LoginRequestDto";
 
 export default class PostOauth2LoginRequest extends TanksRequest<RefreshResponseDto> {
   constructor(private body: PostOauth2LoginRequestDto) {

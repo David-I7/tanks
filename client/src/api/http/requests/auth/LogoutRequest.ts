@@ -1,5 +1,5 @@
 import type { Method } from "axios";
-import { TanksRequest } from "./TanksRequest";
+import { TanksRequest } from "../TanksRequest";
 
 export default class LogoutRequest extends TanksRequest<void> {
   getPath(): string {

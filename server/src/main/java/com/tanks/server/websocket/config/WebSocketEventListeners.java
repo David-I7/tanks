@@ -24,6 +24,7 @@ public class WebSocketEventListeners {
     @EventListener
     public void handleDisconnect(SessionDisconnectEvent event) {
 
+        log.info("DISCONNECT");
         StompHeaderAccessor accessor =
                 StompHeaderAccessor.wrap(event.getMessage());
 
@@ -42,7 +43,7 @@ public class WebSocketEventListeners {
                     message
             );
 
-            log.debug("User '{}' disconnected with session id: {}", user.username(), sessionId);
+            log.info("User '{}' disconnected with session id: {}", user.username(), sessionId);
         }
     }
 

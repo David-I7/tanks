@@ -1,45 +1,29 @@
 package com.tanks.server.entities;
 
-import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.redis.core.RedisHash;
 
 import java.util.UUID;
 
-@Entity
 @AllArgsConstructor
 @NoArgsConstructor
 @Getter
 @Setter
-@Table(name = "lobbies")
+@Builder
+@RedisHash(value = "lobby", timeToLive = 10000)
 public class Lobby {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Enumerated(value = EnumType.STRING)
-    @Column(nullable = false)
     private Type type;
 
-    @Enumerated(value = EnumType.STRING)
-    @Column(nullable = false)
     private Status status;
 
-    @OneToOne
-    @JoinColumn(name = "host_id")
-    private User host;
+    private Long hostId;
 
-    @OneToOne
-    @JoinColumn(name = "opponent_id")
-    private User opponent;
-
-    @PrePersist
-    protected void prePersist(){
-        if(status == null) status = Status.WAITING;
-    }
+    private Long opponentId;
 
     public static enum Type{
         PRIVATE, QUICK_MATCH

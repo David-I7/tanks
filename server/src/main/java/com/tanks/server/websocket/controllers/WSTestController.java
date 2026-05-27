@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RequestMapping("/")
 @RestController
-public class TestController {
+public class WSTestController {
 
     @GetMapping
     public ResponseEntity<String> sayHello(){

@@ -7,7 +7,7 @@ import TextInput from "../../components/form/input/TextInput";
 import Form from "../../components/form/Form";
 import Button from "../../components/buttons/Button";
 import Label from "../../components/form/Label";
-import Or from "../../components/separators/Or";
+import Or from "../../components/misc/Or";
 import { GoogleLoginWithRedirect } from "../../components/auth/GoogleLogin";
 import DefaultLink from "../../components/links/DefaultLink";
 import H1 from "../../components/headings/H1";
