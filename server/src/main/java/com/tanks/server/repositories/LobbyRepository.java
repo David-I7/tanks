@@ -1,6 +1,6 @@
 package com.tanks.server.repositories;
 
-import com.tanks.server.entities.Lobby;
+import com.tanks.server.entities.lobby.Lobby;
 import org.springframework.data.repository.CrudRepository;
 
 import java.util.UUID;

@@ -2,14 +2,13 @@ package com.tanks.server.controllers;
 
 import com.tanks.server.dto.UserDto;
 import com.tanks.server.dto.lobby.LobbyResponseDto;
-import com.tanks.server.entities.Lobby;
+import com.tanks.server.entities.lobby.Lobby;
+import com.tanks.server.entities.lobby.LobbyType;
 import com.tanks.server.mappers.user.UserDtoToUserMapper;
 import com.tanks.server.services.LobbyService;
-import lombok.AllArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
-import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -33,7 +32,7 @@ public class LobbyController {
     public ResponseEntity<LobbyResponseDto> createLobby(Authentication authentication){
         UserDto userDto = (UserDto) authentication.getPrincipal();
 
-        Lobby lobby = lobbyService.create(Lobby.Type.PRIVATE,userDtoToUserMapper.apply(userDto));
+        Lobby lobby = lobbyService.create(LobbyType.PRIVATE,userDtoToUserMapper.apply(userDto));
 
         return ResponseEntity.created(
                 ServletUriComponentsBuilder
@@ -45,10 +44,11 @@ public class LobbyController {
     }
 
     @PostMapping("/{id}")
-    public ResponseEntity<LobbyResponseDto> canJoinPrivateLobby(@PathVariable UUID id){
-        boolean canJoin = lobbyService.canJoin(id);
+    public ResponseEntity<LobbyResponseDto> canJoinPrivateLobby(@PathVariable UUID id,Authentication authentication){
+        UserDto userDto = (UserDto) authentication.getPrincipal();
 
-        if(canJoin) return ResponseEntity.ok(new LobbyResponseDto(id));
-        else return ResponseEntity.ok(new LobbyResponseDto(null));
+        lobbyService.join(id,userDtoToUserMapper.apply(userDto));
+
+        return ResponseEntity.ok(new LobbyResponseDto(id));
     }
 }

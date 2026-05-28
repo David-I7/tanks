@@ -2,6 +2,7 @@ package com.tanks.server.websocket.config;
 
 import com.tanks.server.websocket.exceptions.StompErrorHandler;
 import com.tanks.server.websocket.security.interceptors.JwtStompInterceptor;
+import com.tanks.server.websocket.security.interceptors.LobbyPersistenceFilter;
 import lombok.AllArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

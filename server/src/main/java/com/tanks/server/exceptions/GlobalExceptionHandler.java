@@ -39,7 +39,6 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(MissingRequestCookieException.class)
-
     public ResponseEntity<ProblemDetail> handleMissingRefreshTokenException(HttpServletRequest request, MissingRequestCookieException e){
         ProblemDetail problemDetail;
 

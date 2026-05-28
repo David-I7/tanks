@@ -1,6 +1,6 @@
 package com.tanks.server.services;
 
-import com.tanks.server.entities.Lobby;
+import com.tanks.server.entities.lobby.Lobby;
 import com.tanks.server.entities.User;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
