@@ -15,7 +15,7 @@ public class GameController {
         this.matchManager = matchManager;
     }
 
-    @MessageMapping("/match/{matchId}/create")
+    @MessageMapping("/match/{matchId}/createMessage")
     @SendTo("/topic/match/{matchId}")
     public void createMatch(@DestinationVariable String matchId){
 

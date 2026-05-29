@@ -1,4 +1,4 @@
-package com.tanks.server.services;
+package com.tanks.server.websocket.services;
 
 import com.tanks.server.entities.lobby.Lobby;
 import com.tanks.server.entities.User;

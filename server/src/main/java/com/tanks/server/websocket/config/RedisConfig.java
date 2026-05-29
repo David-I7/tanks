@@ -1,4 +1,4 @@
-package com.tanks.server.config;
+package com.tanks.server.websocket.config;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
@@ -11,7 +11,7 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
 import tools.jackson.databind.ObjectMapper;
 
 @Configuration
-@EnableRedisRepositories(basePackages = {"com.tanks.server.repositories"})
+@EnableRedisRepositories(basePackages = {"com.tanks.server.websocket.repositories"})
 public class RedisConfig {
 
     @Autowired

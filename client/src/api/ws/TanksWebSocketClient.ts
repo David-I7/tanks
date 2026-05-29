@@ -13,14 +13,21 @@ type EndpointSubscription<Data = string> = {
   destination:
     | "/topic/lobby/:id/game"
     | "/topic/lobby/:id/chat"
-    | "/user/queue/errors";
+    | "/user/queue/errors"
+    | "/user/queue/replies";
   id?: string | number;
   onMessage: (message: Message<Data>) => void;
   subscriptionHeaders?: StompHeaders;
 };
 
 type PublishParams = {
-  destination: "/app/chat/:id/send" | "/app/game/:id/send";
+  destination:
+    | "/app/chat/:id/send"
+    | "/app/game/:id/send"
+    | "app/lobby/:id"
+    | "/app/lobby/create"
+    | "/app/lobby/quick-match"
+    | "/app/lobby/join/:id";
 
   id?: string | number;
 
@@ -106,7 +113,7 @@ export default class TanksWSClient {
   }
 
   publish(params: PublishParams) {
-    const finalParams = { ...params };
+    const finalParams: any = { ...params };
 
     if (finalParams.body && typeof finalParams.body !== "string") {
       finalParams.headers = {
@@ -121,7 +128,10 @@ export default class TanksWSClient {
         throw new Error(
           "Id is not defined for path '" + finalParams.destination + "'",
         );
-      finalParams.destination.replace(":id", finalParams.id.toString());
+      finalParams.destination = finalParams.destination.replace(
+        ":id",
+        finalParams.id.toString(),
+      );
     }
 
     TanksWSClient.client.publish(finalParams as IPublishParams);
@@ -132,7 +142,7 @@ export default class TanksWSClient {
   ): StompSubscription {
     if (!this.isActive()) throw new Error("Client is not active");
 
-    const finalParams = { ...params };
+    const finalParams: any = { ...params };
 
     function handleMessage(message: IMessage) {
       try {
@@ -156,7 +166,10 @@ export default class TanksWSClient {
           "Id is not defined for path '" + finalParams.destination + "'",
         );
 
-      finalParams.destination.replace(":id", finalParams.id.toString());
+      finalParams.destination = finalParams.destination.replace(
+        ":id",
+        finalParams.id.toString(),
+      );
     }
 
     return TanksWSClient.client.subscribe(

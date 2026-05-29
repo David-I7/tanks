@@ -2,12 +2,10 @@ package com.tanks.server.websocket.config;
 
 import com.tanks.server.dto.UserDto;
 import com.tanks.server.security.model.JwtAuthentication;
-import com.tanks.server.services.LobbyService;
-import com.tanks.server.websocket.dto.chat.ChatMessageRequestDto;
+import com.tanks.server.websocket.services.LobbyService;
 import com.tanks.server.websocket.dto.chat.ChatMessageResponseDto;
 import com.tanks.server.websocket.dto.chat.ChatMessageType;
-import com.tanks.server.websocket.exceptions.StompException;
-import lombok.AllArgsConstructor;
+import com.tanks.server.websocket.exceptions.ProblemDetailException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
 import org.springframework.http.HttpStatus;
@@ -101,7 +99,7 @@ public class WebSocketEventListeners {
 
         Matcher matcher = LOBBY_ID_PATTERN.matcher(destination);
 
-        if(!matcher.matches()) throw new StompException(HttpStatus.BAD_REQUEST,"Missing or invalid lobby id", URI.create(destination));
+        if(!matcher.matches()) throw new ProblemDetailException(HttpStatus.BAD_REQUEST,"Missing or invalid lobby id", URI.create(destination));
 
         UUID lobbyId = UUID.fromString(matcher.group(0));
 

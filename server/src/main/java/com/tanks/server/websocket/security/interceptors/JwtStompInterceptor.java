@@ -1,6 +1,6 @@
 package com.tanks.server.websocket.security.interceptors;
 
-import com.tanks.server.websocket.exceptions.StompException;
+import com.tanks.server.websocket.exceptions.ProblemDetailException;
 import com.tanks.server.security.model.JwtAuthentication;
 import com.tanks.server.services.AuthService;
 import lombok.extern.slf4j.Slf4j;
@@ -40,7 +40,7 @@ public class JwtStompInterceptor implements ChannelInterceptor {
             String authHeader = accessor.getFirstNativeHeader("Authorization");
 
             if (authHeader == null || !authHeader.startsWith(TOKEN_PREFIX)) {
-                throw new StompException(HttpStatus.UNAUTHORIZED,"Missing or invalid authorization header.", URI.create("/ws"));
+                throw new ProblemDetailException(HttpStatus.UNAUTHORIZED,"Missing or invalid authorization header.", URI.create("/ws"));
             }
 
             String token = authHeader.substring(TOKEN_PREFIX.length());
@@ -49,7 +49,7 @@ public class JwtStompInterceptor implements ChannelInterceptor {
                 // set user in the web socket session
                 accessor.setUser(new JwtAuthentication(authService.parseUser(token)));
             }catch ( ResponseStatusException e){
-                throw new StompException(HttpStatus.UNAUTHORIZED,e.getReason(), URI.create("/ws"));
+                throw new ProblemDetailException(HttpStatus.UNAUTHORIZED,e.getReason(), URI.create("/ws"));
             }
 
         }
