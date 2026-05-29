@@ -2,10 +2,9 @@ package com.tanks.server.websocket.exceptions;
 
 import com.tanks.server.dto.validation.ConstraintValidationDto;
 import com.tanks.server.mappers.validation.ObjectErrorToConstraintValidationDto;
+import com.tanks.server.utils.ProblemDetailWriter;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
-import org.springframework.http.ResponseEntity;
-import org.springframework.messaging.Message;
 import org.springframework.messaging.handler.annotation.MessageExceptionHandler;
 import org.springframework.messaging.handler.annotation.support.MethodArgumentNotValidException;
 import org.springframework.messaging.simp.annotation.SendToUser;
@@ -20,6 +19,12 @@ import java.util.List;
 public class WebSocketExceptionHandler {
 
     private ObjectErrorToConstraintValidationDto constraintValidationDtoMapper= new ObjectErrorToConstraintValidationDto();
+
+    private ProblemDetailWriter problemDetailWriter;
+
+    public WebSocketExceptionHandler(ProblemDetailWriter problemDetailWriter){
+        this.problemDetailWriter = problemDetailWriter;
+    }
 
     @MessageExceptionHandler(MethodArgumentNotValidException.class)
     @SendToUser("/queue/errors")
@@ -46,5 +51,11 @@ public class WebSocketExceptionHandler {
         problemDetail.setProperty("errors",validationDtos);
 
         return problemDetail;
+    }
+
+    @MessageExceptionHandler(ProblemDetailException.class)
+    @SendToUser("/queue/errors")
+    public ProblemDetail handleProblemDetailException(ProblemDetailException ex){
+        return problemDetailWriter.createProblemDetail(ex);
     }
 }

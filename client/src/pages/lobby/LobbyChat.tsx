@@ -2,11 +2,9 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { debounce, throttle } from "../../utils/performance";
 import TanksWSClient from "../../api/ws/TanksWebSocketClient";
 import { useAuth } from "../../context/AuthContext";
-import type ProblemDetailDto from "../../api/http/dto/ProblemDetailDto";
 import TextInput from "../../components/form/input/TextInput";
 import Button from "../../components/buttons/Button";
 import type { ChatMessageResponseDto } from "../../api/ws/dto/chat/ChatMessageDto";
-import { useParams } from "react-router-dom";
 
 type PropsWithChildren = {
   children: ReactNode;
@@ -30,13 +28,12 @@ const throttleTyping = throttle((client: TanksWSClient, id: string) => {
   });
 }, 500).fn;
 
-export function LobbyChat() {
+type LobbyChatProps = { lobbyId: string };
+
+export function LobbyChat({ lobbyId }: LobbyChatProps) {
   const { user } = useAuth();
-  const { id } = useParams();
 
   if (user == null) throw new Error("User has not been authenticated");
-  if (id === undefined)
-    throw new Error("Lobby id is not present in the url path.");
 
   const [messages, setMessages] = useState<ChatMessageResponseDto[]>([]);
   const client = useRef<TanksWSClient>(null);
@@ -52,48 +49,35 @@ export function LobbyChat() {
 
     const currentClient = client.current!;
 
-    currentClient.setOnConnect((frame) => {
-      console.log(`On connect: ${frame}`);
+    currentClient.subscribe<ChatMessageResponseDto>({
+      destination: "/topic/lobby/:id/chat",
+      id: lobbyId,
+      onMessage: (message) => {
+        console.log(`Chat message: ${message}`);
 
-      currentClient.subscribe<ProblemDetailDto>({
-        destination: "/user/queue/errors",
-        onMessage: (message) => {
-          console.log(`On message queue error: ${message}`);
-        },
-      });
+        const chatMessage = message.body;
 
-      currentClient.subscribe<ChatMessageResponseDto>({
-        destination: "/topic/lobby/:id/chat",
-        id,
-        onMessage: (message) => {
-          console.log(`Chat message: ${message}`);
-
-          const chatMessage = message.body;
-
-          if (chatMessage.type === "TYPING") {
-            if (chatMessage.sender === user.username) return;
-            setTypingUser(chatMessage.sender);
-            typingTimeout.fn();
-            return;
-          } else if (chatMessage.type !== "CONNECT") {
-            if (chatMessage.sender !== user.username) {
-              typingTimeout.cancel();
-              setTypingUser(null);
-            }
+        if (chatMessage.type === "TYPING") {
+          if (chatMessage.sender === user.username) return;
+          setTypingUser(chatMessage.sender);
+          typingTimeout.fn();
+          return;
+        } else if (chatMessage.type !== "CONNECT") {
+          if (chatMessage.sender !== user.username) {
+            typingTimeout.cancel();
+            setTypingUser(null);
           }
+        }
 
-          setMessages((prev) => [...prev, chatMessage]);
-        },
-      });
-
-      currentClient.publish({
-        destination: "/app/chat/:id/send",
-        id,
-        body: { type: "CONNECT" },
-      });
+        setMessages((prev) => [...prev, chatMessage]);
+      },
     });
 
-    currentClient.activate();
+    currentClient.publish({
+      destination: "/app/chat/:id/send",
+      id: lobbyId,
+      body: { type: "CONNECT" },
+    });
 
     return () => {
       currentClient.deactivate();
@@ -124,7 +108,7 @@ export function LobbyChat() {
             value={message}
             onChange={(e) => {
               setMessage(e.target.value);
-              throttleTyping(client.current!, id);
+              throttleTyping(client.current!, lobbyId);
             }}
             id="chat_message"
             name="chat"
@@ -135,7 +119,7 @@ export function LobbyChat() {
             onClick={() => {
               client.current!.publish({
                 destination: "/app/chat/:id/send",
-                id,
+                id: lobbyId,
                 body: {
                   type: "MESSAGE",
                   message: message.trim(),

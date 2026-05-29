@@ -21,10 +21,10 @@ public class StompErrorHandler extends StompSubProtocolErrorHandler {
 
     @Override
     public Message<byte[]> handleClientMessageProcessingError(Message<byte[]> clientMessage, Throwable ex) {
-        if( ex instanceof StompException){
-            return problemDetailWriter.create((StompException) ex);
-        }else if (ex.getCause() instanceof StompException stompException){
-            return problemDetailWriter.create(stompException);
+        if( ex instanceof ProblemDetailException){
+            return problemDetailWriter.createMessage((ProblemDetailException) ex);
+        }else if (ex.getCause() instanceof ProblemDetailException stompException){
+            return problemDetailWriter.createMessage(stompException);
         }
 
         return defaultException(clientMessage,ex);
@@ -42,6 +42,6 @@ public class StompErrorHandler extends StompSubProtocolErrorHandler {
         String errorMessage = ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage();
 
         log.debug("Stomp error: {}", errorMessage);
-        return problemDetailWriter.create(new StompException(HttpStatus.BAD_REQUEST, "Bad Request", URI.create(destination == null ? "/" : destination)));
+        return problemDetailWriter.createMessage(new ProblemDetailException(HttpStatus.BAD_REQUEST, "Bad Request", URI.create(destination == null ? "/" : destination)));
     }
 }

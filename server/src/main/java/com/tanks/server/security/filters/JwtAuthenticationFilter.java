@@ -53,7 +53,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
 
         if(authHeader == null || !authHeader.startsWith(TOKEN_PREFIX)){
-            problemDetailWriter.write(request,response, HttpStatus.UNAUTHORIZED, "Missing or invalid authorization header");
+            problemDetailWriter.writeProblemDetail(request,response, HttpStatus.UNAUTHORIZED, "Missing or invalid authorization header");
             return;
         }
 
@@ -62,7 +62,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try{
             SecurityContextHolder.getContext().setAuthentication(new JwtAuthentication(authService.parseUser(token)));
         }catch (ResponseStatusException e){
-            problemDetailWriter.write(request,response,HttpStatus.UNAUTHORIZED, e.getMessage());
+            problemDetailWriter.writeProblemDetail(request,response,HttpStatus.UNAUTHORIZED, e.getMessage());
             return;
         }
 

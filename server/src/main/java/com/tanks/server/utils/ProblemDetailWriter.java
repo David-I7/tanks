@@ -1,6 +1,6 @@
 package com.tanks.server.utils;
 
-import com.tanks.server.websocket.exceptions.StompException;
+import com.tanks.server.websocket.exceptions.ProblemDetailException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.AllArgsConstructor;
@@ -23,10 +23,10 @@ public class ProblemDetailWriter {
 
     private ObjectMapper objectMapper;
 
-    public void write(HttpServletRequest request,
-                                    HttpServletResponse response,
-                                    HttpStatus status,
-                                    String detail) throws IOException {
+    public void writeProblemDetail(HttpServletRequest request,
+                                   HttpServletResponse response,
+                                   HttpStatus status,
+                                   String detail) throws IOException {
 
         ProblemDetail problemDetail = ProblemDetail.forStatus(status);
         problemDetail.setTitle(status.toString());
@@ -40,7 +40,7 @@ public class ProblemDetailWriter {
         objectMapper.writeValue(response.getWriter(), problemDetail);
     }
 
-    public Message<byte[]> create(StompException ex){
+    public Message<byte[]> createMessage(ProblemDetailException ex){
         StompHeaderAccessor accessor =
                 StompHeaderAccessor.create(StompCommand.ERROR);
 
@@ -60,6 +60,16 @@ public class ProblemDetailWriter {
         return MessageBuilder.createMessage(
                 problemDetailBytes,
                 accessor.getMessageHeaders());
+    }
+
+    public ProblemDetail createProblemDetail(ProblemDetailException ex){
+        ProblemDetail problemDetail = ProblemDetail.forStatus(ex.getStatus());
+        problemDetail.setTitle(ex.getStatus().toString());
+        problemDetail.setDetail(ex.getDetail());
+        problemDetail.setType(URI.create("about:blank"));
+        problemDetail.setInstance(ex.getInstance());
+
+        return problemDetail;
     }
 
 }

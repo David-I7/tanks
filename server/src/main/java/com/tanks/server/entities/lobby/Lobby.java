@@ -3,7 +3,6 @@ package com.tanks.server.entities.lobby;
 import lombok.*;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.redis.core.RedisHash;
-import org.springframework.data.redis.core.TimeToLive;
 
 import java.util.UUID;
 
@@ -20,9 +19,6 @@ public class Lobby {
 
     private LobbyType type;
 
-    @TimeToLive
-    private Long expirationSeconds;
-
     private LobbyStatus status;
 
     private long hostId;
@@ -32,8 +28,6 @@ public class Lobby {
     private Long opponentId;
 
     private LobbyPlayerState opponentState;
-
-    private long opponentReservedAt;
 
 }
 

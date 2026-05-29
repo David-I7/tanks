@@ -5,7 +5,7 @@ import org.springframework.messaging.MessageDeliveryException;
 
 import java.net.URI;
 
-public class StompException extends MessageDeliveryException {
+public class ProblemDetailException extends MessageDeliveryException {
 
     private HttpStatus status;
 
@@ -13,7 +13,7 @@ public class StompException extends MessageDeliveryException {
 
     private URI instance;
 
-    public StompException(HttpStatus status, String detail, URI instance){
+    public ProblemDetailException(HttpStatus status, String detail, URI instance){
         super(detail);
         this.detail = detail;
         this.instance = instance;

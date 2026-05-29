@@ -1,17 +1,15 @@
-import { Link, useNavigate } from "react-router-dom";
 import Button from "../../components/buttons/Button";
 import H1 from "../../components/headings/H1";
 import ScreenStackProvider, { useScreenStack } from "../../context/ScreenStack";
 import IconButton from "../../components/buttons/IconButton";
 import { ArrowLeft } from "lucide-react";
-import { useFetch } from "../../hooks/useFetch";
-import TanksClient from "../../api/http/TanksClient";
-import CreatePrivateLobbyRequest from "../../api/http/requests/lobby/CreatePrivateLobbyRequest";
 import Loader from "../../components/misc/Loader";
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import AuthenticatedRoute from "../../components/auth/AuthenticatedRoute";
+import TanksWSClient from "../../api/ws/TanksWebSocketClient";
+import PrivateLobbyRoom from "../lobby/PrivateLobbyRoom";
 
-type Screen = "onlineMenu" | "root" | "offlineMenu";
+type Screen = "onlineMenu" | "root" | "offlineMenu" | "privateLobby";
 
 export default function HomePage() {
   const screens = {
@@ -22,6 +20,7 @@ export default function HomePage() {
       </AuthenticatedRoute>
     ),
     offlineMenu: <OfflineMenu />,
+    privateLobby: <PrivateLobbyRoom action="CREATE" />,
   };
   return (
     <ScreenStackProvider screens={screens}>
@@ -54,28 +53,16 @@ function RootState() {
   );
 }
 
-async function createPrivateLobby() {
-  return new TanksClient().send(new CreatePrivateLobbyRequest());
-}
-
 function OnlineMenu() {
-  const { popScreen } = useScreenStack();
-  const { data, trigger, loading } = useFetch(createPrivateLobby, false);
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    if (data === null) return;
-
-    navigate(`/lobby/${data.id}`, { state: { type: "LOBBY_CREATED" } });
-  }, [data]);
+  const { popScreen, pushScreen } = useScreenStack<Screen>();
 
   return (
     <>
       <H1 className="text-center py-4">Welcome to Tanks!</H1>
       <IconButton onClick={() => popScreen()} icon={<ArrowLeft />} />
       <Button color="primary">Play</Button>
-      <Button color="secondary" onClick={() => trigger()}>
-        {loading ? <Loader /> : "Create Private Room"}
+      <Button color="secondary" onClick={() => pushScreen("privateLobby")}>
+        Create Private Room
       </Button>
     </>
   );

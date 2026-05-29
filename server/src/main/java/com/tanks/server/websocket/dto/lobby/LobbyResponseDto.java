@@ -1,4 +1,4 @@
-package com.tanks.server.dto.lobby;
+package com.tanks.server.websocket.dto.lobby;
 
 import java.util.UUID;
 
