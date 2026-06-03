@@ -10,6 +10,8 @@ import { ApiError } from "../../errors/ApiError";
 import { LobbyChat } from "./LobbyChat";
 import Loader from "../../components/misc/Loader";
 import UnexpectedError from "../../errors/UnexpectedError";
+import type { StompSubscription } from "@stomp/stompjs";
+import Button from "../../components/buttons/Button";
 
 type PrivateLobbyRoomProps = {
   action: "CREATE" | "JOIN";
@@ -19,6 +21,7 @@ export default function PrivateLobbyRoom({ action }: PrivateLobbyRoomProps) {
   const { user } = useAuth();
   const { id } = useParams();
   const client = useRef<TanksWSClient>(null);
+  const [connected, setConnected] = useState<boolean>(false);
   const [lobbyId, setLobbyId] = useState<string | null>(null);
   const [error, setError] = useState<Error | null>(null);
 
@@ -30,49 +33,75 @@ export default function PrivateLobbyRoom({ action }: PrivateLobbyRoomProps) {
     const currentClient = new TanksWSClient();
     client.current = currentClient;
 
+    const subscribtions: StompSubscription[] = [];
+
     currentClient.setOnConnect(() => {
       if (action === "CREATE") {
         currentClient.publish({ destination: "/app/lobby/create" });
 
-        currentClient.subscribe<LobbyResponseDto>({
-          destination: "/user/queue/replies",
-          onMessage: (message) => {
-            setLobbyId(message.body.id);
-          },
-        });
+        subscribtions.push(
+          currentClient.subscribe<LobbyResponseDto>({
+            destination: "/user/queue/replies",
+            onMessage: (message) => {
+              setConnected(true);
+              setLobbyId(message.body.id);
+            },
+          }),
+        );
 
-        currentClient.subscribe<ProblemDetailDto>({
-          destination: "/user/queue/errors",
-          onMessage: (message) => {
-            setError(new ApiError(message.body, message.body.status));
-          },
-        });
+        subscribtions.push(
+          currentClient.subscribe<ProblemDetailDto>({
+            destination: "/user/queue/errors",
+            onMessage: (message) => {
+              setError(new ApiError(message.body, message.body.status));
+            },
+          }),
+        );
       } else if (action === "JOIN") {
-        currentClient.publish({ destination: "/app/lobby/join/:id", id });
-
-        currentClient.subscribe<LobbyResponseDto>({
-          destination: "/user/queue/replies",
-          onMessage: (message) => {
-            setLobbyId(message.body.id);
-          },
+        currentClient.publish({
+          destination: "/app/lobby/join/:id",
+          id,
         });
 
-        currentClient.subscribe<ProblemDetailDto>({
-          destination: "/user/queue/errors",
-          onMessage: (message) => {
-            setError(new ApiError(message.body, message.body.status));
-          },
-        });
+        subscribtions.push(
+          currentClient.subscribe<LobbyResponseDto>({
+            destination: "/user/queue/replies",
+            onMessage: (message) => {
+              setConnected(true);
+              setLobbyId(message.body.id);
+            },
+          }),
+        );
+
+        subscribtions.push(
+          currentClient.subscribe<ProblemDetailDto>({
+            destination: "/user/queue/errors",
+            onMessage: (message) => {
+              setError(new ApiError(message.body, message.body.status));
+            },
+          }),
+        );
       }
+    });
+
+    client.current.onDisconnect(() => {
+      console.log("DISCONNECTING...");
+      setConnected(false);
     });
 
     currentClient.activate();
     return () => {
       currentClient.deactivate();
+      console.log("UNMOUNTING...");
+      setConnected(false);
     };
   }, []);
 
-  if (lobbyId !== null) {
+  useEffect(() => {
+    console.log("CONNECTED STATUS: ", connected);
+  }, [connected]);
+
+  if (connected) {
     return (
       <div className="flex">
         <div>
@@ -80,15 +109,16 @@ export default function PrivateLobbyRoom({ action }: PrivateLobbyRoomProps) {
           <div>Lobby id: {lobbyId}</div>
           <div>
             Share Link: <br />
-            {import.meta.env.VITE_BASE_API_URL}/lobby/{lobbyId}
+            http://localhost:5173/lobby/{lobbyId}
           </div>
+          <Button color="primary">Start</Button>
         </div>
-        <LobbyChat lobbyId={lobbyId} />
+        <LobbyChat lobbyId={lobbyId!} />
       </div>
     );
   }
 
-  if (error === null && lobbyId === null) {
+  if (error === null && !connected) {
     <div>
       <H1>LOADING...</H1>
       <Loader />

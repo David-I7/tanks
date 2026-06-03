@@ -24,7 +24,6 @@ type PublishParams = {
   destination:
     | "/app/chat/:id/send"
     | "/app/game/:id/send"
-    | "app/lobby/:id"
     | "/app/lobby/create"
     | "/app/lobby/quick-match"
     | "/app/lobby/join/:id";
@@ -55,6 +54,7 @@ export default class TanksWSClient {
   static {
     this.client = new Client({
       brokerURL: import.meta.env.VITE_BASE_WEBSOCKETS_URL,
+      debug: import.meta.env.DEV ? console.log : undefined,
       reconnectDelay: 5000, // 5 seconds
       onStompError: async (err) => {
         if (import.meta.env.DEV) console.log(err);
@@ -92,6 +92,10 @@ export default class TanksWSClient {
     };
   }
 
+  constructor() {
+    if (!TanksWSClient.client.active) TanksWSClient.client.activate();
+  }
+
   setOnConnect(onConnect: Client["onConnect"]) {
     TanksWSClient.client.onConnect = onConnect;
   }
@@ -100,16 +104,16 @@ export default class TanksWSClient {
     return TanksWSClient.client.active;
   }
 
-  constructor() {
-    if (!TanksWSClient.client.active) TanksWSClient.client.activate();
-  }
-
   deactivate() {
     if (this.isActive()) TanksWSClient.client.deactivate();
   }
 
   activate() {
     if (!this.isActive()) TanksWSClient.client.activate();
+  }
+
+  onDisconnect(onDisconnect: Client["onDisconnect"]) {
+    return (TanksWSClient.client.onDisconnect = onDisconnect);
   }
 
   publish(params: PublishParams) {
