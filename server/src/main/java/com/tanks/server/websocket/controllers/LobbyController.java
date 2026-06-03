@@ -2,8 +2,8 @@ package com.tanks.server.websocket.controllers;
 
 import com.tanks.server.dto.UserDto;
 import com.tanks.server.websocket.dto.lobby.LobbyResponseDto;
-import com.tanks.server.entities.lobby.Lobby;
-import com.tanks.server.entities.lobby.LobbyType;
+import com.tanks.server.websocket.entities.lobby.Lobby;
+import com.tanks.server.websocket.entities.lobby.LobbyType;
 import com.tanks.server.mappers.user.UserDtoToUserMapper;
 import com.tanks.server.websocket.services.LobbyService;
 import org.springframework.messaging.handler.annotation.DestinationVariable;

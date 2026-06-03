@@ -1,4 +1,4 @@
-package com.tanks.server.entities.lobby;
+package com.tanks.server.websocket.entities.lobby;
 
 import lombok.*;
 import org.springframework.data.annotation.Id;
@@ -23,11 +23,7 @@ public class Lobby {
 
     private long hostId;
 
-    private LobbyPlayerState hostState;
-
     private Long opponentId;
-
-    private LobbyPlayerState opponentState;
 
 }
 

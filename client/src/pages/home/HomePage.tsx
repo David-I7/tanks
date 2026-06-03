@@ -4,10 +4,10 @@ import ScreenStackProvider, { useScreenStack } from "../../context/ScreenStack";
 import IconButton from "../../components/buttons/IconButton";
 import { ArrowLeft } from "lucide-react";
 import Loader from "../../components/misc/Loader";
-import { useEffect, useRef, useState } from "react";
+import { useEffect } from "react";
 import AuthenticatedRoute from "../../components/auth/AuthenticatedRoute";
-import TanksWSClient from "../../api/ws/TanksWebSocketClient";
 import PrivateLobbyRoom from "../lobby/PrivateLobbyRoom";
+import Logout from "../../components/auth/Logout";
 
 type Screen = "onlineMenu" | "root" | "offlineMenu" | "privateLobby";
 
@@ -49,6 +49,11 @@ function RootState() {
       <Button onClick={() => pushScreen("offlineMenu")} color="secondary">
         Offline
       </Button>
+      <Logout
+        color="secondary"
+        onSuccess={() => console.log("Logged out")}
+        onFailure={console.error}
+      />
     </>
   );
 }

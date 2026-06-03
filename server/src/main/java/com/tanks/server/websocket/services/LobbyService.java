@@ -1,10 +1,10 @@
 package com.tanks.server.websocket.services;
 
-import com.tanks.server.entities.lobby.Lobby;
+import com.tanks.server.websocket.entities.lobby.Lobby;
 import com.tanks.server.entities.User;
-import com.tanks.server.entities.lobby.LobbyPlayerState;
-import com.tanks.server.entities.lobby.LobbyStatus;
-import com.tanks.server.entities.lobby.LobbyType;
+import com.tanks.server.websocket.entities.lobby.LobbyPlayerState;
+import com.tanks.server.websocket.entities.lobby.LobbyStatus;
+import com.tanks.server.websocket.entities.lobby.LobbyType;
 import com.tanks.server.websocket.exceptions.ProblemDetailException;
 import com.tanks.server.websocket.repositories.LobbyRepository;
 import com.tanks.server.utils.IdFactory;
@@ -57,7 +57,7 @@ public class LobbyService {
                     lobbyRepository.save(lobby);
                     return;
                 }
-                default -> throw new ProblemDetailException(HttpStatus.INTERNAL_SERVER_ERROR,"Unknown error", URI.create("/lobby/join/" + lobbyId));
+                default -> throw new IllegalStateException("Illegal state");
             }
 
         }
@@ -71,7 +71,7 @@ public class LobbyService {
                     lobbyRepository.save(lobby);
                     return;
                 }
-                default -> throw new ProblemDetailException(HttpStatus.INTERNAL_SERVER_ERROR,"Unknown error", URI.create("/lobby/join/" + lobbyId));
+                default -> throw new IllegalStateException("Illegal state");
             }
         }
 
@@ -79,6 +79,16 @@ public class LobbyService {
         lobby.setOpponentState(LobbyPlayerState.CONNECTED);
         lobby.setOpponentId(user.getId());
         lobbyRepository.save(lobby);
+    }
+
+    public void disconnect(UUID lobbyId, User user){
+
+        Lobby lobby = lobbyRepository.findById(lobbyId)
+                .orElseThrow(() -> new IllegalStateException("The lobby with the provided id does not exist."));
+
+        if(!isConnectedUser(lobby,user)) throw new IllegalStateException("The provided user is not connected to the lobby " + lobbyId );
+
+
     }
 
     private boolean isFullLobby(Lobby lobby){

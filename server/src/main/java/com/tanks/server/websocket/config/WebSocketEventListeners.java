@@ -1,7 +1,9 @@
 package com.tanks.server.websocket.config;
 
 import com.tanks.server.dto.UserDto;
+import com.tanks.server.mappers.user.UserDtoToUserMapper;
 import com.tanks.server.security.model.JwtAuthentication;
+import com.tanks.server.websocket.services.GameService;
 import com.tanks.server.websocket.services.LobbyService;
 import com.tanks.server.websocket.dto.chat.ChatMessageResponseDto;
 import com.tanks.server.websocket.dto.chat.ChatMessageType;
@@ -33,7 +35,11 @@ public class WebSocketEventListeners {
             "/topic/lobby/([0-9A-Za-z]{8}-[0-9A-Za-z]{4}-4[0-9A-Za-z]{3}-[89ABab][0-9A-Za-z]{3}-[0-9A-Za-z]{12})/.*"
     );
 
+    private UserDtoToUserMapper userDtoToUserMapper;
+
     private LobbyService lobbyService;
+
+    private GameService gameService;
 
     public WebSocketEventListeners(SimpMessagingTemplate messagingTemplate, LobbyService lobbyService){
         this.messagingTemplate = messagingTemplate;
@@ -60,18 +66,18 @@ public class WebSocketEventListeners {
         UserDto user = (UserDto) ((JwtAuthentication) accessor.getUser()).getPrincipal();
 
         ChatMessageResponseDto message = ChatMessageResponseDto.builder()
-                .message(user.username() + " left the chat")
                 .type(ChatMessageType.DISCONNECT)
                 .sender(user.username())
                 .build();
 
         messagingTemplate.convertAndSend(
-                "/topic/chat",
+                String.format("/topic/lobby/%s/chat",lobbyId),
                 message
         );
 
         log.info("User '{}' disconnected with session id: {}", user.username(), sessionId);
 
+        lobbyService.disconnect(lobbyId,userDtoToUserMapper.apply(user));
     }
 
     @EventListener
@@ -107,6 +113,5 @@ public class WebSocketEventListeners {
                 accessor.getSessionAttributes();
 
         attrs.put("lobbyId", lobbyId);
-
     }
 }

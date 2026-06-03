@@ -1,4 +1,4 @@
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 
 type UnauthenticatedRouteProps = {
@@ -9,6 +9,12 @@ export default function UnauthenticatedRoute({
   children,
 }: UnauthenticatedRouteProps) {
   const { user, loading } = useAuth();
+  const location = useLocation();
+  const redirectUri =
+    location.state && typeof location.state["from"] === "string"
+      ? location.state["from"]
+      : "/";
+  const redirectState = location.state;
 
   // loading
   if (loading) {
@@ -16,7 +22,7 @@ export default function UnauthenticatedRoute({
   }
 
   if (user !== null) {
-    return <Navigate to={"/"} replace />;
+    return <Navigate state={redirectState} to={redirectUri} replace />;
   }
 
   return children;
