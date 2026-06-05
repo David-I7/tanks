@@ -1,9 +1,9 @@
-package com.tanks.server.websocket.config;
+package com.tanks.server.websocket.listeners;
 
 import com.tanks.server.dto.UserDto;
 import com.tanks.server.mappers.user.UserDtoToUserMapper;
 import com.tanks.server.security.model.JwtAuthentication;
-import com.tanks.server.websocket.services.GameService;
+import com.tanks.server.websocket.services.GameSessionService;
 import com.tanks.server.websocket.services.LobbyService;
 import com.tanks.server.websocket.dto.chat.ChatMessageResponseDto;
 import com.tanks.server.websocket.dto.chat.ChatMessageType;
@@ -39,7 +39,7 @@ public class WebSocketEventListeners {
 
     private LobbyService lobbyService;
 
-    private GameService gameService;
+    private GameSessionService gameService;
 
     public WebSocketEventListeners(SimpMessagingTemplate messagingTemplate, LobbyService lobbyService){
         this.messagingTemplate = messagingTemplate;
@@ -77,7 +77,7 @@ public class WebSocketEventListeners {
 
         log.info("User '{}' disconnected with session id: {}", user.username(), sessionId);
 
-        lobbyService.disconnect(lobbyId,userDtoToUserMapper.apply(user));
+        lobbyService.leave(lobbyId,userDtoToUserMapper.apply(user));
     }
 
     @EventListener

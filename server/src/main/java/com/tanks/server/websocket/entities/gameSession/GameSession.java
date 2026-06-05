@@ -6,6 +6,7 @@ import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.redis.core.RedisHash;
 
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 @Builder
@@ -20,6 +21,8 @@ public class GameSession {
     private long playerAId;
 
     private long playerBId;
+
+    private OffsetDateTime gameStartedAt;
 
     private long playerTurnExpiresAt;
 

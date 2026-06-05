@@ -1,6 +1,7 @@
 package com.tanks.server.websocket.controllers;
 
 import com.tanks.server.dto.UserDto;
+import com.tanks.server.utils.IdFactory;
 import com.tanks.server.websocket.dto.lobby.LobbyResponseDto;
 import com.tanks.server.websocket.entities.lobby.Lobby;
 import com.tanks.server.websocket.entities.lobby.LobbyType;
@@ -12,6 +13,8 @@ import org.springframework.messaging.simp.annotation.SendToUser;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 
+import java.security.Principal;
+import java.util.Optional;
 import java.util.UUID;
 
 @Controller
@@ -25,17 +28,25 @@ public class LobbyController {
         this.lobbyService = lobbyService;
     }
 
-    @MessageMapping("/lobby/create")
+    @MessageMapping("/lobby/create/private")
     @SendToUser("/queue/replies")
     public LobbyResponseDto createLobby(Authentication authentication){
         UserDto userDto = (UserDto) authentication.getPrincipal();
 
-        Lobby lobby = lobbyService.create(LobbyType.PRIVATE,userDtoToUserMapper.apply(userDto));
+        UUID uuid = IdFactory.randomUUID();
 
-        return new LobbyResponseDto(lobby.getId());
+        Lobby lobby = Lobby.builder()
+                .hostId(userDto.id())
+                .type(LobbyType.PRIVATE)
+                .id(uuid)
+                .build();
+
+        lobbyService.create(lobby);
+
+        return new LobbyResponseDto(uuid);
     }
 
-    @MessageMapping("/lobby/join/{id}")
+    @MessageMapping("/lobby/join/private/{id}")
     @SendToUser("/queue/replies")
     public LobbyResponseDto joinPrivateLobby(@DestinationVariable UUID id, Authentication authentication){
         UserDto userDto = (UserDto) authentication.getPrincipal();
@@ -47,8 +58,25 @@ public class LobbyController {
 
     @MessageMapping("/lobby/quick-match")
     @SendToUser("/queue/replies")
-    public void joinQuickMatch(){
+    public LobbyResponseDto joinQuickMatch(Authentication authentication){
+        UserDto userDto = (UserDto) authentication.getPrincipal();
 
+        Optional<Lobby> lobby = lobbyService.findBestQuickMatch();
+
+        if(lobby.isPresent()){
+            lobbyService.join(lobby.get().getId(),userDtoToUserMapper.apply(userDto));
+
+        }else{
+            Lobby quickMatchLobby = Lobby.builder()
+                    .hostId(userDto.id())
+                    .type(LobbyType.QUICK_MATCH)
+                    .build();
+
+            lobbyService.create(quickMatchLobby);
+        }
+
+
+        return new LobbyResponseDto();
     }
 
 }

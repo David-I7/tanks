@@ -1,9 +1,7 @@
-DROP TABLE if EXISTS users CASCADE;
 DROP TABLE if EXISTS refresh_tokens CASCADE;
-DROP TABLE if EXISTS lobbies CASCADE;
-DROP TYPE if EXISTS lobby_type;
-DROP TYPE if EXISTS lobby_status;
-
+DROP TABLE if EXISTS users CASCADE;
+DROP TABLE if EXISTS game_results CASCADE;
+DROP TYPE if EXISTS game_outcome;
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
@@ -22,14 +20,14 @@ CREATE TABLE refresh_tokens(
     expires_at timestamptz not null
 );
 
-CREATE TYPE lobby_type AS ENUM ('PRIVATE','QUICK_MATCH');
+CREATE TYPE game_outcome AS ENUM ('WIN','DRAW');
 
-CREATE TYPE lobby_status AS ENUM ('WAITING','READY','IN_GAME');
-
-CREATE TABLE lobbies(
+CREATE TABLE game_results(
     id UUID PRIMARY KEY default gen_random_uuid(),
-    type lobby_type not null,
-    status lobby_status not null default 'WAITING',
-    host_id bigint not null references users(id),
-    opponent_id bigint references users(id)
+    outcome game_outcome not null,
+    player_a_id bigint REFERENCES users(id),
+    player_b_id bigint REFERENCES users(id),
+    winner_id bigint REFERENCES users(id),
+    game_started_at timestamptz not null,
+    game_ended_at timestamptz not null default now()
 );
