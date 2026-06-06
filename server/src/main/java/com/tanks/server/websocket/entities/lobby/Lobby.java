@@ -21,7 +21,7 @@ public class Lobby {
 
     private LobbyStatus status;
 
-    private long hostId;
+    private Long hostId;
 
     private Long opponentId;
 

@@ -1,16 +1,16 @@
 package com.tanks.server.websocket.validation;
 
-import com.tanks.server.websocket.dto.chat.ChatMessageRequestDto;
-import com.tanks.server.websocket.dto.chat.ChatMessageType;
+import com.tanks.server.websocket.dto.chat.ChatEventRequestDto;
+import com.tanks.server.websocket.dto.chat.ChatEventType;
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.ConstraintValidatorContext;
 
-public class ChatMessageRequestDtoValidator implements ConstraintValidator<ValidChatMessageRequestDto, ChatMessageRequestDto> {
+public class ChatMessageRequestDtoValidator implements ConstraintValidator<ValidChatMessageRequestDto, ChatEventRequestDto> {
 
     private static int MAX_MESSAGE_LENGTH = 1000;
 
     @Override
-    public boolean isValid(ChatMessageRequestDto dto, ConstraintValidatorContext context) {
+    public boolean isValid(ChatEventRequestDto dto, ConstraintValidatorContext context) {
         if(dto == null) return false;
 
         context.disableDefaultConstraintViolation();
@@ -21,7 +21,7 @@ public class ChatMessageRequestDtoValidator implements ConstraintValidator<Valid
             valid = false;
         }
 
-        if (dto.getType() == ChatMessageType.MESSAGE) {
+        if (dto.getType() == ChatEventType.MESSAGE) {
             if (dto.getMessage() == null || dto.getMessage().isBlank()) {
                 addViolation(context,"message","message must not be null or blank");
                 valid = false;

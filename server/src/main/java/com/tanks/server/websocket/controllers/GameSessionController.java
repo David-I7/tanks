@@ -1,7 +1,7 @@
 package com.tanks.server.websocket.controllers;
 
-import com.tanks.server.websocket.entities.gameSession.Game;
-import com.tanks.server.websocket.services.GameService;
+import com.tanks.server.websocket.entities.gameSession.GameSession;
+import com.tanks.server.websocket.services.GameSessionService;
 import lombok.AllArgsConstructor;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
@@ -12,15 +12,15 @@ import java.util.UUID;
 
 @Controller
 @AllArgsConstructor
-public class GameController {
+public class GameSessionController {
 
-    private final GameService gameService;
+    private final GameSessionService gameService;
 
     @MessageMapping("/game/{id}/send")
-    @SendTo("/topic/lobby{id}/game")
-    public Game createGame(@DestinationVariable UUID id){
+    @SendTo("/topic/game/{id}")
+    public GameSession createGame(@DestinationVariable UUID id){
         if(true) throw new IllegalStateException("HAHAH");
-        return gameService.create(id);
+        return null;
     }
 
 }

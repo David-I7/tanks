@@ -48,4 +48,6 @@ public class UserService {
         return repository.findByEmail(email)
                 .orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND,"User with email '"+ email + "' does not exist."));
     }
+
+
 }

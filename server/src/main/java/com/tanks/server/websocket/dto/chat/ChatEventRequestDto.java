@@ -1,22 +1,20 @@
 package com.tanks.server.websocket.dto.chat;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
+import com.tanks.server.websocket.validation.ValidChatMessageRequestDto;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-@Builder
+@Data
 @AllArgsConstructor
 @NoArgsConstructor
-@Data
-public class ChatMessageResponseDto  {
+@Builder
+@ValidChatMessageRequestDto
+public class ChatEventRequestDto {
 
-    private ChatMessageType type;
+    private ChatEventType type;
 
-    @JsonInclude(JsonInclude.Include.NON_NULL)
     private String message;
-
-    private String sender;
 
 }
