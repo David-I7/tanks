@@ -2,18 +2,26 @@ package com.tanks.server.websocket.controllers;
 
 import com.tanks.server.dto.UserDto;
 import com.tanks.server.utils.IdFactory;
-import com.tanks.server.websocket.dto.lobby.LobbyResponseDto;
+import com.tanks.server.websocket.dto.lobby.LobbyEventResponseDto;
+import com.tanks.server.websocket.dto.lobby.LobbyEventType;
+import com.tanks.server.websocket.dto.lobby.LobbyIdPayload;
 import com.tanks.server.websocket.entities.lobby.Lobby;
+import com.tanks.server.websocket.entities.lobby.LobbyStatus;
 import com.tanks.server.websocket.entities.lobby.LobbyType;
 import com.tanks.server.mappers.user.UserDtoToUserMapper;
+import com.tanks.server.websocket.entities.userSession.UserSession;
+import com.tanks.server.websocket.entities.userSession.UserSessionState;
+import com.tanks.server.websocket.exceptions.ProblemDetailException;
 import com.tanks.server.websocket.services.LobbyService;
+import com.tanks.server.websocket.services.UserSessionService;
+import org.springframework.http.HttpStatus;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.simp.annotation.SendToUser;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 
-import java.security.Principal;
+import java.net.URI;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -22,61 +30,105 @@ public class LobbyController {
 
     private LobbyService lobbyService;
 
+    private final UserSessionService userSessionService;
+
     private UserDtoToUserMapper userDtoToUserMapper = new UserDtoToUserMapper();
 
-    public LobbyController(LobbyService lobbyService){
+    public LobbyController(LobbyService lobbyService, UserSessionService userSessionService){
         this.lobbyService = lobbyService;
+        this.userSessionService = userSessionService;
+
     }
 
-    @MessageMapping("/lobby/create/private")
+    @MessageMapping("/lobby/save/private")
     @SendToUser("/queue/replies")
-    public LobbyResponseDto createLobby(Authentication authentication){
+    public LobbyEventResponseDto createLobby(Authentication authentication){
         UserDto userDto = (UserDto) authentication.getPrincipal();
 
-        UUID uuid = IdFactory.randomUUID();
+        // Verify that the user is IDLE
+        UserSession userSession = userSessionService.findById(userDto.id());
 
+        if(userSession.getState() != UserSessionState.IDLE){
+            throw new ProblemDetailException(HttpStatus.BAD_REQUEST,"User is not idle.", URI.create("/lobby/create/private"));
+        }
+
+        // Create private lobby
+        UUID uuid = IdFactory.randomUUID();
         Lobby lobby = Lobby.builder()
                 .hostId(userDto.id())
                 .type(LobbyType.PRIVATE)
+                .status(LobbyStatus.WAITING_FOR_OPPONENT)
                 .id(uuid)
                 .build();
 
         lobbyService.create(lobby);
 
-        return new LobbyResponseDto(uuid);
+        userSession.setState(UserSessionState.IN_LOBBY);
+        userSessionService.save(userSession);
+
+        return new LobbyEventResponseDto(LobbyEventType.LOBBY_CREATED, "@SERVER",new LobbyIdPayload(uuid));
     }
 
     @MessageMapping("/lobby/join/private/{id}")
     @SendToUser("/queue/replies")
-    public LobbyResponseDto joinPrivateLobby(@DestinationVariable UUID id, Authentication authentication){
+    public LobbyEventResponseDto joinPrivateLobby(@DestinationVariable UUID id, Authentication authentication){
         UserDto userDto = (UserDto) authentication.getPrincipal();
 
-        lobbyService.join(id,userDtoToUserMapper.apply(userDto));
+        // Verify that the user is IDLE
+        UserSession userSession = userSessionService.findById(userDto.id());
 
-        return new LobbyResponseDto(id);
+        if(userSession.getState() != UserSessionState.IDLE){
+            throw new ProblemDetailException(HttpStatus.BAD_REQUEST,"User is not idle.", URI.create("/lobby/join/private/" + id));
+        }
+
+        // Join private lobby
+        lobbyService.join(id, userDtoToUserMapper.apply(userDto));
+
+        userSession.setState(UserSessionState.IN_LOBBY);
+        userSessionService.save(userSession);
+
+        return new LobbyEventResponseDto(LobbyEventType.LOBBY_JOINED, "@SERVER",new LobbyIdPayload(id));
     }
 
     @MessageMapping("/lobby/quick-match")
     @SendToUser("/queue/replies")
-    public LobbyResponseDto joinQuickMatch(Authentication authentication){
+    public LobbyEventResponseDto joinQuickMatch(Authentication authentication){
         UserDto userDto = (UserDto) authentication.getPrincipal();
+
+        // Verify that the user is IDLE
+        UserSession userSession = userSessionService.findById(userDto.id());
+
+        if(userSession.getState() != UserSessionState.IDLE){
+            throw new ProblemDetailException(HttpStatus.BAD_REQUEST,"User is not idle.", URI.create("/lobby/quick-match/"));
+        }
 
         Optional<Lobby> lobby = lobbyService.findBestQuickMatch();
 
         if(lobby.isPresent()){
-            lobbyService.join(lobby.get().getId(),userDtoToUserMapper.apply(userDto));
+            Lobby quickMatchLobby = lobby.get();
+            lobbyService.join(quickMatchLobby.getId(), userDtoToUserMapper.apply(userDto));
+            lobbyService.removeQuickMatch(quickMatchLobby);
 
-        }else{
+            userSession.setState(UserSessionState.IN_LOBBY);
+            userSessionService.save(userSession);
+
+            return new LobbyEventResponseDto(LobbyEventType.LOBBY_JOINED,"@SERVER",new LobbyIdPayload(quickMatchLobby.getId()));
+        } else {
+            UUID uuid = IdFactory.randomUUID();
             Lobby quickMatchLobby = Lobby.builder()
+                    .id(uuid)
                     .hostId(userDto.id())
                     .type(LobbyType.QUICK_MATCH)
+                    .status(LobbyStatus.WAITING_FOR_OPPONENT)
                     .build();
 
             lobbyService.create(quickMatchLobby);
+
+            userSession.setState(UserSessionState.IN_LOBBY);
+            userSessionService.save(userSession);
+
+            return new LobbyEventResponseDto(LobbyEventType.LOBBY_CREATED,"@SERVER",new LobbyIdPayload(quickMatchLobby.getId()));
         }
-
-
-        return new LobbyResponseDto();
     }
 
 }

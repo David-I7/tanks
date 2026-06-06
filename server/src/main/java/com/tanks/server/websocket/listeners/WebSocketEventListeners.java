@@ -5,8 +5,8 @@ import com.tanks.server.mappers.user.UserDtoToUserMapper;
 import com.tanks.server.security.model.JwtAuthentication;
 import com.tanks.server.websocket.services.GameSessionService;
 import com.tanks.server.websocket.services.LobbyService;
-import com.tanks.server.websocket.dto.chat.ChatMessageResponseDto;
-import com.tanks.server.websocket.dto.chat.ChatMessageType;
+import com.tanks.server.websocket.dto.chat.ChatEventResponseDto;
+import com.tanks.server.websocket.dto.chat.ChatEventType;
 import com.tanks.server.websocket.exceptions.ProblemDetailException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
@@ -65,8 +65,8 @@ public class WebSocketEventListeners {
 
         UserDto user = (UserDto) ((JwtAuthentication) accessor.getUser()).getPrincipal();
 
-        ChatMessageResponseDto message = ChatMessageResponseDto.builder()
-                .type(ChatMessageType.DISCONNECT)
+        ChatEventResponseDto message = ChatEventResponseDto.builder()
+                .type(ChatEventType.DISCONNECT)
                 .sender(user.username())
                 .build();
 
@@ -77,7 +77,7 @@ public class WebSocketEventListeners {
 
         log.info("User '{}' disconnected with session id: {}", user.username(), sessionId);
 
-        lobbyService.leave(lobbyId,userDtoToUserMapper.apply(user));
+        lobbyService.removeUser(lobbyId,userDtoToUserMapper.apply(user));
     }
 
     @EventListener

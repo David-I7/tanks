@@ -1,7 +1,8 @@
 package com.tanks.server.websocket.controllers;
 
-import com.tanks.server.websocket.dto.chat.ChatMessageRequestDto;
-import com.tanks.server.websocket.dto.chat.ChatMessageResponseDto;
+import com.tanks.server.websocket.dto.chat.ChatEventRequestDto;
+import com.tanks.server.websocket.dto.chat.ChatEventResponseDto;
+import com.tanks.server.websocket.dto.chat.ChatMessagePayload;
 import jakarta.validation.Valid;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
@@ -14,12 +15,12 @@ import java.security.Principal;
 public class ChatController {
 
     @MessageMapping("/chat/{id}/send")
-    @SendTo("/topic/lobby/{id}/chat")
-    public ChatMessageResponseDto sendMessage(@DestinationVariable String id, @Valid ChatMessageRequestDto chatMessage, Principal principal){
+    @SendTo("/topic/lobby/{id}")
+    public ChatEventResponseDto sendMessage(@DestinationVariable String id, @Valid ChatEventRequestDto chatMessage, Principal principal){
 
-        ChatMessageResponseDto responseDto = ChatMessageResponseDto.builder()
+        ChatEventResponseDto responseDto = ChatEventResponseDto.builder()
                 .type(chatMessage.getType())
-                .message(chatMessage.getMessage())
+                .payload(new ChatMessagePayload(chatMessage.getMessage()))
                 .sender(principal.getName())
                 .build();
 

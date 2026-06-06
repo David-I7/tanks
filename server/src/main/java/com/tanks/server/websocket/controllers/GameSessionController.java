@@ -17,7 +17,7 @@ public class GameSessionController {
     private final GameSessionService gameService;
 
     @MessageMapping("/game/{id}/send")
-    @SendTo("/topic/lobby{id}/game")
+    @SendTo("/topic/game/{id}")
     public GameSession createGame(@DestinationVariable UUID id){
         if(true) throw new IllegalStateException("HAHAH");
         return null;

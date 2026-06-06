@@ -1,7 +1,7 @@
 package com.tanks.server.websocket.services;
 
-import com.tanks.server.websocket.entities.lobby.Lobby;
 import com.tanks.server.entities.User;
+import com.tanks.server.websocket.entities.lobby.Lobby;
 import com.tanks.server.websocket.entities.lobby.LobbyStatus;
 import com.tanks.server.websocket.entities.lobby.LobbyType;
 import com.tanks.server.websocket.exceptions.ProblemDetailException;
@@ -39,23 +39,19 @@ public class LobbyService {
     public void join(UUID lobbyId, User user){
 
         Lobby lobby = lobbyRepository.findById(lobbyId)
-                .orElseThrow(() ->new ProblemDetailException(HttpStatus.NOT_FOUND,"The lobby with the provided id does not exist.", URI.create("/lobby/join/" + lobbyId)));
+                .orElseThrow(() ->new ProblemDetailException(HttpStatus.NOT_FOUND,"The lobby with the provided id does not exist.", URI.create("/lobby/join/private/" + lobbyId)));
 
         // The user is trying to connect multiple times (ex: multiple open tabs).
-        if(isConnectedUser(lobby,user)) throw new ProblemDetailException(HttpStatus.FORBIDDEN,"Already connected.", URI.create("/lobby/join/" + lobbyId));
-        else if (isFullLobby(lobby)) throw new ProblemDetailException(HttpStatus.FORBIDDEN,"Lobby is full.", URI.create("/lobby/join/" + lobbyId));
-
+        if (isFullLobby(lobby)) throw new ProblemDetailException(HttpStatus.BAD_REQUEST,"Lobby is full.", URI.create("/lobby/join/private/" + lobbyId));
 
         // New user has joined
         lobby.setOpponentId(user.getId());
         lobby.setStatus(LobbyStatus.READY);
         lobbyRepository.save(lobby);
-
-        // Notify the client and create a gameSession object
     }
 
 
-    public void leave(UUID lobbyId, User user){
+    public void removeUser(UUID lobbyId, User user){
 
         Lobby lobby = lobbyRepository.findById(lobbyId)
                 .orElseThrow(() -> new IllegalStateException("The lobby with the provided id does not exist."));
@@ -82,6 +78,10 @@ public class LobbyService {
         }
     }
 
+    public void removeQuickMatch(Lobby lobby){
+        quickMatchService.delete(lobby);
+    }
+
     public Optional<Lobby> findBestQuickMatch(){
         return quickMatchService.findBestQuickMatch();
     }
@@ -92,8 +92,8 @@ public class LobbyService {
     }
 
     private boolean isConnectedUser(Lobby lobby, User user){
-        return (lobby.getOpponentId().equals(user.getId()))
-                || (lobby.getHostId().equals(user.getId()));
+        return user.getId().equals(lobby.getOpponentId())
+                || user.getId().equals(lobby.getHostId());
     }
 
 }
