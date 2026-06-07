@@ -12,16 +12,19 @@ import com.tanks.server.mappers.user.UserDtoToUserMapper;
 import com.tanks.server.websocket.entities.userSession.UserSession;
 import com.tanks.server.websocket.entities.userSession.UserSessionState;
 import com.tanks.server.websocket.exceptions.ProblemDetailException;
+import com.tanks.server.websocket.security.entites.WebSocketPrincipal;
 import com.tanks.server.websocket.services.LobbyService;
 import com.tanks.server.websocket.services.UserSessionService;
 import org.springframework.http.HttpStatus;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.simp.annotation.SendToUser;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 
 import java.net.URI;
+import java.security.Principal;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -40,17 +43,12 @@ public class LobbyController {
 
     }
 
-    @MessageMapping("/lobby/save/private")
+    @PreAuthorize("@webSocketAuthorizationService.isIdle(authentication, '/lobby/create/private')")
+    @MessageMapping("/lobby/create/private")
     @SendToUser("/queue/replies")
-    public LobbyEventResponseDto createLobby(Authentication authentication){
-        UserDto userDto = (UserDto) authentication.getPrincipal();
-
-        // Verify that the user is IDLE
-        UserSession userSession = userSessionService.findById(userDto.id());
-
-        if(userSession.getState() != UserSessionState.IDLE){
-            throw new ProblemDetailException(HttpStatus.BAD_REQUEST,"User is not idle.", URI.create("/lobby/create/private"));
-        }
+    public LobbyEventResponseDto createLobby(Principal principal){
+        UserDto userDto = ((WebSocketPrincipal)principal).getUserDto();
+        UserSession userSession = ((WebSocketPrincipal)principal).getUserSession();
 
         // Create private lobby
         UUID uuid = IdFactory.randomUUID();
@@ -69,17 +67,12 @@ public class LobbyController {
         return new LobbyEventResponseDto(LobbyEventType.LOBBY_CREATED, "@SERVER",new LobbyIdPayload(uuid));
     }
 
+    @PreAuthorize("@webSocketAuthorizationService.isIdle(authentication, '/lobby/join/private/' + #id)")
     @MessageMapping("/lobby/join/private/{id}")
     @SendToUser("/queue/replies")
-    public LobbyEventResponseDto joinPrivateLobby(@DestinationVariable UUID id, Authentication authentication){
-        UserDto userDto = (UserDto) authentication.getPrincipal();
-
-        // Verify that the user is IDLE
-        UserSession userSession = userSessionService.findById(userDto.id());
-
-        if(userSession.getState() != UserSessionState.IDLE){
-            throw new ProblemDetailException(HttpStatus.BAD_REQUEST,"User is not idle.", URI.create("/lobby/join/private/" + id));
-        }
+    public LobbyEventResponseDto joinPrivateLobby(@DestinationVariable UUID id, WebSocketPrincipal principal){
+        UserDto userDto = principal.getUserDto();
+        UserSession userSession = principal.getUserSession();
 
         // Join private lobby
         lobbyService.join(id, userDtoToUserMapper.apply(userDto));
@@ -90,17 +83,12 @@ public class LobbyController {
         return new LobbyEventResponseDto(LobbyEventType.LOBBY_JOINED, "@SERVER",new LobbyIdPayload(id));
     }
 
+    @PreAuthorize("@webSocketAuthorizationService.isIdle(authentication, '/lobby/quick-match')")
     @MessageMapping("/lobby/quick-match")
     @SendToUser("/queue/replies")
-    public LobbyEventResponseDto joinQuickMatch(Authentication authentication){
-        UserDto userDto = (UserDto) authentication.getPrincipal();
-
-        // Verify that the user is IDLE
-        UserSession userSession = userSessionService.findById(userDto.id());
-
-        if(userSession.getState() != UserSessionState.IDLE){
-            throw new ProblemDetailException(HttpStatus.BAD_REQUEST,"User is not idle.", URI.create("/lobby/quick-match/"));
-        }
+    public LobbyEventResponseDto joinQuickMatch(WebSocketPrincipal principal){
+        UserDto userDto = principal.getUserDto();
+        UserSession userSession = principal.getUserSession();
 
         Optional<Lobby> lobby = lobbyService.findBestQuickMatch();
 

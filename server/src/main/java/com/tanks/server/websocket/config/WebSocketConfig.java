@@ -1,8 +1,8 @@
 package com.tanks.server.websocket.config;
 
 import com.tanks.server.websocket.exceptions.StompErrorHandler;
-import com.tanks.server.websocket.security.interceptors.JwtStompInterceptor;
-import com.tanks.server.websocket.security.interceptors.LobbyPersistenceFilter;
+import com.tanks.server.websocket.security.interceptors.AuthorizationInterceptor;
+import com.tanks.server.websocket.security.interceptors.JwtAuthenticationInterceptor;
 import lombok.AllArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -19,13 +19,15 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 @AllArgsConstructor
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
-    private final JwtStompInterceptor jwtStompInterceptor;
+    private final JwtAuthenticationInterceptor jwtAuthenticationInterceptor;
+
+    private final AuthorizationInterceptor authorizationInterceptor;
 
     private final StompErrorHandler stompErrorHandler;
 
     @Override
     public void configureClientInboundChannel(ChannelRegistration registration) {
-        registration.interceptors(jwtStompInterceptor);
+        registration.interceptors(jwtAuthenticationInterceptor, authorizationInterceptor);
     }
 
     @Override
