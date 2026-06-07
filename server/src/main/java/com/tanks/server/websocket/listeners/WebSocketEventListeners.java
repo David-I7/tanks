@@ -2,38 +2,31 @@ package com.tanks.server.websocket.listeners;
 
 import com.tanks.server.dto.UserDto;
 import com.tanks.server.mappers.user.UserDtoToUserMapper;
-import com.tanks.server.security.model.JwtAuthentication;
+import com.tanks.server.websocket.dto.game.GameEventResponseDto;
+import com.tanks.server.websocket.dto.game.GameEventType;
+import com.tanks.server.websocket.dto.lobby.LobbyEventResponseDto;
+import com.tanks.server.websocket.dto.lobby.LobbyEventType;
+import com.tanks.server.websocket.entities.userSession.UserSession;
+import com.tanks.server.websocket.entities.userSession.UserSessionState;
+import com.tanks.server.websocket.security.entites.WebSocketAuthentication;
+import com.tanks.server.websocket.security.entites.WebSocketPrincipal;
+import com.tanks.server.websocket.security.services.WebSocketAuthorizationService;
 import com.tanks.server.websocket.services.GameSessionService;
 import com.tanks.server.websocket.services.LobbyService;
-import com.tanks.server.websocket.dto.chat.ChatEventResponseDto;
-import com.tanks.server.websocket.dto.chat.ChatEventType;
-import com.tanks.server.websocket.exceptions.ProblemDetailException;
+import com.tanks.server.websocket.services.UserSessionService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
-import org.springframework.http.HttpStatus;
-import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Component;
-import org.springframework.web.socket.messaging.SessionConnectEvent;
-import org.springframework.web.socket.messaging.SessionDisconnectEvent;
-import org.springframework.web.socket.messaging.SessionSubscribeEvent;
-
-import java.net.URI;
-import java.util.Map;
-import java.util.UUID;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import org.springframework.web.socket.messaging.*;
 
 @Component
 @Slf4j
 public class WebSocketEventListeners {
 
-    private final SimpMessagingTemplate messagingTemplate;
-
-    private Pattern LOBBY_ID_PATTERN = Pattern.compile(
-            "/topic/lobby/([0-9A-Za-z]{8}-[0-9A-Za-z]{4}-4[0-9A-Za-z]{3}-[89ABab][0-9A-Za-z]{3}-[0-9A-Za-z]{12})/.*"
-    );
+    private final SimpMessagingTemplate simpMessagingTemplate;
 
     private UserDtoToUserMapper userDtoToUserMapper;
 
@@ -41,77 +34,85 @@ public class WebSocketEventListeners {
 
     private GameSessionService gameService;
 
-    public WebSocketEventListeners(SimpMessagingTemplate messagingTemplate, LobbyService lobbyService){
-        this.messagingTemplate = messagingTemplate;
+    private UserSessionService userSessionService;
+
+    private WebSocketAuthorizationService webSocketAuthorizationService;
+
+    public WebSocketEventListeners(LobbyService lobbyService, UserSessionService userSessionService, WebSocketAuthorizationService webSocketAuthorizationService, SimpMessagingTemplate simpMessagingTemplate){
         this.lobbyService = lobbyService;
+        this.webSocketAuthorizationService = webSocketAuthorizationService;
+        this.userSessionService = userSessionService;
+        this.simpMessagingTemplate = simpMessagingTemplate;
     }
 
     @EventListener
     public void handleDisconnect(SessionDisconnectEvent event) {
 
-        log.info("DISCONNECT");
+        log.debug("WEBSOCKET DISCONNECT");
         StompHeaderAccessor accessor =
                 StompHeaderAccessor.wrap(event.getMessage());
 
-        Map<String, Object> attrs =
-                accessor.getSessionAttributes();
+        if(accessor.getUser() == null) return;
 
-        if(attrs == null || accessor.getUser() == null) return;
+        WebSocketPrincipal principal = (WebSocketPrincipal) ((WebSocketAuthentication)accessor.getUser()).getPrincipal();
 
-        UUID lobbyId = (UUID) attrs.get("lobbyId");
-        String sessionId = accessor.getSessionId();
+        UserDto user = principal.getUserDto();
+        UserSession userSession = principal.getUserSession();
 
-        if (lobbyId == null) return;
+        if(userSession.getState() == UserSessionState.IN_LOBBY){
+            // notify lobby that the user disconnected
+            lobbyService.removeUser(userSession.getLobbyId(),userDtoToUserMapper.apply(user));
+            userSessionService.delete(userSession);
+            simpMessagingTemplate.convertAndSend("/topic/lobby/" + userSession.getLobbyId(), new LobbyEventResponseDto(LobbyEventType.LOBBY_DISCONNECT, user.username(),null));
+        }else if (userSession.getState() == UserSessionState.IN_GAME){
+            // handle game disconnect
+            userSession.setConnected(false);
+            userSessionService.save(userSession);
+            simpMessagingTemplate.convertAndSend("/topic/game/" + userSession.getGameSessionId(), new GameEventResponseDto(GameEventType.GAME_DISCONNECT, user.username(),null));
+        }else{
+            // handle tab close or general disconnect events
+            userSessionService.delete(userSession);
+        }
 
-        UserDto user = (UserDto) ((JwtAuthentication) accessor.getUser()).getPrincipal();
 
-        ChatEventResponseDto message = ChatEventResponseDto.builder()
-                .type(ChatEventType.DISCONNECT)
-                .sender(user.username())
-                .build();
-
-        messagingTemplate.convertAndSend(
-                String.format("/topic/lobby/%s/chat",lobbyId),
-                message
-        );
-
-        log.info("User '{}' disconnected with session id: {}", user.username(), sessionId);
-
-        lobbyService.removeUser(lobbyId,userDtoToUserMapper.apply(user));
+        log.debug("User '{}' disconnected", user.username());
     }
 
     @EventListener
-    public void handleConnect(SessionConnectEvent event) {
+    public void handleLobbyConnect(SessionSubscribeEvent event){
+        StompHeaderAccessor accessor = StompHeaderAccessor.wrap(event.getMessage());
+
+        if(accessor.getDestination().startsWith("/topic/lobby/")){
+            log.debug("LOBBY CONNECT");
+            WebSocketAuthentication authentication =  (WebSocketAuthentication)accessor.getUser();
+
+            if(webSocketAuthorizationService.canJoinLobby(authentication, accessor.getDestination())){
+                simpMessagingTemplate.convertAndSend(accessor.getDestination(), new LobbyEventResponseDto(LobbyEventType.LOBBY_CONNECT, authentication.getName(),null));
+            };
+        }
+    }
+
+    @EventListener
+    public void handleLobbyDisconnect(SessionUnsubscribeEvent event){
+        log.debug("LOBBY DISCONNECT");
 
         StompHeaderAccessor accessor = StompHeaderAccessor.wrap(event.getMessage());
 
-        String sessionId = accessor.getSessionId();
-        UserDto user = (UserDto)((JwtAuthentication) accessor.getUser()).getPrincipal();
-
-        log.debug("User '{}' connected with session id: {}", user.username(),sessionId);
+//        if(accessor.getDestination().startsWith("/topic/lobby/")){
+//            WebSocketPrincipal principal = (WebSocketPrincipal) ((WebSocketAuthentication)accessor.getUser()).getPrincipal();
+//
+//            UserDto user = principal.getUserDto();
+//            UserSession userSession = principal.getUserSession();
+//
+//            if(userSession.getState() == UserSessionState.IN_LOBBY){
+//                // notify lobby that the user disconnected
+//                lobbyService.removeUser(userSession.getLobbyId(),userDtoToUserMapper.apply(user));
+//                userSessionService.delete(userSession);
+//                simpMessagingTemplate.convertAndSend("/topic/lobby/" + userSession.getLobbyId(), new LobbyEventResponseDto(LobbyEventType.LOBBY_DISCONNECT, user.username(),null));
+//            }
+//        }
     }
 
-    @EventListener
-    public void handleSubscribe(SessionSubscribeEvent event){
-        SimpMessageHeaderAccessor accessor =
-                SimpMessageHeaderAccessor.wrap(event.getMessage());
 
-        String destination = accessor.getDestination();
 
-        if (destination == null ||
-                !destination.startsWith("/topic/lobby/")) {
-            return;
-        }
-
-        Matcher matcher = LOBBY_ID_PATTERN.matcher(destination);
-
-        if(!matcher.matches()) throw new ProblemDetailException(HttpStatus.BAD_REQUEST,"Missing or invalid lobby id", URI.create(destination));
-
-        UUID lobbyId = UUID.fromString(matcher.group(0));
-
-        Map<String, Object> attrs =
-                accessor.getSessionAttributes();
-
-        attrs.put("lobbyId", lobbyId);
-    }
 }

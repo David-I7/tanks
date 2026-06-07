@@ -20,7 +20,7 @@ public class UserSessionService {
     }
 
     public UserSession findById(long id){
-        return userSessionRepository.findById(id).orElseThrow(() -> new ProblemDetailException(HttpStatus.INTERNAL_SERVER_ERROR, "The user session with the provided id does not exist.", URI.create("about:blank")));
+        return userSessionRepository.findById(id).orElseThrow(() -> new ProblemDetailException(HttpStatus.NOT_FOUND, "The user session with the provided id does not exist.", URI.create("about:blank")));
     }
 
     public void delete(UserSession userSession){

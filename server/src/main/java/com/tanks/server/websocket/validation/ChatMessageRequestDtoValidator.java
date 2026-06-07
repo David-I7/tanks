@@ -21,7 +21,7 @@ public class ChatMessageRequestDtoValidator implements ConstraintValidator<Valid
             valid = false;
         }
 
-        if (dto.getType() == ChatEventType.MESSAGE) {
+        if (dto.getType() == ChatEventType.CHAT_MESSAGE) {
             if (dto.getMessage() == null || dto.getMessage().isBlank()) {
                 addViolation(context,"message","message must not be null or blank");
                 valid = false;

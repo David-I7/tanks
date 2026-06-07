@@ -22,4 +22,6 @@ public class UserSession {
 
     private UUID lobbyId;
 
+    private boolean connected;
+
 }
