@@ -4,7 +4,8 @@ import TanksWSClient from "../../api/ws/TanksWebSocketClient";
 import { useAuth } from "../../context/AuthContext";
 import TextInput from "../../components/form/input/TextInput";
 import Button from "../../components/buttons/Button";
-import type { ChatMessageResponseDto } from "../../api/ws/dto/chat/ChatMessageDto";
+import type { WebSocketEventResponseDto } from "../../api/ws/dto/WebSocketEventResponseDto";
+import type UserDto from "../../api/http/dto/UserDto";
 
 type PropsWithChildren = {
   children: ReactNode;
@@ -23,19 +24,58 @@ const throttleTyping = throttle((client: TanksWSClient, id: string) => {
     destination: "/app/chat/:id/send",
     id,
     body: {
-      type: "TYPING",
+      type: "CHAT_TYPE",
     },
   });
 }, 500).fn;
 
 type LobbyChatProps = { lobbyId: string };
+type ChatEvent = {
+  type: "CONNECT" | "DISCONNECT" | "MESSAGE";
+  sender: string;
+  payload: string;
+};
+
+function webSocketEventToChatEvent(
+  event: WebSocketEventResponseDto,
+  user: UserDto,
+): ChatEvent | null {
+  const messageType = event.type.split("_")[1] as ChatEvent["type"];
+
+  switch (messageType) {
+    case "CONNECT":
+      return {
+        type: messageType,
+        sender: event.sender,
+        payload:
+          user.username === event.sender
+            ? `You've connected`
+            : `${user.username} connected`,
+      };
+    case "DISCONNECT":
+      return {
+        type: messageType,
+        sender: event.sender,
+        payload:
+          user.username === event.sender
+            ? `You've disconnected`
+            : `${user.username} disconnected`,
+      };
+    case "MESSAGE":
+      return {
+        type: messageType,
+        sender: event.sender,
+        payload: event.payload as string,
+      };
+  }
+}
 
 export function LobbyChat({ lobbyId }: LobbyChatProps) {
   const { user } = useAuth();
 
   if (user == null) throw new Error("User has not been authenticated");
 
-  const [messages, setMessages] = useState<ChatMessageResponseDto[]>([]);
+  const [messages, setMessages] = useState<ChatEvent[]>([]);
   const client = useRef<TanksWSClient>(null);
   const [message, setMessage] = useState<string>("");
   const [typingUser, setTypingUser] = useState<string | null>(null);
@@ -49,38 +89,44 @@ export function LobbyChat({ lobbyId }: LobbyChatProps) {
 
     const currentClient = client.current!;
 
-    currentClient.subscribe<ChatMessageResponseDto>({
-      destination: "/topic/lobby/:id/chat",
+    currentClient.subscribe({
+      destination: "/topic/lobby/:id",
       id: lobbyId,
       onMessage: (message) => {
-        console.log(`Chat message: ${message}`);
+        const messageBody = message.body;
 
-        const chatMessage = message.body;
+        if (
+          messageBody.type === "CHAT_TYPE" ||
+          messageBody.type === "CHAT_MESSAGE" ||
+          messageBody.type === "LOBBY_DISCONNECT" ||
+          messageBody.type === "LOBBY_CONNECT"
+        ) {
+          if (messageBody.type === "CHAT_TYPE") {
+            if (messageBody.sender === user.username) return;
+            setTypingUser(messageBody.sender);
+            typingTimeout.fn();
+            return;
+          }
 
-        if (chatMessage.type === "TYPING") {
-          if (chatMessage.sender === user.username) return;
-          setTypingUser(chatMessage.sender);
-          typingTimeout.fn();
-          return;
-        } else if (chatMessage.type !== "CONNECT") {
-          if (chatMessage.sender !== user.username) {
-            typingTimeout.cancel();
-            setTypingUser(null);
+          if (
+            messageBody.type === "CHAT_MESSAGE" ||
+            messageBody.type === "LOBBY_DISCONNECT"
+          ) {
+            if (messageBody.sender !== user.username) {
+              typingTimeout.cancel();
+              setTypingUser(null);
+            }
+          }
+
+          const nextMessage = webSocketEventToChatEvent(messageBody, user);
+          if (nextMessage) {
+            setMessages((prev) => [...prev, nextMessage]);
           }
         }
-
-        setMessages((prev) => [...prev, chatMessage]);
       },
     });
 
-    currentClient.publish({
-      destination: "/app/chat/:id/send",
-      id: lobbyId,
-      body: { type: "CONNECT" },
-    });
-
     return () => {
-      currentClient.deactivate();
       typingTimeout.cancel();
     };
   }, []);
@@ -121,7 +167,7 @@ export function LobbyChat({ lobbyId }: LobbyChatProps) {
                 destination: "/app/chat/:id/send",
                 id: lobbyId,
                 body: {
-                  type: "MESSAGE",
+                  type: "CHAT_MESSAGE",
                   message: message.trim(),
                 },
               });
@@ -138,22 +184,14 @@ export function LobbyChat({ lobbyId }: LobbyChatProps) {
 
 type ChatMessageProps = {
   username: string;
-  message: ChatMessageResponseDto;
+  message: ChatEvent;
 };
 
 function ChatMessage({ username, message }: ChatMessageProps) {
   if (message.type === "CONNECT" || message.type === "DISCONNECT") {
     return (
       <div className="text-center text-sm text-text-body-low">
-        {username === message.sender &&
-          message.type === "CONNECT" &&
-          "You've connected"}
-        {username !== message.sender &&
-          message.type === "CONNECT" &&
-          `${message.sender} joined`}
-        {username !== message.sender &&
-          message.type === "DISCONNECT" &&
-          `${message.sender} left`}
+        {message.payload}
       </div>
     );
   } else if (message.type === "MESSAGE") {
@@ -161,11 +199,11 @@ function ChatMessage({ username, message }: ChatMessageProps) {
       <div>
         {username === message.sender ? (
           <div className="text-right">
-            {message.message}: {message.sender}
+            {message.payload}: {message.sender}
           </div>
         ) : (
           <div>
-            {message.sender}: {message.message}
+            {message.sender}: {message.payload}
           </div>
         )}
       </div>
