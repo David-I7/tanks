@@ -9,7 +9,6 @@ import { ApiError } from "../../errors/ApiError";
 import { LobbyChat } from "./LobbyChat";
 import Loader from "../../components/misc/Loader";
 import UnexpectedError from "../../errors/UnexpectedError";
-import type { StompSubscription } from "@stomp/stompjs";
 import Button from "../../components/buttons/Button";
 
 type PrivateLobbyRoomProps = {
@@ -45,8 +44,10 @@ export default function PrivateLobbyRoom({ action }: PrivateLobbyRoomProps) {
                 onMessage: (message) => {
                   console.log(message.body);
                   if (message.body.type === "LOBBY_CONNECT") {
-                    setConnected(true);
-                    setLobbyId(message.body.payload.id);
+                    if (user.username === message.body.sender) {
+                      setConnected(true);
+                      setLobbyId(message.body.payload.id);
+                    }
                   }
                 },
               });
@@ -72,8 +73,10 @@ export default function PrivateLobbyRoom({ action }: PrivateLobbyRoomProps) {
                 id: message.body.payload.id,
                 onMessage: (message) => {
                   if (message.body.type === "LOBBY_CONNECT") {
-                    setConnected(true);
-                    setLobbyId(message.body.payload.id);
+                    if (user.username === message.body.sender) {
+                      setConnected(true);
+                      setLobbyId(message.body.payload.id);
+                    }
                   }
                 },
               });

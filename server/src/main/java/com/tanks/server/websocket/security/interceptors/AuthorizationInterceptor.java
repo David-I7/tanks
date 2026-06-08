@@ -32,20 +32,23 @@ public class AuthorizationInterceptor implements ChannelInterceptor {
         if (StompCommand.CONNECT.equals(accessor.getCommand())) {
 
             WebSocketPrincipal principal = (WebSocketPrincipal) ((WebSocketAuthentication) accessor.getUser()).getPrincipal();
+            String sessionId = accessor.getSessionId();
 
             try {
                 UserSession userSession = userSessionService.findById(principal.getUserDto().id());
 
-                if(userSession.isConnected()){
+                if(!sessionId.equals(userSession.getSocketSessionId())){
                     throw new ProblemDetailException(HttpStatus.BAD_REQUEST,"User is already connected", null);
                 }
+
+                principal.setUserSession(userSession);
             }catch (ProblemDetailException ex){
-                //
+                // user is connecting for the first time
                 if(ex.getStatus().equals(HttpStatus.NOT_FOUND)){
                     UserSession userSession = UserSession.builder()
                             .id(principal.getUserDto().id())
                             .state(UserSessionState.IDLE)
-                            .connected(true)
+                            .socketSessionId(sessionId)
                             .build();
 
                     principal.setUserSession(userSession);

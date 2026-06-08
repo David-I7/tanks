@@ -58,4 +58,15 @@ public class WebSocketExceptionHandler {
     public ProblemDetail handleProblemDetailException(ProblemDetailException ex){
         return problemDetailWriter.createProblemDetail(ex);
     }
+
+    @MessageExceptionHandler(Exception.class)
+    @SendToUser("/queue/errors")
+    public ProblemDetail handleUnexpectedException(Exception ex) {
+        ProblemDetail problemDetail = ProblemDetail.forStatus(HttpStatus.INTERNAL_SERVER_ERROR);
+        problemDetail.setType(URI.create("about:blank"));
+        problemDetail.setTitle(HttpStatus.INTERNAL_SERVER_ERROR.toString());
+        problemDetail.setDetail("An unexpected server error occurred.");
+
+        return problemDetail;
+    }
 }

@@ -6,6 +6,7 @@ import TextInput from "../../components/form/input/TextInput";
 import Button from "../../components/buttons/Button";
 import type { WebSocketEventResponseDto } from "../../api/ws/dto/WebSocketEventResponseDto";
 import type UserDto from "../../api/http/dto/UserDto";
+import type { ChatEventPayload } from "../../api/ws/dto/chat/ChatEventDto";
 
 type PropsWithChildren = {
   children: ReactNode;
@@ -65,7 +66,7 @@ function webSocketEventToChatEvent(
       return {
         type: messageType,
         sender: event.sender,
-        payload: event.payload as string,
+        payload: (event.payload as ChatEventPayload)!.message,
       };
   }
 }
