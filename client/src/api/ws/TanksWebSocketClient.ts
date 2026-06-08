@@ -8,11 +8,12 @@ import {
 import type RefreshResponseDto from "../http/dto/RefreshResponseDto";
 import type ProblemDetailDto from "../http/dto/ProblemDetailDto";
 import { JSONError } from "../../errors/JSONError";
+import type { WebSocketEventResponseDto } from "./dto/WebSocketEventResponseDto";
 
 type EndpointSubscription<Data = string> = {
   destination:
-    | "/topic/lobby/:id/game"
-    | "/topic/lobby/:id/chat"
+    | "/topic/lobby/:id"
+    | "/topic/game/:id"
     | "/user/queue/errors"
     | "/user/queue/replies";
   id?: string | number;
@@ -24,9 +25,9 @@ type PublishParams = {
   destination:
     | "/app/chat/:id/send"
     | "/app/game/:id/send"
-    | "/app/lobby/create"
+    | "/app/lobby/create/private"
     | "/app/lobby/quick-match"
-    | "/app/lobby/join/:id";
+    | "/app/lobby/join/private/:id";
 
   id?: string | number;
 
@@ -141,7 +142,7 @@ export default class TanksWSClient {
     TanksWSClient.client.publish(finalParams as IPublishParams);
   }
 
-  subscribe<Data = string>(
+  subscribe<Data = WebSocketEventResponseDto>(
     params: EndpointSubscription<Data>,
   ): StompSubscription {
     if (!this.isActive()) throw new Error("Client is not active");

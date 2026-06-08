@@ -1,10 +1,9 @@
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { useParams } from "react-router-dom";
 import { uuidSchema } from "../../validation/lobby";
 import H1 from "../../components/headings/H1";
 import TanksWSClient from "../../api/ws/TanksWebSocketClient";
-import type LobbyResponseDto from "../../api/ws/dto/lobby/LobbyResponseDto";
 import type ProblemDetailDto from "../../api/http/dto/ProblemDetailDto";
 import { ApiError } from "../../errors/ApiError";
 import { LobbyChat } from "./LobbyChat";
@@ -33,54 +32,66 @@ export default function PrivateLobbyRoom({ action }: PrivateLobbyRoomProps) {
     const currentClient = new TanksWSClient();
     client.current = currentClient;
 
-    const subscribtions: StompSubscription[] = [];
-
     currentClient.setOnConnect(() => {
       if (action === "CREATE") {
-        currentClient.publish({ destination: "/app/lobby/create" });
-
-        subscribtions.push(
-          currentClient.subscribe<LobbyResponseDto>({
-            destination: "/user/queue/replies",
-            onMessage: (message) => {
-              setConnected(true);
-              setLobbyId(message.body.id);
-            },
-          }),
-        );
-
-        subscribtions.push(
-          currentClient.subscribe<ProblemDetailDto>({
-            destination: "/user/queue/errors",
-            onMessage: (message) => {
-              setError(new ApiError(message.body, message.body.status));
-            },
-          }),
-        );
-      } else if (action === "JOIN") {
-        currentClient.publish({
-          destination: "/app/lobby/join/:id",
-          id,
+        currentClient.subscribe({
+          destination: "/user/queue/replies",
+          onMessage: (message) => {
+            console.log(message.body);
+            if (message.body.type === "LOBBY_CREATED") {
+              currentClient.subscribe({
+                destination: "/topic/lobby/:id",
+                id: message.body.payload.id,
+                onMessage: (message) => {
+                  console.log(message.body);
+                  if (message.body.type === "LOBBY_CONNECT") {
+                    setConnected(true);
+                    setLobbyId(message.body.payload.id);
+                  }
+                },
+              });
+            }
+          },
         });
 
-        subscribtions.push(
-          currentClient.subscribe<LobbyResponseDto>({
-            destination: "/user/queue/replies",
-            onMessage: (message) => {
-              setConnected(true);
-              setLobbyId(message.body.id);
-            },
-          }),
-        );
+        currentClient.subscribe<ProblemDetailDto>({
+          destination: "/user/queue/errors",
+          onMessage: (message) => {
+            setError(new ApiError(message.body, message.body.status));
+          },
+        });
 
-        subscribtions.push(
-          currentClient.subscribe<ProblemDetailDto>({
-            destination: "/user/queue/errors",
-            onMessage: (message) => {
-              setError(new ApiError(message.body, message.body.status));
-            },
-          }),
-        );
+        currentClient.publish({ destination: "/app/lobby/create/private" });
+      } else if (action === "JOIN") {
+        currentClient.subscribe({
+          destination: "/user/queue/replies",
+          onMessage: (message) => {
+            if (message.body.type === "LOBBY_JOINED") {
+              currentClient.subscribe({
+                destination: "/topic/lobby/:id",
+                id: message.body.payload.id,
+                onMessage: (message) => {
+                  if (message.body.type === "LOBBY_CONNECT") {
+                    setConnected(true);
+                    setLobbyId(message.body.payload.id);
+                  }
+                },
+              });
+            }
+          },
+        });
+
+        currentClient.subscribe<ProblemDetailDto>({
+          destination: "/user/queue/errors",
+          onMessage: (message) => {
+            setError(new ApiError(message.body, message.body.status));
+          },
+        });
+
+        currentClient.publish({
+          destination: "/app/lobby/join/private/:id",
+          id,
+        });
       }
     });
 
