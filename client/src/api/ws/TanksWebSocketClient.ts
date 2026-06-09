@@ -10,7 +10,7 @@ import type ProblemDetailDto from "../http/dto/ProblemDetailDto";
 import { JSONError } from "../../errors/JSONError";
 import type { WebSocketEventResponseDto } from "./dto/WebSocketEventResponseDto";
 
-type EndpointSubscription<Data = string> = {
+export type EndpointSubscription<Data = string> = {
   destination:
     | "/topic/lobby/:id"
     | "/topic/game/:id"
@@ -21,7 +21,7 @@ type EndpointSubscription<Data = string> = {
   subscriptionHeaders?: StompHeaders;
 };
 
-type PublishParams = {
+export type PublishParams = {
   destination:
     | "/app/chat/:id/send"
     | "/app/game/:id/send"
@@ -38,7 +38,7 @@ type PublishParams = {
   binaryBody?: Uint8Array;
 };
 
-type Message<Data = string> = {
+export type Message<Data = string> = {
   command: string;
 
   headers: StompHeaders;
@@ -50,54 +50,55 @@ type Message<Data = string> = {
 
 export default class TanksWSClient {
   private static client: Client;
-  private static refreshHandler?: () => Promise<RefreshResponseDto>;
 
-  static {
-    this.client = new Client({
-      brokerURL: import.meta.env.VITE_BASE_WEBSOCKETS_URL,
-      debug: import.meta.env.DEV ? console.log : undefined,
-      reconnectDelay: 5000, // 5 seconds
-      onStompError: async (err) => {
-        if (import.meta.env.DEV) console.log(err);
-        try {
-          if (
-            err.headers["content-type"] &&
-            err.headers["content-type"] === "application/json"
-          ) {
-            const problemDetail = JSON.parse(err.body) as ProblemDetailDto;
-
-            if (problemDetail.status === 401) {
-              await this.refreshHandler?.();
-            }
-          }
-        } catch (err) {
-          this.client.deactivate();
-        }
-      },
-    });
-  }
-
-  static setRefreshHandler(refreshHandler: () => Promise<RefreshResponseDto>) {
-    this.refreshHandler = refreshHandler;
-  }
-
-  static setAccessToken(accessToken: string) {
-    if (accessToken === "") {
-      delete this.client.connectHeaders["Authorization"];
+  private setAccessToken(accessToken: string | null) {
+    if (accessToken === "" || accessToken === null) {
+      delete TanksWSClient.client.connectHeaders["Authorization"];
       return;
     }
 
-    this.client.connectHeaders = {
-      ...this.client.connectHeaders,
+    TanksWSClient.client.connectHeaders = {
+      ...TanksWSClient.client.connectHeaders,
       Authorization: `Bearer ${accessToken}`,
     };
   }
 
-  constructor() {
-    if (!TanksWSClient.client.active) TanksWSClient.client.activate();
+  constructor(
+    accessToken: string,
+    private refreshHandler: () => Promise<RefreshResponseDto>,
+  ) {
+    if (!TanksWSClient.client) {
+      TanksWSClient.client = new Client({
+        brokerURL: import.meta.env.VITE_BASE_WEBSOCKETS_URL,
+        debug: import.meta.env.DEV ? console.log : undefined,
+        reconnectDelay: 5000, // 5 seconds
+        onStompError: async (err) => {
+          if (import.meta.env.DEV) console.log(err);
+          try {
+            if (
+              err.headers["content-type"] &&
+              err.headers["content-type"] === "application/json"
+            ) {
+              const problemDetail = JSON.parse(err.body) as ProblemDetailDto;
+
+              if (problemDetail.status === 401) {
+                await this.refreshHandler();
+              }
+            }
+          } catch (err) {
+            if (import.meta.env.DEV) console.log(err);
+            TanksWSClient.client.deactivate();
+          }
+        },
+      });
+
+      this.setAccessToken(accessToken);
+
+      TanksWSClient.client.activate();
+    }
   }
 
-  setOnConnect(onConnect: Client["onConnect"]) {
+  setOnconnect(onConnect: Client["onConnect"]) {
     TanksWSClient.client.onConnect = onConnect;
   }
 
