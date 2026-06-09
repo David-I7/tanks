@@ -31,7 +31,7 @@ export function useFetch<Data, Err = Error>(
   const setIdle = () => {
     setFetchState((prev) => ({
       ...prev,
-      loading: true,
+      loading: false,
       state: "idle",
       data: null,
       error: null,

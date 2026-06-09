@@ -12,6 +12,7 @@ import com.tanks.server.mappers.user.UserDtoToUserMapper;
 import com.tanks.server.websocket.entities.userSession.UserSession;
 import com.tanks.server.websocket.entities.userSession.UserSessionState;
 import com.tanks.server.websocket.exceptions.ProblemDetailException;
+import com.tanks.server.websocket.security.entites.WebSocketAuthentication;
 import com.tanks.server.websocket.security.entites.WebSocketPrincipal;
 import com.tanks.server.websocket.services.LobbyService;
 import com.tanks.server.websocket.services.UserSessionService;
@@ -43,12 +44,13 @@ public class LobbyController {
 
     }
 
-    @PreAuthorize("@webSocketAuthorizationService.isIdle(authentication, '/lobby/create/private')")
+    @PreAuthorize("@webSocketAuthorizationService.isIdleUserSession(authentication, '/lobby/create/private')")
     @MessageMapping("/lobby/create/private")
     @SendToUser("/queue/replies")
-    public LobbyEventResponseDto createLobby(Principal principal){
-        UserDto userDto = ((WebSocketPrincipal)principal).getUserDto();
-        UserSession userSession = ((WebSocketPrincipal)principal).getUserSession();
+    public LobbyEventResponseDto createLobby(Authentication authentication){
+        WebSocketPrincipal principal = (WebSocketPrincipal)authentication.getPrincipal();
+        UserDto userDto = principal.getUserDto();
+        UserSession userSession = principal.getUserSession();
 
         // Create private lobby
         UUID uuid = IdFactory.randomUUID();
@@ -62,15 +64,17 @@ public class LobbyController {
         lobbyService.create(lobby);
 
         userSession.setState(UserSessionState.IN_LOBBY);
+        userSession.setLobbyId(uuid);
         userSessionService.save(userSession);
 
         return new LobbyEventResponseDto(LobbyEventType.LOBBY_CREATED, "@SERVER",new LobbyIdPayload(uuid));
     }
 
-    @PreAuthorize("@webSocketAuthorizationService.isIdle(authentication, '/lobby/join/private/' + #id)")
+    @PreAuthorize("@webSocketAuthorizationService.isIdleUserSession(authentication, '/lobby/join/private/' + #id)")
     @MessageMapping("/lobby/join/private/{id}")
     @SendToUser("/queue/replies")
-    public LobbyEventResponseDto joinPrivateLobby(@DestinationVariable UUID id, WebSocketPrincipal principal){
+    public LobbyEventResponseDto joinPrivateLobby(@DestinationVariable UUID id, Authentication authentication){
+        WebSocketPrincipal principal = (WebSocketPrincipal)authentication.getPrincipal();
         UserDto userDto = principal.getUserDto();
         UserSession userSession = principal.getUserSession();
 
@@ -78,15 +82,17 @@ public class LobbyController {
         lobbyService.join(id, userDtoToUserMapper.apply(userDto));
 
         userSession.setState(UserSessionState.IN_LOBBY);
+        userSession.setLobbyId(id);
         userSessionService.save(userSession);
 
         return new LobbyEventResponseDto(LobbyEventType.LOBBY_JOINED, "@SERVER",new LobbyIdPayload(id));
     }
 
-    @PreAuthorize("@webSocketAuthorizationService.isIdle(authentication, '/lobby/quick-match')")
+    @PreAuthorize("@webSocketAuthorizationService.isIdleUserSession(authentication, '/lobby/quick-match')")
     @MessageMapping("/lobby/quick-match")
     @SendToUser("/queue/replies")
-    public LobbyEventResponseDto joinQuickMatch(WebSocketPrincipal principal){
+    public LobbyEventResponseDto joinQuickMatch(Authentication authentication){
+        WebSocketPrincipal principal = (WebSocketPrincipal)authentication.getPrincipal();
         UserDto userDto = principal.getUserDto();
         UserSession userSession = principal.getUserSession();
 
@@ -98,6 +104,7 @@ public class LobbyController {
             lobbyService.removeQuickMatch(quickMatchLobby);
 
             userSession.setState(UserSessionState.IN_LOBBY);
+            userSession.setLobbyId(quickMatchLobby.getId());
             userSessionService.save(userSession);
 
             return new LobbyEventResponseDto(LobbyEventType.LOBBY_JOINED,"@SERVER",new LobbyIdPayload(quickMatchLobby.getId()));
@@ -113,6 +120,7 @@ public class LobbyController {
             lobbyService.create(quickMatchLobby);
 
             userSession.setState(UserSessionState.IN_LOBBY);
+            userSession.setLobbyId(quickMatchLobby.getId());
             userSessionService.save(userSession);
 
             return new LobbyEventResponseDto(LobbyEventType.LOBBY_CREATED,"@SERVER",new LobbyIdPayload(quickMatchLobby.getId()));

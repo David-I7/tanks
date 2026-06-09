@@ -22,6 +22,6 @@ public class UserSession {
 
     private UUID lobbyId;
 
-    private boolean connected;
+    private String socketSessionId;
 
 }

@@ -8,8 +8,14 @@ import { useEffect } from "react";
 import AuthenticatedRoute from "../../components/auth/AuthenticatedRoute";
 import PrivateLobbyRoom from "../lobby/PrivateLobbyRoom";
 import Logout from "../../components/auth/Logout";
+import { WebSocketProvider } from "../../context/WebSocketContext";
 
-type Screen = "onlineMenu" | "root" | "offlineMenu" | "privateLobby";
+type Screen =
+  | "onlineMenu"
+  | "root"
+  | "offlineMenu"
+  | "privateLobby"
+  | "quickMatchLobby";
 
 export default function HomePage() {
   const screens = {
@@ -20,7 +26,11 @@ export default function HomePage() {
       </AuthenticatedRoute>
     ),
     offlineMenu: <OfflineMenu />,
-    privateLobby: <PrivateLobbyRoom action="CREATE" />,
+    privateLobby: (
+      <WebSocketProvider>
+        <PrivateLobbyRoom />
+      </WebSocketProvider>
+    ),
   };
   return (
     <ScreenStackProvider screens={screens}>
@@ -85,7 +95,7 @@ function OfflineMenu() {
   );
 }
 
-function MatchMakingScreen() {
+function QuickMatchScreen() {
   const { popScreen } = useScreenStack();
 
   useEffect(() => {}, []);

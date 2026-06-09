@@ -6,6 +6,7 @@ import com.tanks.server.websocket.dto.game.GameEventResponseDto;
 import com.tanks.server.websocket.dto.game.GameEventType;
 import com.tanks.server.websocket.dto.lobby.LobbyEventResponseDto;
 import com.tanks.server.websocket.dto.lobby.LobbyEventType;
+import com.tanks.server.websocket.dto.lobby.LobbyIdPayload;
 import com.tanks.server.websocket.entities.userSession.UserSession;
 import com.tanks.server.websocket.entities.userSession.UserSessionState;
 import com.tanks.server.websocket.security.entites.WebSocketAuthentication;
@@ -22,9 +23,13 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.messaging.*;
 
+import java.util.UUID;
+
 @Component
 @Slf4j
 public class WebSocketEventListeners {
+
+    private static final String TOPIC_LOBBY = "/topic/lobby/";
 
     private final SimpMessagingTemplate simpMessagingTemplate;
 
@@ -59,21 +64,21 @@ public class WebSocketEventListeners {
         UserDto user = principal.getUserDto();
         UserSession userSession = principal.getUserSession();
 
-        if(userSession.getState() == UserSessionState.IN_LOBBY){
-            // notify lobby that the user disconnected
-            lobbyService.removeUser(userSession.getLobbyId(),userDtoToUserMapper.apply(user));
-            userSessionService.delete(userSession);
-            simpMessagingTemplate.convertAndSend("/topic/lobby/" + userSession.getLobbyId(), new LobbyEventResponseDto(LobbyEventType.LOBBY_DISCONNECT, user.username(),null));
-        }else if (userSession.getState() == UserSessionState.IN_GAME){
-            // handle game disconnect
-            userSession.setConnected(false);
-            userSessionService.save(userSession);
-            simpMessagingTemplate.convertAndSend("/topic/game/" + userSession.getGameSessionId(), new GameEventResponseDto(GameEventType.GAME_DISCONNECT, user.username(),null));
-        }else{
-            // handle tab close or general disconnect events
-            userSessionService.delete(userSession);
+        if(userSession != null) {
+            if (userSession.getState() == UserSessionState.IN_LOBBY) {
+                // notify lobby that the user disconnected
+                lobbyService.removeUser(userSession.getLobbyId(), userDtoToUserMapper.apply(user));
+                userSessionService.delete(userSession);
+                simpMessagingTemplate.convertAndSend("/topic/lobby/" + userSession.getLobbyId(), new LobbyEventResponseDto(LobbyEventType.LOBBY_DISCONNECT, user.username(), null));
+            } else if (userSession.getState() == UserSessionState.IN_GAME) {
+                // handle game disconnect
+                userSessionService.save(userSession);
+                simpMessagingTemplate.convertAndSend("/topic/game/" + userSession.getGameSessionId(), new GameEventResponseDto(GameEventType.GAME_DISCONNECT, user.username(), null));
+            } else {
+                // handle tab close or general disconnect events
+                userSessionService.delete(userSession);
+            }
         }
-
 
         log.debug("User '{}' disconnected", user.username());
     }
@@ -82,12 +87,23 @@ public class WebSocketEventListeners {
     public void handleLobbyConnect(SessionSubscribeEvent event){
         StompHeaderAccessor accessor = StompHeaderAccessor.wrap(event.getMessage());
 
-        if(accessor.getDestination().startsWith("/topic/lobby/")){
+        if(accessor.getDestination() == null) return;
+
+        if(accessor.getDestination().startsWith(TOPIC_LOBBY)){
             log.debug("LOBBY CONNECT");
             WebSocketAuthentication authentication =  (WebSocketAuthentication)accessor.getUser();
 
             if(webSocketAuthorizationService.canJoinLobby(authentication, accessor.getDestination())){
-                simpMessagingTemplate.convertAndSend(accessor.getDestination(), new LobbyEventResponseDto(LobbyEventType.LOBBY_CONNECT, authentication.getName(),null));
+                simpMessagingTemplate.convertAndSend(
+                        accessor.getDestination(),
+                        new LobbyEventResponseDto(
+                                LobbyEventType.LOBBY_CONNECT,
+                                authentication.getName(),
+                                new LobbyIdPayload(
+                                        UUID.fromString(accessor.getDestination().substring(TOPIC_LOBBY.length()))
+                                )
+                        )
+                );
             };
         }
     }

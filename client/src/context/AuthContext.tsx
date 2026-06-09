@@ -15,11 +15,13 @@ import type { TanksRequest } from "../api/http/requests/TanksRequest";
 import type RefreshResponseDto from "../api/http/dto/RefreshResponseDto";
 import TanksWSClient from "../api/ws/TanksWebSocketClient";
 import { useFetch } from "../hooks/useFetch";
+import { ApiError } from "../errors/ApiError";
 
 type UseFetchReturnType = ReturnType<typeof useFetch<RefreshResponseDto>>;
 
 type AuthContextState = {
   user: User | null;
+  accessToken: string | null;
   loading: boolean;
   state: UseFetchReturnType["state"];
   error: UseFetchReturnType["error"];
@@ -30,6 +32,7 @@ type AuthContextState = {
     registerRequest: PostOauth2RegisterRequestDto,
   ): Promise<void>;
   handlePostOAuth2Login(loginRequest: PostOauth2LoginRequestDto): Promise<void>;
+  handleRefresh: () => Promise<RefreshResponseDto>;
 };
 
 export const AuthContext = createContext<AuthContextState | undefined>(
@@ -40,12 +43,10 @@ async function handleRefreshUser() {
   try {
     const response = await new TanksClient().send(new RefreshRequest());
     TanksClient.setAccessToken(response.accessToken);
-    TanksWSClient.setAccessToken(response.accessToken);
 
     return response;
   } catch (err) {
     TanksClient.setAccessToken("");
-    TanksWSClient.setAccessToken("");
     throw err;
   }
 }
@@ -63,7 +64,6 @@ const useAuthContext = (): AuthContextState => {
       const data = await tanksClient.send(request);
 
       TanksClient.setAccessToken(data.accessToken);
-      TanksWSClient.setAccessToken(data.accessToken);
       setData(data);
     } catch (err) {
       throw err;
@@ -93,7 +93,6 @@ const useAuthContext = (): AuthContextState => {
       await new TanksClient().send(new LogoutRequest());
 
       TanksClient.setAccessToken("");
-      TanksClient.setAccessToken("");
       setIdle();
     } catch (err) {
       throw err;
@@ -106,16 +105,19 @@ const useAuthContext = (): AuthContextState => {
       setData(response);
       return response;
     } catch (err) {
-      setError(err as Error);
+      if (err instanceof ApiError && err.status === 401) {
+        setIdle();
+        setError(err);
+      }
       throw err;
     }
   }
 
   TanksClient.setRefreshHandler(handleRefresh);
-  TanksWSClient.setRefreshHandler(handleRefresh);
 
   return {
     user: data !== null ? data.user : null,
+    accessToken: data !== null ? data.accessToken : null,
     error,
     loading,
     state,
@@ -124,6 +126,7 @@ const useAuthContext = (): AuthContextState => {
     handleLogin,
     handleLogout,
     handleRegister,
+    handleRefresh,
   };
 };
 
