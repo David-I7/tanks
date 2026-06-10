@@ -3,7 +3,8 @@ import {
   StompHeaders,
   type IMessage,
   type IPublishParams,
-  type StompSubscription, type frameCallbackType,
+  type StompSubscription,
+  type frameCallbackType,
 } from "@stomp/stompjs";
 import type RefreshResponseDto from "../http/dto/RefreshResponseDto";
 import type ProblemDetailDto from "../http/dto/ProblemDetailDto";
@@ -50,16 +51,16 @@ export type Message<Data = string> = {
 };
 
 export default class TanksWSClient {
-  private static client: Client;
+  private client: Client;
 
   private setAccessToken(accessToken: string | null) {
     if (accessToken === "" || accessToken === null) {
-      delete TanksWSClient.client.connectHeaders["Authorization"];
+      delete this.client.connectHeaders["Authorization"];
       return;
     }
 
-    TanksWSClient.client.connectHeaders = {
-      ...TanksWSClient.client.connectHeaders,
+    this.client.connectHeaders = {
+      ...this.client.connectHeaders,
       Authorization: `Bearer ${accessToken}`,
     };
   }
@@ -67,14 +68,15 @@ export default class TanksWSClient {
   constructor(
     accessToken: string,
     refreshHandler: () => Promise<RefreshResponseDto>,
-    onStompError?:  frameCallbackType
+    onStompError?: frameCallbackType,
   ) {
-    if (!TanksWSClient.client) {
-      TanksWSClient.client = new Client({
-        brokerURL: import.meta.env.VITE_BASE_WEBSOCKETS_URL,
-        debug: import.meta.env.DEV ? console.log : undefined,
-        reconnectDelay: 5000, // 5 seconds
-        onStompError: onStompError ?? (async (err) => {
+    this.client = new Client({
+      brokerURL: import.meta.env.VITE_BASE_WEBSOCKETS_URL,
+      debug: import.meta.env.DEV ? console.log : undefined,
+      reconnectDelay: 5000, // 5 seconds
+      onStompError:
+        onStompError ??
+        (async (err) => {
           if (import.meta.env.DEV) console.log(err);
           try {
             if (
@@ -89,35 +91,34 @@ export default class TanksWSClient {
             }
           } catch (err) {
             if (import.meta.env.DEV) console.log(err);
-            TanksWSClient.client.deactivate();
+            this.client.deactivate();
           }
         }),
-      });
+    });
 
-      this.setAccessToken(accessToken);
+    this.setAccessToken(accessToken);
 
-      TanksWSClient.client.activate();
-    }
+    this.client.activate();
   }
 
   setOnconnect(onConnect: Client["onConnect"]) {
-    TanksWSClient.client.onConnect = onConnect;
+    this.client.onConnect = onConnect;
   }
 
   isActive() {
-    return TanksWSClient.client.active;
+    return this.client.active;
   }
 
   deactivate() {
-    if (this.isActive()) TanksWSClient.client.deactivate();
+    if (this.isActive()) this.client.deactivate();
   }
 
   activate() {
-    if (!this.isActive()) TanksWSClient.client.activate();
+    if (!this.isActive()) this.client.activate();
   }
 
   onDisconnect(onDisconnect: Client["onDisconnect"]) {
-    return (TanksWSClient.client.onDisconnect = onDisconnect);
+    return (this.client.onDisconnect = onDisconnect);
   }
 
   publish(params: PublishParams) {
@@ -142,7 +143,7 @@ export default class TanksWSClient {
       );
     }
 
-    TanksWSClient.client.publish(finalParams as IPublishParams);
+    this.client.publish(finalParams as IPublishParams);
   }
 
   subscribe<Data = WebSocketEventResponseDto>(
@@ -180,7 +181,7 @@ export default class TanksWSClient {
       );
     }
 
-    return TanksWSClient.client.subscribe(
+    return this.client.subscribe(
       finalParams.destination,
       handleMessage,
       finalParams.subscriptionHeaders,
