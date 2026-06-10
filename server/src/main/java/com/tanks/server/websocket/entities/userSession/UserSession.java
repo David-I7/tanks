@@ -14,7 +14,9 @@ import java.util.UUID;
 public class UserSession {
 
     @Id
-    private long id;
+    private Long id;
+
+    private String username;
 
     private UserSessionState state;
 
@@ -24,4 +26,15 @@ public class UserSession {
 
     private String socketSessionId;
 
+    private boolean connectedToTopic = false;
+
+    public UserSession(UserSession userSession) {
+        this.id = userSession.id;
+        this.username = userSession.username;
+        this.state = userSession.state;
+        this.gameSessionId = userSession.gameSessionId;
+        this.lobbyId = userSession.lobbyId;
+        this.socketSessionId = userSession.socketSessionId;
+        this.connectedToTopic = userSession.connectedToTopic;
+    }
 }

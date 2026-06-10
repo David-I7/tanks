@@ -4,4 +4,4 @@ export type LobbyEventType =
   | "LOBBY_JOINED"
   | "LOBBY_CREATED";
 
-export type LobbyEventPayload = { id: string };
+export type LobbyEventPayload = { id: string, playerName: string };

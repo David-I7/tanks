@@ -13,6 +13,7 @@ import RegisterPage from "./pages/register/RegisterPage";
 import AppLayout from "./components/layouts/AppLayout";
 import TestPage from "./pages/test/TestPage";
 import GlobalErrorPage from "./pages/error/GlobalErrorPage";
+import GamePage from "./pages/game/GamePage";
 
 const router = createBrowserRouter([
   {
@@ -42,6 +43,14 @@ const router = createBrowserRouter([
         element: (
           <AuthenticatedRoute>
             <LobbyPage />
+          </AuthenticatedRoute>
+        ),
+      },
+      {
+        path: "game/:id",
+        element: (
+          <AuthenticatedRoute>
+            <GamePage />
           </AuthenticatedRoute>
         ),
       },

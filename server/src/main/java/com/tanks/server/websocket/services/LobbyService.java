@@ -24,8 +24,6 @@ public class LobbyService {
 
     private final QuickMatchService quickMatchService;
 
-    private final SimpMessagingTemplate messagingTemplate;
-
     public Lobby create(Lobby lobby){
 
         lobbyRepository.save(lobby);
@@ -38,8 +36,7 @@ public class LobbyService {
 
     public void join(UUID lobbyId, User user){
 
-        Lobby lobby = lobbyRepository.findById(lobbyId)
-                .orElseThrow(() ->new ProblemDetailException(HttpStatus.NOT_FOUND,"The lobby with the provided id does not exist.", URI.create("/lobby/join/private/" + lobbyId)));
+        Lobby lobby = findById(lobbyId);
 
         // The user is trying to connect multiple times (ex: multiple open tabs).
         if (isFullLobby(lobby)) throw new ProblemDetailException(HttpStatus.BAD_REQUEST,"Lobby is full.", URI.create("/lobby/join/private/" + lobbyId));
@@ -53,8 +50,7 @@ public class LobbyService {
 
     public void removeUser(UUID lobbyId, User user){
 
-        Lobby lobby = lobbyRepository.findById(lobbyId)
-                .orElseThrow(() -> new IllegalStateException("The lobby with the provided id does not exist."));
+        Lobby lobby = findById(lobbyId);
 
         if(!isConnectedUser(lobby,user)) throw new IllegalStateException("The provided user is not connected to the lobby " + lobbyId );
 
@@ -84,6 +80,13 @@ public class LobbyService {
 
     public Optional<Lobby> findBestQuickMatch(){
         return quickMatchService.findBestQuickMatch();
+    }
+
+    public Lobby findById(UUID lobbyId){
+        Lobby lobby = lobbyRepository.findById(lobbyId)
+                .orElseThrow(() ->new ProblemDetailException(HttpStatus.NOT_FOUND,"The lobby with the provided id does not exist.", URI.create("about:blank")));
+
+        return lobby;
     }
 
     private boolean isFullLobby(Lobby lobby){

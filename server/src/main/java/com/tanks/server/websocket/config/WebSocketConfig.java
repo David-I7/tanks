@@ -3,6 +3,7 @@ package com.tanks.server.websocket.config;
 import com.tanks.server.websocket.exceptions.StompErrorHandler;
 import com.tanks.server.websocket.security.interceptors.AuthorizationInterceptor;
 import com.tanks.server.websocket.security.interceptors.JwtAuthenticationInterceptor;
+import com.tanks.server.websocket.security.interceptors.UserSessionPersistenceInterceptor;
 import lombok.AllArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -22,6 +23,8 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     private final JwtAuthenticationInterceptor jwtAuthenticationInterceptor;
 
     private final AuthorizationInterceptor authorizationInterceptor;
+
+    private final UserSessionPersistenceInterceptor userSessionPersistenceInterceptor;
 
     private final StompErrorHandler stompErrorHandler;
 

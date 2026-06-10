@@ -3,7 +3,7 @@ import {
   StompHeaders,
   type IMessage,
   type IPublishParams,
-  type StompSubscription,
+  type StompSubscription, type frameCallbackType,
 } from "@stomp/stompjs";
 import type RefreshResponseDto from "../http/dto/RefreshResponseDto";
 import type ProblemDetailDto from "../http/dto/ProblemDetailDto";
@@ -25,6 +25,7 @@ export type PublishParams = {
   destination:
     | "/app/chat/:id/send"
     | "/app/game/:id/send"
+    | "/app/game/create"
     | "/app/lobby/create/private"
     | "/app/lobby/quick-match"
     | "/app/lobby/join/private/:id";
@@ -65,14 +66,15 @@ export default class TanksWSClient {
 
   constructor(
     accessToken: string,
-    private refreshHandler: () => Promise<RefreshResponseDto>,
+    refreshHandler: () => Promise<RefreshResponseDto>,
+    onStompError?:  frameCallbackType
   ) {
     if (!TanksWSClient.client) {
       TanksWSClient.client = new Client({
         brokerURL: import.meta.env.VITE_BASE_WEBSOCKETS_URL,
         debug: import.meta.env.DEV ? console.log : undefined,
         reconnectDelay: 5000, // 5 seconds
-        onStompError: async (err) => {
+        onStompError: onStompError ?? (async (err) => {
           if (import.meta.env.DEV) console.log(err);
           try {
             if (
@@ -82,14 +84,14 @@ export default class TanksWSClient {
               const problemDetail = JSON.parse(err.body) as ProblemDetailDto;
 
               if (problemDetail.status === 401) {
-                await this.refreshHandler();
+                await refreshHandler();
               }
             }
           } catch (err) {
             if (import.meta.env.DEV) console.log(err);
             TanksWSClient.client.deactivate();
           }
-        },
+        }),
       });
 
       this.setAccessToken(accessToken);

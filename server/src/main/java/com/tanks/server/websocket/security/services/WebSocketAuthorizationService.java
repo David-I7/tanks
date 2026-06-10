@@ -1,9 +1,11 @@
 package com.tanks.server.websocket.security.services;
 
+import com.tanks.server.websocket.entities.lobby.Lobby;
 import com.tanks.server.websocket.entities.userSession.UserSession;
 import com.tanks.server.websocket.entities.userSession.UserSessionState;
 import com.tanks.server.websocket.exceptions.ProblemDetailException;
 import com.tanks.server.websocket.security.entites.WebSocketPrincipal;
+import com.tanks.server.websocket.services.LobbyService;
 import com.tanks.server.websocket.services.UserSessionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,7 +26,9 @@ public class WebSocketAuthorizationService {
 
     private final UserSessionService userSessionService;
 
-    public boolean isIdleUserSession(Authentication authentication, String uri) {
+    private final LobbyService lobbyService;
+
+    public boolean canJoinOrCreateLobby(Authentication authentication, String uri) {
         if(authentication == null) return false;
 
         WebSocketPrincipal principal = (WebSocketPrincipal)authentication.getPrincipal();
@@ -41,7 +45,7 @@ public class WebSocketAuthorizationService {
         }
     }
 
-    public boolean canJoinLobby(Authentication authentication, String uri) {
+    public boolean canJoinLobbyTopic(Authentication authentication, String uri) {
         if(authentication == null) return false;
 
         WebSocketPrincipal principal = (WebSocketPrincipal)authentication.getPrincipal();
@@ -63,13 +67,13 @@ public class WebSocketAuthorizationService {
         else {
             throw new ProblemDetailException(
                     HttpStatus.UNAUTHORIZED,
-                    "User is not in a lobby.",
+                    "User is not in the provided lobby.",
                     URI.create(uri)
             );
         }
     }
 
-    public boolean isInGame(Authentication authentication, String uri) {
+    public boolean canJoinGameTopic(Authentication authentication, String uri) {
         if(authentication == null) return false;
 
         WebSocketPrincipal principal = (WebSocketPrincipal)authentication.getPrincipal();
@@ -91,9 +95,36 @@ public class WebSocketAuthorizationService {
         else {
             throw new ProblemDetailException(
                     HttpStatus.UNAUTHORIZED,
-                    "User is not in a game.",
+                    "User is not in the provided game.",
                     URI.create(uri)
             );
         }
+    }
+
+    public boolean canCreateGame(Authentication authentication, String uri){
+        if(authentication == null) return false;
+
+        WebSocketPrincipal principal = (WebSocketPrincipal)authentication.getPrincipal();
+        UserSession userSession = principal.getUserSession();
+
+        if(!userSession.isConnectedToTopic() || !userSession.getState().equals(UserSessionState.IN_LOBBY)){
+            throw new ProblemDetailException(
+                    HttpStatus.UNAUTHORIZED,
+                    "User is not connected to a lobby.",
+                    URI.create(uri)
+            );
+        }
+
+        Lobby lobby = lobbyService.findById(userSession.getLobbyId());
+
+        if(lobby.getOpponentId() == null){
+            throw new ProblemDetailException(
+                    HttpStatus.UNAUTHORIZED,
+                    "Lobby only has one player.",
+                    URI.create(uri)
+            );
+        }
+
+        return true;
     }
 }
