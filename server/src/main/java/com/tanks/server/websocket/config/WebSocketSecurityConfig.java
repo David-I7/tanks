@@ -23,7 +23,7 @@ public class WebSocketSecurityConfig {
                     SimpMessageType.HEARTBEAT
             ).permitAll()
             .simpDestMatchers("/app/**").authenticated()
-            .simpSubscribeDestMatchers("/topic/**","/user/**").authenticated()
+            .simpSubscribeDestMatchers("/topic/lobby/*","/topic/game/*","/user/queue/replies","/user/queue/errors").authenticated()
             .anyMessage().denyAll();
         return messages.build();
     }

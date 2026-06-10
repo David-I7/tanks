@@ -3,10 +3,10 @@ import { LobbyChat } from "./LobbyChat";
 import Loader from "../../components/misc/Loader";
 import UnexpectedError from "../../errors/UnexpectedError";
 import Button from "../../components/buttons/Button";
-import useLobby from "./useLobby";
+import usePrivateLobby from "./usePrivateLobby";
 
 export default function PrivateLobbyRoom() {
-  const { connected, error, lobbyId, username } = useLobby();
+  const { connected, error, lobbyId, username, disconnect,canStartGame,createGame } = usePrivateLobby();
 
   if (connected) {
     return (
@@ -18,7 +18,8 @@ export default function PrivateLobbyRoom() {
             Share Link: <br />
             http://localhost:5173/lobby/{lobbyId}
           </div>
-          <Button color="primary">Start</Button>
+          <Button disabled={!canStartGame} color="primary" onClick={() => createGame()}>Start</Button>
+          <Button color="secondary" onClick={() => disconnect()}>Leave</Button>
         </div>
         <LobbyChat lobbyId={lobbyId!} />
       </div>

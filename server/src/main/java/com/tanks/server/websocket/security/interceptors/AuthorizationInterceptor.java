@@ -47,6 +47,7 @@ public class AuthorizationInterceptor implements ChannelInterceptor {
                 if(ex.getStatus().equals(HttpStatus.NOT_FOUND)){
                     UserSession userSession = UserSession.builder()
                             .id(principal.getUserDto().id())
+                            .username(principal.getUserDto().username())
                             .state(UserSessionState.IDLE)
                             .socketSessionId(sessionId)
                             .build();

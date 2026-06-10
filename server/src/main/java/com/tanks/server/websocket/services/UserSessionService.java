@@ -9,7 +9,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import java.net.URI;
-import java.util.UUID;
 
 @Service
 @AllArgsConstructor
@@ -32,11 +31,13 @@ public class UserSessionService {
     public boolean isIdle(UserSession userSession){
         return userSession.getState() == UserSessionState.IDLE;
     }
-    public boolean isInGame(UserSession userSession,String gameId){
+
+    public boolean isInGame(UserSession userSession, String gameId){
         return userSession.getState() == UserSessionState.IN_GAME && userSession.getGameSessionId().toString().equals(gameId);
     }
+
     public boolean isInLobby(UserSession userSession, String lobbyId){
-        return userSession.getState() == UserSessionState.IN_LOBBY || userSession.getLobbyId().toString().equals(lobbyId);
+        return userSession.getState() == UserSessionState.IN_LOBBY && userSession.getLobbyId().toString().equals(lobbyId);
     }
 
 }

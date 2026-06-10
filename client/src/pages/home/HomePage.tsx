@@ -31,6 +31,11 @@ export default function HomePage() {
         <PrivateLobbyRoom />
       </WebSocketProvider>
     ),
+    quickMatchLobby: (
+      <WebSocketProvider>
+        <QuickMatchLobbyRoom />
+      </WebSocketProvider>
+    ),
   };
   return (
     <ScreenStackProvider screens={screens}>
@@ -95,7 +100,7 @@ function OfflineMenu() {
   );
 }
 
-function QuickMatchScreen() {
+function QuickMatchLobbyRoom() {
   const { popScreen } = useScreenStack();
 
   useEffect(() => {}, []);

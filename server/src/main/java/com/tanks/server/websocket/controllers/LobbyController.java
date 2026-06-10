@@ -4,19 +4,16 @@ import com.tanks.server.dto.UserDto;
 import com.tanks.server.utils.IdFactory;
 import com.tanks.server.websocket.dto.lobby.LobbyEventResponseDto;
 import com.tanks.server.websocket.dto.lobby.LobbyEventType;
-import com.tanks.server.websocket.dto.lobby.LobbyIdPayload;
+import com.tanks.server.websocket.dto.lobby.LobbyEventPayload;
 import com.tanks.server.websocket.entities.lobby.Lobby;
 import com.tanks.server.websocket.entities.lobby.LobbyStatus;
 import com.tanks.server.websocket.entities.lobby.LobbyType;
 import com.tanks.server.mappers.user.UserDtoToUserMapper;
 import com.tanks.server.websocket.entities.userSession.UserSession;
 import com.tanks.server.websocket.entities.userSession.UserSessionState;
-import com.tanks.server.websocket.exceptions.ProblemDetailException;
-import com.tanks.server.websocket.security.entites.WebSocketAuthentication;
 import com.tanks.server.websocket.security.entites.WebSocketPrincipal;
 import com.tanks.server.websocket.services.LobbyService;
 import com.tanks.server.websocket.services.UserSessionService;
-import org.springframework.http.HttpStatus;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.simp.annotation.SendToUser;
@@ -24,8 +21,6 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 
-import java.net.URI;
-import java.security.Principal;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -44,7 +39,7 @@ public class LobbyController {
 
     }
 
-    @PreAuthorize("@webSocketAuthorizationService.isIdleUserSession(authentication, '/lobby/create/private')")
+    @PreAuthorize("@webSocketAuthorizationService.canJoinOrCreateLobby(authentication, '/lobby/create/private')")
     @MessageMapping("/lobby/create/private")
     @SendToUser("/queue/replies")
     public LobbyEventResponseDto createLobby(Authentication authentication){
@@ -67,10 +62,10 @@ public class LobbyController {
         userSession.setLobbyId(uuid);
         userSessionService.save(userSession);
 
-        return new LobbyEventResponseDto(LobbyEventType.LOBBY_CREATED, "@SERVER",new LobbyIdPayload(uuid));
+        return new LobbyEventResponseDto(LobbyEventType.LOBBY_CREATED, "@SERVER",new LobbyEventPayload(uuid, userDto.username()));
     }
 
-    @PreAuthorize("@webSocketAuthorizationService.isIdleUserSession(authentication, '/lobby/join/private/' + #id)")
+    @PreAuthorize("@webSocketAuthorizationService.canJoinOrCreateLobby(authentication, '/lobby/join/private/' + #id)")
     @MessageMapping("/lobby/join/private/{id}")
     @SendToUser("/queue/replies")
     public LobbyEventResponseDto joinPrivateLobby(@DestinationVariable UUID id, Authentication authentication){
@@ -85,10 +80,10 @@ public class LobbyController {
         userSession.setLobbyId(id);
         userSessionService.save(userSession);
 
-        return new LobbyEventResponseDto(LobbyEventType.LOBBY_JOINED, "@SERVER",new LobbyIdPayload(id));
+        return new LobbyEventResponseDto(LobbyEventType.LOBBY_JOINED, "@SERVER",new LobbyEventPayload(id, userDto.username()));
     }
 
-    @PreAuthorize("@webSocketAuthorizationService.isIdleUserSession(authentication, '/lobby/quick-match')")
+    @PreAuthorize("@webSocketAuthorizationService.canJoinOrCreateLobby(authentication, '/lobby/quick-match')")
     @MessageMapping("/lobby/quick-match")
     @SendToUser("/queue/replies")
     public LobbyEventResponseDto joinQuickMatch(Authentication authentication){
@@ -107,7 +102,7 @@ public class LobbyController {
             userSession.setLobbyId(quickMatchLobby.getId());
             userSessionService.save(userSession);
 
-            return new LobbyEventResponseDto(LobbyEventType.LOBBY_JOINED,"@SERVER",new LobbyIdPayload(quickMatchLobby.getId()));
+            return new LobbyEventResponseDto(LobbyEventType.LOBBY_JOINED,"@SERVER",new LobbyEventPayload(quickMatchLobby.getId(), userDto.username()));
         } else {
             UUID uuid = IdFactory.randomUUID();
             Lobby quickMatchLobby = Lobby.builder()
@@ -123,7 +118,7 @@ public class LobbyController {
             userSession.setLobbyId(quickMatchLobby.getId());
             userSessionService.save(userSession);
 
-            return new LobbyEventResponseDto(LobbyEventType.LOBBY_CREATED,"@SERVER",new LobbyIdPayload(quickMatchLobby.getId()));
+            return new LobbyEventResponseDto(LobbyEventType.LOBBY_CREATED,"@SERVER",new LobbyEventPayload(quickMatchLobby.getId(), userDto.username()));
         }
     }
 

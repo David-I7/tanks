@@ -26,9 +26,13 @@ public class GameSession {
 
     private long playerBId;
 
-    private OffsetDateTime gameStartedAt;
+    private OffsetDateTime startedAt;
+
+    private OffsetDateTime createdAt;
 
     private long playerTurnExpiresAt;
 
     private long playerTurnId;
+
+    private GameSessionState state;
 }
