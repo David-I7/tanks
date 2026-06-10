@@ -13,7 +13,6 @@ import type PostOauth2RegisterRequestDto from "../api/http/dto/PostOauth2Registe
 import PostOauth2RegisterRequest from "../api/http/requests/auth/PostOauth2RegisterRequest";
 import type { TanksRequest } from "../api/http/requests/TanksRequest";
 import type RefreshResponseDto from "../api/http/dto/RefreshResponseDto";
-import TanksWSClient from "../api/ws/TanksWebSocketClient";
 import { useFetch } from "../hooks/useFetch";
 import { ApiError } from "../errors/ApiError";
 

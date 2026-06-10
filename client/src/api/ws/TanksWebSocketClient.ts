@@ -3,12 +3,15 @@ import {
   StompHeaders,
   type IMessage,
   type IPublishParams,
-  type StompSubscription, type frameCallbackType,
+  type StompSubscription,
+  type frameCallbackType,
 } from "@stomp/stompjs";
 import type RefreshResponseDto from "../http/dto/RefreshResponseDto";
 import type ProblemDetailDto from "../http/dto/ProblemDetailDto";
 import { JSONError } from "../../errors/JSONError";
 import type { WebSocketEventResponseDto } from "./dto/WebSocketEventResponseDto";
+
+export type SubscriptionCleanup = () => void;
 
 export type EndpointSubscription<Data = string> = {
   destination:
@@ -50,16 +53,20 @@ export type Message<Data = string> = {
 };
 
 export default class TanksWSClient {
-  private static client: Client;
+  private client: Client;
+  private subscriptionMap = new Map<
+    string,
+    { listeners: EndpointSubscription["onMessage"][]; unsubscribe: () => void }
+  >();
 
   private setAccessToken(accessToken: string | null) {
     if (accessToken === "" || accessToken === null) {
-      delete TanksWSClient.client.connectHeaders["Authorization"];
+      delete this.client.connectHeaders["Authorization"];
       return;
     }
 
-    TanksWSClient.client.connectHeaders = {
-      ...TanksWSClient.client.connectHeaders,
+    this.client.connectHeaders = {
+      ...this.client.connectHeaders,
       Authorization: `Bearer ${accessToken}`,
     };
   }
@@ -67,14 +74,15 @@ export default class TanksWSClient {
   constructor(
     accessToken: string,
     refreshHandler: () => Promise<RefreshResponseDto>,
-    onStompError?:  frameCallbackType
+    onStompError?: frameCallbackType,
   ) {
-    if (!TanksWSClient.client) {
-      TanksWSClient.client = new Client({
-        brokerURL: import.meta.env.VITE_BASE_WEBSOCKETS_URL,
-        debug: import.meta.env.DEV ? console.log : undefined,
-        reconnectDelay: 5000, // 5 seconds
-        onStompError: onStompError ?? (async (err) => {
+    this.client = new Client({
+      brokerURL: import.meta.env.VITE_BASE_WEBSOCKETS_URL,
+      debug: import.meta.env.DEV ? console.log : undefined,
+      reconnectDelay: 5000, // 5 seconds
+      onStompError:
+        onStompError ??
+        (async (err) => {
           if (import.meta.env.DEV) console.log(err);
           try {
             if (
@@ -89,35 +97,34 @@ export default class TanksWSClient {
             }
           } catch (err) {
             if (import.meta.env.DEV) console.log(err);
-            TanksWSClient.client.deactivate();
+            this.client.deactivate();
           }
         }),
-      });
+    });
 
-      this.setAccessToken(accessToken);
+    this.setAccessToken(accessToken);
 
-      TanksWSClient.client.activate();
-    }
+    this.client.activate();
   }
 
   setOnconnect(onConnect: Client["onConnect"]) {
-    TanksWSClient.client.onConnect = onConnect;
+    this.client.onConnect = onConnect;
   }
 
   isActive() {
-    return TanksWSClient.client.active;
+    return this.client.active;
   }
 
   deactivate() {
-    if (this.isActive()) TanksWSClient.client.deactivate();
+    if (this.isActive()) this.client.deactivate();
   }
 
   activate() {
-    if (!this.isActive()) TanksWSClient.client.activate();
+    if (!this.isActive()) this.client.activate();
   }
 
   onDisconnect(onDisconnect: Client["onDisconnect"]) {
-    return (TanksWSClient.client.onDisconnect = onDisconnect);
+    return (this.client.onDisconnect = onDisconnect);
   }
 
   publish(params: PublishParams) {
@@ -142,31 +149,15 @@ export default class TanksWSClient {
       );
     }
 
-    TanksWSClient.client.publish(finalParams as IPublishParams);
+    this.client.publish(finalParams as IPublishParams);
   }
 
   subscribe<Data = WebSocketEventResponseDto>(
     params: EndpointSubscription<Data>,
-  ): StompSubscription {
+  ): SubscriptionCleanup {
     if (!this.isActive()) throw new Error("Client is not active");
 
     const finalParams: any = { ...params };
-
-    function handleMessage(message: IMessage) {
-      try {
-        if (
-          message.headers &&
-          message.headers["content-type"] === "application/json"
-        ) {
-          finalParams.onMessage({
-            ...message,
-            body: JSON.parse(message.body) as Data,
-          });
-        }
-      } catch (err) {
-        throw new JSONError("Failed to parse json body");
-      }
-    }
 
     if (finalParams.destination.includes(":id")) {
       if (finalParams.id === undefined)
@@ -180,10 +171,57 @@ export default class TanksWSClient {
       );
     }
 
-    return TanksWSClient.client.subscribe(
-      finalParams.destination,
-      handleMessage,
-      finalParams.subscriptionHeaders,
-    );
+    const handleMessage = (message: IMessage) => {
+      try {
+        if (
+          message.headers &&
+          message.headers["content-type"] === "application/json"
+        ) {
+          const parsedMessage = {
+            ...message,
+            body: JSON.parse(message.body) as Data,
+          };
+
+          const { listeners } = this.subscriptionMap.get(
+            finalParams.destination,
+          )!;
+          listeners.forEach((listener) => listener(parsedMessage as Message));
+        }
+      } catch (err) {
+        throw new JSONError("Failed to parse json body");
+      }
+    };
+
+    let subscriptions = this.subscriptionMap.get(finalParams.destination);
+
+    if (subscriptions === undefined) {
+      const unsubscribe = this.client.subscribe(
+        finalParams.destination,
+        handleMessage,
+        finalParams.subscriptionHeaders,
+      );
+
+      subscriptions = {
+        listeners: [finalParams.onMessage],
+        unsubscribe: unsubscribe.unsubscribe,
+      };
+      this.subscriptionMap.set(finalParams.destination, subscriptions);
+    } else {
+      subscriptions.listeners.push(finalParams.onMessage);
+    }
+
+    return () => {
+      if (subscriptions.listeners.length === 1) {
+        this.subscriptionMap.delete(finalParams.destination);
+        subscriptions.unsubscribe();
+      } else {
+        this.subscriptionMap.set(finalParams.destination, {
+          ...subscriptions,
+          listeners: subscriptions.listeners.filter(
+            (listener) => listener !== finalParams.onMessage,
+          ),
+        });
+      }
+    };
   }
 }

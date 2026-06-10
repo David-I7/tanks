@@ -94,12 +94,6 @@ export default function usePrivateLobby() {
     });
   }, [client, wsConnected]);
 
-  const disconnect = () => {
-    if(!connected) return;
-    // This will close the underlying wsConnection, so we don't need to unsubscribe from our subscriptions
-    navigate("/",{replace:true});
-  }
-
   const createGame= () => {
     if(playerCount < 2) return;
     client.publish({
@@ -107,5 +101,5 @@ export default function usePrivateLobby() {
     })
   }
 
-  return { connected, error, lobbyId, username: user!.username, disconnect, canStartGame: playerCount === 2, createGame };
+  return { connected, error, lobbyId, username: user!.username, canStartGame: playerCount === 2, createGame, action };
 }
