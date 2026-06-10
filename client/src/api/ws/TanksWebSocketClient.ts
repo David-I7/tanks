@@ -11,6 +11,8 @@ import type ProblemDetailDto from "../http/dto/ProblemDetailDto";
 import { JSONError } from "../../errors/JSONError";
 import type { WebSocketEventResponseDto } from "./dto/WebSocketEventResponseDto";
 
+export type SubscriptionCleanup = () => void;
+
 export type EndpointSubscription<Data = string> = {
   destination:
     | "/topic/lobby/:id"
@@ -52,6 +54,10 @@ export type Message<Data = string> = {
 
 export default class TanksWSClient {
   private client: Client;
+  private subscriptionMap = new Map<
+    string,
+    { listeners: EndpointSubscription["onMessage"][]; unsubscribe: () => void }
+  >();
 
   private setAccessToken(accessToken: string | null) {
     if (accessToken === "" || accessToken === null) {
@@ -148,26 +154,10 @@ export default class TanksWSClient {
 
   subscribe<Data = WebSocketEventResponseDto>(
     params: EndpointSubscription<Data>,
-  ): StompSubscription {
+  ): SubscriptionCleanup {
     if (!this.isActive()) throw new Error("Client is not active");
 
     const finalParams: any = { ...params };
-
-    function handleMessage(message: IMessage) {
-      try {
-        if (
-          message.headers &&
-          message.headers["content-type"] === "application/json"
-        ) {
-          finalParams.onMessage({
-            ...message,
-            body: JSON.parse(message.body) as Data,
-          });
-        }
-      } catch (err) {
-        throw new JSONError("Failed to parse json body");
-      }
-    }
 
     if (finalParams.destination.includes(":id")) {
       if (finalParams.id === undefined)
@@ -181,10 +171,57 @@ export default class TanksWSClient {
       );
     }
 
-    return this.client.subscribe(
-      finalParams.destination,
-      handleMessage,
-      finalParams.subscriptionHeaders,
-    );
+    const handleMessage = (message: IMessage) => {
+      try {
+        if (
+          message.headers &&
+          message.headers["content-type"] === "application/json"
+        ) {
+          const parsedMessage = {
+            ...message,
+            body: JSON.parse(message.body) as Data,
+          };
+
+          const { listeners } = this.subscriptionMap.get(
+            finalParams.destination,
+          )!;
+          listeners.forEach((listener) => listener(parsedMessage as Message));
+        }
+      } catch (err) {
+        throw new JSONError("Failed to parse json body");
+      }
+    };
+
+    let subscriptions = this.subscriptionMap.get(finalParams.destination);
+
+    if (subscriptions === undefined) {
+      const unsubscribe = this.client.subscribe(
+        finalParams.destination,
+        handleMessage,
+        finalParams.subscriptionHeaders,
+      );
+
+      subscriptions = {
+        listeners: [finalParams.onMessage],
+        unsubscribe: unsubscribe.unsubscribe,
+      };
+      this.subscriptionMap.set(finalParams.destination, subscriptions);
+    } else {
+      subscriptions.listeners.push(finalParams.onMessage);
+    }
+
+    return () => {
+      if (subscriptions.listeners.length === 1) {
+        this.subscriptionMap.delete(finalParams.destination);
+        subscriptions.unsubscribe();
+      } else {
+        this.subscriptionMap.set(finalParams.destination, {
+          ...subscriptions,
+          listeners: subscriptions.listeners.filter(
+            (listener) => listener !== finalParams.onMessage,
+          ),
+        });
+      }
+    };
   }
 }
