@@ -107,12 +107,12 @@ function QuickMatchLobbyRoom() {
 
   return (
     <>
-      <H1 className="text-center py-4">Waiting for other people to join...</H1>
+      <H1 className="text-center py-4">Searching for opponent...</H1>
 
       <Loader />
 
       <Button
-        color="primary"
+        color="secondary"
         onClick={() => {
           popScreen();
         }}

@@ -1,21 +1,15 @@
 package com.tanks.server.websocket.controllers;
 
-import com.tanks.server.websocket.dto.game.GameEventResponseDto;
-import com.tanks.server.websocket.dto.game.GameEventType;
-import com.tanks.server.websocket.dto.game.GameLobbyPayload;
 import com.tanks.server.websocket.entities.gameSession.GameSession;
 import com.tanks.server.websocket.entities.lobby.Lobby;
 import com.tanks.server.websocket.entities.userSession.UserSession;
-import com.tanks.server.websocket.entities.userSession.UserSessionState;
 import com.tanks.server.websocket.security.entites.WebSocketPrincipal;
 import com.tanks.server.websocket.services.GameSessionService;
 import com.tanks.server.websocket.services.LobbyService;
-import com.tanks.server.websocket.services.UserSessionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.SendTo;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 
@@ -30,10 +24,7 @@ public class GameSessionController {
 
     private final LobbyService lobbyService;
 
-    private final UserSessionService userSessionService;
-
-    private final SimpMessagingTemplate simpMessagingTemplate;
-
+    // TODO: Implement game start logic
     @MessageMapping("/game/{id}/send")
     @SendTo("/topic/game/{id}")
     public GameSession startGame(@DestinationVariable UUID id){
@@ -48,42 +39,7 @@ public class GameSessionController {
 
         Lobby lobby = lobbyService.findById(host.getLobbyId());
 
-        GameSession gameSession = gameSessionService.create(lobby);
-
-        UserSession opponent = userSessionService.findById(lobby.getOpponentId());
-
-        simpMessagingTemplate.convertAndSendToUser(
-                opponent.getUsername(),
-                "/queue/replies" , new GameEventResponseDto(
-                        GameEventType.GAME_CREATED,
-                        "@SERVER",
-                        new GameLobbyPayload(gameSession.getId(),null)
-                )
-        );
-
-        simpMessagingTemplate.convertAndSendToUser(
-                host.getUsername(),
-                "/queue/replies" ,
-                new GameEventResponseDto(
-                        GameEventType.GAME_CREATED,
-                        "@SERVER",
-                        new GameLobbyPayload(gameSession.getId(),null)
-                )
-        );
-
-        host.setConnectedToTopic(false);
-        host.setGameSessionId(gameSession.getId());
-        host.setState(UserSessionState.IN_GAME);
-        host.setLobbyId(null);
-
-        opponent.setConnectedToTopic(false);
-        opponent.setGameSessionId(gameSession.getId());
-        opponent.setState(UserSessionState.IN_GAME);
-        opponent.setLobbyId(null);
-
-        lobbyService.delete(lobby);
-        userSessionService.save(host);
-        userSessionService.save(opponent);
+        gameSessionService.create(lobby);
     }
 
 }

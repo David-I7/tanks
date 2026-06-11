@@ -16,6 +16,9 @@ import com.tanks.server.websocket.security.services.WebSocketAuthorizationServic
 import com.tanks.server.websocket.services.GameSessionService;
 import com.tanks.server.websocket.services.LobbyService;
 import com.tanks.server.websocket.services.UserSessionService;
+import com.tanks.server.websocket.events.GameEvent;
+import com.tanks.server.websocket.events.LobbyEvent;
+import com.tanks.server.websocket.events.WebSocketEvent;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -48,6 +51,24 @@ public class WebSocketEventListeners {
         this.lobbyService = lobbyService;
         this.userSessionService = userSessionService;
         this.simpMessagingTemplate = simpMessagingTemplate;
+    }
+
+    @EventListener
+    public void handleLobbyEvent(LobbyEvent event) {
+        if (event.getUsername() != null) {
+            simpMessagingTemplate.convertAndSendToUser(event.getUsername(), event.getDestination(), event.getPayload());
+        } else {
+            simpMessagingTemplate.convertAndSend(event.getDestination(), event.getPayload());
+        }
+    }
+
+    @EventListener
+    public void handleGameEvent(GameEvent event) {
+        if (event.getUsername() != null) {
+            simpMessagingTemplate.convertAndSendToUser(event.getUsername(), event.getDestination(), event.getPayload());
+        } else {
+            simpMessagingTemplate.convertAndSend(event.getDestination(), event.getPayload());
+        }
     }
 
     @EventListener
