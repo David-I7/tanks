@@ -16,6 +16,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.net.URI;
+import java.security.Principal;
 
 @Component
 @Slf4j
@@ -35,7 +36,9 @@ public class JwtAuthenticationInterceptor implements ChannelInterceptor {
         StompHeaderAccessor accessor =
                 MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
 
-        if (StompCommand.CONNECT.equals(accessor.getCommand())) {
+        Principal principal = accessor.getUser();
+
+        if (StompCommand.CONNECT.equals(accessor.getCommand()) || principal == null) {
 
             String authHeader = accessor.getFirstNativeHeader("Authorization");
 

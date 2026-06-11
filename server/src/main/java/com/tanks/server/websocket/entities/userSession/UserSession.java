@@ -37,4 +37,16 @@ public class UserSession {
         this.socketSessionId = userSession.socketSessionId;
         this.connectedToTopic = userSession.connectedToTopic;
     }
+
+    public void transitionToGame(UUID gameSessionId) {
+        this.connectedToTopic = false;
+        this.gameSessionId = gameSessionId;
+        this.state = UserSessionState.IN_GAME;
+        this.lobbyId = null;
+    }
+
+    public void transitionToLobby(UUID lobbyId) {
+        this.state = UserSessionState.IN_LOBBY;
+        this.lobbyId = lobbyId;
+    }
 }

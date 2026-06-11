@@ -1,30 +1,64 @@
 package com.tanks.server.websocket.services;
 
 import com.tanks.server.utils.IdFactory;
+import com.tanks.server.websocket.dto.game.GameEventResponseDto;
+import com.tanks.server.websocket.dto.game.GameEventType;
+import com.tanks.server.websocket.dto.game.GameLobbyPayload;
 import com.tanks.server.websocket.entities.gameSession.GameSession;
 import com.tanks.server.websocket.entities.lobby.Lobby;
 import com.tanks.server.websocket.entities.userSession.UserSession;
+import com.tanks.server.websocket.events.GameEvent;
 import com.tanks.server.websocket.repositories.GameSessionRepository;
-import lombok.AllArgsConstructor;
+import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
 import java.time.OffsetDateTime;
+import java.util.UUID;
 
 @Service
-@AllArgsConstructor
+@RequiredArgsConstructor
 public class GameSessionService {
 
-    private GameSessionRepository gameRepository;
+    private final GameSessionRepository gameRepository;
 
-    public GameSession create(Lobby lobby){
+    private final UserSessionService userSessionService;
+
+    private final LobbyService lobbyService;
+
+    private final ApplicationEventPublisher eventPublisher;
+
+    public GameSession create(Lobby lobby) {
+        UUID gameSessionId = IdFactory.randomUUID();
         GameSession gameSession = GameSession.builder()
-                .id(IdFactory.randomUUID())
+                .id(gameSessionId)
                 .playerAId(lobby.getHostId())
                 .playerBId(lobby.getOpponentId())
                 .createdAt(OffsetDateTime.now())
                 .build();
 
-        return gameRepository.save(gameSession);
-    };
+        GameSession savedGameSession = gameRepository.save(gameSession);
+
+        UserSession host = userSessionService.findById(lobby.getHostId());
+        UserSession opponent = userSessionService.findById(lobby.getOpponentId());
+
+        GameEventResponseDto response = new GameEventResponseDto(
+                GameEventType.GAME_CREATED,
+                "@SERVER",
+                new GameLobbyPayload(savedGameSession.getId(), null)
+        );
+
+        eventPublisher.publishEvent(new GameEvent(this, host.getUsername(), "/queue/replies", response));
+        eventPublisher.publishEvent(new GameEvent(this, opponent.getUsername(), "/queue/replies", response));
+
+        host.transitionToGame(savedGameSession.getId());
+        opponent.transitionToGame(savedGameSession.getId());
+
+        lobbyService.delete(lobby);
+        userSessionService.save(host);
+        userSessionService.save(opponent);
+
+        return savedGameSession;
+    }
 
 }

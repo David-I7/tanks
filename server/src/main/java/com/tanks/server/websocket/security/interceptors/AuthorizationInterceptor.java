@@ -1,12 +1,14 @@
 package com.tanks.server.websocket.security.interceptors;
 
+
 import com.tanks.server.websocket.entities.userSession.UserSession;
 import com.tanks.server.websocket.entities.userSession.UserSessionState;
 import com.tanks.server.websocket.exceptions.ProblemDetailException;
 import com.tanks.server.websocket.security.entites.WebSocketAuthentication;
 import com.tanks.server.websocket.security.entites.WebSocketPrincipal;
+import com.tanks.server.websocket.security.services.WebSocketAuthorizationService;
 import com.tanks.server.websocket.services.UserSessionService;
-import lombok.AllArgsConstructor;
+import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.Nullable;
 import org.springframework.http.HttpStatus;
 import org.springframework.messaging.Message;
@@ -17,17 +19,26 @@ import org.springframework.messaging.support.ChannelInterceptor;
 import org.springframework.messaging.support.MessageHeaderAccessor;
 import org.springframework.stereotype.Component;
 
+
 @Component
-@AllArgsConstructor
+@RequiredArgsConstructor
 public class AuthorizationInterceptor implements ChannelInterceptor {
 
+    private static final String TOPIC_LOBBY = "/topic/lobby/";
+
+    private static final String TOPIC_GAME = "/topic/game/";
+
     private final UserSessionService userSessionService;
+
+    private final WebSocketAuthorizationService webSocketAuthorizationService;
 
     @Override
     public @Nullable Message<?> preSend(Message<?> message, MessageChannel channel) {
 
         StompHeaderAccessor accessor =
                 MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
+
+        WebSocketAuthentication authentication = (WebSocketAuthentication) accessor.getUser();
 
         if (StompCommand.CONNECT.equals(accessor.getCommand())) {
 
@@ -58,6 +69,23 @@ public class AuthorizationInterceptor implements ChannelInterceptor {
                     throw ex;
                 }
             }
+        }
+
+        if(accessor.getCommand().equals(StompCommand.SUBSCRIBE)) {
+            if(accessor.getDestination().startsWith("/topic")){
+                if (accessor.getDestination().startsWith(TOPIC_LOBBY)) {
+                    webSocketAuthorizationService.canJoinLobbyTopic(authentication, accessor.getDestination());
+                } else if (accessor.getDestination().startsWith(TOPIC_GAME)) {
+                    webSocketAuthorizationService.canJoinGameTopic(authentication, accessor.getDestination());
+                }
+
+                UserSession userSession = ((WebSocketPrincipal)authentication.getPrincipal()).getUserSession();
+
+                if(userSession.isConnectedToTopic()) {
+                    throw new ProblemDetailException(HttpStatus.BAD_REQUEST,"User is already subscribed to the topic", null);
+                }
+            }
+
         }
 
         return message;
