@@ -43,11 +43,9 @@ public class WebSocketEventListeners {
 
     private UserSessionService userSessionService;
 
-    private WebSocketAuthorizationService webSocketAuthorizationService;
 
-    public WebSocketEventListeners(LobbyService lobbyService, UserSessionService userSessionService, WebSocketAuthorizationService webSocketAuthorizationService, SimpMessagingTemplate simpMessagingTemplate){
+    public WebSocketEventListeners(LobbyService lobbyService, UserSessionService userSessionService, SimpMessagingTemplate simpMessagingTemplate){
         this.lobbyService = lobbyService;
-        this.webSocketAuthorizationService = webSocketAuthorizationService;
         this.userSessionService = userSessionService;
         this.simpMessagingTemplate = simpMessagingTemplate;
     }
@@ -96,53 +94,46 @@ public class WebSocketEventListeners {
         WebSocketAuthentication authentication =  (WebSocketAuthentication)accessor.getUser();
 
         if(accessor.getDestination().startsWith(TOPIC_LOBBY)){
+            UserSession userSession = ((WebSocketPrincipal)authentication.getPrincipal()).getUserSession();
 
-            if(webSocketAuthorizationService.canJoinLobbyTopic(authentication, accessor.getDestination())){
-                UserSession userSession = ((WebSocketPrincipal)authentication.getPrincipal()).getUserSession();
+            userSession.setConnectedToTopic(true);
+            userSessionService.save(userSession);
 
-                if(!userSession.isConnectedToTopic()) {
-                    userSession.setConnectedToTopic(true);
-                    userSessionService.save(userSession);
+            log.debug("LOBBY CONNECT");
 
-                    log.debug("LOBBY CONNECT");
-
-                    simpMessagingTemplate.convertAndSend(
-                            accessor.getDestination(),
-                            new LobbyEventResponseDto(
-                                    LobbyEventType.LOBBY_CONNECT,
-                                    "@SERVER",
-                                    new LobbyEventPayload(
-                                            UUID.fromString(accessor.getDestination().substring(TOPIC_LOBBY.length())),
-                                            authentication.getName()
-                                    )
+            simpMessagingTemplate.convertAndSend(
+                    accessor.getDestination(),
+                    new LobbyEventResponseDto(
+                            LobbyEventType.LOBBY_CONNECT,
+                            "@SERVER",
+                            new LobbyEventPayload(
+                                    UUID.fromString(accessor.getDestination().substring(TOPIC_LOBBY.length())),
+                                    authentication.getName()
                             )
-                    );
-                }
-            };
+                    )
+            );
+
         } else if (accessor.getDestination().startsWith(TOPIC_GAME)) {
 
-            if(webSocketAuthorizationService.canJoinGameTopic(authentication, accessor.getDestination())){
-                UserSession userSession = ((WebSocketPrincipal)authentication.getPrincipal()).getUserSession();
+            UserSession userSession = ((WebSocketPrincipal)authentication.getPrincipal()).getUserSession();
 
-                if(!userSession.isConnectedToTopic()) {
-                    userSession.setConnectedToTopic(true);
-                    userSessionService.save(userSession);
+            userSession.setConnectedToTopic(true);
+            userSessionService.save(userSession);
 
-                    log.debug("GAME CONNECT");
+            log.debug("GAME CONNECT");
 
-                    simpMessagingTemplate.convertAndSend(
-                            accessor.getDestination(),
-                            new GameEventResponseDto(
-                                    GameEventType.GAME_CONNECT,
-                                    "@SERVER",
-                                    new GameLobbyPayload(
-                                            UUID.fromString(accessor.getDestination().substring(TOPIC_GAME.length())),
-                                            authentication.getName()
-                                    )
+            simpMessagingTemplate.convertAndSend(
+                    accessor.getDestination(),
+                    new GameEventResponseDto(
+                            GameEventType.GAME_CONNECT,
+                            "@SERVER",
+                            new GameLobbyPayload(
+                                    UUID.fromString(accessor.getDestination().substring(TOPIC_GAME.length())),
+                                    authentication.getName()
                             )
-                    );
-                }
-            }
+                    )
+            );
+
         }
     }
 

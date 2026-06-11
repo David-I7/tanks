@@ -5,6 +5,7 @@ import com.tanks.server.utils.IdFactory;
 import com.tanks.server.websocket.dto.lobby.LobbyEventResponseDto;
 import com.tanks.server.websocket.dto.lobby.LobbyEventType;
 import com.tanks.server.websocket.dto.lobby.LobbyEventPayload;
+import com.tanks.server.websocket.entities.gameSession.GameSession;
 import com.tanks.server.websocket.entities.lobby.Lobby;
 import com.tanks.server.websocket.entities.lobby.LobbyStatus;
 import com.tanks.server.websocket.entities.lobby.LobbyType;
@@ -12,10 +13,13 @@ import com.tanks.server.mappers.user.UserDtoToUserMapper;
 import com.tanks.server.websocket.entities.userSession.UserSession;
 import com.tanks.server.websocket.entities.userSession.UserSessionState;
 import com.tanks.server.websocket.security.entites.WebSocketPrincipal;
+import com.tanks.server.websocket.services.GameSessionService;
 import com.tanks.server.websocket.services.LobbyService;
 import com.tanks.server.websocket.services.UserSessionService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.messaging.simp.annotation.SendToUser;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -25,19 +29,18 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Controller
+@RequiredArgsConstructor
 public class LobbyController {
 
-    private LobbyService lobbyService;
+    private final LobbyService lobbyService;
 
     private final UserSessionService userSessionService;
 
+    private final GameSessionService gameSessionService;
+
     private UserDtoToUserMapper userDtoToUserMapper = new UserDtoToUserMapper();
 
-    public LobbyController(LobbyService lobbyService, UserSessionService userSessionService){
-        this.lobbyService = lobbyService;
-        this.userSessionService = userSessionService;
-
-    }
+    private final SimpMessagingTemplate simpMessagingTemplate;
 
     @PreAuthorize("@webSocketAuthorizationService.canJoinOrCreateLobby(authentication, '/lobby/create/private')")
     @MessageMapping("/lobby/create/private")
@@ -102,6 +105,8 @@ public class LobbyController {
             userSession.setLobbyId(quickMatchLobby.getId());
             userSessionService.save(userSession);
 
+            GameSession gameSession = gameSessionService.create(quickMatchLobby);
+
             return new LobbyEventResponseDto(LobbyEventType.LOBBY_JOINED,"@SERVER",new LobbyEventPayload(quickMatchLobby.getId(), userDto.username()));
         } else {
             UUID uuid = IdFactory.randomUUID();
@@ -118,7 +123,11 @@ public class LobbyController {
             userSession.setLobbyId(quickMatchLobby.getId());
             userSessionService.save(userSession);
 
-            return new LobbyEventResponseDto(LobbyEventType.LOBBY_CREATED,"@SERVER",new LobbyEventPayload(quickMatchLobby.getId(), userDto.username()));
+            simpMessagingTemplate.convertAndSendToUser(
+                    userSession.getUsername(),
+                    "/queue/replies",
+                    new LobbyEventResponseDto(LobbyEventType.LOBBY_CREATED,"@SERVER",new LobbyEventPayload(quickMatchLobby.getId(), null))
+            );
         }
     }
 

@@ -1,5 +1,7 @@
 package com.tanks.server.websocket.controllers;
 
+import com.tanks.server.websocket.dto.game.GameEventResponseDto;
+import com.tanks.server.websocket.dto.game.GameEventType;
 import com.tanks.server.websocket.dto.game.GameLobbyPayload;
 import com.tanks.server.websocket.entities.gameSession.GameSession;
 import com.tanks.server.websocket.entities.lobby.Lobby;
@@ -30,7 +32,7 @@ public class GameSessionController {
 
     private final UserSessionService userSessionService;
 
-    private SimpMessagingTemplate simpMessagingTemplate;
+    private final SimpMessagingTemplate simpMessagingTemplate;
 
     @MessageMapping("/game/{id}/send")
     @SendTo("/topic/game/{id}")
@@ -46,15 +48,28 @@ public class GameSessionController {
 
         Lobby lobby = lobbyService.findById(host.getLobbyId());
 
-        GameSession gameSession =gameSessionService.create(lobby);
+        GameSession gameSession = gameSessionService.create(lobby);
+
         UserSession opponent = userSessionService.findById(lobby.getOpponentId());
 
         simpMessagingTemplate.convertAndSendToUser(
                 opponent.getUsername(),
-                "/queue/replies" , new GameLobbyPayload(gameSession.getId(),null));
+                "/queue/replies" , new GameEventResponseDto(
+                        GameEventType.GAME_CREATED,
+                        "@SERVER",
+                        new GameLobbyPayload(gameSession.getId(),null)
+                )
+        );
+
         simpMessagingTemplate.convertAndSendToUser(
                 host.getUsername(),
-                "/queue/replies" , new GameLobbyPayload(gameSession.getId(),null));
+                "/queue/replies" ,
+                new GameEventResponseDto(
+                        GameEventType.GAME_CREATED,
+                        "@SERVER",
+                        new GameLobbyPayload(gameSession.getId(),null)
+                )
+        );
 
         host.setConnectedToTopic(false);
         host.setGameSessionId(gameSession.getId());
@@ -66,6 +81,7 @@ public class GameSessionController {
         opponent.setState(UserSessionState.IN_GAME);
         opponent.setLobbyId(null);
 
+        lobbyService.delete(lobby);
         userSessionService.save(host);
         userSessionService.save(opponent);
     }
