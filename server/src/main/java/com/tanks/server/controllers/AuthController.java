@@ -123,11 +123,7 @@ public class AuthController {
             String origin = UriComponentsBuilder.newInstance()
                     .scheme(request.getScheme())
                     .host(request.getServerName())
-                    .port(
-                            (request.getServerPort() == 80 || request.getServerPort() == 443)
-                                    ? null
-                                    : request.getServerPort()
-                    )
+                    .port((request.getServerPort() == 80 || request.getServerPort() == 443) ? -1 : request.getServerPort())
                     .build()
                     .toUriString();
             model.addAttribute("origin",origin);

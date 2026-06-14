@@ -49,4 +49,5 @@ public class UserSession {
         this.state = UserSessionState.IN_LOBBY;
         this.lobbyId = lobbyId;
     }
+
 }
