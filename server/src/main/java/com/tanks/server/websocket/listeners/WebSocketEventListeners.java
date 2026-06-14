@@ -90,13 +90,17 @@ public class WebSocketEventListeners {
                 log.debug("LOBBY DISCONNECT");
                 lobbyService.removeUser(userSession.getLobbyId(), userDtoToUserMapper.apply(user));
                 userSessionService.delete(userSession);
-                simpMessagingTemplate.convertAndSend("/topic/lobby/" + userSession.getLobbyId(), new LobbyEventResponseDto(LobbyEventType.LOBBY_DISCONNECT, "@SERVER", new LobbyEventPayload(userSession.getLobbyId(), user.username())));
+                if(userSession.isConnectedToTopic()) {
+                    simpMessagingTemplate.convertAndSend("/topic/lobby/" + userSession.getLobbyId(), new LobbyEventResponseDto(LobbyEventType.LOBBY_DISCONNECT, "@SERVER", new LobbyEventPayload(userSession.getLobbyId(), user.username())));
+                }
             } else if (userSession.getState() == UserSessionState.IN_GAME) {
                 // handle game disconnect
                 log.debug("GAME DISCONNECT");
                 userSession.setConnectedToTopic(false);
                 userSessionService.save(userSession);
-                simpMessagingTemplate.convertAndSend("/topic/game/" + userSession.getGameSessionId(), new GameEventResponseDto(GameEventType.GAME_DISCONNECT, "@SERVER", new LobbyEventPayload(userSession.getGameSessionId(), user.username())));
+                if(userSession.isConnectedToTopic()) {
+                    simpMessagingTemplate.convertAndSend("/topic/game/" + userSession.getGameSessionId(), new GameEventResponseDto(GameEventType.GAME_DISCONNECT, "@SERVER", new LobbyEventPayload(userSession.getGameSessionId(), user.username())));
+                }
             } else {
                 // handle tab close or general disconnect events
                 userSessionService.delete(userSession);

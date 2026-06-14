@@ -24,7 +24,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ProblemDetail> handleValidationException(HttpServletRequest request, MethodArgumentNotValidException e){
         ProblemDetail problemDetail = ProblemDetail.forStatus(HttpStatus.BAD_REQUEST);
-        problemDetail.setInstance(URI.create(request.getServletPath()));
+        problemDetail.setInstance(URI.create(request.getRequestURI()));
         problemDetail.setType(URI.create("about:blank"));
         problemDetail.setTitle(HttpStatus.BAD_REQUEST.toString());
 
@@ -42,7 +42,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ProblemDetail> handleMissingRefreshTokenException(HttpServletRequest request, MissingRequestCookieException e){
         ProblemDetail problemDetail;
 
-        if(request.getServletPath().startsWith("/api/v1/auth/refresh")){
+        if(request.getRequestURI().startsWith("/api/v1/auth/refresh")){
             problemDetail=ProblemDetail.forStatus(HttpStatus.UNAUTHORIZED);
             problemDetail.setTitle(HttpStatus.UNAUTHORIZED.toString());
         }else{
@@ -50,7 +50,7 @@ public class GlobalExceptionHandler {
             problemDetail.setTitle(HttpStatus.BAD_REQUEST.toString());
         }
 
-        problemDetail.setInstance(URI.create(request.getServletPath()));
+        problemDetail.setInstance(URI.create(request.getRequestURI()));
         problemDetail.setType(URI.create("about:blank"));
         problemDetail.setDetail(e.getBody().getDetail());
 

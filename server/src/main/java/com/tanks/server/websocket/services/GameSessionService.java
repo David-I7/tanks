@@ -9,6 +9,7 @@ import com.tanks.server.websocket.entities.lobby.Lobby;
 import com.tanks.server.websocket.entities.userSession.UserSession;
 import com.tanks.server.websocket.events.GameEvent;
 import com.tanks.server.websocket.repositories.GameSessionRepository;
+import com.tanks.server.websocket.repositories.LobbyRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
@@ -21,11 +22,9 @@ import java.util.UUID;
 public class GameSessionService {
 
     private final GameSessionRepository gameRepository;
-
     private final UserSessionService userSessionService;
-
-    private final LobbyService lobbyService;
-
+    private final LobbyRepository lobbyRepository;
+    private final QuickMatchService quickMatchService;
     private final ApplicationEventPublisher eventPublisher;
 
     public GameSession create(Lobby lobby) {
@@ -54,7 +53,12 @@ public class GameSessionService {
         host.transitionToGame(savedGameSession.getId());
         opponent.transitionToGame(savedGameSession.getId());
 
-        lobbyService.delete(lobby);
+        // Delete lobby logic moved here to break circular dependency with LobbyService
+        lobbyRepository.delete(lobby);
+        if (lobby.getType() == com.tanks.server.websocket.entities.lobby.LobbyType.QUICK_MATCH) {
+            quickMatchService.delete(lobby);
+        }
+
         userSessionService.save(host);
         userSessionService.save(opponent);
 

@@ -15,6 +15,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
+import jakarta.servlet.DispatcherType;
 
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
@@ -32,13 +33,20 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
         // User is logging in, registering, or logging out.
-        if(     request.getServletPath().startsWith("/api/v1/auth/register") ||
-                request.getServletPath().startsWith("/api/v1/auth/login")    ||
-                request.getServletPath().startsWith("/api/v1/auth/logout")    ||
-                request.getServletPath().startsWith("/api/v1/auth/oauth2/authorization") ||
-                request.getServletPath().startsWith("/ws") ||
-                request.getServletPath().startsWith("/api/v1/test") ||
-                request.getServletPath().startsWith("/api/v1/auth/refresh")){
+        String requestPath = request.getRequestURI();
+
+        if (requestPath.equals("/api/v1/auth/login/oauth2/response") && request.getDispatcherType() != DispatcherType.FORWARD) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return;
+        }
+
+        if(     requestPath.startsWith("/api/v1/auth/register") ||
+                requestPath.startsWith("/api/v1/auth/login")    ||
+                requestPath.startsWith("/api/v1/auth/logout")    ||
+                requestPath.startsWith("/api/v1/auth/oauth2/authorization") ||
+                requestPath.startsWith("/ws") ||
+                requestPath.startsWith("/api/v1/test") ||
+                requestPath.startsWith("/api/v1/auth/refresh")){
 
             filterChain.doFilter(request,response);
             return;
