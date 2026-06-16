@@ -36,7 +36,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String requestPath = request.getRequestURI();
 
         if (requestPath.equals("/api/v1/auth/login/oauth2/response") && request.getDispatcherType() != DispatcherType.FORWARD) {
-            response.sendError(HttpServletResponse.SC_FORBIDDEN);
+            problemDetailWriter.writeProblemDetail(request,response, HttpStatus.FORBIDDEN, null);
             return;
         }
 

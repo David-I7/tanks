@@ -13,13 +13,13 @@ public class RegisterRequest {
 
     @ValidPassword
     @NotNull
-    private String password;
+    private final String password;
 
     @Size(min = 3,message = "Username must be at least 3 characters long")
     @ValidUsername
-    private String username;
+    private final String username;
 
     @Email
     @NotBlank
-    private String email;
+    private final String email;
 }

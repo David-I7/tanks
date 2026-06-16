@@ -20,6 +20,8 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import java.net.URI;
+
 
 @Controller
 @RequestMapping("/api/v1/auth")
@@ -49,7 +51,7 @@ public class AuthController {
         JwtSession session = authService.register(user);
 
         return ResponseEntity
-                .ok()
+                .created(URI.create(ServletUriComponentsBuilder.fromPath("/api/v1/auth/status").build().toUriString()))
                 .header(HttpHeaders.SET_COOKIE,session.cookie().toString())
                 .body(new RefreshTokenResponse(session.accessToken(),session.userDto()));
     }
@@ -60,7 +62,7 @@ public class AuthController {
         JwtSession session = authService.postOAuth2Register(request);
 
         return ResponseEntity
-                .ok()
+                .created(URI.create(ServletUriComponentsBuilder.fromPath("/api/v1/auth/status").build().toUriString()))
                 .header(HttpHeaders.SET_COOKIE,session.cookie().toString())
                 .body(new RefreshTokenResponse(session.accessToken(),session.userDto()));
     }
