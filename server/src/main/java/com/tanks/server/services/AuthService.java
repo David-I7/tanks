@@ -82,6 +82,8 @@ public class AuthService {
         try {
             Claims claims = jwtService.parseClaims(loginRequest.getToken());
             String email = claims.getSubject();
+            if(email == null || email.isBlank())
+                throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid token");
             User user = userService.findByEmail(email);
             return jwtSessionService.createSession(user);
         }catch (InvalidJwtException e){

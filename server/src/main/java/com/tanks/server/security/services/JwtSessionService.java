@@ -11,6 +11,7 @@ import com.tanks.server.services.RefreshTokenService;
 import com.tanks.server.utils.IdFactory;
 import io.jsonwebtoken.Claims;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.stereotype.Service;
@@ -25,6 +26,9 @@ import java.util.UUID;
 @Service
 @Slf4j
 public class JwtSessionService{
+
+    @Value("${app.isDev:false}")
+    private boolean isDev;
 
     private JwtService jwtService;
 
@@ -43,7 +47,7 @@ public class JwtSessionService{
     private ResponseCookie createRefreshCookie(String refreshToken){
         return ResponseCookie.from("refreshToken", refreshToken)
                 .httpOnly(true)       // prevents JS access
-                .secure(false)         // True in production
+                .secure(!isDev)         // True in production
                 .path("/api/v1/auth") // limit where cookie is sent
                 .maxAge(Duration.ofMillis(jwtProperties.getRefreshTokenExpirationMS()))
                 .sameSite("Lax")   // "Strict" in production
@@ -53,7 +57,7 @@ public class JwtSessionService{
     public ResponseCookie expireRefreshCookie(String refreshToken){
         return ResponseCookie.from("refreshToken", refreshToken)
                 .httpOnly(true)       // prevents JS access
-                .secure(false)         // True in production
+                .secure(!isDev)         // True in production
                 .path("/api/v1/auth") // limit where cookie is sent
                 .maxAge(0)
                 .sameSite("Lax")   // "Strict" in production

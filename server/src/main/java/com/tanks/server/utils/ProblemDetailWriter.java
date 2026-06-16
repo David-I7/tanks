@@ -32,7 +32,7 @@ public class ProblemDetailWriter {
         problemDetail.setTitle(status.toString());
         problemDetail.setDetail(detail);
         problemDetail.setType(URI.create("about:blank"));
-        problemDetail.setInstance(URI.create(request.getServletPath()));
+        problemDetail.setInstance(URI.create(request.getRequestURI()));
 
         response.setStatus(status.value());
         response.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
