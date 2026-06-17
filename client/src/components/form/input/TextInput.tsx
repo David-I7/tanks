@@ -1,4 +1,5 @@
 import type { ChangeEvent, RefObject } from "react";
+import { twMerge } from "tailwind-merge";
 
 type TextInputProps = {
   onChange?: (e: ChangeEvent<HTMLInputElement>) => void;
@@ -22,7 +23,7 @@ export default function TextInput({
   id,
 }: TextInputProps) {
   return (
-    <div className="flex flex-col gap-1 min-h-10">
+    <div className="flex flex-col gap-1 w-full">
       <input
         id={id}
         value={value}
@@ -31,12 +32,16 @@ export default function TextInput({
         type="text"
         name={name}
         placeholder={placeholder}
-        style={error ? { borderColor: "var(--color-error-main)" } : undefined}
-        className="border border-border-high flex-1 rounded-sm text-text-body-high focus:border-primary-main focus:border-2 min-h-10 h-10 px-2 outline-none"
+        className={twMerge(
+          "flex-1 rounded-lg text-text-body-high bg-surface-main/80 border min-h-11 h-11 px-3 outline-none font-body transition-all duration-normal placeholder:text-text-disabled",
+          error
+            ? "border-error focus:border-error focus:shadow-[0_0_8px_rgba(255,49,49,0.3)]"
+            : "border-accent/40 focus:border-accent focus:shadow-[0_0_8px_rgba(0,240,255,0.3)]"
+        )}
       />
 
       {error && errorMessage && (
-        <div className="text-error-main text-xs ml-2">{errorMessage}</div>
+        <div className="text-error text-xs mt-0.5 ml-1 font-body">{errorMessage}</div>
       )}
     </div>
   );

@@ -93,13 +93,15 @@ export default function PostOAuth2RegisterForm({
   return (
     <Form className="max-h-80" onSubmit={handleSubmit}>
       <div className="flex flex-col flex-1">
-        <H1 className="text-center py-4">Please enter your username</H1>
+        <H1 className="text-center py-4">Enter Username</H1>
         {errors.form !== null && (
-          <div className="text-error-main text-sm">{errors.form.message}</div>
+          <div className="text-error text-xs font-bold bg-error/10 border border-error/30 p-2.5 rounded-lg mb-4 tracking-wide font-body">
+            {errors.form.message}
+          </div>
         )}
-        <div className="flex flex-col flex-1 justify-between pt-4">
+        <div className="flex flex-col flex-1 justify-between pt-2">
           <div className="flex flex-col">
-            <div className="h-25">
+            <div className="h-24">
               <Label htmlFor="username">Username:</Label>
               <TextInput
                 id={"username"}

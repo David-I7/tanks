@@ -3,6 +3,7 @@ import "./style.css";
 import "@fontsource/inter/400.css";
 import "@fontsource/poppins/400.css";
 import AuthProvider from "./context/AuthContext";
+import { ThemeProvider } from "./context/ThemeContext";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import HomePage from "./pages/home/HomePage";
 import UnauthenticatedRoute from "./components/auth/UnauthenticatedRoute";
@@ -65,8 +66,10 @@ const router = createBrowserRouter([
 const root = createRoot(document.querySelector<HTMLDivElement>("#app")!);
 root.render(
   //<React.StrictMode>
-  <AuthProvider>
-    <RouterProvider router={router} />
-  </AuthProvider>,
+  <ThemeProvider>
+    <AuthProvider>
+      <RouterProvider router={router} />
+    </AuthProvider>
+  </ThemeProvider>,
   //</React.StrictMode>,
 );

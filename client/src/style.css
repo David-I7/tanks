@@ -1,162 +1,157 @@
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Share+Tech+Mono&display=swap');
 @import "tailwindcss";
 
 @theme {
   --color-*: initial;
 
   /* =====================================================
-     PRIMARY
+     PRIMARY (Neon Yellow)
      ===================================================== */
-
-  --color-primary-main: #ebc80e;
+  --color-primary: #ebc80e;
+  --color-primary-hover: #ffd700;
   --color-on-primary: #000000;
 
   /* =====================================================
-     SECONDARY
+     SECONDARY / ACCENT (Cyber Cyan)
      ===================================================== */
-
-  --color-secondary-main: #000000;
-  --color-on-secondary: #ffffff;
+  --color-accent: #00f0ff;
+  --color-accent-hover: #7effff;
+  --color-on-accent: #000000;
 
   /* =====================================================
-     LINK
+     LINKS
      ===================================================== */
-
-  --color-link-main: #0072bf;
+  --color-link: #00f0ff;
 
   /* =====================================================
      SCROLLBAR
      ===================================================== */
-
-  --color-scrollbar: rgb(172, 172, 172);
-  --color-scrollbar-hover: rgb(158, 158, 158);
-
-  /* =====================================================
-     BACKGROUND / SURFACE
-     ===================================================== */
-
-  --color-background: #f7f7f7;
-  --color-background-high: #fff;
-  --color-surface-main: #efefef;
-  --color-surface-high: #e4e4e4;
-  --color-surface-inverse: #121212;
+  --color-scrollbar: rgba(0, 240, 255, 0.2);
+  --color-scrollbar-hover: rgba(0, 240, 255, 0.4);
 
   /* =====================================================
-     TEXT
+     BACKGROUND / SURFACE / PANELS
      ===================================================== */
-
-  --color-text-headings: rgba(0, 0, 0, 0.92);
-  --color-text-body-high: rgba(0, 0, 0, 0.78);
-  --color-text-body: rgba(0, 0, 0, 0.7);
-  --color-text-body-low: rgba(0, 0, 0, 0.55);
-  --color-text-disabled: rgba(0, 0, 0, 0.42);
+  --color-background: #060608;
+  --color-background-high: #0b0c10;
+  --color-surface-main: #101116;
+  --color-surface-high: rgba(16, 17, 22, 0.75);
+  --color-surface-inverse: #ffffff;
 
   /* =====================================================
-     STATES
+     TEXT COLORS
      ===================================================== */
+  --color-text-headings: #ffffff;
+  --color-text-body-high: #f3f4f6;
+  --color-text-body: #9ca3af;
+  --color-text-body-low: #6b7280;
+  --color-text-disabled: #4b5563;
 
-  --color-success-main: #2e7d32;
-  --color-on-success: #ffffff;
+  /* =====================================================
+     STATES (Neon Green / Neon Red)
+     ===================================================== */
+  --color-success: #39ff14;
+  --color-on-success: #000000;
 
-  --color-error-main: #d32f2f;
+  --color-error: #ff3131;
   --color-on-error: #ffffff;
 
   /* =====================================================
-     BORDER / DIVIDER
+     BORDERS & DIVIDERS
      ===================================================== */
-
-  --color-divider: rgba(0, 0, 0, 0.12);
-  --color-border-main: rgba(0, 0, 0, 0.16);
-  --color-border-low: rgba(0, 0, 0, 0.28);
-  --color-border-high: rgba(0, 0, 0, 0.5);
+  --color-divider: rgba(0, 240, 255, 0.1);
+  --color-border-main: rgba(0, 240, 255, 0.15);
+  --color-border-low: rgba(0, 240, 255, 0.08);
+  --color-border-high: rgba(0, 240, 255, 0.3);
 
   /* =====================================================
-     TRANSITIONS
+     FONTS
      ===================================================== */
+  --font-headings: Orbitron, sans-serif;
+  --font-body: "Share Tech Mono", monospace;
 
+  /* =====================================================
+     TRANSITIONS & TIMINGS
+     ===================================================== */
   --transition-duration-fast: 150ms;
   --transition-duration-normal: 250ms;
   --transition-duration-slow: 400ms;
-
-  /* =====================================================
-    FONTS
-    ===================================================== */
-
-  --font-headings: Poppins, serif;
-  --font-body: Inter, monospace;
 }
 
 @custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
 
-[data-theme="dark"] {
-  /* =====================================================
-     PRIMARY
-     ===================================================== */
+[data-theme=light] {
+  --color-background: #eef2f6;
+  --color-background-high: #f8fafc;
+  --color-surface-main: #ffffff;
+  --color-surface-high: rgba(255, 255, 255, 0.75);
+  --color-surface-inverse: #060608;
 
-  --color-primary-main: #ebc80e;
-  --color-on-primary: #000000;
+  --color-text-headings: #0f172a;
+  --color-text-body-high: #1e293b;
+  --color-text-body: #475569;
+  --color-text-body-low: #64748b;
+  --color-text-disabled: #cbd5e1;
 
-  /* =====================================================
-     SECONDARY
-     ===================================================== */
+  --color-divider: rgba(0, 240, 255, 0.25);
+  --color-border-main: rgba(0, 240, 255, 0.3);
+  --color-border-low: rgba(0, 240, 255, 0.15);
+  --color-border-high: rgba(0, 240, 255, 0.5);
 
-  --color-secondary-main: #ffffff;
-  --color-on-secondary: #000000;
-
-  /* =====================================================
-     LINK
-     ===================================================== */
-
-  --color-link-main: #0098ff;
-
-  /* =====================================================
-     SCROLLBAR
-     ===================================================== */
-
-  --color-scrollbar: rgb(80, 80, 84);
-  --color-scrollbar-hover: rgb(100, 100, 104);
-
-  /* =====================================================
-     BACKGROUND / SURFACE
-     ===================================================== */
-
-  --color-background: #0f0f10;
-  --color-background-high: #171717;
-  --color-surface-main: #1b1b1c;
-  --color-surface-high: rgb(38, 38, 41);
-  --color-surface-inverse: #ffffff;
-
-  /* =====================================================
-     TEXT
-     ===================================================== */
-
-  --color-text-headings: rgba(255, 255, 255, 0.94);
-  --color-text-body-high: rgba(255, 255, 255, 0.8);
-  --color-text-body: rgba(255, 255, 255, 0.7);
-  --color-text-body-low: rgba(255, 255, 255, 0.55);
-  --color-text-disabled: rgba(255, 255, 255, 0.42);
-
-  /* =====================================================
-     STATES
-     ===================================================== */
-
-  --color-success-main: #66bb6a;
-  --color-on-success: #000000;
-
-  --color-error-main: #ef5350;
-  --color-on-error: #000000;
-
-  /* =====================================================
-     BORDER / DIVIDER
-     ===================================================== */
-
-  --color-divider: rgba(255, 255, 255, 0.1);
-  --color-border-main: rgba(255, 255, 255, 0.25);
-  --color-border-low: rgba(255, 255, 255, 0.15);
-  --color-border-high: rgba(255, 255, 255, 0.5);
+  --color-scrollbar: rgba(0, 150, 200, 0.2);
+  --color-scrollbar-hover: rgba(0, 150, 200, 0.4);
 }
 
+[data-theme=light] .cyber-bg-container {
+  background: radial-gradient(circle at 50% 50%, #e0f2fe 0%, #f1f5f9 100%);
+}
+
+[data-theme=light] .cyber-grid {
+  background-image:
+    linear-gradient(to right, rgba(6, 182, 212, 0.1) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(6, 182, 212, 0.1) 1px, transparent 1px);
+}
+
+[data-theme=light] .cyber-grid-overlay {
+  background:
+    radial-gradient(ellipse at 50% 50%, transparent 20%, #f1f5f9 80%),
+    linear-gradient(to bottom, transparent, rgba(241, 245, 249, 0.4) 70%, #f1f5f9 100%);
+}
+
+[data-theme=light] .cyber-panel {
+  background: rgba(255, 255, 255, 0.75);
+  border-color: rgba(6, 182, 212, 0.3);
+  box-shadow:
+    0 0 15px rgba(6, 182, 212, 0.08),
+    inset 0 0 15px rgba(6, 182, 212, 0.08);
+}
+
+[data-theme=light] .cyber-panel-hover:hover {
+  border-color: rgba(6, 182, 212, 0.5);
+  box-shadow:
+    0 0 25px rgba(6, 182, 212, 0.2),
+    inset 0 0 20px rgba(6, 182, 212, 0.15);
+}
+
+[data-theme=light] input:-webkit-autofill,
+[data-theme=light] input:-webkit-autofill:hover,
+[data-theme=light] input:-webkit-autofill:focus,
+[data-theme=light] input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 30px #ffffff inset !important;
+}
+
+
+/* Base resets & setup */
 #app {
   min-height: 100vh;
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-text-body);
+  font-family: var(--font-body);
+  overflow-x: hidden;
+  transition: background-color var(--transition-duration-normal) ease, color var(--transition-duration-normal) ease;
 }
 
 * {
@@ -166,22 +161,144 @@
 
 *::-webkit-scrollbar {
   width: 8px;
-  scrollbar-color: var(--color-scrollbar);
+  height: 8px;
 }
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
 *::-webkit-scrollbar-thumb {
   background-color: var(--color-scrollbar);
-  border-radius: 8px;
+  border-radius: 4px;
+  border: 2px solid transparent;
   transition: background-color var(--transition-duration-fast);
 }
+
 *::-webkit-scrollbar-thumb:hover {
   background-color: var(--color-scrollbar-hover);
 }
 
+/* =====================================================
+   CYBERPUNK STYLING & ANIMATIONS
+   ===================================================== */
+
+/* Grid animation details */
+@keyframes grid-travel {
+  0% {
+    transform: translateY(0);
+  }
+
+  100% {
+    transform: translateY(40px);
+  }
+}
+
+.cyber-bg-container {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background: radial-gradient(circle at 50% 50%, #0d1220 0%, #060608 100%);
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.cyber-grid {
+  position: absolute;
+  width: 200%;
+  height: 200%;
+  top: -50%;
+  left: -50%;
+  background-image:
+    linear-gradient(to right, rgba(0, 240, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0, 240, 255, 0.04) 1px, transparent 1px);
+  background-size: 40px 40px;
+  transform: perspective(500px) rotateX(60deg);
+  animation: grid-travel 20s linear infinite;
+}
+
+.cyber-grid-overlay {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 50% 50%, transparent 20%, #060608 80%),
+    linear-gradient(to bottom, transparent, rgba(6, 6, 8, 0.4) 70%, #060608 100%);
+}
+
+/* Cyber card / Glassmorphism */
+.cyber-panel {
+  background: rgba(16, 17, 22, 0.65);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(0, 240, 255, 0.2);
+  box-shadow:
+    0 0 15px rgba(0, 240, 255, 0.05),
+    inset 0 0 15px rgba(0, 240, 255, 0.05);
+  transition: all var(--transition-duration-normal) ease;
+  position: relative;
+  border-radius: 8px;
+}
+
+.cyber-panel::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 10px;
+  height: 10px;
+  border-top: 2px solid var(--color-accent);
+  border-left: 2px solid var(--color-accent);
+  border-top-left-radius: 8px;
+  pointer-events: none;
+}
+
+.cyber-panel::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 10px;
+  height: 10px;
+  border-bottom: 2px solid var(--color-primary);
+  border-right: 2px solid var(--color-primary);
+  border-bottom-right-radius: 8px;
+  pointer-events: none;
+}
+
+.cyber-panel-hover:hover {
+  border-color: rgba(0, 240, 255, 0.45);
+  box-shadow:
+    0 0 25px rgba(0, 240, 255, 0.15),
+    inset 0 0 20px rgba(0, 240, 255, 0.1);
+  transform: translateY(-2px);
+}
+
+/* Glow effects */
+.text-neon-cyan {
+  color: var(--color-accent);
+  text-shadow: 0 0 8px rgba(0, 240, 255, 0.6);
+}
+
+.text-neon-yellow {
+  color: var(--color-primary);
+  text-shadow: 0 0 8px rgba(235, 200, 14, 0.6);
+}
+
+.glow-border-cyan {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.3);
+}
+
+.glow-border-yellow {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 10px rgba(235, 200, 14, 0.3);
+}
+
+/* Autofill inputs styling */
 input:-webkit-autofill,
 input:-webkit-autofill:hover,
 input:-webkit-autofill:focus,
 input:-webkit-autofill:active {
-  -webkit-box-shadow: 0 0 0 30px var(--color-surface-high) inset !important;
+  -webkit-box-shadow: 0 0 0 30px #101116 inset !important;
   -webkit-text-fill-color: var(--color-text-body-high) !important;
-  border: 1px solid var(--color-border-high) !important;
+  border: 1px solid var(--color-accent) !important;
 }

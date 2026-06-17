@@ -38,7 +38,8 @@ public class JwtAuthenticationInterceptor implements ChannelInterceptor {
 
         Principal principal = accessor.getUser();
 
-        if (StompCommand.CONNECT.equals(accessor.getCommand()) || principal == null) {
+        if (StompCommand.CONNECT.equals(accessor.getCommand())
+                || (principal == null && !StompCommand.DISCONNECT.equals(accessor.getCommand()))) {
 
             String authHeader = accessor.getFirstNativeHeader("Authorization");
 

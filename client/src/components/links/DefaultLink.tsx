@@ -1,4 +1,4 @@
-import React, { type ReactNode } from "react";
+import { type ReactNode } from "react";
 import { Link, type LinkProps } from "react-router-dom";
 import { twMerge } from "tailwind-merge";
 
@@ -11,7 +11,7 @@ export default function DefaultLink(props: DefaultLinkProps) {
     <Link
       {...props}
       className={twMerge(
-        "h-6 px-1 inline-flex items-center text-link-main font-bold hover:underline cursor-pointer focus:underline text-sm font-headings",
+        "h-6 px-1 inline-flex items-center text-accent hover:text-accent-hover font-bold cursor-pointer hover:underline text-sm font-headings tracking-wider transition-all duration-normal",
         props.className,
       )}
     >

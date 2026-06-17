@@ -125,11 +125,13 @@ export default function RegisterForm() {
       <div className="flex flex-col flex-1">
         <H1 className="text-center py-4">Sign Up</H1>
         {errors.form !== null && (
-          <div className="text-error-main text-sm">{errors.form.message}</div>
+          <div className="text-error text-xs font-bold bg-error/10 border border-error/30 p-2.5 rounded-lg mb-4 tracking-wide font-body">
+            {errors.form.message}
+          </div>
         )}
-        <div className="flex flex-col flex-1 justify-between pt-4">
+        <div className="flex flex-col flex-1 justify-between pt-2">
           <div className="flex flex-col">
-            <div className="h-25">
+            <div className="h-24">
               <Label htmlFor="username">Username:</Label>
               <TextInput
                 id={"username"}
@@ -140,7 +142,7 @@ export default function RegisterForm() {
                 errorMessage={errors.username?.message}
               />
             </div>
-            <div className="h-25">
+            <div className="h-24">
               <Label htmlFor="email">Email:</Label>
               <TextInput
                 id={"email"}
@@ -151,7 +153,7 @@ export default function RegisterForm() {
                 errorMessage={errors.email?.message}
               />
             </div>
-            <div className="h-25 mb-4">
+            <div className="h-24 mb-4">
               <Label htmlFor="password">Password:</Label>
               <Password
                 id={"password"}
@@ -169,14 +171,14 @@ export default function RegisterForm() {
           >
             Sign Up
           </Button>
-          <div className="text-xs text-text-disabled mt-4">
+          <div className="text-xs text-text-body/60 mt-4 text-center font-body">
             Already have an account?{" "}
-            <DefaultLink to={"/login"} className="text-xs">
+            <DefaultLink to={"/login"} className="text-xs font-bold">
               Log In
             </DefaultLink>
           </div>
         </div>
-        <Or className="min-h-20" />
+        <Or className="my-4" />
         <GoogleLoginWithRedirect
           onFailure={(e) => {
             setErrors({ ...errors, form: e });
