@@ -114,12 +114,14 @@ export default function LoginForm() {
       <div className="flex flex-col flex-1">
         <H1 className="text-center py-4">Log In</H1>
         {errors.form !== null && (
-          <div className="text-error-main text-sm">{errors.form.message}</div>
+          <div className="text-error text-xs font-bold bg-error/10 border border-error/30 p-2.5 rounded-lg mb-4 tracking-wide font-body">
+            {errors.form.message}
+          </div>
         )}
-        <div className="flex flex-col flex-1 justify-between pt-4">
+        <div className="flex flex-col flex-1 justify-between pt-2">
           <div className="flex flex-col">
-            <div className="h-25">
-              <Label htmlFor="username">*Username:</Label>
+            <div className="h-24">
+              <Label htmlFor="username">Username/Email:</Label>
               <TextInput
                 id={"username"}
                 onChange={handleUsernameChange}
@@ -129,8 +131,8 @@ export default function LoginForm() {
                 errorMessage={errors.username?.message}
               />
             </div>
-            <div className="h-25 mb-4">
-              <Label htmlFor="password">*Password:</Label>
+            <div className="h-24 mb-4">
+              <Label htmlFor="password">Password:</Label>
               <Password
                 id={"password"}
                 error={errors.password !== null}
@@ -147,14 +149,14 @@ export default function LoginForm() {
           >
             Log In
           </Button>
-          <div className="text-xs text-text-disabled mt-4">
+          <div className="text-xs text-text-body/60 mt-4 text-center font-body">
             Don't have an account?{" "}
-            <DefaultLink to={"/signup"} className="text-xs">
+            <DefaultLink to={"/signup"} className="text-xs font-bold">
               Sign Up
             </DefaultLink>
           </div>
         </div>
-        <Or className="min-h-20" />
+        <Or className="my-4" />
         <GoogleLoginWithRedirect
           onFailure={(e) => {
             setErrors({ ...errors, form: e });

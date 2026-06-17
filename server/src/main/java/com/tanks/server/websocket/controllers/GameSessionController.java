@@ -11,9 +11,9 @@ import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.SendTo;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 
-import java.security.Principal;
 import java.util.UUID;
 
 @Controller
@@ -33,8 +33,8 @@ public class GameSessionController {
 
     @MessageMapping("/game/create")
     @PreAuthorize("@webSocketAuthorizationService.canCreateGame(authentication, '/game/create')")
-    public void createGame(Principal principal){
-        WebSocketPrincipal wsPrincipal = (WebSocketPrincipal)principal;
+    public void createGame(Authentication authentication){
+        WebSocketPrincipal wsPrincipal = (WebSocketPrincipal) authentication.getPrincipal();
         UserSession host = wsPrincipal.getUserSession();
 
         Lobby lobby = lobbyService.findById(host.getLobbyId());

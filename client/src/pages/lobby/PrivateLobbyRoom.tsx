@@ -1,58 +1,135 @@
+import { useState } from "react";
 import H1 from "../../components/headings/H1";
 import { LobbyChat } from "./LobbyChat";
 import Loader from "../../components/misc/Loader";
 import UnexpectedError from "../../errors/UnexpectedError";
 import Button from "../../components/buttons/Button";
 import usePrivateLobby from "./usePrivateLobby";
-import {useNavigate} from "react-router-dom";
-import {useScreenStack} from "../../context/ScreenStack.tsx";
+import { useNavigate } from "react-router-dom";
+import { useScreenStack } from "../../context/ScreenStack.tsx";
 
 export default function PrivateLobbyRoom() {
-  const { connected, error, lobbyId, username,canStartGame,createGame, action } = usePrivateLobby();
-  
+  const { connected, error, lobbyId, username, canStartGame, createGame, action } = usePrivateLobby();
+  const [copied, setCopied] = useState(false);
+
+  const shareLink = lobbyId ? `${window.location.origin}/lobby/${lobbyId}` : "";
+
+  const handleCopy = () => {
+    if (!shareLink) return;
+    navigator.clipboard.writeText(shareLink);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   if (connected) {
     return (
-        <div className="flex">
-          <div>
-            <H1>Welcome {username}!</H1>
-            <div>Lobby id: {lobbyId}</div>
+      <div className="flex flex-col md:flex-row gap-6 w-full max-w-4xl relative z-10">
+        {/* Left Panel: Lobby Settings & Actions */}
+        <div className="cyber-panel p-6 md:p-8 flex-1 flex flex-col gap-6 justify-between min-h-[380px]">
+          <div className="flex flex-col gap-4">
             <div>
-              Share Link: <br />
-              http://localhost:5173/lobby/{lobbyId}
+              <div className="text-[10px] text-accent uppercase tracking-widest font-black mb-1">HOST</div>
+              <H1 className="text-xl md:text-3xl text-neon-yellow text-left">{username}</H1>
             </div>
-            <Button disabled={!canStartGame} color="primary" onClick={() => createGame()}>Start</Button>
-            {action === "JOIN" && <LeaveJoinedLobby/>}
-            {action === "CREATE" && <LeaveCreatedLobby/>}
+
+            <div className="h-[1px] bg-accent/20"></div>
+
+            <div>
+              <div className="text-[10px] text-text-body/60 uppercase tracking-widest font-black mb-1">LOBBY ID</div>
+              <div className="font-mono text-sm text-text-body-high bg-background/50 border border-accent/25 px-3 py-2 select-all">
+                {lobbyId}
+              </div>
+            </div>
+
+            <div>
+              <div className="text-[10px] text-text-body/60 uppercase tracking-widest font-black mb-1">SHARE INVITE LINK</div>
+              <div className="flex gap-2">
+                <input
+                  readOnly
+                  value={shareLink}
+                  className="flex-1 bg-background/50 border border-accent/25 px-3 py-2 text-xs text-text-body-high outline-none font-body select-all"
+                />
+                <Button
+                  onClick={handleCopy}
+                  color={copied ? "success" : "secondary"}
+                  variant="outline"
+                  className="min-h-9 px-4 text-xs font-black select-none"
+                >
+                  {copied ? "Copied!" : "Copy"}
+                </Button>
+              </div>
+            </div>
           </div>
+
+          <div className="flex flex-col gap-3 mt-4">
+            <Button
+              disabled={!canStartGame}
+              color="primary"
+              onClick={() => createGame()}
+              className="w-full font-black text-sm tracking-widest"
+            >
+              Start Game
+            </Button>
+            {action === "JOIN" && <LeaveJoinedLobby />}
+            {action === "CREATE" && <LeaveCreatedLobby />}
+          </div>
+        </div>
+
+        {/* Right Panel: Lobby Chat (Embedded Widget) */}
+        <div className="w-full md:w-[420px] flex">
           <LobbyChat lobbyId={lobbyId!} />
         </div>
+      </div>
     );
   }
 
   if (error === null && !connected) {
-    <div>
-      <H1>LOADING...</H1>
-      <Loader />
-    </div>;
+    return (
+      <div className="cyber-panel px-8 py-8 w-full max-w-sm flex flex-col gap-4 text-center">
+        <H1 className="text-xl animate-pulse text-center">Loading...</H1>
+        <Loader />
+      </div>
+    );
   } else if (error) {
-    <div>
-      <H1>THE LOBBY ID IS INVALID!!</H1>
-      <Loader />
-    </div>;
+    return (
+      <div className="cyber-panel px-8 py-8 w-full max-w-sm flex flex-col gap-6 text-center">
+        <H1 className="text-xl text-error text-center font-bold uppercase">Lobby Not Found</H1>
+        <div className="text-sm font-body text-text-body/80">
+          The lobby code provided does not exist or has expired.
+        </div>
+        <LeaveJoinedLobby />
+      </div>
+    );
   } else {
     throw new UnexpectedError("Illegal state");
   }
-
 }
 
-function LeaveCreatedLobby(){
-  const {popScreen} = useScreenStack()
+function LeaveCreatedLobby() {
+  const { popScreen } = useScreenStack();
 
-  return <Button color="secondary" onClick={() => {popScreen()}
-  }>Leave</Button>
+  return (
+    <Button
+      color="secondary"
+      variant="outline"
+      onClick={() => popScreen()}
+      className="w-full text-xs font-black select-none"
+    >
+      Leave Room
+    </Button>
+  );
 }
 
-function LeaveJoinedLobby(){
-  const navigate = useNavigate()
-  return <Button color="secondary" onClick={() =>navigate("/",{replace:true})}>Leave</Button>
+function LeaveJoinedLobby() {
+  const navigate = useNavigate();
+  return (
+    <Button
+      color="secondary"
+      variant="outline"
+      onClick={() => navigate("/", { replace: true })}
+      className="w-full text-xs font-black select-none"
+    >
+      Leave Room
+    </Button>
+  );
 }

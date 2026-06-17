@@ -3,7 +3,6 @@ import {
   StompHeaders,
   type IMessage,
   type IPublishParams,
-  type StompSubscription,
   type frameCallbackType,
 } from "@stomp/stompjs";
 import type RefreshResponseDto from "../http/dto/RefreshResponseDto";
