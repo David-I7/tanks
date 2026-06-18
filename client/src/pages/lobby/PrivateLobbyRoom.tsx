@@ -1,4 +1,3 @@
-import { useState } from "react";
 import H1 from "../../components/headings/H1";
 import { LobbyChat } from "./LobbyChat";
 import Loader from "../../components/misc/Loader";
@@ -6,20 +5,13 @@ import UnexpectedError from "../../errors/UnexpectedError";
 import Button from "../../components/buttons/Button";
 import usePrivateLobby from "./usePrivateLobby";
 import { useNavigate } from "react-router-dom";
+import useClipboard from "../../hooks/useClipboard.ts";
 import { useScreenStack } from "../../context/ScreenStack.tsx";
 
 export default function PrivateLobbyRoom() {
-  const { connected, error, lobbyId, username, canStartGame, createGame, action } = usePrivateLobby();
-  const [copied, setCopied] = useState(false);
+  const { connected, error, username, createGame, canStartGame, isHost, hostShareLink, lobbyId } = usePrivateLobby();
 
-  const shareLink = lobbyId ? `${window.location.origin}/lobby/${lobbyId}` : "";
-
-  const handleCopy = () => {
-    if (!shareLink) return;
-    navigator.clipboard.writeText(shareLink);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
+  const { copied, copyText } = useClipboard();
 
   if (connected) {
     return (
@@ -34,23 +26,17 @@ export default function PrivateLobbyRoom() {
 
             <div className="h-[1px] bg-accent/20"></div>
 
-            <div>
-              <div className="text-[10px] text-text-body/60 uppercase tracking-widest font-black mb-1">LOBBY ID</div>
-              <div className="font-mono text-sm text-text-body-high bg-background/50 border border-accent/25 px-3 py-2 select-all">
-                {lobbyId}
-              </div>
-            </div>
 
             <div>
               <div className="text-[10px] text-text-body/60 uppercase tracking-widest font-black mb-1">SHARE INVITE LINK</div>
               <div className="flex gap-2">
                 <input
                   readOnly
-                  value={shareLink}
+                  value={hostShareLink ?? ""}
                   className="flex-1 bg-background/50 border border-accent/25 px-3 py-2 text-xs text-text-body-high outline-none font-body select-all"
                 />
                 <Button
-                  onClick={handleCopy}
+                  onClick={() => hostShareLink && copyText(hostShareLink)}
                   color={copied ? "success" : "secondary"}
                   variant="outline"
                   className="min-h-9 px-4 text-xs font-black select-none"
@@ -70,8 +56,8 @@ export default function PrivateLobbyRoom() {
             >
               Start Game
             </Button>
-            {action === "JOIN" && <LeaveJoinedLobby />}
-            {action === "CREATE" && <LeaveCreatedLobby />}
+            {!isHost && <LeaveJoinedLobby />}
+            {isHost && <LeaveCreatedLobby />}
           </div>
         </div>
 

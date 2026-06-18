@@ -1,18 +1,22 @@
 import { useEffect, useState } from "react";
-import { useWebSocket } from "../../context/WebSocketContext";
 import type ProblemDetailDto from "../../api/http/dto/ProblemDetailDto";
 import { ApiError } from "../../errors/ApiError";
 import type { EndpointSubscription } from "../../api/ws/TanksWebSocketClient";
 import type { WebSocketEventResponseDto } from "../../api/ws/dto/WebSocketEventResponseDto";
 import { useNavigate } from "react-router-dom";
+import { useWebSocketStore } from "../../store/useWebSocketStore";
 
 export default function useQuickMatchLobby() {
-  const { client, connected: wsConnected } = useWebSocket();
+  const { client, connected: wsConnected, connect } = useWebSocketStore();
   const navigate = useNavigate();
   const [playerCount, setPlayerCount] = useState<number>(0);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
+    if (!client) {
+      connect();
+      return;
+    }
     if (!wsConnected) return;
 
     const handleLobbyMessage: EndpointSubscription<WebSocketEventResponseDto>["onMessage"] =

@@ -1,15 +1,13 @@
-import { useEffect } from "react";
 import Button from "../../components/buttons/Button";
 import H1 from "../../components/headings/H1";
 import Loader from "../../components/misc/Loader";
-import { useScreenStack } from "../../context/ScreenStack";
 import useQuickMatchLobby from "./useQuickMatchLobby";
+import { useScreenStack } from "../../context/ScreenStack";
 
 export default function QuickMatchLobbyRoom() {
   const { popScreen } = useScreenStack();
-  const {} = useQuickMatchLobby();
+  useQuickMatchLobby();
 
-  useEffect(() => {}, []);
 
   return (
     <div className="cyber-panel px-8 py-8 w-full max-w-sm flex flex-col gap-6 text-center">

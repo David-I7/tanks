@@ -1,5 +1,4 @@
 import { useState, type ChangeEvent, type SubmitEvent } from "react";
-import { useAuth } from "../../context/AuthContext";
 import { ValidationError } from "../../errors/ValidationError";
 import { registerRequestSchema } from "../../validation/auth";
 import Form from "../../components/form/Form";
@@ -15,9 +14,10 @@ import { ApiError } from "../../errors/ApiError";
 import type ContraintValidationDto from "../../api/http/dto/ConstraintValidationDto";
 import UnexpectedError from "../../errors/UnexpectedError";
 import NetworkError from "../../errors/NetworkError";
+import { useAuthStore } from "../../store/useAuthStore";
 
 export default function RegisterForm() {
-  const { handleRegister } = useAuth();
+  const handleRegister = useAuthStore(state => state.handleRegister);
   const [username, setUsername] = useState<string | undefined>(undefined);
   const [password, setPassword] = useState<string | undefined>(undefined);
   const [email, setEmail] = useState<string | undefined>(undefined);

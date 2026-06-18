@@ -1,5 +1,4 @@
-import { useState, type ChangeEvent, type SubmitEvent } from "react";
-import { useAuth } from "../../context/AuthContext";
+import { useEffect, useState, type ChangeEvent, type SubmitEvent } from "react";
 import Password from "../../components/form/input/Password";
 import { loginRequestSchema } from "../../validation/auth";
 import { ValidationError } from "../../errors/ValidationError";
@@ -15,16 +14,24 @@ import { ApiError } from "../../errors/ApiError";
 import NetworkError from "../../errors/NetworkError";
 import UnexpectedError from "../../errors/UnexpectedError";
 import type ContraintValidationDto from "../../api/http/dto/ConstraintValidationDto";
+import { useAuthStore } from "../../store/useAuthStore";
 
 export default function LoginForm() {
-  const { handleLogin } = useAuth();
+  const handleLogin = useAuthStore(state => state.handleLogin);
+  const error = useAuthStore(state => state.error);
   const [username, setUsername] = useState<string | undefined>(undefined);
   const [password, setPassword] = useState<string | undefined>(undefined);
   const [errors, setErrors] = useState<
     Record<"username" | "password" | "form", Error | null>
   >({ username: null, password: null, form: null });
 
-  const handleApiError = (err: ApiError, newErrors: typeof errors) => {
+  const handleApiError = (err: ApiError) => {
+    const newErrors: typeof errors = {
+      password: null,
+      username: null,
+      form: null,
+    };
+
     if (err.status === 400 && err.data["errors"] !== undefined) {
       const constraintValidtionErrors: ContraintValidationDto[] = err.data[
         "errors"
@@ -41,13 +48,14 @@ export default function LoginForm() {
           }
         }
       });
-      return;
+      return newErrors;
     } else if (err.status >= 400 && err.status < 500) {
       newErrors["form"] = err;
-      return;
+      return newErrors;
     }
 
     newErrors["form"] = new UnexpectedError();
+    return newErrors;
   };
 
   const handleSubmit = async (e: SubmitEvent) => {
@@ -67,15 +75,8 @@ export default function LoginForm() {
     };
 
     if (loginValidationResult.success) {
-      try {
-        await handleLogin(loginValidationResult.data);
-      } catch (err) {
-        if (err instanceof ApiError) {
-          handleApiError(err, newErrors);
-        } else if (err instanceof NetworkError) {
-          newErrors["form"] = err;
-        }
-      }
+      handleLogin(loginValidationResult.data);
+      return;
     } else {
       loginValidationResult.error.issues.forEach((issue) => {
         const key = issue.path[0] as "email" | "password" | "username";
@@ -83,9 +84,8 @@ export default function LoginForm() {
           issue.message,
         );
       });
+      setErrors(newErrors);
     }
-
-    setErrors(newErrors);
   };
 
   const handlePasswordChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -108,6 +108,17 @@ export default function LoginForm() {
       errors.username === null
     );
   };
+
+  useEffect(() => {
+    if (error === null) return;
+
+    if (error instanceof ApiError) {
+      if (error.status === 401) return;
+      setErrors(handleApiError(error))
+    } else if (error instanceof NetworkError) {
+      setErrors({ password: null, username: null, form: error });
+    }
+  }, [error])
 
   return (
     <Form onSubmit={handleSubmit}>

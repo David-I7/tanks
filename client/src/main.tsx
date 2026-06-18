@@ -2,8 +2,6 @@ import { createRoot } from "react-dom/client";
 import "./style.css";
 import "@fontsource/inter/400.css";
 import "@fontsource/poppins/400.css";
-import AuthProvider from "./context/AuthContext";
-import { ThemeProvider } from "./context/ThemeContext";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import HomePage from "./pages/home/HomePage";
 import UnauthenticatedRoute from "./components/auth/UnauthenticatedRoute";
@@ -15,6 +13,7 @@ import AppLayout from "./components/layouts/AppLayout";
 import TestPage from "./pages/test/TestPage";
 import GlobalErrorPage from "./pages/error/GlobalErrorPage";
 import GamePage from "./pages/game/GamePage";
+import AuthProvider from "./components/auth/AuthProvider";
 
 const router = createBrowserRouter([
   {
@@ -66,10 +65,9 @@ const router = createBrowserRouter([
 const root = createRoot(document.querySelector<HTMLDivElement>("#app")!);
 root.render(
   //<React.StrictMode>
-  <ThemeProvider>
-    <AuthProvider>
-      <RouterProvider router={router} />
-    </AuthProvider>
-  </ThemeProvider>,
+  <AuthProvider>
+    <RouterProvider router={router} />
+  </AuthProvider>
+
   //</React.StrictMode>,
 );
