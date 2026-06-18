@@ -1,4 +1,4 @@
-import { useAuth } from "../../context/AuthContext";
+import { useAuthStore } from "../../store/useAuthStore";
 import Button, { type ButtonProps } from "../buttons/Button";
 
 type LogoutProps = {
@@ -11,7 +11,7 @@ export default function Logout({
   onFailure,
   ...buttonProps
 }: LogoutProps) {
-  const { handleLogout } = useAuth();
+  const handleLogout = useAuthStore(state => state.handleLogout);
 
   const handleLogoutProxy = () => {
     try {

@@ -3,7 +3,6 @@ import {
   StompHeaders,
   type IMessage,
   type IPublishParams,
-  type frameCallbackType,
 } from "@stomp/stompjs";
 import type RefreshResponseDto from "../http/dto/RefreshResponseDto";
 import type ProblemDetailDto from "../http/dto/ProblemDetailDto";
@@ -14,10 +13,10 @@ export type SubscriptionCleanup = () => void;
 
 export type EndpointSubscription<Data = string> = {
   destination:
-    | "/topic/lobby/:id"
-    | "/topic/game/:id"
-    | "/user/queue/errors"
-    | "/user/queue/replies";
+  | "/topic/lobby/:id"
+  | "/topic/game/:id"
+  | "/user/queue/errors"
+  | "/user/queue/replies";
   id?: string | number;
   onMessage: (message: Message<Data>) => void;
   subscriptionHeaders?: StompHeaders;
@@ -25,12 +24,12 @@ export type EndpointSubscription<Data = string> = {
 
 export type PublishParams = {
   destination:
-    | "/app/chat/:id/send"
-    | "/app/game/:id/send"
-    | "/app/game/create"
-    | "/app/lobby/create/private"
-    | "/app/lobby/quick-match"
-    | "/app/lobby/join/private/:id";
+  | "/app/chat/:id/send"
+  | "/app/game/:id/send"
+  | "/app/game/create"
+  | "/app/lobby/create/private"
+  | "/app/lobby/quick-match"
+  | "/app/lobby/join/private/:id";
 
   id?: string | number;
 
@@ -58,7 +57,7 @@ export default class TanksWSClient {
     { listeners: EndpointSubscription["onMessage"][]; unsubscribe: () => void }
   >();
 
-  private setAccessToken(accessToken: string | null) {
+  setAccessToken(accessToken: string | null) {
     if (accessToken === "" || accessToken === null) {
       delete this.client.connectHeaders["Authorization"];
       return;
@@ -72,41 +71,26 @@ export default class TanksWSClient {
 
   constructor(
     accessToken: string,
-    refreshHandler: () => Promise<RefreshResponseDto>,
-    onStompError?: frameCallbackType,
+    private refreshHandler: () => Promise<RefreshResponseDto>,
   ) {
     this.client = new Client({
       brokerURL: import.meta.env.VITE_BASE_WEBSOCKETS_URL,
       debug: import.meta.env.DEV ? console.log : undefined,
       reconnectDelay: 5000, // 5 seconds
-      onStompError:
-        onStompError ??
-        (async (err) => {
-          if (import.meta.env.DEV) console.log(err);
-          try {
-            if (
-              err.headers["content-type"] &&
-              err.headers["content-type"] === "application/json"
-            ) {
-              const problemDetail = JSON.parse(err.body) as ProblemDetailDto;
-
-              if (problemDetail.status === 401) {
-                await refreshHandler();
-              }
-            }
-          } catch (err) {
-            if (import.meta.env.DEV) console.log(err);
-            this.client.deactivate();
-          }
-        }),
     });
 
     this.setAccessToken(accessToken);
-
-    this.client.activate();
   }
 
-  setOnconnect(onConnect: Client["onConnect"]) {
+  setRefreshHandler(refreshHandler: () => Promise<RefreshResponseDto>) {
+    this.refreshHandler = refreshHandler;
+  }
+
+  onStompError(onStompError: Client["onStompError"]) {
+    this.client.onStompError = onStompError;
+  }
+
+  onConnect(onConnect: Client["onConnect"]) {
     this.client.onConnect = onConnect;
   }
 
@@ -119,11 +103,34 @@ export default class TanksWSClient {
   }
 
   activate() {
-    if (!this.isActive()) this.client.activate();
+    if (!this.isActive()) {
+      if (this.client.onStompError === null) {
+        this.client.onStompError = async (err) => {
+          try {
+            if (
+              err.headers["content-type"] &&
+              err.headers["content-type"] === "application/json"
+            ) {
+              const problemDetail = JSON.parse(err.body) as ProblemDetailDto;
+
+              if (import.meta.env.DEV) console.log(err);
+
+              if (problemDetail.status === 401) {
+                await this.refreshHandler();
+              }
+            }
+          } catch (err) {
+            if (import.meta.env.DEV) console.log(err);
+            this.client.deactivate();
+          }
+        }
+      }
+      this.client.activate();
+    }
   }
 
-  onDisconnect(onDisconnect: Client["onDisconnect"]) {
-    return (this.client.onDisconnect = onDisconnect);
+  onWebSocketClose(onWebSocketClose: Client["onWebSocketClose"]) {
+    this.client.onWebSocketClose = onWebSocketClose;
   }
 
   publish(params: PublishParams) {

@@ -1,5 +1,4 @@
 import { useState, type ChangeEvent, type SubmitEvent } from "react";
-import { useAuth } from "../../context/AuthContext";
 import { ValidationError } from "../../errors/ValidationError";
 import { usernameSchema } from "../../validation/auth";
 import Form from "../../components/form/Form";
@@ -11,13 +10,14 @@ import { ApiError } from "../../errors/ApiError";
 import type ContraintValidationDto from "../../api/http/dto/ConstraintValidationDto";
 import UnexpectedError from "../../errors/UnexpectedError";
 import NetworkError from "../../errors/NetworkError";
+import { useAuthStore } from "../../store/useAuthStore";
 
 type PostOAuth2RegisterFormProps = { token: string };
 
 export default function PostOAuth2RegisterForm({
   token,
 }: PostOAuth2RegisterFormProps) {
-  const { handlePostOAuth2Register } = useAuth();
+  const handlePostOAuth2Register = useAuthStore(state => state.handlePostOAuth2Register);
   const [username, setUsername] = useState<string | undefined>(undefined);
   const [errors, setErrors] = useState<
     Record<"username" | "form", ValidationError | null>

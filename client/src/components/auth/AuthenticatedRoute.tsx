@@ -1,5 +1,5 @@
 import { Navigate, useLocation } from "react-router-dom";
-import { useAuth } from "../../context/AuthContext";
+import { useAuthStore } from "../../store/useAuthStore";
 
 type AuthenticatedRouteProps = {
   children: React.ReactNode;
@@ -8,13 +8,8 @@ type AuthenticatedRouteProps = {
 export default function AuthenticatedRoute({
   children,
 }: AuthenticatedRouteProps) {
-  const { user, loading } = useAuth();
+  const user = useAuthStore(state => state.user);
   const location = useLocation();
-
-  // loading
-  if (loading) {
-    return <div>Loading User...</div>;
-  }
 
   if (user === null) {
     return (

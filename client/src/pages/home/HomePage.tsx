@@ -6,7 +6,6 @@ import { ArrowLeft } from "lucide-react";
 import AuthenticatedRoute from "../../components/auth/AuthenticatedRoute";
 import PrivateLobbyRoom from "../lobby/PrivateLobbyRoom";
 import Logout from "../../components/auth/Logout";
-import { WebSocketProvider } from "../../context/WebSocketContext";
 import QuickMatchLobbyRoom from "../lobby/QuickMatchLobbyRoom";
 
 type Screen =
@@ -26,14 +25,10 @@ export default function HomePage() {
     ),
     offlineMenu: <OfflineMenu />,
     privateLobby: (
-      <WebSocketProvider>
-        <PrivateLobbyRoom />
-      </WebSocketProvider>
+      <PrivateLobbyRoom />
     ),
     quickMatchLobby: (
-      <WebSocketProvider>
-        <QuickMatchLobbyRoom />
-      </WebSocketProvider>
+      <QuickMatchLobbyRoom />
     ),
   };
   return (

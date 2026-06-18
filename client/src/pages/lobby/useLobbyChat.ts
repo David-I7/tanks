@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useWebSocket } from "../../context/WebSocketContext";
-import { useAuth } from "../../context/AuthContext";
 import { debounce, throttle } from "../../utils/performance";
 import type { ChatEventPayload } from "../../api/ws/dto/chat/ChatEventDto";
 import type { WebSocketEventResponseDto } from "../../api/ws/dto/WebSocketEventResponseDto";
+import { useAuthStore } from "../../store/useAuthStore";
+import { useWebSocketStore } from "../../store/useWebSocketStore";
 
 const DEBOUNCE_TYPING_TIMEOUT = 1000; // 1 sec
 const THROTTLE_TYPING_EVENT = 500; // 0.5 sec
@@ -49,8 +49,8 @@ function webSocketEventToChatMessage(
 }
 
 export default function useLobbyChat(lobbyId: string) {
-  const { client, connected: wsConnected } = useWebSocket();
-  const { user } = useAuth();
+  const { client, connected: wsConnected } = useWebSocketStore();
+  const user = useAuthStore(state => state.user);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [typingUser, setTypingUser] = useState<string | null>(null);
 

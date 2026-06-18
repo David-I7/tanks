@@ -1,10 +1,10 @@
 import type OAuth2LoginResponseDto from "../../api/http/dto/OAuth2LoginResponseDto";
 import Button from "../buttons/Button";
 import Google from "../icons/Google";
-import { useAuth } from "../../context/AuthContext";
 import GoogleLoginRequest from "../../api/http/requests/auth/GoogleLoginRequest";
 import { usePopup } from "../../hooks/usePopup";
 import { useNavigate } from "react-router-dom";
+import { useAuthStore } from "../../store/useAuthStore";
 
 type GoogleLoginProps = {
   onSuccess: (response: OAuth2LoginResponseDto) => void;
@@ -55,7 +55,7 @@ export function GoogleLoginWithRedirect({
   onFailure,
 }: GoogleLoginWithRedirectProps) {
   const navigate = useNavigate();
-  const { handlePostOAuth2Login } = useAuth();
+  const handlePostOAuth2Login = useAuthStore(state => state.handlePostOAuth2Login);
 
   const handleSuccess = async (data: OAuth2LoginResponseDto) => {
     if (data.type === "OAUTH2_SUCCESS") {
