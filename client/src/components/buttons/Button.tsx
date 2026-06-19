@@ -53,7 +53,7 @@ export default function Button({
       disabled={disabled}
       type={type}
       className={twMerge(
-        "cursor-pointer min-h-11 px-8 gap-2 flex items-center justify-center font-black rounded-lg transition-all duration-normal font-headings text-xs tracking-widest uppercase select-none active:translate-x-[1px] active:translate-y-[1px]",
+        "cursor-pointer min-h-10 px-8 gap-2 flex items-center justify-center font-black rounded-lg transition-all duration-normal font-headings text-xs tracking-widest uppercase select-none active:translate-x-[1px] active:translate-y-[1px]",
         VARIANTS["color"][variant][color],
         leftIcon !== undefined ? "pl-4" : "",
         rightIcon !== undefined ? "pr-4" : "",

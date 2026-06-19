@@ -1,4 +1,4 @@
-import { useState, type ChangeEvent, type SubmitEvent } from "react";
+import { useEffect, useState, type ChangeEvent, type SubmitEvent } from "react";
 import { ValidationError } from "../../errors/ValidationError";
 import { registerRequestSchema } from "../../validation/auth";
 import Form from "../../components/form/Form";
@@ -15,9 +15,12 @@ import type ContraintValidationDto from "../../api/http/dto/ConstraintValidation
 import UnexpectedError from "../../errors/UnexpectedError";
 import NetworkError from "../../errors/NetworkError";
 import { useAuthStore } from "../../store/useAuthStore";
+import Loader from "../../components/misc/Loader";
 
 export default function RegisterForm() {
   const handleRegister = useAuthStore(state => state.handleRegister);
+  const error = useAuthStore(state => state.error);
+  const loading = useAuthStore(state => state.loading);
   const [username, setUsername] = useState<string | undefined>(undefined);
   const [password, setPassword] = useState<string | undefined>(undefined);
   const [email, setEmail] = useState<string | undefined>(undefined);
@@ -25,7 +28,15 @@ export default function RegisterForm() {
     Record<"username" | "password" | "email" | "form", ValidationError | null>
   >({ username: null, password: null, email: null, form: null });
 
-  const handleApiError = (err: ApiError, newErrors: typeof errors) => {
+  const handleApiError = (err: ApiError) => {
+
+    const newErrors: typeof errors = {
+      password: null,
+      username: null,
+      email: null,
+      form: null,
+    };
+
     if (err.status === 400 && err.data["errors"] !== undefined) {
       const constraintValidtionErrors: ContraintValidationDto[] = err.data[
         "errors"
@@ -44,13 +55,14 @@ export default function RegisterForm() {
           }
         }
       });
-      return;
+      return newErrors;
     } else if (err.status >= 400 && err.status < 500) {
       newErrors["form"] = new ValidationError(err.message);
-      return;
+      return newErrors;
     }
 
     newErrors["form"] = new UnexpectedError();
+    return newErrors;
   };
 
   const handleSubmit = async (e: SubmitEvent) => {
@@ -63,32 +75,23 @@ export default function RegisterForm() {
       email,
     });
 
-    const newErrors: typeof errors = {
-      password: null,
-      username: null,
-      email: null,
-      form: null,
-    };
 
     if (registerValidationResult.success) {
-      try {
-        await handleRegister(registerValidationResult.data);
-      } catch (err) {
-        if (err instanceof ApiError) {
-          handleApiError(err, newErrors);
-        } else if (err instanceof NetworkError) {
-          newErrors["form"] = err;
-        }
-      }
+      handleRegister(registerValidationResult.data);
     } else {
       registerValidationResult.error.issues.forEach((issue) => {
+        const newErrors: typeof errors = {
+          password: null,
+          username: null,
+          email: null,
+          form: null,
+        }
         newErrors[issue.path[0] as keyof typeof errors] = new ValidationError(
           issue.message,
         );
+        setErrors(newErrors);
       });
     }
-
-    setErrors(newErrors);
   };
 
   const handlePasswordChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -119,6 +122,16 @@ export default function RegisterForm() {
       errors.email === null
     );
   };
+
+  useEffect(() => {
+    if (error === null) return;
+
+    if (error instanceof ApiError) {
+      setErrors(handleApiError(error));
+    } else if (error instanceof NetworkError) {
+      setErrors({ password: null, username: null, email: null, form: error });
+    }
+  }, [error])
 
   return (
     <Form onSubmit={handleSubmit}>
@@ -167,9 +180,9 @@ export default function RegisterForm() {
             type="submit"
             color="primary"
             variant="filled"
-            disabled={!isValidForm()}
+            disabled={!isValidForm() || loading}
           >
-            Sign Up
+            <span>{loading ? <Loader /> : "Sign Up"}</span>
           </Button>
           <div className="text-xs text-text-body/60 mt-4 text-center font-body">
             Already have an account?{" "}
