@@ -1,4 +1,4 @@
-const REDIRECT_KEY = "redirect_to";
+
 
 export class BrowserStorage<Value> {
 

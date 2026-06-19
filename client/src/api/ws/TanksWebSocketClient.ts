@@ -198,25 +198,26 @@ export default class TanksWSClient {
       }
     };
 
-    let subscriptions = this.subscriptionMap.get(finalParams.destination);
+    const currentSubscriptions = this.subscriptionMap.get(finalParams.destination);
 
-    if (subscriptions === undefined) {
-      const unsubscribe = this.client.subscribe(
+    if (currentSubscriptions === undefined) {
+      const recipt = this.client.subscribe(
         finalParams.destination,
         handleMessage,
         finalParams.subscriptionHeaders,
       );
 
-      subscriptions = {
+      const subscriptions = {
         listeners: [finalParams.onMessage],
-        unsubscribe: unsubscribe.unsubscribe,
+        unsubscribe: recipt.unsubscribe,
       };
       this.subscriptionMap.set(finalParams.destination, subscriptions);
     } else {
-      subscriptions.listeners.push(finalParams.onMessage);
+      currentSubscriptions.listeners.push(finalParams.onMessage);
     }
 
     return () => {
+      const subscriptions = this.subscriptionMap.get(finalParams.destination);
       if (subscriptions.listeners.length === 1) {
         this.subscriptionMap.delete(finalParams.destination);
         subscriptions.unsubscribe();
