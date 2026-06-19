@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { THEME_KEY } from "../constants";
 
 interface ThemeStore {
   theme: "light" | "dark";
@@ -7,11 +8,11 @@ interface ThemeStore {
 
 
 export const useThemeStore = create<ThemeStore>((set) => {
-  let prevTheme = localStorage.getItem("theme") as ThemeStore["theme"] | null;
+  let prevTheme = localStorage.getItem(THEME_KEY) as ThemeStore["theme"] | null;
 
   if (prevTheme === null || (prevTheme !== "dark" && prevTheme !== "light")) {
     prevTheme = "dark";
-    localStorage.setItem("theme", "dark");
+    localStorage.setItem(THEME_KEY, "dark");
   }
 
   document.documentElement.setAttribute("data-theme", prevTheme);
@@ -19,7 +20,7 @@ export const useThemeStore = create<ThemeStore>((set) => {
   return {
     theme: prevTheme,
     setTheme: (theme) => {
-      localStorage.setItem("theme", theme);
+      localStorage.setItem(THEME_KEY, theme);
       document.documentElement.setAttribute("data-theme", theme);
       set({ theme })
     },

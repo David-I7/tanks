@@ -1,3 +1,3 @@
-export type GameEventType = "GAME_CREATED" | "GAME_STARTED";
+export type GameEventType = "GAME_CREATED" | "GAME_STARTED" | "GAME_CONNECT" | "GAME_DISCONNECT";
 
-export type GameEventPayload = { id: string };
+export type GameEventPayload = { id: string, playerName: string };

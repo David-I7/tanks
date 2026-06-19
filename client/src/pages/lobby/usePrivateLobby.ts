@@ -9,7 +9,7 @@ import { useWebSocketStore } from "../../store/useWebSocketStore";
 import { useAuthStore } from "../../store/useAuthStore";
 
 export default function usePrivateLobby() {
-  const { client, connected: wsConnected, connect } = useWebSocketStore();
+  const { client, connected: wsConnected } = useWebSocketStore();
   const user = useAuthStore(state => state.user);
   const navigate = useNavigate();
   const { id: urlLobbyId } = useParams();
@@ -22,11 +22,6 @@ export default function usePrivateLobby() {
   const subscriptions = useRef<SubscriptionCleanup[]>([]);
 
   useEffect(() => {
-    if (client === null) {
-      connect();
-      return;
-    }
-
     if (!wsConnected) {
       return;
     }
@@ -38,15 +33,7 @@ export default function usePrivateLobby() {
     }
 
     let handleReply: EndpointSubscription<WebSocketEventResponseDto>["onMessage"] = (message) => {
-      if (message.body.type === "LOBBY_CREATED") {
-        subscriptions.current.push(client.subscribe({
-          destination: "/topic/lobby/:id",
-          id: message.body.payload.id,
-          onMessage: handleLobbyMessage,
-        }));
-      }
-
-      if (message.body.type === "LOBBY_JOINED") {
+      if (message.body.type === "LOBBY_CREATED" || message.body.type === "LOBBY_JOINED") {
         subscriptions.current.push(client.subscribe({
           destination: "/topic/lobby/:id",
           id: message.body.payload.id,
@@ -71,7 +58,7 @@ export default function usePrivateLobby() {
         }
 
         if (message.body.type === "LOBBY_DISCONNECT") {
-          setPlayerCount(prev => prev - 1);
+          setPlayerCount(1);
           setIsHost(true);
         }
       };
@@ -101,18 +88,20 @@ export default function usePrivateLobby() {
 
   useEffect(() => {
     return () => {
-      subscriptions.current.forEach(cleanup => cleanup());
-      subscriptions.current = [];
+      if (client) {
+        subscriptions.current.forEach(cleanup => cleanup());
+        subscriptions.current = [];
+      }
     };
   }, [client]);
 
   const createGame = () => {
     if (isHost && playerCount === 2) {
-      client.publish({
+      client?.publish({
         destination: "/app/game/create"
       })
     };
   }
 
-  return { connected, error, lobbyId, username: user?.username || "", hostShareLink: isHost && lobbyId ? `${window.location.origin}/lobby/${lobbyId}` : null, canStartGame: isHost && playerCount === 2, isHost, playerCount, createGame };
+  return { action, connected, error, lobbyId, username: user?.username || "", hostShareLink: isHost && lobbyId ? `${window.location.origin}/lobby/${lobbyId}` : null, canStartGame: isHost && playerCount === 2, isHost, playerCount, createGame };
 }

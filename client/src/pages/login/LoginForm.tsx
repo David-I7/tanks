@@ -15,10 +15,13 @@ import NetworkError from "../../errors/NetworkError";
 import UnexpectedError from "../../errors/UnexpectedError";
 import type ContraintValidationDto from "../../api/http/dto/ConstraintValidationDto";
 import { useAuthStore } from "../../store/useAuthStore";
+import Loader from "../../components/misc/Loader";
+
 
 export default function LoginForm() {
   const handleLogin = useAuthStore(state => state.handleLogin);
   const error = useAuthStore(state => state.error);
+  const loading = useAuthStore(state => state.loading);
   const [username, setUsername] = useState<string | undefined>(undefined);
   const [password, setPassword] = useState<string | undefined>(undefined);
   const [errors, setErrors] = useState<
@@ -156,9 +159,9 @@ export default function LoginForm() {
             type="submit"
             color="primary"
             variant="filled"
-            disabled={!isValidForm()}
+            disabled={!isValidForm() || loading}
           >
-            Log In
+            <span>{loading ? <Loader /> : "Log In"}</span>
           </Button>
           <div className="text-xs text-text-body/60 mt-4 text-center font-body">
             Don't have an account?{" "}

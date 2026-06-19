@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { debounce, throttle } from "../../utils/performance";
 import type { ChatEventPayload } from "../../api/ws/dto/chat/ChatEventDto";
 import type { WebSocketEventResponseDto } from "../../api/ws/dto/WebSocketEventResponseDto";
 import { useAuthStore } from "../../store/useAuthStore";
 import { useWebSocketStore } from "../../store/useWebSocketStore";
+import type { SubscriptionCleanup } from "../../api/ws/TanksWebSocketClient";
 
 const DEBOUNCE_TYPING_TIMEOUT = 1000; // 1 sec
 const THROTTLE_TYPING_EVENT = 500; // 0.5 sec
@@ -53,10 +54,11 @@ export default function useLobbyChat(lobbyId: string) {
   const user = useAuthStore(state => state.user);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [typingUser, setTypingUser] = useState<string | null>(null);
+  const subscriptions = useRef<SubscriptionCleanup[]>([]);
 
   const throttleTyping = useMemo(() => {
     return throttle(() => {
-      client.publish({
+      client?.publish({
         destination: "/app/chat/:id/send",
         id: lobbyId,
         body: {
@@ -64,11 +66,11 @@ export default function useLobbyChat(lobbyId: string) {
         },
       });
     }, THROTTLE_TYPING_EVENT);
-  }, []);
+  }, [client]);
 
   const publishMessage = useCallback(
     (message: string) => {
-      client.publish({
+      client?.publish({
         destination: "/app/chat/:id/send",
         id: lobbyId,
         body: {
@@ -85,7 +87,7 @@ export default function useLobbyChat(lobbyId: string) {
   }, [client]);
 
   useEffect(() => {
-    if (!wsConnected) return;
+    if (!wsConnected || !client) return;
 
     const typingTimeout = debounce(() => {
       setTypingUser(null);
@@ -93,7 +95,7 @@ export default function useLobbyChat(lobbyId: string) {
 
     const username = user!.username;
 
-    client.subscribe({
+    subscriptions.current.push(client.subscribe({
       destination: "/topic/lobby/:id",
       id: lobbyId,
       onMessage: (message) => {
@@ -113,10 +115,17 @@ export default function useLobbyChat(lobbyId: string) {
           }
 
           if (
-            messageBody.type === "CHAT_MESSAGE" ||
-            messageBody.type === "LOBBY_DISCONNECT"
+            messageBody.type === "CHAT_MESSAGE"
           ) {
             if (messageBody.sender !== username) {
+              typingTimeout.cancel();
+              setTypingUser(null);
+            }
+          }
+          if (
+            messageBody.type === "LOBBY_DISCONNECT"
+          ) {
+            if (messageBody.payload.playerName !== username) {
               typingTimeout.cancel();
               setTypingUser(null);
             }
@@ -130,12 +139,21 @@ export default function useLobbyChat(lobbyId: string) {
           setMessages((prev) => [...prev, nextMessage]);
         }
       },
-    });
+    }));
 
     return () => {
       typingTimeout.cancel();
     };
   }, [client, wsConnected]);
+
+  useEffect(() => {
+    return () => {
+      if (client) {
+        subscriptions.current.forEach(cleanup => cleanup());
+        subscriptions.current = [];
+      }
+    }
+  }, [client])
 
   return {
     messages,

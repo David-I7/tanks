@@ -43,7 +43,7 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => {
       throw new Error("User must be authenticated to connect to WebSocket");
     }
 
-    const newClient = new TanksWSClient(accessToken, handleRefresh);
+    const newClient = new TanksWSClient(accessToken!, handleRefresh);
 
     newClient.onConnect(() => {
       set({ connected: true });
@@ -55,7 +55,7 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => {
 
     set({ client: newClient });
 
-    client.activate();
+    newClient.activate();
   }
 
 

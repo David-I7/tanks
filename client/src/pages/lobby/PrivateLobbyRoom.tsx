@@ -9,7 +9,7 @@ import useClipboard from "../../hooks/useClipboard.ts";
 import { useScreenStack } from "../../context/ScreenStack.tsx";
 
 export default function PrivateLobbyRoom() {
-  const { connected, error, username, createGame, canStartGame, isHost, hostShareLink, lobbyId } = usePrivateLobby();
+  const { connected, error, username, createGame, canStartGame, isHost, hostShareLink, lobbyId, action } = usePrivateLobby();
 
   const { copied, copyText } = useClipboard();
 
@@ -27,37 +27,42 @@ export default function PrivateLobbyRoom() {
             <div className="h-[1px] bg-accent/20"></div>
 
 
-            <div>
-              <div className="text-[10px] text-text-body/60 uppercase tracking-widest font-black mb-1">SHARE INVITE LINK</div>
-              <div className="flex gap-2">
-                <input
-                  readOnly
-                  value={hostShareLink ?? ""}
-                  className="flex-1 bg-background/50 border border-accent/25 px-3 py-2 text-xs text-text-body-high outline-none font-body select-all"
-                />
-                <Button
-                  onClick={() => hostShareLink && copyText(hostShareLink)}
-                  color={copied ? "success" : "secondary"}
-                  variant="outline"
-                  className="min-h-9 px-4 text-xs font-black select-none"
-                >
-                  {copied ? "Copied!" : "Copy"}
-                </Button>
+            {isHost &&
+              <div>
+                <div className="text-[10px] text-text-body/60 uppercase tracking-widest font-black mb-1">SHARE INVITE LINK</div>
+
+                <div className="flex gap-2">
+                  <input
+                    readOnly
+                    value={hostShareLink}
+                    className="flex-1 bg-background/50 border border-accent/25 px-3 py-2 text-xs text-text-body-high outline-none font-body select-all"
+                  />
+                  <Button
+                    onClick={() => hostShareLink && copyText(hostShareLink)}
+                    color={copied ? "success" : "secondary"}
+                    variant="outline"
+                    className="min-h-9 px-4 text-xs font-black select-none"
+                  >
+                    {copied ? "Copied!" : "Copy"}
+                  </Button>
+                </div>
               </div>
-            </div>
+            }
           </div>
 
           <div className="flex flex-col gap-3 mt-4">
-            <Button
-              disabled={!canStartGame}
-              color="primary"
-              onClick={() => createGame()}
-              className="w-full font-black text-sm tracking-widest"
-            >
-              Start Game
-            </Button>
-            {!isHost && <LeaveJoinedLobby />}
-            {isHost && <LeaveCreatedLobby />}
+            {isHost &&
+              <Button
+                disabled={!canStartGame}
+                color="primary"
+                onClick={() => createGame()}
+                className="w-full font-black text-sm tracking-widest"
+              >
+                Start Game
+              </Button>
+            }
+            {action === "JOIN" && <LeaveJoinedLobby />}
+            {action === "CREATE" && <LeaveCreatedLobby />}
           </div>
         </div>
 
