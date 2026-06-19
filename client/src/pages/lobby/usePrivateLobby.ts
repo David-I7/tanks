@@ -108,7 +108,7 @@ export default function usePrivateLobby() {
 
   const createGame = () => {
     if (isHost && playerCount === 2) {
-      client.publish({
+      client?.publish({
         destination: "/app/game/create"
       })
     };

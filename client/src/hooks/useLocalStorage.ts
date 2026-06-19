@@ -14,7 +14,7 @@ function getOrSetToLocalStorage<Value>(key: string, initialValue: Value | null):
     }
 }
 
-export default function useLocalStroage<Value extends NonNullable<unknown>>(key: string, initialValue: Value | null = null) {
+export default function useLocalStorage<Value extends NonNullable<unknown>>(key: string, initialValue: Value | null = null) {
     const [value, setValue] = useState<Value | null>(() => getOrSetToLocalStorage(key, initialValue));
 
     const setItem = (value: Value) => {

@@ -56,7 +56,7 @@ export default function useLobbyChat(lobbyId: string) {
 
   const throttleTyping = useMemo(() => {
     return throttle(() => {
-      client.publish({
+      client?.publish({
         destination: "/app/chat/:id/send",
         id: lobbyId,
         body: {
@@ -64,11 +64,11 @@ export default function useLobbyChat(lobbyId: string) {
         },
       });
     }, THROTTLE_TYPING_EVENT);
-  }, []);
+  }, [client]);
 
   const publishMessage = useCallback(
     (message: string) => {
-      client.publish({
+      client?.publish({
         destination: "/app/chat/:id/send",
         id: lobbyId,
         body: {
@@ -85,7 +85,7 @@ export default function useLobbyChat(lobbyId: string) {
   }, [client]);
 
   useEffect(() => {
-    if (!wsConnected) return;
+    if (!wsConnected || !client) return;
 
     const typingTimeout = debounce(() => {
       setTypingUser(null);
