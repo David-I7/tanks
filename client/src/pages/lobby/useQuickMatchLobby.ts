@@ -1,22 +1,26 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import type ProblemDetailDto from "../../api/http/dto/ProblemDetailDto";
 import { ApiError } from "../../errors/ApiError";
-import type { EndpointSubscription, SubscriptionCleanup } from "../../api/ws/TanksWebSocketClient";
+import type { EndpointSubscription } from "../../api/ws/TanksWebSocketClient";
 import type { WebSocketEventResponseDto } from "../../api/ws/dto/WebSocketEventResponseDto";
 import { useNavigate } from "react-router-dom";
 import { useWebSocketStore } from "../../store/useWebSocketStore";
 import { useAuthStore } from "../../store/useAuthStore";
 
 export default function useQuickMatchLobby() {
-  const { client, connected: wsConnected } = useWebSocketStore();
+  const { client, connected: wsConnected, connect, disconnect } = useWebSocketStore();
   const navigate = useNavigate();
   const user = useAuthStore(state => state.user);
   const [playerCount, setPlayerCount] = useState<number>(0);
   const [error, setError] = useState<Error | null>(null);
-  const subscriptions = useRef<SubscriptionCleanup[]>([]);
   const [isHost, setIsHost] = useState<boolean>(false);
 
   useEffect(() => {
+    if (!client) {
+      connect();
+      return;
+    }
+
     if (!wsConnected) return;
 
     const handleLobbyMessage: EndpointSubscription<WebSocketEventResponseDto>["onMessage"] =
@@ -41,11 +45,11 @@ export default function useQuickMatchLobby() {
           message.body.type === "LOBBY_CREATED"
         ) {
           setIsHost(message.body.type === "LOBBY_CREATED");
-          subscriptions.current.push(client.subscribe({
+          client.subscribe({
             destination: "/topic/lobby/:id",
             id: message.body.payload.id,
             onMessage: handleLobbyMessage,
-          }));
+          });
         }
 
         if (message.body.type === "GAME_CREATED") {
@@ -53,27 +57,26 @@ export default function useQuickMatchLobby() {
         }
       };
 
-    subscriptions.current.push(client.subscribe({
+    client.subscribe({
       destination: "/user/queue/replies",
       onMessage: handleReply,
-    }));
+    });
 
-    subscriptions.current.push(client.subscribe<ProblemDetailDto>({
+    client.subscribe<ProblemDetailDto>({
       destination: "/user/queue/errors",
       onMessage: (message) => {
         setError(new ApiError(message.body, message.body.status));
       },
-    }));
+    });
 
     client.publish({ destination: "/app/lobby/quick-match" });
   }, [client, wsConnected]);
 
   useEffect(() => {
     return () => {
-      subscriptions.current.forEach(cleanup => cleanup());
-      subscriptions.current = [];
+      disconnect();
     }
-  }, [client]);
+  }, [])
 
   return { error, playerCount };
 }

@@ -107,7 +107,7 @@ public class WebSocketAuthorizationService {
         WebSocketPrincipal principal = (WebSocketPrincipal)authentication.getPrincipal();
         UserSession userSession = principal.getUserSession();
 
-        if(!userSession.isConnectedToTopic() || !userSession.getState().equals(UserSessionState.IN_LOBBY)){
+        if(!userSessionService.isConnectedToLobby(userSession)){
             throw new ProblemDetailException(
                     HttpStatus.UNAUTHORIZED,
                     "User is not connected to a lobby.",
@@ -121,6 +121,14 @@ public class WebSocketAuthorizationService {
             throw new ProblemDetailException(
                     HttpStatus.UNAUTHORIZED,
                     "Lobby only has one player.",
+                    URI.create(uri)
+            );
+        }
+
+        if(!lobby.getHostId().equals(userSession.getId())){
+            throw new ProblemDetailException(
+                    HttpStatus.UNAUTHORIZED,
+                    "Player is not the host of the lobby.",
                     URI.create(uri)
             );
         }

@@ -19,6 +19,9 @@ import org.springframework.messaging.support.ChannelInterceptor;
 import org.springframework.messaging.support.MessageHeaderAccessor;
 import org.springframework.stereotype.Component;
 
+import java.util.HashSet;
+import java.util.Set;
+
 
 @Component
 @RequiredArgsConstructor
@@ -48,7 +51,7 @@ public class AuthorizationInterceptor implements ChannelInterceptor {
             try {
                 UserSession userSession = userSessionService.findById(principal.getUserDto().id());
 
-                if(!sessionId.equals(userSession.getSocketSessionId())){
+                if(sessionId != null && !sessionId.equals(userSession.getSocketSessionId())){
                     throw new ProblemDetailException(HttpStatus.BAD_REQUEST,"User is already connected", null);
                 }
 
@@ -71,21 +74,31 @@ public class AuthorizationInterceptor implements ChannelInterceptor {
             }
         }
 
-        if(accessor.getCommand().equals(StompCommand.SUBSCRIBE)) {
-            if(accessor.getDestination().startsWith("/topic")){
-                if (accessor.getDestination().startsWith(TOPIC_LOBBY)) {
-                    webSocketAuthorizationService.canJoinLobbyTopic(authentication, accessor.getDestination());
-                } else if (accessor.getDestination().startsWith(TOPIC_GAME)) {
-                    webSocketAuthorizationService.canJoinGameTopic(authentication, accessor.getDestination());
-                }
+        WebSocketPrincipal principal = (WebSocketPrincipal)authentication.getPrincipal();
+        UserSession userSession = principal.getUserSession();
 
-                UserSession userSession = ((WebSocketPrincipal)authentication.getPrincipal()).getUserSession();
+        if( accessor.getCommand() != null && accessor.getCommand().equals(StompCommand.SUBSCRIBE)) {
+            if(userSession == null) throw new ProblemDetailException(HttpStatus.BAD_REQUEST,"Illegal state. User must connect first.", null);
 
-                if(userSession.isConnectedToTopic()) {
-                    throw new ProblemDetailException(HttpStatus.BAD_REQUEST,"User is already subscribed to the topic", null);
-                }
+            Set<String> topicSubscriptions = userSession.getTopicSubscriptions();
+
+            if(topicSubscriptions != null && topicSubscriptions.contains(accessor.getDestination())){
+                throw new ProblemDetailException(HttpStatus.BAD_REQUEST, "User is already subscribed to the topic", null);
             }
 
+            if (accessor.getDestination().startsWith(TOPIC_LOBBY)) {
+                webSocketAuthorizationService.canJoinLobbyTopic(authentication, accessor.getDestination());
+            } else if (accessor.getDestination().startsWith(TOPIC_GAME)) {
+                webSocketAuthorizationService.canJoinGameTopic(authentication, accessor.getDestination());
+            }
+
+            if(topicSubscriptions == null){
+                topicSubscriptions = new HashSet<>();
+            }
+
+            topicSubscriptions.add(accessor.getDestination());
+            userSession.setTopicSubscriptions(topicSubscriptions);
+            userSessionService.save(userSession);
         }
 
         return message;

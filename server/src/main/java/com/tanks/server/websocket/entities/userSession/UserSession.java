@@ -4,6 +4,9 @@ import lombok.*;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.redis.core.RedisHash;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Builder
@@ -26,7 +29,7 @@ public class UserSession {
 
     private String socketSessionId;
 
-    private boolean connectedToTopic = false;
+    private Set<String> topicSubscriptions = null;
 
     public UserSession(UserSession userSession) {
         this.id = userSession.id;
@@ -35,19 +38,13 @@ public class UserSession {
         this.gameSessionId = userSession.gameSessionId;
         this.lobbyId = userSession.lobbyId;
         this.socketSessionId = userSession.socketSessionId;
-        this.connectedToTopic = userSession.connectedToTopic;
+        this.topicSubscriptions = userSession.topicSubscriptions;
     }
 
     public void transitionToGame(UUID gameSessionId) {
-        this.connectedToTopic = false;
         this.gameSessionId = gameSessionId;
         this.state = UserSessionState.IN_GAME;
         this.lobbyId = null;
-    }
-
-    public void transitionToLobby(UUID lobbyId) {
-        this.state = UserSessionState.IN_LOBBY;
-        this.lobbyId = lobbyId;
     }
 
 }

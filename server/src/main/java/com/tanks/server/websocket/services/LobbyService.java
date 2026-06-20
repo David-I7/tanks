@@ -50,7 +50,7 @@ public class LobbyService {
             quickMatchService.create(lobby);
         }
 
-        userSession.transitionToLobby(uuid);
+        userSessionService.transitionToLobby(userSession,uuid);
         userSessionService.save(userSession);
 
         eventPublisher.publishEvent(new LobbyEvent(this, userSession.getUsername(), "/queue/replies",
@@ -72,7 +72,7 @@ public class LobbyService {
         lobby.setStatus(LobbyStatus.READY);
         lobbyRepository.save(lobby);
 
-        userSession.transitionToLobby(lobbyId);
+        userSessionService.transitionToLobby(userSession,lobbyId);
         userSessionService.save(userSession);
 
         eventPublisher.publishEvent(new LobbyEvent(this, userSession.getUsername(), "/queue/replies",
@@ -93,23 +93,34 @@ public class LobbyService {
         }
     }
 
-    public void removeUser(UUID lobbyId, User user) {
+    public void removeUser(UserSession userSession) {
+
+        UUID lobbyId = userSession.getLobbyId();
 
         Lobby lobby = findById(lobbyId);
 
-        if (!isConnectedUser(lobby, user))
+        if (!isConnectedUser(lobby, userSession.getId()))
             throw new IllegalStateException("The provided user is not connected to the lobby " + lobbyId);
 
         if (lobby.getOpponentId() == null) {
             delete(lobby);
         } else {
-            if (lobby.getHostId().equals(user.getId())) {
+            if (lobby.getHostId().equals(userSession.getId())) {
                 lobby.setHostId(lobby.getOpponentId());
             }
 
             lobby.setOpponentId(null);
             lobby.setStatus(LobbyStatus.WAITING_FOR_OPPONENT);
             lobbyRepository.save(lobby);
+
+            eventPublisher.publishEvent(new LobbyEvent(this,null,
+                    "/topic/lobby/" + userSession.getLobbyId(),
+                    new LobbyEventResponseDto(
+                            LobbyEventType.LOBBY_DISCONNECT,
+                            "@SERVER",
+                            new LobbyEventPayload(userSession.getLobbyId(), userSession.getUsername())
+                    )
+            ));
         }
     }
 
@@ -140,9 +151,9 @@ public class LobbyService {
         && (lobby.getOpponentId() != null);
     }
 
-    private boolean isConnectedUser(Lobby lobby, User user){
-        return user.getId().equals(lobby.getOpponentId())
-                || user.getId().equals(lobby.getHostId());
+    private boolean isConnectedUser(Lobby lobby, Long userId){
+        return userId.equals(lobby.getOpponentId())
+                || userId.equals(lobby.getHostId());
     }
 
 }
