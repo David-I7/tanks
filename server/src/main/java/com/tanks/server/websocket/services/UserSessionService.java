@@ -9,6 +9,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import java.net.URI;
+import java.util.Set;
+import java.util.UUID;
 
 @Service
 @AllArgsConstructor
@@ -38,6 +40,23 @@ public class UserSessionService {
 
     public boolean isInLobby(UserSession userSession, String lobbyId){
         return userSession.getState() == UserSessionState.IN_LOBBY && userSession.getLobbyId().toString().equals(lobbyId);
+    }
+
+    public boolean isConnectedToLobby(UserSession userSession){
+        if(userSession.getState() != UserSessionState.IN_LOBBY) return false;
+        Set<String> topics = userSession.getTopicSubscriptions();
+        return topics != null && topics.contains("/topic/lobby/" + userSession.getLobbyId());
+    }
+
+    public boolean isConnectedToGame(UserSession userSession){
+        if(userSession.getState() != UserSessionState.IN_GAME) return false;
+        Set<String> topics = userSession.getTopicSubscriptions();
+        return topics != null && topics.contains("/topic/game/" + userSession.getGameSessionId());
+    }
+
+    public void transitionToLobby(UserSession userSession, UUID uuid) {
+        userSession.setState(UserSessionState.IN_LOBBY);
+        userSession.setLobbyId(uuid);
     }
 
 }

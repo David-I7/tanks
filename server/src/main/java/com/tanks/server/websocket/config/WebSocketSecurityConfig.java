@@ -1,5 +1,6 @@
 package com.tanks.server.websocket.config;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.Message;
@@ -11,7 +12,9 @@ import org.springframework.security.messaging.access.intercept.MessageMatcherDel
 
 @Configuration
 @EnableWebSocketSecurity
+@RequiredArgsConstructor
 public class WebSocketSecurityConfig {
+
 
     @Bean
     AuthorizationManager<Message<?>> authorizationManager(MessageMatcherDelegatingAuthorizationManager.Builder messages) {
@@ -20,10 +23,15 @@ public class WebSocketSecurityConfig {
                     SimpMessageType.CONNECT,
                     SimpMessageType.DISCONNECT,
                     SimpMessageType.OTHER,
-                    SimpMessageType.HEARTBEAT
+                    SimpMessageType.HEARTBEAT,
+                    SimpMessageType.SUBSCRIBE
             ).permitAll()
             .simpDestMatchers("/app/**").authenticated()
-            .simpSubscribeDestMatchers("/topic/lobby/*","/topic/game/*","/user/queue/replies","/user/queue/errors").authenticated()
+            .simpSubscribeDestMatchers(
+                    "/topic/lobby/*",
+                    "/topic/game/*",
+                    "/user/queue/replies",
+                    "/user/queue/errors").authenticated()
             .anyMessage().denyAll();
         return messages.build();
     }

@@ -31,7 +31,7 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => {
 
   const connect = () => {
     const { client } = get();
-    if (client) return; // already connected or connecting
+    if (client !== null) return; // already connected or connecting
 
     const { accessToken, handleRefresh, state } = useAuthStore.getState();
 

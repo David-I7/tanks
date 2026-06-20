@@ -4,12 +4,9 @@ import IconButton from "../../components/buttons/IconButton";
 import H1 from "../../components/headings/H1";
 import { useScreenStack } from "../../context/ScreenStack";
 import type { HomeScreenStack } from "./HomePage";
-import { useWebSocketStore } from "../../store/useWebSocketStore";
-import { useEffect } from "react";
 
 export default function OnlineMenu() {
     const { popScreen, pushScreen } = useScreenStack<HomeScreenStack>();
-    useOnlineMenu();
 
     return (
         <div className="cyber-panel px-8 py-8 w-full max-w-sm flex flex-col gap-5 text-center relative pt-14">
@@ -27,16 +24,3 @@ export default function OnlineMenu() {
     );
 }
 
-function useOnlineMenu() {
-    const { client, connect, disconnect } = useWebSocketStore();
-
-    useEffect(() => {
-        if (!client) {
-            connect();
-        }
-    }, [client]);
-
-    useEffect(() => {
-        return () => disconnect();
-    }, []);
-}

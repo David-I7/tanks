@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { ApiError } from "../../errors/ApiError";
 import type { WebSocketEventResponseDto } from "../../api/ws/dto/WebSocketEventResponseDto";
-import type { EndpointSubscription, SubscriptionCleanup } from "../../api/ws/TanksWebSocketClient";
+import type { EndpointSubscription } from "../../api/ws/TanksWebSocketClient";
 import type ProblemDetailDto from "../../api/http/dto/ProblemDetailDto";
 import InvalidStateError from "../../errors/InvalidStateError";
 import { useNavigate, useParams } from "react-router-dom";
@@ -9,7 +9,7 @@ import { useWebSocketStore } from "../../store/useWebSocketStore";
 import { useAuthStore } from "../../store/useAuthStore";
 
 export default function usePrivateLobby() {
-  const { client, connected: wsConnected } = useWebSocketStore();
+  const { client, connected: wsConnected, connect, disconnect } = useWebSocketStore();
   const user = useAuthStore(state => state.user);
   const navigate = useNavigate();
   const { id: urlLobbyId } = useParams();
@@ -19,9 +19,13 @@ export default function usePrivateLobby() {
   const [lobbyId, setLobbyId] = useState<string | null>(null);
   const [isHost, setIsHost] = useState<boolean>(action === "CREATE");
   const [playerCount, setPlayerCount] = useState<number>(0);
-  const subscriptions = useRef<SubscriptionCleanup[]>([]);
 
   useEffect(() => {
+    if (!client) {
+      connect();
+      return
+    }
+
     if (!wsConnected) {
       return;
     }
@@ -34,11 +38,11 @@ export default function usePrivateLobby() {
 
     let handleReply: EndpointSubscription<WebSocketEventResponseDto>["onMessage"] = (message) => {
       if (message.body.type === "LOBBY_CREATED" || message.body.type === "LOBBY_JOINED") {
-        subscriptions.current.push(client.subscribe({
+        client.subscribe({
           destination: "/topic/lobby/:id",
           id: message.body.payload.id,
           onMessage: handleLobbyMessage,
-        }));
+        });
       }
 
       if (message.body.type === "GAME_CREATED") {
@@ -63,17 +67,17 @@ export default function usePrivateLobby() {
         }
       };
 
-    subscriptions.current.push(client.subscribe({
+    client.subscribe({
       destination: "/user/queue/replies",
       onMessage: handleReply,
-    }));
+    });
 
-    subscriptions.current.push(client.subscribe<ProblemDetailDto>({
+    client.subscribe<ProblemDetailDto>({
       destination: "/user/queue/errors",
       onMessage: (message) => {
         setError(new ApiError(message.body, message.body.status));
       },
-    }));
+    });
 
     if (action === "CREATE") {
       client.publish({ destination: "/app/lobby/create/private" });
@@ -88,12 +92,9 @@ export default function usePrivateLobby() {
 
   useEffect(() => {
     return () => {
-      if (client) {
-        subscriptions.current.forEach(cleanup => cleanup());
-        subscriptions.current = [];
-      }
-    };
-  }, [client]);
+      disconnect();
+    }
+  }, [])
 
   const createGame = () => {
     if (isHost && playerCount === 2) {
