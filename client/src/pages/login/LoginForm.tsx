@@ -12,10 +12,10 @@ import DefaultLink from "../../components/links/DefaultLink";
 import H1 from "../../components/headings/H1";
 import { ApiError } from "../../errors/ApiError";
 import NetworkError from "../../errors/NetworkError";
-import UnexpectedError from "../../errors/UnexpectedError";
 import type ContraintValidationDto from "../../api/http/dto/ConstraintValidationDto";
 import { useAuthStore } from "../../store/useAuthStore";
 import Loader from "../../components/misc/Loader";
+import InvalidStateError from "../../errors/InvalidStateError";
 
 
 export default function LoginForm() {
@@ -57,7 +57,7 @@ export default function LoginForm() {
       return newErrors;
     }
 
-    newErrors["form"] = new UnexpectedError();
+    newErrors["form"] = new InvalidStateError("An error occured trying to log in. Please try again later.");
     return newErrors;
   };
 
@@ -122,6 +122,7 @@ export default function LoginForm() {
       setErrors({ password: null, username: null, form: error });
     }
   }, [error])
+
 
   return (
     <Form onSubmit={handleSubmit}>

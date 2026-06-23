@@ -13,6 +13,9 @@ import type PostOauth2RegisterRequestDto from "../api/http/dto/PostOauth2Registe
 import PostOauth2RegisterRequest from "../api/http/requests/auth/PostOauth2RegisterRequest";
 import type { TanksRequest } from "../api/http/requests/TanksRequest";
 import type RefreshResponseDto from "../api/http/dto/RefreshResponseDto";
+import { ApiError } from "../errors/ApiError";
+import { AuthenticationError } from "../errors/AuthenticationError";
+import InvalidStateError from "../errors/InvalidStateError";
 
 type AuthState = {
     user: User | null;
@@ -28,6 +31,7 @@ type AuthState = {
     ): Promise<void>;
     handlePostOAuth2Login(loginRequest: PostOauth2LoginRequestDto): Promise<void>;
     handleRefresh: () => Promise<RefreshResponseDto>;
+    clearError: () => void;
 };
 
 
@@ -54,17 +58,33 @@ export const useAuthStore = create<AuthState>((set) => {
         });
     }
 
+    function clearError() {
+        set(prev => ({ ...prev, loading: false, error: null, state: "unauthenticated" }));
+    }
+
+    function handleError(err: unknown) {
+        if (err instanceof ApiError) {
+            if (err.status === 401 || err.status === 403) {
+                setError(new AuthenticationError(err.message, err.status));
+            }
+            setError(err);
+        } else if (err instanceof Error) {
+            setError(err);
+        } else {
+            setError(new InvalidStateError("An exception occured. Please try again later."));
+        }
+    }
+
     async function handleRefresh() {
         setLoading();
         try {
             const response = await tanksClient.send(new RefreshRequest());
             TanksClient.setAccessToken(response.accessToken);
             setAuthenticated(response)
-
             return response;
         } catch (err) {
             TanksClient.setAccessToken("");
-            setError(err as Error);
+            handleError(err);
             throw err;
         }
     }
@@ -78,7 +98,7 @@ export const useAuthStore = create<AuthState>((set) => {
             TanksClient.setAccessToken(data.accessToken);
             setAuthenticated(data);
         } catch (err) {
-            setError(err as Error);
+            handleError(err);
         }
     }
 
@@ -108,7 +128,7 @@ export const useAuthStore = create<AuthState>((set) => {
             TanksClient.setAccessToken("");
             setUnauthenticated();
         } catch (err) {
-            setError(err as Error);
+            handleError(err);
         }
     }
 
@@ -127,5 +147,6 @@ export const useAuthStore = create<AuthState>((set) => {
         handlePostOAuth2Register,
         handleLogout,
         handleRefresh,
+        clearError
     }
 })

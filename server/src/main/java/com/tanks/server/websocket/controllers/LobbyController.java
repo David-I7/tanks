@@ -19,7 +19,7 @@ public class LobbyController {
 
     private final LobbyService lobbyService;
 
-    @PreAuthorize("@webSocketAuthorizationService.canJoinOrCreateLobby(authentication, '/lobby/create/private')")
+    @PreAuthorize("@lobbyAuthorizationService.canJoinOrCreateLobby(authentication, '/lobby/create/private')")
     @MessageMapping("/lobby/create/private")
     public void createLobby(Authentication authentication) {
         WebSocketPrincipal principal = (WebSocketPrincipal) authentication.getPrincipal();
@@ -27,7 +27,7 @@ public class LobbyController {
         lobbyService.create(userSession, LobbyType.PRIVATE);
     }
 
-    @PreAuthorize("@webSocketAuthorizationService.canJoinOrCreateLobby(authentication, '/lobby/join/private/' + #id)")
+    @PreAuthorize("@lobbyAuthorizationService.canJoinOrCreateLobby(authentication, '/lobby/join/private/' + #id)")
     @MessageMapping("/lobby/join/private/{id}")
     public void joinPrivateLobby(@DestinationVariable UUID id, Authentication authentication) {
         WebSocketPrincipal principal = (WebSocketPrincipal) authentication.getPrincipal();
@@ -35,7 +35,7 @@ public class LobbyController {
         lobbyService.join(id, userSession);
     }
 
-    @PreAuthorize("@webSocketAuthorizationService.canJoinOrCreateLobby(authentication, '/lobby/quick-match')")
+    @PreAuthorize("@lobbyAuthorizationService.canJoinOrCreateLobby(authentication, '/lobby/quick-match')")
     @MessageMapping("/lobby/quick-match")
     public void joinQuickMatch(Authentication authentication) {
         WebSocketPrincipal principal = (WebSocketPrincipal) authentication.getPrincipal();

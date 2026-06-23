@@ -56,6 +56,7 @@ export default class TanksWSClient {
     string,
     { listeners: EndpointSubscription["onMessage"][]; unsubscribe: () => void }
   >();
+  private _onStompError?: (err: ProblemDetailDto) => void;
 
   setAccessToken(accessToken: string | null) {
     if (accessToken === "" || accessToken === null) {
@@ -86,8 +87,8 @@ export default class TanksWSClient {
     this.refreshHandler = refreshHandler;
   }
 
-  onStompError(onStompError: Client["onStompError"]) {
-    this.client.onStompError = onStompError;
+  onStompError(onStompError: (err: ProblemDetailDto) => void) {
+    this._onStompError = onStompError;
   }
 
   onConnect(onConnect: Client["onConnect"]) {
@@ -104,25 +105,25 @@ export default class TanksWSClient {
 
   activate() {
     if (!this.isActive()) {
-      if (this.client.onStompError === null) {
-        this.client.onStompError = async (err) => {
-          try {
-            if (
-              err.headers["content-type"] &&
-              err.headers["content-type"] === "application/json"
-            ) {
-              const problemDetail = JSON.parse(err.body) as ProblemDetailDto;
+      this.client.onStompError = async (err) => {
+        try {
+          if (
+            err.headers["content-type"] &&
+            err.headers["content-type"] === "application/json"
+          ) {
+            const problemDetail = JSON.parse(err.body) as ProblemDetailDto;
 
-              if (import.meta.env.DEV) console.log(err);
+            if (import.meta.env.DEV) console.error(problemDetail);
 
-              if (problemDetail.status === 401) {
-                await this.refreshHandler();
-              }
+            if (problemDetail.status === 401) {
+              await this.refreshHandler();
+            } else {
+              this._onStompError?.(problemDetail);
             }
-          } catch (err) {
-            if (import.meta.env.DEV) console.log(err);
-            this.client.deactivate();
           }
+        } catch (err) {
+          if (import.meta.env.DEV) console.log(err);
+          this.client.deactivate();
         }
       }
       this.client.activate();

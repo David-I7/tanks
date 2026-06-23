@@ -43,10 +43,13 @@ export default function usePrivateLobby() {
           id: message.body.payload.id,
           onMessage: handleLobbyMessage,
         });
+        return;
       }
 
       if (message.body.type === "GAME_CREATED") {
-        navigate(`/game/${message.body.payload.id}`);
+        console.log("navigating to game with id: ", message.body.payload.id);
+        navigate(`/game/${message.body.payload.id}`, { replace: true });
+        return;
       }
     };
 

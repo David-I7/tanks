@@ -32,8 +32,6 @@ public class LobbyService {
 
     private final UserSessionService userSessionService;
 
-    private final GameSessionService gameSessionService;
-
     private final ApplicationEventPublisher eventPublisher;
 
     public Lobby create(UserSession userSession, LobbyType type) {
@@ -85,9 +83,6 @@ public class LobbyService {
         if (lobbyOpt.isPresent()) {
             Lobby quickMatchLobby = lobbyOpt.get();
             join(quickMatchLobby.getId(), userSession);
-            removeQuickMatch(quickMatchLobby);
-
-            gameSessionService.create(quickMatchLobby);
         } else {
             create(userSession, LobbyType.QUICK_MATCH);
         }

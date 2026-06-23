@@ -59,4 +59,12 @@ public class UserSessionService {
         userSession.setLobbyId(uuid);
     }
 
+    public void transitionToGame(UserSession userSession, UUID uuid) {
+        var topics = userSession.getTopicSubscriptions();
+        topics.remove("/topic/lobby/" + userSession.getLobbyId());
+        userSession.setState(UserSessionState.IN_GAME);
+        userSession.setGameSessionId(uuid);
+        userSession.setLobbyId(null);
+    }
+
 }

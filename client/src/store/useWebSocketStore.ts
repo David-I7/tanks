@@ -1,10 +1,12 @@
 import { create } from "zustand";
 import TanksWSClient from "../api/ws/TanksWebSocketClient";
 import { useAuthStore } from "./useAuthStore";
+import type ProblemDetailDto from "../api/http/dto/ProblemDetailDto";
 
 interface WebSocketState {
   client: TanksWSClient | null;
   connected: boolean;
+  error: ProblemDetailDto | null;
   connect: () => void;
   disconnect: () => void;
 }
@@ -46,12 +48,16 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => {
     const newClient = new TanksWSClient(accessToken!, handleRefresh);
 
     newClient.onConnect(() => {
-      set({ connected: true });
+      set({ connected: true, error: null });
     });
 
     newClient.onWebSocketClose(() => {
       set({ connected: false, client: null });
     });
+
+    newClient.onStompError((err) => {
+      set({ error: err })
+    })
 
     set({ client: newClient });
 
@@ -62,15 +68,17 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => {
   return {
     client: null,
     connected: false,
+    error: null,
 
     connect,
 
     disconnect: () => {
       const { client } = get();
-      if (!client) return;
+      if (client === null) return;
 
       client.deactivate();
-      set({ client: null, connected: false });
+      console.log("OVER HERE");
+      set({ client: null, connected: false, error: null });
     },
   };
 });

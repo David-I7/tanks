@@ -5,6 +5,7 @@ import type { WebSocketEventResponseDto } from "../../api/ws/dto/WebSocketEventR
 import { useAuthStore } from "../../store/useAuthStore";
 import { useWebSocketStore } from "../../store/useWebSocketStore";
 import type { SubscriptionCleanup } from "../../api/ws/TanksWebSocketClient";
+import type { LobbyEventPayload } from "../../api/ws/dto/lobby/LobbyEventDto";
 
 const DEBOUNCE_TYPING_TIMEOUT = 1000; // 1 sec
 const THROTTLE_TYPING_EVENT = 500; // 0.5 sec
@@ -29,7 +30,7 @@ function webSocketEventToChatMessage(
         payload:
           username === event.sender
             ? `You've connected`
-            : `${username} connected`,
+            : `${(event.payload as LobbyEventPayload)!.playerName} connected`,
       };
     case "DISCONNECT":
       return {
@@ -38,7 +39,7 @@ function webSocketEventToChatMessage(
         payload:
           username === event.sender
             ? `You've disconnected`
-            : `${username} disconnected`,
+            : `${(event.payload as LobbyEventPayload)!.playerName} disconnected`,
       };
     case "MESSAGE":
       return {
