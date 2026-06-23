@@ -67,6 +67,7 @@ export const useAuthStore = create<AuthState>((set) => {
             if (err.status === 401 || err.status === 403) {
                 setError(new AuthenticationError(err.message, err.status));
             }
+            setError(err);
         } else if (err instanceof Error) {
             setError(err);
         } else {
@@ -80,7 +81,6 @@ export const useAuthStore = create<AuthState>((set) => {
             const response = await tanksClient.send(new RefreshRequest());
             TanksClient.setAccessToken(response.accessToken);
             setAuthenticated(response)
-
             return response;
         } catch (err) {
             TanksClient.setAccessToken("");

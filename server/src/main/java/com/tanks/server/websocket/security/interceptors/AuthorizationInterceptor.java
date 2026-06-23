@@ -6,7 +6,8 @@ import com.tanks.server.websocket.entities.userSession.UserSessionState;
 import com.tanks.server.websocket.exceptions.ProblemDetailException;
 import com.tanks.server.websocket.security.entites.WebSocketAuthentication;
 import com.tanks.server.websocket.security.entites.WebSocketPrincipal;
-import com.tanks.server.websocket.security.services.WebSocketAuthorizationService;
+import com.tanks.server.websocket.security.services.GameAuthorizationService;
+import com.tanks.server.websocket.security.services.LobbyAuthorizationService;
 import com.tanks.server.websocket.services.UserSessionService;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.Nullable;
@@ -33,7 +34,9 @@ public class AuthorizationInterceptor implements ChannelInterceptor {
 
     private final UserSessionService userSessionService;
 
-    private final WebSocketAuthorizationService webSocketAuthorizationService;
+    private final LobbyAuthorizationService lobbyAuthorizationService;
+
+    private final GameAuthorizationService gameAuthorizationService;
 
     @Override
     public @Nullable Message<?> preSend(Message<?> message, MessageChannel channel) {
@@ -43,7 +46,7 @@ public class AuthorizationInterceptor implements ChannelInterceptor {
 
         WebSocketAuthentication authentication = (WebSocketAuthentication) accessor.getUser();
 
-        if (StompCommand.CONNECT.equals(accessor.getCommand())) {
+        if (StompCommand.CONNECT.equals(accessor.getCommand())){
 
             WebSocketPrincipal principal = (WebSocketPrincipal) ((WebSocketAuthentication) accessor.getUser()).getPrincipal();
             String sessionId = accessor.getSessionId();
@@ -74,10 +77,10 @@ public class AuthorizationInterceptor implements ChannelInterceptor {
             }
         }
 
-        WebSocketPrincipal principal = (WebSocketPrincipal)authentication.getPrincipal();
-        UserSession userSession = principal.getUserSession();
-
         if( StompCommand.SUBSCRIBE.equals(accessor.getCommand())) {
+            WebSocketPrincipal principal = (WebSocketPrincipal)authentication.getPrincipal();
+            UserSession userSession = principal.getUserSession();
+
             if(userSession == null) throw new ProblemDetailException(HttpStatus.BAD_REQUEST,"Illegal state. User must connect first.", null);
 
             Set<String> topicSubscriptions = userSession.getTopicSubscriptions();
@@ -87,9 +90,9 @@ public class AuthorizationInterceptor implements ChannelInterceptor {
             }
 
             if (accessor.getDestination().startsWith(TOPIC_LOBBY)) {
-                webSocketAuthorizationService.canJoinLobbyTopic(authentication, accessor.getDestination());
+                lobbyAuthorizationService.canJoinTopic(authentication, accessor.getDestination());
             } else if (accessor.getDestination().startsWith(TOPIC_GAME)) {
-                webSocketAuthorizationService.canJoinGameTopic(authentication, accessor.getDestination());
+                gameAuthorizationService.canJoinTopic(authentication, accessor.getDestination());
             }
 
             if(topicSubscriptions == null){

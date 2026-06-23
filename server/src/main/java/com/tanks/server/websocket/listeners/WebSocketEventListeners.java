@@ -24,7 +24,6 @@ import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.messaging.*;
 
-import java.util.Set;
 import java.util.UUID;
 
 @Component
@@ -87,6 +86,7 @@ public class WebSocketEventListeners {
         UserDto user = principal.getUserDto();
         UserSession userSession = principal.getUserSession();
 
+        // UserSession is null if the user failed to connect on the CONNECT command
         if(userSession != null) {
             if (userSession.getState() == UserSessionState.IN_LOBBY) {
                 // notify lobby that the user disconnected
@@ -106,7 +106,7 @@ public class WebSocketEventListeners {
     }
 
     @EventListener
-    public void handleLobbyConnect(SessionSubscribeEvent event){
+    public void handleSubscribe(SessionSubscribeEvent event){
         StompHeaderAccessor accessor = StompHeaderAccessor.wrap(event.getMessage());
 
         if(accessor.getDestination() == null) return;
