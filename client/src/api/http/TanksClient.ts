@@ -56,7 +56,7 @@ export default class TanksClient {
     );
   }
 
-  constructor() {}
+  constructor() { }
 
   static setRefreshHandler(refreshHandler: typeof TanksClient.handleRefresh) {
     TanksClient.handleRefresh = refreshHandler;
@@ -89,7 +89,7 @@ export default class TanksClient {
         throw new ApiError(err.response.data, err.response.status!);
       }
 
-      throw new NetworkError("Failed to fetch the resource. Are you online?");
+      throw new NetworkError("Server is unavailable. Please try again later");
     }
   }
 }

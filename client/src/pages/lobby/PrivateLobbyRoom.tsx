@@ -1,12 +1,12 @@
 import H1 from "../../components/headings/H1";
 import { LobbyChat } from "./LobbyChat";
 import Loader from "../../components/misc/Loader";
-import UnexpectedError from "../../errors/UnexpectedError";
 import Button from "../../components/buttons/Button";
 import usePrivateLobby from "./usePrivateLobby";
 import { useNavigate } from "react-router-dom";
 import useClipboard from "../../hooks/useClipboard.ts";
 import { useScreenStack } from "../../context/ScreenStack.tsx";
+import InvalidStateError from "../../errors/InvalidStateError.ts";
 
 export default function PrivateLobbyRoom() {
   const { connected, error, username, createGame, canStartGame, isHost, hostShareLink, lobbyId, action } = usePrivateLobby();
@@ -92,7 +92,7 @@ export default function PrivateLobbyRoom() {
       </div>
     );
   } else {
-    throw new UnexpectedError("Illegal state");
+    throw new InvalidStateError("Illegal state");
   }
 }
 

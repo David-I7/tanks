@@ -12,10 +12,10 @@ import DefaultLink from "../../components/links/DefaultLink";
 import H1 from "../../components/headings/H1";
 import { ApiError } from "../../errors/ApiError";
 import type ContraintValidationDto from "../../api/http/dto/ConstraintValidationDto";
-import UnexpectedError from "../../errors/UnexpectedError";
 import NetworkError from "../../errors/NetworkError";
 import { useAuthStore } from "../../store/useAuthStore";
 import Loader from "../../components/misc/Loader";
+import InvalidStateError from "../../errors/InvalidStateError";
 
 export default function RegisterForm() {
   const handleRegister = useAuthStore(state => state.handleRegister);
@@ -61,7 +61,7 @@ export default function RegisterForm() {
       return newErrors;
     }
 
-    newErrors["form"] = new UnexpectedError();
+    newErrors["form"] = new InvalidStateError("An error occured trying to register. Please try again later.");
     return newErrors;
   };
 
@@ -132,6 +132,7 @@ export default function RegisterForm() {
       setErrors({ password: null, username: null, email: null, form: error });
     }
   }, [error])
+
 
   return (
     <Form onSubmit={handleSubmit}>

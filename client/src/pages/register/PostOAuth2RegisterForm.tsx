@@ -8,10 +8,10 @@ import Button from "../../components/buttons/Button";
 import H1 from "../../components/headings/H1";
 import { ApiError } from "../../errors/ApiError";
 import type ContraintValidationDto from "../../api/http/dto/ConstraintValidationDto";
-import UnexpectedError from "../../errors/UnexpectedError";
 import NetworkError from "../../errors/NetworkError";
 import { useAuthStore } from "../../store/useAuthStore";
 import Loader from "../../components/misc/Loader";
+import InvalidStateError from "../../errors/InvalidStateError";
 
 type PostOAuth2RegisterFormProps = { token: string };
 
@@ -52,7 +52,7 @@ export default function PostOAuth2RegisterForm({
       return newErrors;
     }
 
-    newErrors["form"] = new UnexpectedError();
+    newErrors["form"] = new InvalidStateError("An error occured trying to register. Please try again later.");
     return newErrors;
   };
 
