@@ -6,6 +6,7 @@ import com.tanks.server.websocket.dto.game.GameEventType;
 import com.tanks.server.websocket.dto.game.GameLobbyPayload;
 import com.tanks.server.websocket.entities.gameSession.GameSession;
 import com.tanks.server.websocket.entities.lobby.Lobby;
+import com.tanks.server.websocket.entities.lobby.LobbyType;
 import com.tanks.server.websocket.entities.userSession.UserSession;
 import com.tanks.server.websocket.events.GameEvent;
 import com.tanks.server.websocket.repositories.GameSessionRepository;
@@ -47,20 +48,20 @@ public class GameSessionService {
                 new GameLobbyPayload(savedGameSession.getId(), null)
         );
 
-        eventPublisher.publishEvent(new GameEvent(this, host.getUsername(), "/queue/replies", response));
-        eventPublisher.publishEvent(new GameEvent(this, opponent.getUsername(), "/queue/replies", response));
-
-        host.transitionToGame(savedGameSession.getId());
-        opponent.transitionToGame(savedGameSession.getId());
+        userSessionService.transitionToGame(host, savedGameSession.getId());
+        userSessionService.transitionToGame(opponent, savedGameSession.getId());
 
         // Delete lobby logic moved here to break circular dependency with LobbyService
         lobbyRepository.delete(lobby);
-        if (lobby.getType() == com.tanks.server.websocket.entities.lobby.LobbyType.QUICK_MATCH) {
+        if (lobby.getType() == LobbyType.QUICK_MATCH) {
             quickMatchService.delete(lobby);
         }
 
         userSessionService.save(host);
         userSessionService.save(opponent);
+
+        eventPublisher.publishEvent(new GameEvent(this, host.getUsername(), "/queue/replies", response));
+        eventPublisher.publishEvent(new GameEvent(this, opponent.getUsername(), "/queue/replies", response));
 
         return savedGameSession;
     }

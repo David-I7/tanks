@@ -77,13 +77,13 @@ public class AuthorizationInterceptor implements ChannelInterceptor {
         WebSocketPrincipal principal = (WebSocketPrincipal)authentication.getPrincipal();
         UserSession userSession = principal.getUserSession();
 
-        if( accessor.getCommand() != null && accessor.getCommand().equals(StompCommand.SUBSCRIBE)) {
+        if( StompCommand.SUBSCRIBE.equals(accessor.getCommand())) {
             if(userSession == null) throw new ProblemDetailException(HttpStatus.BAD_REQUEST,"Illegal state. User must connect first.", null);
 
             Set<String> topicSubscriptions = userSession.getTopicSubscriptions();
 
             if(topicSubscriptions != null && topicSubscriptions.contains(accessor.getDestination())){
-                throw new ProblemDetailException(HttpStatus.BAD_REQUEST, "User is already subscribed to the topic", null);
+                throw new ProblemDetailException(HttpStatus.BAD_REQUEST, "User is already subscribed to this topic", null);
             }
 
             if (accessor.getDestination().startsWith(TOPIC_LOBBY)) {

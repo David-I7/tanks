@@ -40,11 +40,4 @@ public class UserSession {
         this.socketSessionId = userSession.socketSessionId;
         this.topicSubscriptions = userSession.topicSubscriptions;
     }
-
-    public void transitionToGame(UUID gameSessionId) {
-        this.gameSessionId = gameSessionId;
-        this.state = UserSessionState.IN_GAME;
-        this.lobbyId = null;
-    }
-
 }

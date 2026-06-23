@@ -59,4 +59,10 @@ public class UserSessionService {
         userSession.setLobbyId(uuid);
     }
 
+    public void transitionToGame(UserSession userSession, UUID uuid) {
+        userSession.setState(UserSessionState.IN_GAME);
+        userSession.setGameSessionId(uuid);
+        userSession.setLobbyId(null);
+    }
+
 }

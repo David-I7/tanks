@@ -1,6 +1,7 @@
 package com.tanks.server.websocket.security.services;
 
 import com.tanks.server.websocket.entities.lobby.Lobby;
+import com.tanks.server.websocket.entities.lobby.LobbyStatus;
 import com.tanks.server.websocket.entities.userSession.UserSession;
 import com.tanks.server.websocket.entities.userSession.UserSessionState;
 import com.tanks.server.websocket.exceptions.ProblemDetailException;
@@ -117,7 +118,7 @@ public class WebSocketAuthorizationService {
 
         Lobby lobby = lobbyService.findById(userSession.getLobbyId());
 
-        if(lobby.getOpponentId() == null){
+        if(lobby.getStatus() != LobbyStatus.READY){
             throw new ProblemDetailException(
                     HttpStatus.UNAUTHORIZED,
                     "Lobby only has one player.",
