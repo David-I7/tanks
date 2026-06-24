@@ -7,13 +7,15 @@ import { useNavigate } from "react-router-dom";
 import { useWebSocketStore } from "../../store/useWebSocketStore";
 import { useAuthStore } from "../../store/useAuthStore";
 import type { LobbyEventPayload } from "../../api/ws/dto/lobby/LobbyEventDto";
+import { useScreenStack } from "../../context/ScreenStack";
 
 export default function useQuickMatchLobby() {
-  const { client, connected: wsConnected, connect } = useWebSocketStore();
+  const { client, status, connect } = useWebSocketStore();
   const navigate = useNavigate();
   const user = useAuthStore(state => state.user);
   const [playerCount, setPlayerCount] = useState<number>(0);
   const [error, setError] = useState<Error | null>(null);
+  const { popScreen } = useScreenStack();
 
   useEffect(() => {
     if (!client) {
@@ -21,14 +23,14 @@ export default function useQuickMatchLobby() {
       return;
     }
 
-    if (!wsConnected) return;
+    if (status !== "connected") return;
 
     const handleLobbyMessage: EndpointSubscription<WebSocketEventResponseDto>["onMessage"] =
       (message) => {
         if (message.body.type === "LOBBY_CONNECT") {
           setPlayerCount(prev => {
             const next = prev + 1;
-            if ((message.body.payload as LobbyEventPayload).playerName !== user.username && next === 2) {
+            if ((message.body.payload as LobbyEventPayload).playerName !== user?.username && next === 2) {
               client.publish({ destination: "/app/game/create" });
             }
 
@@ -73,7 +75,13 @@ export default function useQuickMatchLobby() {
     });
 
     client.publish({ destination: "/app/lobby/quick-match" });
-  }, [client, wsConnected]);
+  }, [client, status]);
+
+  useEffect(() => {
+    if (status === "disconnecting" || status === "disconnected") {
+      popScreen();
+    }
+  }, [status]);
 
   return { error, playerCount };
 }

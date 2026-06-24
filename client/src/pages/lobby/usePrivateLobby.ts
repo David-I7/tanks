@@ -5,16 +5,16 @@ import type { EndpointSubscription } from "../../api/ws/TanksWebSocketClient";
 import type ProblemDetailDto from "../../api/http/dto/ProblemDetailDto";
 import InvalidStateError from "../../errors/InvalidStateError";
 import { useNavigate, useParams } from "react-router-dom";
-import { useWebSocketStore } from "../../store/useWebSocketStore";
+import { useWebSocketStore, type ConnectionStatus } from "../../store/useWebSocketStore";
 import { useAuthStore } from "../../store/useAuthStore";
 
 export default function usePrivateLobby() {
-  const { client, connected: wsConnected, connect } = useWebSocketStore();
+  const { client, status, connect, error: wsError } = useWebSocketStore();
   const user = useAuthStore(state => state.user);
   const navigate = useNavigate();
   const { id: urlLobbyId } = useParams();
   const action = urlLobbyId ? "JOIN" : "CREATE";
-  const [connected, setConnected] = useState<boolean>(false);
+  const [lobbyStatus, setLobbyStatus] = useState<ConnectionStatus>("connecting");
   const [error, setError] = useState<ApiError | null>(null);
   const [lobbyId, setLobbyId] = useState<string | null>(null);
   const [isHost, setIsHost] = useState<boolean>(action === "CREATE");
@@ -26,7 +26,7 @@ export default function usePrivateLobby() {
       return
     }
 
-    if (!wsConnected) {
+    if (status !== "connected") {
       return;
     }
 
@@ -60,7 +60,7 @@ export default function usePrivateLobby() {
           if (user!.username === message.body.payload.playerName) {
             const lobbyId = message.body.payload["id"];
             setLobbyId(lobbyId);
-            setConnected(true);
+            setLobbyStatus("connected");
           }
         }
 
@@ -91,7 +91,19 @@ export default function usePrivateLobby() {
       });
     }
 
-  }, [client, wsConnected]);
+  }, [client, status]);
+
+  useEffect(() => {
+    if ((status === "disconnecting" || status === "disconnected") && lobbyStatus === "connected") {
+      setLobbyStatus(status);
+    }
+  }, [status, lobbyStatus]);
+
+  useEffect(() => {
+    if (wsError) {
+      setError(new ApiError(wsError, wsError.status));
+    }
+  }, [wsError]);
 
   const createGame = () => {
     if (isHost && playerCount === 2) {
@@ -101,5 +113,5 @@ export default function usePrivateLobby() {
     };
   }
 
-  return { action, connected, error, lobbyId, username: user?.username || "", hostShareLink: isHost && lobbyId ? `${window.location.origin}/lobby/${lobbyId}` : null, canStartGame: isHost && playerCount === 2, isHost, playerCount, createGame };
+  return { action, lobbyStatus, error, lobbyId, username: user?.username || "", hostShareLink: isHost && lobbyId ? `${window.location.origin}/lobby/${lobbyId}` : null, canStartGame: isHost && playerCount === 2, isHost, playerCount, createGame };
 }

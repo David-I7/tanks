@@ -3,12 +3,15 @@ import TanksWSClient from "../api/ws/TanksWebSocketClient";
 import { useAuthStore } from "./useAuthStore";
 import type ProblemDetailDto from "../api/http/dto/ProblemDetailDto";
 
+export type ConnectionStatus = "connecting" | "connected" | "disconnecting" | "disconnected";
+
 interface WebSocketState {
   client: TanksWSClient | null;
-  connected: boolean;
+  status: ConnectionStatus;
   error: ProblemDetailDto | null;
   connect: () => void;
   disconnect: () => void;
+  clearError: () => void;
 }
 
 export const useWebSocketStore = create<WebSocketState>((set, get) => {
@@ -32,8 +35,8 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => {
   });
 
   const connect = () => {
-    const { client } = get();
-    if (client !== null) return; // already connected or connecting
+    const { status } = get();
+    if (status !== "disconnected") return; // already connected, connecting, or disconnecting
 
     const { accessToken, handleRefresh, state } = useAuthStore.getState();
 
@@ -45,14 +48,16 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => {
       throw new Error("User must be authenticated to connect to WebSocket");
     }
 
+    set({ status: "connecting" });
+
     const newClient = new TanksWSClient(accessToken!, handleRefresh);
 
     newClient.onConnect(() => {
-      set({ connected: true, error: null });
+      set({ status: "connected", error: null });
     });
 
     newClient.onWebSocketClose(() => {
-      set({ connected: false, client: null });
+      set({ status: "disconnected", client: null });
     });
 
     newClient.onStompError((err) => {
@@ -67,17 +72,24 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => {
 
   return {
     client: null,
-    connected: false,
+    status: "disconnected",
     error: null,
 
     connect,
 
     disconnect: () => {
-      const { client } = get();
-      if (client === null) return;
+      const { client, status } = get();
+      if (client === null || status === "disconnected" || status === "disconnecting") return;
 
+      set({ status: "disconnecting" });
       client.deactivate();
-      set({ client: null, connected: false, error: null });
     },
+
+    clearError: () => {
+      const { error } = get();
+      if (error !== null) {
+        set({ error: null });
+      }
+    }
   };
 });

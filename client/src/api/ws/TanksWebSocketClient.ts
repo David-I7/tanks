@@ -226,6 +226,8 @@ export default class TanksWSClient {
 
     return () => {
       const subscriptions = this.subscriptionMap.get(finalParams.destination);
+      if (!subscriptions) return;
+
       if (subscriptions.listeners.length === 1) {
         this.subscriptionMap.delete(finalParams.destination);
         subscriptions.unsubscribe();
