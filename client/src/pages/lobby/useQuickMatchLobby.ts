@@ -1,19 +1,20 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type ProblemDetailDto from "../../api/http/dto/ProblemDetailDto";
 import { ApiError } from "../../errors/ApiError";
-import type { EndpointSubscription } from "../../api/ws/TanksWebSocketClient";
+import type { EndpointSubscription, SubscriptionCleanup } from "../../api/ws/TanksWebSocketClient";
 import type { WebSocketEventResponseDto } from "../../api/ws/dto/WebSocketEventResponseDto";
 import { useNavigate } from "react-router-dom";
 import { useWebSocketStore } from "../../store/useWebSocketStore";
 import { useAuthStore } from "../../store/useAuthStore";
 
 export default function useQuickMatchLobby() {
-  const { client, connected: wsConnected, connect, disconnect } = useWebSocketStore();
+  const { client, connected: wsConnected, connect } = useWebSocketStore();
   const navigate = useNavigate();
   const user = useAuthStore(state => state.user);
   const [playerCount, setPlayerCount] = useState<number>(0);
   const [error, setError] = useState<Error | null>(null);
   const [isHost, setIsHost] = useState<boolean>(false);
+  const lobbyTopicSubscription = useRef<SubscriptionCleanup | null>(null);
 
   useEffect(() => {
     if (!client) {
@@ -45,7 +46,7 @@ export default function useQuickMatchLobby() {
           message.body.type === "LOBBY_CREATED"
         ) {
           setIsHost(message.body.type === "LOBBY_CREATED");
-          client.subscribe({
+          lobbyTopicSubscription.current = client.subscribe({
             destination: "/topic/lobby/:id",
             id: message.body.payload.id,
             onMessage: handleLobbyMessage,
@@ -53,6 +54,7 @@ export default function useQuickMatchLobby() {
         }
 
         if (message.body.type === "GAME_CREATED") {
+          lobbyTopicSubscription.current?.();
           navigate(`/game/${message.body.payload.id}`);
         }
       };
@@ -71,12 +73,6 @@ export default function useQuickMatchLobby() {
 
     client.publish({ destination: "/app/lobby/quick-match" });
   }, [client, wsConnected]);
-
-  useEffect(() => {
-    return () => {
-      disconnect();
-    }
-  }, [])
 
   return { error, playerCount };
 }

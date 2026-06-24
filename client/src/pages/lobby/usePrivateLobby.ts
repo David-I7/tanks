@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ApiError } from "../../errors/ApiError";
 import type { WebSocketEventResponseDto } from "../../api/ws/dto/WebSocketEventResponseDto";
-import type { EndpointSubscription } from "../../api/ws/TanksWebSocketClient";
+import type { EndpointSubscription, SubscriptionCleanup } from "../../api/ws/TanksWebSocketClient";
 import type ProblemDetailDto from "../../api/http/dto/ProblemDetailDto";
 import InvalidStateError from "../../errors/InvalidStateError";
 import { useNavigate, useParams } from "react-router-dom";
@@ -9,7 +9,7 @@ import { useWebSocketStore } from "../../store/useWebSocketStore";
 import { useAuthStore } from "../../store/useAuthStore";
 
 export default function usePrivateLobby() {
-  const { client, connected: wsConnected, connect, disconnect } = useWebSocketStore();
+  const { client, connected: wsConnected, connect } = useWebSocketStore();
   const user = useAuthStore(state => state.user);
   const navigate = useNavigate();
   const { id: urlLobbyId } = useParams();
@@ -19,6 +19,7 @@ export default function usePrivateLobby() {
   const [lobbyId, setLobbyId] = useState<string | null>(null);
   const [isHost, setIsHost] = useState<boolean>(action === "CREATE");
   const [playerCount, setPlayerCount] = useState<number>(0);
+  const lobbyTopicSubscription = useRef<SubscriptionCleanup | null>(null);
 
   useEffect(() => {
     if (!client) {
@@ -38,7 +39,7 @@ export default function usePrivateLobby() {
 
     let handleReply: EndpointSubscription<WebSocketEventResponseDto>["onMessage"] = (message) => {
       if (message.body.type === "LOBBY_CREATED" || message.body.type === "LOBBY_JOINED") {
-        client.subscribe({
+        lobbyTopicSubscription.current = client.subscribe({
           destination: "/topic/lobby/:id",
           id: message.body.payload.id,
           onMessage: handleLobbyMessage,
@@ -47,7 +48,7 @@ export default function usePrivateLobby() {
       }
 
       if (message.body.type === "GAME_CREATED") {
-        console.log("navigating to game with id: ", message.body.payload.id);
+        lobbyTopicSubscription.current?.();
         navigate(`/game/${message.body.payload.id}`, { replace: true });
         return;
       }
@@ -92,12 +93,6 @@ export default function usePrivateLobby() {
     }
 
   }, [client, wsConnected]);
-
-  useEffect(() => {
-    return () => {
-      disconnect();
-    }
-  }, [])
 
   const createGame = () => {
     if (isHost && playerCount === 2) {

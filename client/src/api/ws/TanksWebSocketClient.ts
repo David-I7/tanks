@@ -134,6 +134,13 @@ export default class TanksWSClient {
     this.client.onWebSocketClose = onWebSocketClose;
   }
 
+  clearSubscriptions() {
+    for (const [_, { unsubscribe }] of this.subscriptionMap.entries()) {
+      unsubscribe();
+    }
+    this.subscriptionMap.clear();
+  }
+
   publish(params: PublishParams) {
     const finalParams: any = { ...params };
 
