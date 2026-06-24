@@ -9,11 +9,11 @@ import { useScreenStack } from "../../context/ScreenStack.tsx";
 import InvalidStateError from "../../errors/InvalidStateError.ts";
 
 export default function PrivateLobbyRoom() {
-  const { connected, error, username, createGame, canStartGame, isHost, hostShareLink, lobbyId, action } = usePrivateLobby();
+  const { lobbyStatus, error, username, createGame, canStartGame, isHost, hostShareLink, lobbyId, action } = usePrivateLobby();
 
   const { copied, copyText } = useClipboard();
 
-  if (connected) {
+  if (lobbyStatus === "connected") {
     return (
       <div className="flex flex-col md:flex-row gap-6 w-full max-w-4xl relative z-10">
         {/* Left Panel: Lobby Settings & Actions */}
@@ -34,7 +34,7 @@ export default function PrivateLobbyRoom() {
                 <div className="flex gap-2">
                   <input
                     readOnly
-                    value={hostShareLink}
+                    value={hostShareLink ?? ""}
                     className="flex-1 bg-background/50 border border-accent/25 px-3 py-2 text-xs text-text-body-high outline-none font-body select-all"
                   />
                   <Button
@@ -73,8 +73,7 @@ export default function PrivateLobbyRoom() {
       </div>
     );
   }
-
-  if (error === null && !connected) {
+  if (error === null && lobbyStatus === "connecting") {
     return (
       <div className="cyber-panel px-8 py-8 w-full max-w-sm flex flex-col gap-4 text-center">
         <H1 className="text-xl animate-pulse text-center">Loading...</H1>
@@ -82,11 +81,23 @@ export default function PrivateLobbyRoom() {
       </div>
     );
   } else if (error) {
+    console.error(error);
     return (
       <div className="cyber-panel px-8 py-8 w-full max-w-sm flex flex-col gap-6 text-center">
         <H1 className="text-xl text-error text-center font-bold uppercase">Lobby Not Found</H1>
         <div className="text-sm font-body text-text-body/80">
           The lobby code provided does not exist or has expired.
+        </div>
+        <LeaveJoinedLobby />
+      </div>
+    );
+  } else if (lobbyStatus === "disconnected" || lobbyStatus === "disconnecting") {
+    console.log("Lobby disconnected", lobbyStatus);
+    return (
+      <div className="cyber-panel px-8 py-8 w-full max-w-sm flex flex-col gap-6 text-center">
+        <H1 className="text-xl text-error text-center font-bold uppercase">You've Disconnected!</H1>
+        <div className="text-sm font-body text-text-body/80">
+          The host has ended the lobby.
         </div>
         <LeaveJoinedLobby />
       </div>

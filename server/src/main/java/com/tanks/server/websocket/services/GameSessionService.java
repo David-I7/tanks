@@ -51,7 +51,6 @@ public class GameSessionService {
         userSessionService.transitionToGame(host, savedGameSession.getId());
         userSessionService.transitionToGame(opponent, savedGameSession.getId());
 
-        // Delete lobby logic moved here to break circular dependency with LobbyService
         lobbyRepository.delete(lobby);
         if (lobby.getType() == LobbyType.QUICK_MATCH) {
             quickMatchService.delete(lobby);

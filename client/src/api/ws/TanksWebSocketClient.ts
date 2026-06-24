@@ -134,6 +134,13 @@ export default class TanksWSClient {
     this.client.onWebSocketClose = onWebSocketClose;
   }
 
+  clearSubscriptions() {
+    for (const [_, { unsubscribe }] of this.subscriptionMap.entries()) {
+      unsubscribe();
+    }
+    this.subscriptionMap.clear();
+  }
+
   publish(params: PublishParams) {
     const finalParams: any = { ...params };
 
@@ -189,10 +196,10 @@ export default class TanksWSClient {
             body: JSON.parse(message.body) as Data,
           };
 
-          const { listeners } = this.subscriptionMap.get(
+          const subscriptions = this.subscriptionMap.get(
             finalParams.destination,
           )!;
-          listeners.forEach((listener) => listener(parsedMessage as Message));
+          subscriptions?.listeners.forEach((listener) => listener(parsedMessage as Message));
         }
       } catch (err) {
         throw new JSONError("Failed to parse json body");
@@ -219,6 +226,8 @@ export default class TanksWSClient {
 
     return () => {
       const subscriptions = this.subscriptionMap.get(finalParams.destination);
+      if (!subscriptions) return;
+
       if (subscriptions.listeners.length === 1) {
         this.subscriptionMap.delete(finalParams.destination);
         subscriptions.unsubscribe();

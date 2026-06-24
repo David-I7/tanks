@@ -1,19 +1,21 @@
 import { useEffect, useState } from "react";
 import type ProblemDetailDto from "../../api/http/dto/ProblemDetailDto";
 import { ApiError } from "../../errors/ApiError";
-import type { EndpointSubscription } from "../../api/ws/TanksWebSocketClient";
+import type { EndpointSubscription, } from "../../api/ws/TanksWebSocketClient";
 import type { WebSocketEventResponseDto } from "../../api/ws/dto/WebSocketEventResponseDto";
 import { useNavigate } from "react-router-dom";
 import { useWebSocketStore } from "../../store/useWebSocketStore";
 import { useAuthStore } from "../../store/useAuthStore";
+import type { LobbyEventPayload } from "../../api/ws/dto/lobby/LobbyEventDto";
+import { useScreenStack } from "../../context/ScreenStack";
 
 export default function useQuickMatchLobby() {
-  const { client, connected: wsConnected, connect, disconnect } = useWebSocketStore();
+  const { client, status, connect } = useWebSocketStore();
   const navigate = useNavigate();
   const user = useAuthStore(state => state.user);
   const [playerCount, setPlayerCount] = useState<number>(0);
   const [error, setError] = useState<Error | null>(null);
-  const [isHost, setIsHost] = useState<boolean>(false);
+  const { popScreen } = useScreenStack();
 
   useEffect(() => {
     if (!client) {
@@ -21,20 +23,23 @@ export default function useQuickMatchLobby() {
       return;
     }
 
-    if (!wsConnected) return;
+    if (status !== "connected") return;
 
     const handleLobbyMessage: EndpointSubscription<WebSocketEventResponseDto>["onMessage"] =
       (message) => {
         if (message.body.type === "LOBBY_CONNECT") {
-          setPlayerCount(prev => prev + 1);
-          if (message.body.payload.playerName !== user.username && isHost) {
-            client.publish({ destination: "/app/game/create" });
-          }
+          setPlayerCount(prev => {
+            const next = prev + 1;
+            if ((message.body.payload as LobbyEventPayload).playerName !== user?.username && next === 2) {
+              client.publish({ destination: "/app/game/create" });
+            }
+
+            return next;
+          });
         }
 
         if (message.body.type === "LOBBY_DISCONNECT") {
           setPlayerCount(1);
-          setIsHost(true);
         }
       };
 
@@ -44,7 +49,6 @@ export default function useQuickMatchLobby() {
           message.body.type === "LOBBY_JOINED" ||
           message.body.type === "LOBBY_CREATED"
         ) {
-          setIsHost(message.body.type === "LOBBY_CREATED");
           client.subscribe({
             destination: "/topic/lobby/:id",
             id: message.body.payload.id,
@@ -53,6 +57,7 @@ export default function useQuickMatchLobby() {
         }
 
         if (message.body.type === "GAME_CREATED") {
+          client.clearSubscriptions();
           navigate(`/game/${message.body.payload.id}`);
         }
       };
@@ -70,13 +75,13 @@ export default function useQuickMatchLobby() {
     });
 
     client.publish({ destination: "/app/lobby/quick-match" });
-  }, [client, wsConnected]);
+  }, [client, status]);
 
   useEffect(() => {
-    return () => {
-      disconnect();
+    if (status === "disconnecting" || status === "disconnected") {
+      popScreen();
     }
-  }, [])
+  }, [status]);
 
   return { error, playerCount };
 }

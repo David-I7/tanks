@@ -17,7 +17,7 @@ export default function GamePage() {
 
 function GameView() {
   const { id } = useParams();
-  const { client, connected: wsConnected, connect } = useWebSocketStore();
+  const { client, status, connect } = useWebSocketStore();
   const user = useAuthStore(state => state.user);
   const [connected, setConnected] = useState<boolean>(false);
 
@@ -28,22 +28,34 @@ function GameView() {
       return;
     }
 
-    if (!wsConnected) return;
-
-    console.log(client, client.isActive(), wsConnected)
+    if (status !== "connected") return;
 
     client.subscribe({
       destination: "/topic/game/:id",
       id,
       onMessage: (message) => {
         if (message.body.type === "GAME_CONNECT") {
-          if (message.body.payload.playerName === user.username)
+          if (message.body.payload.playerName === user?.username)
             setConnected(true);
         }
       }
     });
 
-  }, [client, wsConnected])
+    client.subscribe({
+      destination: "/user/queue/errors",
+      onMessage: (message) => {
+        console.error("Error:", message.body);
+      }
+    })
+
+    client.subscribe({
+      destination: "/user/queue/replies",
+      onMessage: (message) => {
+        console.log("Reply:", message.body);
+      }
+    })
+
+  }, [client, status])
 
 
   return (

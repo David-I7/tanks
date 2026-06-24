@@ -1,10 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { debounce, throttle } from "../../utils/performance";
 import type { ChatEventPayload } from "../../api/ws/dto/chat/ChatEventDto";
 import type { WebSocketEventResponseDto } from "../../api/ws/dto/WebSocketEventResponseDto";
 import { useAuthStore } from "../../store/useAuthStore";
 import { useWebSocketStore } from "../../store/useWebSocketStore";
-import type { SubscriptionCleanup } from "../../api/ws/TanksWebSocketClient";
 import type { LobbyEventPayload } from "../../api/ws/dto/lobby/LobbyEventDto";
 
 const DEBOUNCE_TYPING_TIMEOUT = 1000; // 1 sec
@@ -51,11 +50,10 @@ function webSocketEventToChatMessage(
 }
 
 export default function useLobbyChat(lobbyId: string) {
-  const { client, connected: wsConnected } = useWebSocketStore();
+  const { client, status } = useWebSocketStore();
   const user = useAuthStore(state => state.user);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [typingUser, setTypingUser] = useState<string | null>(null);
-  const subscriptions = useRef<SubscriptionCleanup[]>([]);
 
   const throttleTyping = useMemo(() => {
     return throttle(() => {
@@ -88,7 +86,7 @@ export default function useLobbyChat(lobbyId: string) {
   }, [client]);
 
   useEffect(() => {
-    if (!wsConnected || !client) return;
+    if (status !== "connected" || !client) return;
 
     const typingTimeout = debounce(() => {
       setTypingUser(null);
@@ -96,7 +94,7 @@ export default function useLobbyChat(lobbyId: string) {
 
     const username = user!.username;
 
-    subscriptions.current.push(client.subscribe({
+    client.subscribe({
       destination: "/topic/lobby/:id",
       id: lobbyId,
       onMessage: (message) => {
@@ -140,21 +138,13 @@ export default function useLobbyChat(lobbyId: string) {
           setMessages((prev) => [...prev, nextMessage]);
         }
       },
-    }));
+    });
 
     return () => {
       typingTimeout.cancel();
     };
-  }, [client, wsConnected]);
+  }, [client, status]);
 
-  useEffect(() => {
-    return () => {
-      if (client) {
-        subscriptions.current.forEach(cleanup => cleanup());
-        subscriptions.current = [];
-      }
-    }
-  }, [client])
 
   return {
     messages,

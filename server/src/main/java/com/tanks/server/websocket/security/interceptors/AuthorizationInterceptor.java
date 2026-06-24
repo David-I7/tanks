@@ -20,7 +20,9 @@ import org.springframework.messaging.support.ChannelInterceptor;
 import org.springframework.messaging.support.MessageHeaderAccessor;
 import org.springframework.stereotype.Component;
 
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
 
@@ -54,7 +56,7 @@ public class AuthorizationInterceptor implements ChannelInterceptor {
             try {
                 UserSession userSession = userSessionService.findById(principal.getUserDto().id());
 
-                if(sessionId != null && !sessionId.equals(userSession.getSocketSessionId())){
+                if(userSession != null && sessionId.equals(userSession.getSocketSessionId())){
                     throw new ProblemDetailException(HttpStatus.BAD_REQUEST,"User is already connected", null);
                 }
 
@@ -79,13 +81,14 @@ public class AuthorizationInterceptor implements ChannelInterceptor {
 
         if( StompCommand.SUBSCRIBE.equals(accessor.getCommand())) {
             WebSocketPrincipal principal = (WebSocketPrincipal)authentication.getPrincipal();
-            UserSession userSession = principal.getUserSession();
+            UserSession userSession = userSessionService.findById(principal.getUserDto().id());
+            principal.setUserSession(userSession);
 
             if(userSession == null) throw new ProblemDetailException(HttpStatus.BAD_REQUEST,"Illegal state. User must connect first.", null);
 
-            Set<String> topicSubscriptions = userSession.getTopicSubscriptions();
+            Map<String, String> topicSubscriptions = userSession.getTopicSubscriptions();
 
-            if(topicSubscriptions != null && topicSubscriptions.contains(accessor.getDestination())){
+            if(topicSubscriptions != null && topicSubscriptions.containsKey(accessor.getDestination())){
                 throw new ProblemDetailException(HttpStatus.BAD_REQUEST, "User is already subscribed to this topic", null);
             }
 
@@ -96,10 +99,10 @@ public class AuthorizationInterceptor implements ChannelInterceptor {
             }
 
             if(topicSubscriptions == null){
-                topicSubscriptions = new HashSet<>();
+                topicSubscriptions = new HashMap<>();
             }
 
-            topicSubscriptions.add(accessor.getDestination());
+            topicSubscriptions.put(accessor.getDestination(),accessor.getSubscriptionId());
             userSession.setTopicSubscriptions(topicSubscriptions);
             userSessionService.save(userSession);
         }

@@ -24,6 +24,8 @@ import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.messaging.*;
 
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 @Component
@@ -84,7 +86,13 @@ public class WebSocketEventListeners {
         WebSocketPrincipal principal = (WebSocketPrincipal) ((WebSocketAuthentication)accessor.getUser()).getPrincipal();
 
         UserDto user = principal.getUserDto();
-        UserSession userSession = principal.getUserSession();
+        UserSession userSession = null;
+        try {
+            userSession = userSessionService.findById(user.id());
+            principal.setUserSession(userSession);
+        } catch (Exception ex) {
+            log.debug("User session already deleted or not found for user '{}'", user.username());
+        }
 
         // UserSession is null if the user failed to connect on the CONNECT command
         if(userSession != null) {
@@ -147,34 +155,52 @@ public class WebSocketEventListeners {
         }
     }
 
-//    @EventListener
-//    public void handleUnsubscribe(SessionUnsubscribeEvent event) {
-//        StompHeaderAccessor accessor = StompHeaderAccessor.wrap(event.getMessage());
-//
-//        if(accessor.getUser() == null) return;
-//
-//        WebSocketPrincipal principal = (WebSocketPrincipal) ((WebSocketAuthentication)accessor.getUser()).getPrincipal();
-//
-//        UserSession userSession = principal.getUserSession();
-//
-//        if(userSession != null){
-//            String topic = accessor.getDestination();
-//
-//            if(topic.startsWith(TOPIC_LOBBY)){
-//                log.debug("LOBBY UNSUBSCRIBE");
-//                handleLobbyUnsubscribe(userSession);
-//            } else if (topic.startsWith(TOPIC_GAME)) {
-//                log.debug("GAME UNSUBSCRIBE");
-//                handleGameDisconnect(userSession);
-//            }else if (topic.startsWith(TOPIC_USER_ERRORS)) {
-//                log.debug("USER ERRORS UNSUBSCRIBE");
-//                handleUserErrorsUnsubscribe(userSession);
-//            }else if (topic.startsWith(TOPIC_USER_REPLIES)) {
-//                log.debug("USER REPLIES UNSUBSCRIBE");
-//                handleUserRepliesUnsubscribe(userSession);
-//            }
-//        }
-//    }
+    @EventListener
+    public void handleUnsubscribe(SessionUnsubscribeEvent event) {
+        StompHeaderAccessor accessor = StompHeaderAccessor.wrap(event.getMessage());
+
+        if(accessor.getUser() == null) return;
+
+        WebSocketPrincipal principal = (WebSocketPrincipal) ((WebSocketAuthentication)accessor.getUser()).getPrincipal();
+
+        UserDto user = principal.getUserDto();
+        UserSession userSession = null;
+        try {
+            userSession = userSessionService.findById(user.id());
+            principal.setUserSession(userSession);
+        } catch (Exception ex) {
+            log.debug("User session already deleted or not found for user '{}'", user.username());
+        }
+
+        if(userSession != null){
+            String subscriptionId = accessor.getSubscriptionId();
+
+            Map<String, String> topics = userSession.getTopicSubscriptions();
+            if(topics == null || topics.isEmpty()) return;
+
+            var topicEntry =  topics.entrySet().stream()
+                    .filter(entry -> entry.getValue().equals(subscriptionId))
+                    .findFirst().orElse(null);
+
+            if(topicEntry == null) return;
+
+            String topic = topicEntry.getKey();
+
+            if(topic.startsWith(TOPIC_LOBBY)){
+                log.debug("LOBBY UNSUBSCRIBE");
+                handleLobbyUnsubscribe(userSession);
+            } else if (topic.startsWith(TOPIC_GAME)) {
+                log.debug("GAME UNSUBSCRIBE");
+                handleGameDisconnect(userSession);
+            }else if (topic.startsWith(TOPIC_USER_ERRORS)) {
+                log.debug("USER ERRORS UNSUBSCRIBE");
+                handleUserErrorsUnsubscribe(userSession);
+            }else if (topic.startsWith(TOPIC_USER_REPLIES)) {
+                log.debug("USER REPLIES UNSUBSCRIBE");
+                handleUserRepliesUnsubscribe(userSession);
+            }
+        }
+    }
 
     private void handleLobbyDisconnect(UserSession userSession){
         lobbyService.removeUser(userSession);
@@ -185,36 +211,39 @@ public class WebSocketEventListeners {
         if(userSessionService.isConnectedToGame(userSession)) {
             String gameTopic = "/topic/game/" + userSession.getGameSessionId();
             userSession.setTopicSubscriptions(null);
+            userSession.setSocketSessionId(null);
             userSessionService.save(userSession);
             simpMessagingTemplate.convertAndSend(gameTopic, new GameEventResponseDto(GameEventType.GAME_DISCONNECT, "@SERVER", new LobbyEventPayload(userSession.getGameSessionId(), userSession.getUsername())));
         }
     }
 
-//    private void handleLobbyUnsubscribe(UserSession userSession){
-//        lobbyService.removeUser(userSession);
-//        Set<String> topics = userSession.getTopicSubscriptions();
-//        topics.remove(TOPIC_LOBBY + userSession.getLobbyId());
-//        if(topics.isEmpty()) {
-//            userSession.setTopicSubscriptions(null);
-//        }
-//        userSessionService.save(userSession);
-//    }
-//
-//    private void handleUserRepliesUnsubscribe(UserSession userSession){
-//        Set<String> topics = userSession.getTopicSubscriptions();
-//        topics.remove(TOPIC_USER_REPLIES);
-//        if(topics.isEmpty()) {
-//            userSession.setTopicSubscriptions(null);
-//        }
-//        userSessionService.save(userSession);
-//    }
-//
-//    private void handleUserErrorsUnsubscribe(UserSession userSession){
-//        Set<String> topics = userSession.getTopicSubscriptions();
-//        topics.remove(TOPIC_USER_ERRORS);
-//        if(topics.isEmpty()) {
-//            userSession.setTopicSubscriptions(null);
-//        }
-//        userSessionService.save(userSession);
-//    }
+    private void handleLobbyUnsubscribe(UserSession userSession){
+        if(userSessionService.isConnectedToLobby(userSession)) {
+            lobbyService.removeUser(userSession);
+            Map<String, String> topics = userSession.getTopicSubscriptions();
+            topics.remove(TOPIC_LOBBY + userSession.getLobbyId());
+            if (topics.isEmpty()) {
+                userSession.setTopicSubscriptions(null);
+            }
+            userSessionService.save(userSession);
+        }
+    }
+
+    private void handleUserRepliesUnsubscribe(UserSession userSession){
+        Map<String, String> topics = userSession.getTopicSubscriptions();
+        topics.remove(TOPIC_USER_REPLIES);
+        if(topics.isEmpty()) {
+            userSession.setTopicSubscriptions(null);
+        }
+        userSessionService.save(userSession);
+    }
+
+    private void handleUserErrorsUnsubscribe(UserSession userSession){
+        Map<String, String> topics = userSession.getTopicSubscriptions();
+        topics.remove(TOPIC_USER_ERRORS);
+        if(topics.isEmpty()) {
+            userSession.setTopicSubscriptions(null);
+        }
+        userSessionService.save(userSession);
+    }
 }

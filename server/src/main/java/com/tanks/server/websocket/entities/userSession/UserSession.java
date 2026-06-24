@@ -4,10 +4,7 @@ import lombok.*;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.redis.core.RedisHash;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 
 @Builder
 @AllArgsConstructor
@@ -29,7 +26,7 @@ public class UserSession {
 
     private String socketSessionId;
 
-    private Set<String> topicSubscriptions = null;
+    private Map<String, String> topicSubscriptions = null;
 
     public UserSession(UserSession userSession) {
         this.id = userSession.id;
