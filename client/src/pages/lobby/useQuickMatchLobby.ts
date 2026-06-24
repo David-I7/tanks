@@ -1,11 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import type ProblemDetailDto from "../../api/http/dto/ProblemDetailDto";
 import { ApiError } from "../../errors/ApiError";
-import type { EndpointSubscription, SubscriptionCleanup } from "../../api/ws/TanksWebSocketClient";
+import type { EndpointSubscription, } from "../../api/ws/TanksWebSocketClient";
 import type { WebSocketEventResponseDto } from "../../api/ws/dto/WebSocketEventResponseDto";
 import { useNavigate } from "react-router-dom";
 import { useWebSocketStore } from "../../store/useWebSocketStore";
 import { useAuthStore } from "../../store/useAuthStore";
+import type { LobbyEventPayload } from "../../api/ws/dto/lobby/LobbyEventDto";
 
 export default function useQuickMatchLobby() {
   const { client, connected: wsConnected, connect } = useWebSocketStore();
@@ -13,8 +14,6 @@ export default function useQuickMatchLobby() {
   const user = useAuthStore(state => state.user);
   const [playerCount, setPlayerCount] = useState<number>(0);
   const [error, setError] = useState<Error | null>(null);
-  const [isHost, setIsHost] = useState<boolean>(false);
-  const lobbyTopicSubscription = useRef<SubscriptionCleanup | null>(null);
 
   useEffect(() => {
     if (!client) {
@@ -27,15 +26,18 @@ export default function useQuickMatchLobby() {
     const handleLobbyMessage: EndpointSubscription<WebSocketEventResponseDto>["onMessage"] =
       (message) => {
         if (message.body.type === "LOBBY_CONNECT") {
-          setPlayerCount(prev => prev + 1);
-          if (message.body.payload.playerName !== user.username && isHost) {
-            client.publish({ destination: "/app/game/create" });
-          }
+          setPlayerCount(prev => {
+            const next = prev + 1;
+            if ((message.body.payload as LobbyEventPayload).playerName !== user.username && next === 2) {
+              client.publish({ destination: "/app/game/create" });
+            }
+
+            return next;
+          });
         }
 
         if (message.body.type === "LOBBY_DISCONNECT") {
           setPlayerCount(1);
-          setIsHost(true);
         }
       };
 
@@ -45,8 +47,7 @@ export default function useQuickMatchLobby() {
           message.body.type === "LOBBY_JOINED" ||
           message.body.type === "LOBBY_CREATED"
         ) {
-          setIsHost(message.body.type === "LOBBY_CREATED");
-          lobbyTopicSubscription.current = client.subscribe({
+          client.subscribe({
             destination: "/topic/lobby/:id",
             id: message.body.payload.id,
             onMessage: handleLobbyMessage,
@@ -54,7 +55,7 @@ export default function useQuickMatchLobby() {
         }
 
         if (message.body.type === "GAME_CREATED") {
-          lobbyTopicSubscription.current?.();
+          client.clearSubscriptions();
           navigate(`/game/${message.body.payload.id}`);
         }
       };

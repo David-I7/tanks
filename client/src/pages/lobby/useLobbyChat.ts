@@ -55,7 +55,6 @@ export default function useLobbyChat(lobbyId: string) {
   const user = useAuthStore(state => state.user);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [typingUser, setTypingUser] = useState<string | null>(null);
-  const subscriptions = useRef<SubscriptionCleanup[]>([]);
 
   const throttleTyping = useMemo(() => {
     return throttle(() => {
@@ -96,7 +95,7 @@ export default function useLobbyChat(lobbyId: string) {
 
     const username = user!.username;
 
-    subscriptions.current.push(client.subscribe({
+    client.subscribe({
       destination: "/topic/lobby/:id",
       id: lobbyId,
       onMessage: (message) => {
@@ -140,21 +139,13 @@ export default function useLobbyChat(lobbyId: string) {
           setMessages((prev) => [...prev, nextMessage]);
         }
       },
-    }));
+    });
 
     return () => {
       typingTimeout.cancel();
     };
   }, [client, wsConnected]);
 
-  useEffect(() => {
-    return () => {
-      if (client) {
-        subscriptions.current.forEach(cleanup => cleanup());
-        subscriptions.current = [];
-      }
-    }
-  }, [client])
 
   return {
     messages,

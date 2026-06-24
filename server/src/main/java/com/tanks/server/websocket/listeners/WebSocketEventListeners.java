@@ -24,6 +24,7 @@ import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.messaging.*;
 
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -172,7 +173,18 @@ public class WebSocketEventListeners {
         }
 
         if(userSession != null){
-            String topic = accessor.getDestination();
+            String subscriptionId = accessor.getSubscriptionId();
+
+            Map<String, String> topics = userSession.getTopicSubscriptions();
+            if(topics == null || topics.isEmpty()) return;
+
+            var topicEntry =  topics.entrySet().stream()
+                    .filter(entry -> entry.getValue().equals(subscriptionId))
+                    .findFirst().orElse(null);
+
+            if(topicEntry == null) return;
+
+            String topic = topicEntry.getKey();
 
             if(topic.startsWith(TOPIC_LOBBY)){
                 log.debug("LOBBY UNSUBSCRIBE");
@@ -208,7 +220,7 @@ public class WebSocketEventListeners {
     private void handleLobbyUnsubscribe(UserSession userSession){
         if(userSessionService.isConnectedToLobby(userSession)) {
             lobbyService.removeUser(userSession);
-            Set<String> topics = userSession.getTopicSubscriptions();
+            Map<String, String> topics = userSession.getTopicSubscriptions();
             topics.remove(TOPIC_LOBBY + userSession.getLobbyId());
             if (topics.isEmpty()) {
                 userSession.setTopicSubscriptions(null);
@@ -218,7 +230,7 @@ public class WebSocketEventListeners {
     }
 
     private void handleUserRepliesUnsubscribe(UserSession userSession){
-        Set<String> topics = userSession.getTopicSubscriptions();
+        Map<String, String> topics = userSession.getTopicSubscriptions();
         topics.remove(TOPIC_USER_REPLIES);
         if(topics.isEmpty()) {
             userSession.setTopicSubscriptions(null);
@@ -227,7 +239,7 @@ public class WebSocketEventListeners {
     }
 
     private void handleUserErrorsUnsubscribe(UserSession userSession){
-        Set<String> topics = userSession.getTopicSubscriptions();
+        Map<String, String> topics = userSession.getTopicSubscriptions();
         topics.remove(TOPIC_USER_ERRORS);
         if(topics.isEmpty()) {
             userSession.setTopicSubscriptions(null);

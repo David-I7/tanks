@@ -77,7 +77,6 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => {
       if (client === null) return;
 
       client.deactivate();
-      console.log("OVER HERE");
       set({ client: null, connected: false, error: null });
     },
   };

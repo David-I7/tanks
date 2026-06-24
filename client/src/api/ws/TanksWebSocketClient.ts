@@ -196,10 +196,10 @@ export default class TanksWSClient {
             body: JSON.parse(message.body) as Data,
           };
 
-          const { listeners } = this.subscriptionMap.get(
+          const subscriptions = this.subscriptionMap.get(
             finalParams.destination,
           )!;
-          listeners.forEach((listener) => listener(parsedMessage as Message));
+          subscriptions?.listeners.forEach((listener) => listener(parsedMessage as Message));
         }
       } catch (err) {
         throw new JSONError("Failed to parse json body");

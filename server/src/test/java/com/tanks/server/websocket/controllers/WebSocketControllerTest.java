@@ -29,6 +29,7 @@ import org.springframework.web.socket.messaging.WebSocketStompClient;
 
 import java.lang.reflect.Type;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -110,7 +111,7 @@ public class WebSocketControllerTest {
                 .state(UserSessionState.IN_LOBBY)
                 .lobbyId(lobbyId)
                 .socketSessionId("dummy-session-id")
-                .topicSubscriptions(new HashSet<>(Collections.singletonList("/topic/lobby/" + lobbyId)))
+                .topicSubscriptions(new HashMap<>())
                 .build();
 
         // After game is created, the user session state transitions to IN_GAME
@@ -120,7 +121,7 @@ public class WebSocketControllerTest {
                 .state(UserSessionState.IN_GAME)
                 .gameSessionId(gameId)
                 .socketSessionId("dummy-session-id")
-                .topicSubscriptions(new HashSet<>())
+                .topicSubscriptions(new HashMap<>())
                 .build();
 
         // Mock findById to throw NOT_FOUND first (for CONNECT, simulating first-time connection),

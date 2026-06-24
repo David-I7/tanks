@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { ApiError } from "../../errors/ApiError";
 import type { WebSocketEventResponseDto } from "../../api/ws/dto/WebSocketEventResponseDto";
-import type { EndpointSubscription, SubscriptionCleanup } from "../../api/ws/TanksWebSocketClient";
+import type { EndpointSubscription } from "../../api/ws/TanksWebSocketClient";
 import type ProblemDetailDto from "../../api/http/dto/ProblemDetailDto";
 import InvalidStateError from "../../errors/InvalidStateError";
 import { useNavigate, useParams } from "react-router-dom";
@@ -19,7 +19,6 @@ export default function usePrivateLobby() {
   const [lobbyId, setLobbyId] = useState<string | null>(null);
   const [isHost, setIsHost] = useState<boolean>(action === "CREATE");
   const [playerCount, setPlayerCount] = useState<number>(0);
-  const lobbyTopicSubscription = useRef<SubscriptionCleanup | null>(null);
 
   useEffect(() => {
     if (!client) {
@@ -39,7 +38,7 @@ export default function usePrivateLobby() {
 
     let handleReply: EndpointSubscription<WebSocketEventResponseDto>["onMessage"] = (message) => {
       if (message.body.type === "LOBBY_CREATED" || message.body.type === "LOBBY_JOINED") {
-        lobbyTopicSubscription.current = client.subscribe({
+        client.subscribe({
           destination: "/topic/lobby/:id",
           id: message.body.payload.id,
           onMessage: handleLobbyMessage,
@@ -48,7 +47,7 @@ export default function usePrivateLobby() {
       }
 
       if (message.body.type === "GAME_CREATED") {
-        lobbyTopicSubscription.current?.();
+        client.clearSubscriptions();
         navigate(`/game/${message.body.payload.id}`, { replace: true });
         return;
       }
