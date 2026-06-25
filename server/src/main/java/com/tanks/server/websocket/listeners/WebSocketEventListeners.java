@@ -1,13 +1,14 @@
 package com.tanks.server.websocket.listeners;
 
 import com.tanks.server.dto.UserDto;
-import com.tanks.server.mappers.user.UserDtoToUserMapper;
 import com.tanks.server.websocket.dto.game.GameEventResponseDto;
 import com.tanks.server.websocket.dto.game.GameEventType;
-import com.tanks.server.websocket.dto.game.GameLobbyPayload;
+import com.tanks.server.websocket.dto.game.GameIdPayload;
 import com.tanks.server.websocket.dto.lobby.LobbyEventResponseDto;
 import com.tanks.server.websocket.dto.lobby.LobbyEventType;
 import com.tanks.server.websocket.dto.lobby.LobbyEventPayload;
+import com.tanks.server.websocket.entities.gameSession.GameSession;
+import com.tanks.server.websocket.entities.gameSession.GameSessionState;
 import com.tanks.server.websocket.entities.userSession.UserSession;
 import com.tanks.server.websocket.entities.userSession.UserSessionState;
 import com.tanks.server.websocket.security.entites.WebSocketAuthentication;
@@ -25,7 +26,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.socket.messaging.*;
 
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 
 @Component
@@ -42,17 +42,16 @@ public class WebSocketEventListeners {
 
     private final SimpMessagingTemplate simpMessagingTemplate;
 
-    private UserDtoToUserMapper userDtoToUserMapper = new UserDtoToUserMapper();
-
     private LobbyService lobbyService;
 
-    private GameSessionService gameService;
+    private GameSessionService gameSessionService;
 
     private UserSessionService userSessionService;
 
 
-    public WebSocketEventListeners(LobbyService lobbyService, UserSessionService userSessionService, SimpMessagingTemplate simpMessagingTemplate){
+    public WebSocketEventListeners(GameSessionService gameSessionService, LobbyService lobbyService, UserSessionService userSessionService, SimpMessagingTemplate simpMessagingTemplate){
         this.lobbyService = lobbyService;
+        this.gameSessionService = gameSessionService;
         this.userSessionService = userSessionService;
         this.simpMessagingTemplate = simpMessagingTemplate;
     }
@@ -146,12 +145,20 @@ public class WebSocketEventListeners {
                     new GameEventResponseDto(
                             GameEventType.GAME_CONNECT,
                             "@SERVER",
-                            new GameLobbyPayload(
+                            new GameIdPayload(
                                     UUID.fromString(accessor.getDestination().substring(TOPIC_GAME.length())),
                                     authentication.getName()
                             )
                     )
             );
+
+            UserSession userSession = ((WebSocketPrincipal)authentication.getPrincipal()).getUserSession();
+
+            GameSession gameSession = gameSessionService.getAndIncrementPlayerCount(userSession.getGameSessionId());
+
+            if(gameSession.getConnectedPlayerCount() == 2 && gameSession.getState().equals(GameSessionState.CREATED)){
+                gameSessionService.startGame(gameSession);
+            }
         }
     }
 
@@ -213,6 +220,7 @@ public class WebSocketEventListeners {
             userSession.setTopicSubscriptions(null);
             userSession.setSocketSessionId(null);
             userSessionService.save(userSession);
+            gameSessionService.decremenentPlayerCount(userSession.getGameSessionId());
             simpMessagingTemplate.convertAndSend(gameTopic, new GameEventResponseDto(GameEventType.GAME_DISCONNECT, "@SERVER", new LobbyEventPayload(userSession.getGameSessionId(), userSession.getUsername())));
         }
     }

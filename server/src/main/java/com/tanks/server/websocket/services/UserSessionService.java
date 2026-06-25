@@ -1,20 +1,21 @@
 package com.tanks.server.websocket.services;
 
+
+import com.tanks.server.websocket.dto.UserSessionStatusDto;
 import com.tanks.server.websocket.entities.userSession.UserSession;
 import com.tanks.server.websocket.entities.userSession.UserSessionState;
 import com.tanks.server.websocket.exceptions.ProblemDetailException;
 import com.tanks.server.websocket.repositories.UserSessionRepository;
-import lombok.AllArgsConstructor;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import java.net.URI;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 
 @Service
-@AllArgsConstructor
+@RequiredArgsConstructor
 public class UserSessionService {
 
     private final UserSessionRepository userSessionRepository;
@@ -66,6 +67,26 @@ public class UserSessionService {
         userSession.setState(UserSessionState.IN_GAME);
         userSession.setGameSessionId(uuid);
         userSession.setLobbyId(null);
+    }
+
+    public UserSessionStatusDto getUserSessionStatus(Long userId){
+        try{
+            UserSession userSession = findById(userId);
+
+            UserSessionStatusDto userSessionStatusDto = new UserSessionStatusDto();
+
+            userSessionStatusDto.setState(userSession.getState());
+
+           if(userSession.getState() == UserSessionState.IN_LOBBY){
+                userSessionStatusDto.setLobbyId(userSession.getLobbyId());
+            }else if(userSession.getState() == UserSessionState.IN_GAME){
+                userSessionStatusDto.setGameId(userSession.getGameSessionId());
+            }
+
+            return userSessionStatusDto;
+        }catch (ProblemDetailException e){
+            return null;
+        }
     }
 
 }

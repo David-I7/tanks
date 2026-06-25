@@ -22,9 +22,9 @@ public class GameSession {
     @Id
     private UUID id;
 
-    private long playerAId;
+    private String playerA;
 
-    private long playerBId;
+    private String playerB;
 
     private OffsetDateTime startedAt;
 
@@ -32,7 +32,9 @@ public class GameSession {
 
     private long playerTurnExpiresAt;
 
-    private long playerTurnId;
+    private String playerTurn;
 
     private GameSessionState state;
+
+    private int connectedPlayerCount = 0;
 }

@@ -1,6 +1,5 @@
 package com.tanks.server.websocket.services;
 
-import com.tanks.server.entities.User;
 import com.tanks.server.utils.IdFactory;
 import com.tanks.server.websocket.dto.lobby.LobbyEventPayload;
 import com.tanks.server.websocket.dto.lobby.LobbyEventResponseDto;

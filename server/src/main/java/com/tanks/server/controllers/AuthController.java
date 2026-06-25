@@ -6,6 +6,9 @@ import com.tanks.server.entities.User;
 import com.tanks.server.mappers.user.RegisterRequestToUserMapper;
 import com.tanks.server.security.model.JwtSession;
 import com.tanks.server.services.AuthService;
+import com.tanks.server.websocket.dto.UserSessionStatusDto;
+import com.tanks.server.websocket.entities.userSession.UserSession;
+import com.tanks.server.websocket.services.UserSessionService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
@@ -29,19 +32,27 @@ public class AuthController {
 
     private AuthService authService;
 
+    private UserSessionService userSessionService;
+
     @Value("${app.isDev:false}")
     private boolean isDev;
 
     @Value("${app.client.origin}")
     private String clientOrigin;
 
-    public AuthController(AuthService authService){
+    public AuthController(AuthService authService, UserSessionService userSessionService){
         this.authService = authService;
+        this.userSessionService = userSessionService;
     }
 
     @PostMapping("/status")
-    public ResponseEntity<UserDto> status(Authentication authentication){
-        return ResponseEntity.ok((UserDto)authentication.getPrincipal());
+    public ResponseEntity<AuthStatusResponseDto> status(Authentication authentication){
+
+        UserDto userDto = (UserDto) authentication.getPrincipal();
+
+        UserSessionStatusDto userSessionStatusDto = userSessionService.getUserSessionStatus(userDto.id());
+
+        return ResponseEntity.ok(new AuthStatusResponseDto(userDto, userSessionStatusDto));
     }
 
     @PostMapping("/register/password")

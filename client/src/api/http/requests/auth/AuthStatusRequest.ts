@@ -1,8 +1,8 @@
 import type { Method } from "axios";
-import type UserDto from "../../dto/UserDto";
 import { TanksRequest } from "../TanksRequest";
+import type AuthStatusResponseDto from "../../dto/AuthStatusResponseDto";
 
-export default class AuthStatusRequest extends TanksRequest<UserDto> {
+export default class AuthStatusRequest extends TanksRequest<AuthStatusResponseDto> {
   getPath(): string {
     return "/auth/status";
   }
