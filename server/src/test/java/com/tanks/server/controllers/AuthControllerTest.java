@@ -16,12 +16,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.context.annotation.ComponentScan;
-import org.springframework.context.annotation.FilterType;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpSession;
-import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,6 +30,7 @@ import tools.jackson.databind.ObjectMapper;
 import java.util.HashMap;
 import java.util.Map;
 
+import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.cookie;
@@ -116,9 +114,10 @@ class AuthControllerTest {
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + testUserCache.accessToken())
                 )
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(userDto.id()))
-                .andExpect(jsonPath("$.username").value(userDto.username()))
-                .andExpect(jsonPath("$.email").value(userDto.email()));
+                .andExpect(jsonPath("$.user.id").value(userDto.id()))
+                .andExpect(jsonPath("$.user.username").value(userDto.username()))
+                .andExpect(jsonPath("$.user.email").value(userDto.email()))
+                .andExpect(jsonPath("$.userSessionStatus").value(nullValue()));
     }
 
     @Test

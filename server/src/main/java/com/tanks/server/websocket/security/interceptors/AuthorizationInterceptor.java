@@ -79,12 +79,10 @@ public class AuthorizationInterceptor implements ChannelInterceptor {
             }
         }
 
-        if( StompCommand.SUBSCRIBE.equals(accessor.getCommand())) {
+        if(StompCommand.SUBSCRIBE.equals(accessor.getCommand())) {
             WebSocketPrincipal principal = (WebSocketPrincipal)authentication.getPrincipal();
             UserSession userSession = userSessionService.findById(principal.getUserDto().id());
             principal.setUserSession(userSession);
-
-            if(userSession == null) throw new ProblemDetailException(HttpStatus.BAD_REQUEST,"Illegal state. User must connect first.", null);
 
             Map<String, String> topicSubscriptions = userSession.getTopicSubscriptions();
 
