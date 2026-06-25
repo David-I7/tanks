@@ -16,6 +16,8 @@ import type RefreshResponseDto from "../api/http/dto/RefreshResponseDto";
 import { ApiError } from "../errors/ApiError";
 import { AuthenticationError } from "../errors/AuthenticationError";
 import InvalidStateError from "../errors/InvalidStateError";
+import type AuthStatusResponseDto from "../api/http/dto/AuthStatusResponseDto";
+import AuthStatusRequest from "../api/http/requests/auth/AuthStatusRequest";
 
 type AuthState = {
     user: User | null;
@@ -31,11 +33,12 @@ type AuthState = {
     ): Promise<void>;
     handlePostOAuth2Login(loginRequest: PostOauth2LoginRequestDto): Promise<void>;
     handleRefresh: () => Promise<RefreshResponseDto>;
+    getAuthStatus: () => Promise<AuthStatusResponseDto>;
     clearError: () => void;
 };
 
 
-export const useAuthStore = create<AuthState>((set) => {
+export const useAuthStore = create<AuthState>((set, get) => {
     const tanksClient = new TanksClient();
 
     function setAuthenticated(value: RefreshResponseDto) {
@@ -72,6 +75,18 @@ export const useAuthStore = create<AuthState>((set) => {
             setError(err);
         } else {
             setError(new InvalidStateError("An exception occured. Please try again later."));
+        }
+    }
+
+    async function getAuthStatus(): Promise<AuthStatusResponseDto> {
+        if (get().user === null) return null;
+
+        setLoading();
+        try {
+            const data = await tanksClient.send(new AuthStatusRequest());
+            return data;
+        } catch (err) {
+            return null;
         }
     }
 
@@ -147,6 +162,7 @@ export const useAuthStore = create<AuthState>((set) => {
         handlePostOAuth2Register,
         handleLogout,
         handleRefresh,
+        getAuthStatus,
         clearError
     }
 })
