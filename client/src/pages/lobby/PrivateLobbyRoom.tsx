@@ -7,6 +7,7 @@ import { useNavigate } from "react-router-dom";
 import useClipboard from "../../hooks/useClipboard.ts";
 import { useScreenStack } from "../../context/ScreenStack.tsx";
 import InvalidStateError from "../../errors/InvalidStateError.ts";
+import { useWebSocketStore } from "../../store/useWebSocketStore.ts";
 
 export default function PrivateLobbyRoom() {
   const { lobbyStatus, error, username, createGame, canStartGame, isHost, hostShareLink, lobbyId, action } = usePrivateLobby();
@@ -109,12 +110,13 @@ export default function PrivateLobbyRoom() {
 
 function LeaveCreatedLobby() {
   const { popScreen } = useScreenStack();
+  const { disconnect } = useWebSocketStore();
 
   return (
     <Button
       color="secondary"
       variant="outline"
-      onClick={() => popScreen()}
+      onClick={() => { disconnect(); popScreen() }}
       className="w-full text-xs font-black select-none"
     >
       Leave Room
@@ -124,11 +126,12 @@ function LeaveCreatedLobby() {
 
 function LeaveJoinedLobby() {
   const navigate = useNavigate();
+  const { disconnect } = useWebSocketStore();
   return (
     <Button
       color="secondary"
       variant="outline"
-      onClick={() => navigate("/", { replace: true })}
+      onClick={() => { disconnect(); navigate("/", { replace: true }) }}
       className="w-full text-xs font-black select-none"
     >
       Leave Room

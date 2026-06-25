@@ -2,6 +2,6 @@ package com.tanks.server.websocket.dto.game;
 
 import java.util.UUID;
 
-public record GameLobbyPayload(UUID id, String playerName) {
+public record GameIdPayload(UUID id, String playerName) {
 }
 
