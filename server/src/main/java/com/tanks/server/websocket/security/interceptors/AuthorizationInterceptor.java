@@ -8,6 +8,7 @@ import com.tanks.server.websocket.security.entites.WebSocketAuthentication;
 import com.tanks.server.websocket.security.entites.WebSocketPrincipal;
 import com.tanks.server.websocket.security.services.GameAuthorizationService;
 import com.tanks.server.websocket.security.services.LobbyAuthorizationService;
+import com.tanks.server.websocket.services.LobbyReconnectService;
 import com.tanks.server.websocket.services.UserSessionService;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.Nullable;
@@ -40,6 +41,8 @@ public class AuthorizationInterceptor implements ChannelInterceptor {
 
     private final GameAuthorizationService gameAuthorizationService;
 
+    private final LobbyReconnectService lobbyReconnectService;
+
     @Override
     public @Nullable Message<?> preSend(Message<?> message, MessageChannel channel) {
 
@@ -56,10 +59,12 @@ public class AuthorizationInterceptor implements ChannelInterceptor {
             try {
                 UserSession userSession = userSessionService.findById(principal.getUserDto().id());
 
-                if(userSession != null && sessionId.equals(userSession.getSocketSessionId())){
+                if(userSession.getSocketSessionId() != null && !sessionId.equals(userSession.getSocketSessionId())){
                     throw new ProblemDetailException(HttpStatus.BAD_REQUEST,"User is already connected", null);
                 }
 
+                userSession.setSocketSessionId(sessionId);
+                userSessionService.save(userSession);
                 principal.setUserSession(userSession);
             }catch (ProblemDetailException ex){
                 // user is connecting for the first time
@@ -92,6 +97,7 @@ public class AuthorizationInterceptor implements ChannelInterceptor {
 
             if (accessor.getDestination().startsWith(TOPIC_LOBBY)) {
                 lobbyAuthorizationService.canJoinTopic(authentication, accessor.getDestination());
+                lobbyReconnectService.markConnected(userSession);
             } else if (accessor.getDestination().startsWith(TOPIC_GAME)) {
                 gameAuthorizationService.canJoinTopic(authentication, accessor.getDestination());
             }

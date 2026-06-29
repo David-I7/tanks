@@ -96,7 +96,7 @@ public class GameSessionService {
     }
 
     public GameSession findById(UUID gameSessionId) {
-        return gameRepository.findById(gameSessionId).orElseThrow(() -> new ProblemDetailException(HttpStatus.INTERNAL_SERVER_ERROR,"Game session not found", URI.create("about:blank")));
+        return gameRepository.findById(gameSessionId).orElseThrow(() -> new ProblemDetailException(HttpStatus.NOT_FOUND,"Game session not found", URI.create("about:blank")));
     }
 
     public GameSession getAndIncrementPlayerCount(UUID gameSessionId){
