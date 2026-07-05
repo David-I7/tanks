@@ -1,14 +1,15 @@
 import { create } from "zustand";
 import TanksWSClient from "../api/ws/TanksWebSocketClient";
 import { useAuthStore } from "./useAuthStore";
-import type ProblemDetailDto from "../api/http/dto/ProblemDetailDto";
+import WebSocketError from "../errors/WebSocketError";
+import InvalidStateError from "../errors/InvalidStateError";
 
 export type ConnectionStatus = "connecting" | "connected" | "disconnecting" | "disconnected";
 
 interface WebSocketState {
   client: TanksWSClient | null;
   status: ConnectionStatus;
-  error: ProblemDetailDto | null;
+  error: WebSocketError | null;
   connect: () => void;
   disconnect: () => void;
   clearError: () => void;
@@ -45,7 +46,7 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => {
       (state === "loading" && accessToken === null) ||
       state === "error"
     ) {
-      throw new Error("User must be authenticated to connect to WebSocket");
+      throw new InvalidStateError("User must be authenticated to connect to WebSocket");
     }
 
     set({ status: "connecting" });
@@ -57,11 +58,14 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => {
     });
 
     newClient.onWebSocketClose(() => {
+      console.log("ON WEBSOCKET CLOSE...")
       set({ status: "disconnected", client: null });
     });
 
     newClient.onStompError((err) => {
-      set({ error: err })
+      const { disconnect } = get();
+      set({ error: new WebSocketError(err) })
+      disconnect();
     })
 
     set({ client: newClient });

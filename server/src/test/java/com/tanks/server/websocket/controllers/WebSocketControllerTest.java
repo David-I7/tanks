@@ -12,6 +12,7 @@ import com.tanks.server.websocket.security.interceptors.JwtAuthenticationInterce
 import com.tanks.server.websocket.security.services.GameAuthorizationService;
 import com.tanks.server.websocket.security.services.LobbyAuthorizationService;
 import com.tanks.server.websocket.services.GameSessionService;
+import com.tanks.server.websocket.services.LobbyReconnectService;
 import com.tanks.server.websocket.services.LobbyService;
 import com.tanks.server.websocket.services.QuickMatchService;
 import com.tanks.server.websocket.services.UserSessionService;
@@ -54,6 +55,9 @@ public class WebSocketControllerTest {
 
     @MockitoBean
     private LobbyService lobbyService;
+
+    @MockitoBean
+    private LobbyReconnectService lobbyReconnectService;
 
     @MockitoBean
     private GameSessionService gameSessionService;

@@ -59,6 +59,7 @@ public class UserSessionService {
     public void transitionToLobby(UserSession userSession, UUID uuid) {
         userSession.setState(UserSessionState.IN_LOBBY);
         userSession.setLobbyId(uuid);
+        userSession.setReconnectDeadlineAt(null);
     }
 
     public void transitionToGame(UserSession userSession, UUID uuid) {
@@ -67,6 +68,7 @@ public class UserSessionService {
         userSession.setState(UserSessionState.IN_GAME);
         userSession.setGameSessionId(uuid);
         userSession.setLobbyId(null);
+        userSession.setReconnectDeadlineAt(null);
     }
 
     public UserSessionStatusDto getUserSessionStatus(Long userId){

@@ -15,6 +15,7 @@ import com.tanks.server.websocket.security.entites.WebSocketAuthentication;
 import com.tanks.server.websocket.security.entites.WebSocketPrincipal;
 import com.tanks.server.websocket.services.GameSessionService;
 import com.tanks.server.websocket.services.LobbyService;
+import com.tanks.server.websocket.services.LobbyReconnectService;
 import com.tanks.server.websocket.services.UserSessionService;
 import com.tanks.server.websocket.events.GameEvent;
 import com.tanks.server.websocket.events.LobbyEvent;
@@ -46,12 +47,15 @@ public class WebSocketEventListeners {
 
     private GameSessionService gameSessionService;
 
+    private LobbyReconnectService lobbyReconnectService;
+
     private UserSessionService userSessionService;
 
 
-    public WebSocketEventListeners(GameSessionService gameSessionService, LobbyService lobbyService, UserSessionService userSessionService, SimpMessagingTemplate simpMessagingTemplate){
+    public WebSocketEventListeners(GameSessionService gameSessionService, LobbyService lobbyService, LobbyReconnectService lobbyReconnectService, UserSessionService userSessionService, SimpMessagingTemplate simpMessagingTemplate){
         this.lobbyService = lobbyService;
         this.gameSessionService = gameSessionService;
+        this.lobbyReconnectService = lobbyReconnectService;
         this.userSessionService = userSessionService;
         this.simpMessagingTemplate = simpMessagingTemplate;
     }
@@ -210,8 +214,7 @@ public class WebSocketEventListeners {
     }
 
     private void handleLobbyDisconnect(UserSession userSession){
-        lobbyService.removeUser(userSession);
-        userSessionService.delete(userSession);
+        lobbyReconnectService.markDisconnected(userSession);
     }
 
     private void handleGameDisconnect(UserSession userSession){

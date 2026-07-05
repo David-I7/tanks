@@ -31,17 +31,6 @@ function GameView() {
     if (status !== "connected") return;
 
     client.subscribe({
-      destination: "/topic/game/:id",
-      id,
-      onMessage: (message) => {
-        if (message.body.type === "GAME_CONNECT") {
-          if (message.body.payload.playerName === user?.username)
-            setConnected(true);
-        }
-      }
-    });
-
-    client.subscribe({
       destination: "/user/queue/errors",
       onMessage: (message) => {
         console.error("Error:", message.body);
@@ -55,6 +44,20 @@ function GameView() {
       }
     })
 
+    client.subscribe({
+      destination: "/topic/game/:id",
+      id,
+      onMessage: (message) => {
+        if (message.body.type === "GAME_CONNECT") {
+          if (message.body.payload.playerName === user?.username)
+            setConnected(true);
+        }
+
+        if (message.body.type === "GAME_STARTED") {
+          console.log("Game started:", message.body.payload);
+        }
+      }
+    });
   }, [client, status])
 
 

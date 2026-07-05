@@ -8,11 +8,13 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.data.redis.core.RedisOperations;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.SessionCallback;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 import java.util.List;
 
 
 @SpringBootApplication
+@EnableScheduling
 public class ServerApplication {
 
 	public static void main(String[] args) {

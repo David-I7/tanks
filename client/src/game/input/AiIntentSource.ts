@@ -1,0 +1,48 @@
+import type { GameSnapshot, PlayerIntent } from "../types";
+
+export class AiIntentSource {
+  private hasQueuedShotForTurn = false;
+  private lastTurnNumber: number | null = null;
+  private thinkingElapsed = 0;
+  private plannedThinkingSeconds = 1.2;
+
+  poll(snapshot: GameSnapshot, playerId: number, dt: number): PlayerIntent[] {
+    if (
+      snapshot.match.phase !== "thinking" ||
+      snapshot.match.activePlayerId !== playerId
+    ) {
+      return [];
+    }
+
+    if (this.lastTurnNumber !== snapshot.match.turnNumber) {
+      this.hasQueuedShotForTurn = false;
+      this.lastTurnNumber = snapshot.match.turnNumber;
+      this.thinkingElapsed = 0;
+      this.plannedThinkingSeconds = 1.15 + Math.random() * 1.35;
+    }
+
+    if (this.hasQueuedShotForTurn) return [];
+    this.thinkingElapsed += dt;
+    if (this.thinkingElapsed < this.plannedThinkingSeconds) return [];
+
+    const self = snapshot.tanks.find(
+      (entry) => entry.tank.playerId === playerId && entry.tank.alive,
+    );
+    const target = snapshot.tanks.find(
+      (entry) => entry.tank.playerId !== playerId && entry.tank.alive,
+    );
+    if (!self || !target) return [];
+
+    this.hasQueuedShotForTurn = true;
+    const dx = target.position.x - self.position.x;
+    const dy = target.position.y - self.position.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    const angle = Math.atan2(dy - 120, dx);
+    const power = Math.max(260, Math.min(distance * 0.72, 620));
+
+    return [
+      { type: "aim", angle, power },
+      { type: "fire", angle, power },
+    ];
+  }
+}
