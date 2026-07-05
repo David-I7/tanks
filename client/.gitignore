@@ -8,10 +8,15 @@ pnpm-debug.log*
 lerna-debug.log*
 
 .agents
+.codex
+docs
+.scratch
+CONTEXT.md
 
 node_modules
 dist
 dist-ssr
+old_src
 *.local
 
 # Editor directories and files

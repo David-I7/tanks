@@ -5,3 +5,9 @@ export type LobbyEventType =
   | "LOBBY_CREATED";
 
 export type LobbyEventPayload = { id: string, playerName: string };
+
+export type LobbyEvent = {
+  sender: string;
+  type: LobbyEventType;
+  payload: LobbyEventPayload;
+}

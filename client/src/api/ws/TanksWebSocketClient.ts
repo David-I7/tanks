@@ -27,6 +27,7 @@ export type PublishParams = {
   | "/app/chat/:id/send"
   | "/app/game/:id/send"
   | "/app/game/create"
+  | "/app/lobby/leave"
   | "/app/lobby/create/private"
   | "/app/lobby/quick-match"
   | "/app/lobby/join/private/:id";
@@ -77,7 +78,7 @@ export default class TanksWSClient {
     this.client = new Client({
       brokerURL: import.meta.env.VITE_BASE_WEBSOCKETS_URL,
       debug: import.meta.env.DEV ? console.log : undefined,
-      reconnectDelay: 5000, // 5 seconds
+      reconnectDelay: 0, // turn off auto reconnect
     });
 
     this.setAccessToken(accessToken);

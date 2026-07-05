@@ -1,0 +1,278 @@
+import { World } from "../ecs/World";
+import { TerrainModel } from "../terrain/TerrainModel";
+import type {
+  EntityId,
+  GameSnapshot,
+  PlayerIntent,
+  ProjectileComponent,
+  TankComponent,
+} from "../types";
+import { getLocalControllerKind } from "../modes";
+import { GRAVITY, getMuzzlePosition } from "./ballistics";
+import { MAX_TANK_FUEL, MAX_TURN_SECONDS, MOVE_FUEL_COST } from "./turnRules";
+
+const TANK_HALF_WIDTH = 22;
+
+export class LocalSimulationAuthority {
+  private transitionTimer = 0;
+
+  constructor(
+    readonly world: World,
+    readonly terrain: TerrainModel,
+  ) {}
+
+  submitIntent(playerId: number, intent: PlayerIntent): boolean {
+    if (
+      this.world.match.phase !== "aiming" &&
+      this.world.match.phase !== "thinking"
+    ) {
+      return false;
+    }
+    if (this.world.match.activePlayerId !== playerId) return false;
+
+    const tankEntityId = this.world.tankEntitiesByPlayer.get(playerId);
+    if (!tankEntityId) return false;
+
+    const tank = this.world.tanks.get(tankEntityId);
+    const position = this.world.positions.get(tankEntityId);
+    if (!tank || !position || !tank.alive) return false;
+
+    if (intent.type === "move") {
+      if (tank.fuel <= 0) return false;
+      const fuelSpend = Math.min(tank.fuel, MOVE_FUEL_COST);
+      const moveDistance = 12 * (fuelSpend / MOVE_FUEL_COST);
+      position.x = Math.max(
+        TANK_HALF_WIDTH,
+        Math.min(
+          this.terrain.width - TANK_HALF_WIDTH,
+          position.x + intent.direction * moveDistance,
+        ),
+      );
+      tank.fuel -= fuelSpend;
+      position.y = this.terrain.getSurfaceY(position.x);
+      tank.bodyAngle = this.terrain.getSlopeAngle(position.x);
+      return true;
+    }
+
+    tank.aimAngle = intent.angle;
+    tank.power = Math.max(120, Math.min(intent.power, 680));
+
+    if (intent.type === "fire") {
+      this.spawnProjectile(tank, position.x, position.y);
+      this.world.match.phase = "ballistics";
+      this.world.match.turnTimeRemaining = 0;
+    }
+
+    return true;
+  }
+
+  update(dt: number): void {
+    if (
+      this.world.match.phase === "aiming" ||
+      this.world.match.phase === "thinking"
+    ) {
+      if (this.updateTurnTimer(dt)) return;
+    }
+
+    if (this.world.match.phase === "ballistics") {
+      this.updateProjectiles(dt);
+    }
+
+    if (this.world.match.phase === "transition") {
+      this.transitionTimer += dt;
+      if (this.transitionTimer >= 0.55) {
+        this.transitionTimer = 0;
+        this.advanceTurn();
+      }
+    }
+
+    this.updateTankGrounding();
+    this.updateWinner();
+  }
+
+  snapshot(): GameSnapshot {
+    return {
+      match: { ...this.world.match },
+      terrain: this.terrain.cloneSurface(),
+      tanks: [...this.world.tanks].map(([entityId, tank]) => ({
+        entityId,
+        position: { ...this.world.positions.get(entityId)! },
+        tank: { ...tank },
+      })),
+      projectiles: [...this.world.projectiles].map(
+        ([entityId, projectile]) => ({
+          entityId,
+          position: { ...this.world.positions.get(entityId)! },
+          velocity: { ...this.world.velocities.get(entityId)! },
+          projectile: { ...projectile },
+        }),
+      ),
+    };
+  }
+
+  private spawnProjectile(
+    tank: TankComponent,
+    tankX: number,
+    tankY: number,
+  ): void {
+    const muzzle = getMuzzlePosition(tankX, tankY, tank.aimAngle);
+    this.world.createProjectile(
+      tank.playerId,
+      muzzle.x,
+      muzzle.y,
+      Math.cos(tank.aimAngle) * tank.power,
+      Math.sin(tank.aimAngle) * tank.power,
+    );
+  }
+
+  private updateProjectiles(dt: number): void {
+    const projectiles = [...this.world.projectiles];
+
+    for (const [entityId, projectile] of projectiles) {
+      const position = this.world.positions.get(entityId);
+      const velocity = this.world.velocities.get(entityId);
+      if (!position || !velocity) continue;
+
+      velocity.y += GRAVITY * dt;
+      position.x += velocity.x * dt;
+      position.y += velocity.y * dt;
+
+      const hitTankEntityId = this.findHitTank(entityId, projectile);
+      const hitTerrain = this.terrain.intersectsCircle(
+        position.x,
+        position.y,
+        projectile.radius,
+      );
+      const outOfBounds =
+        position.y > this.terrain.height ||
+        position.x < 0 ||
+        position.x > this.terrain.width;
+
+      if (hitTankEntityId !== null || hitTerrain || outOfBounds) {
+        if (!outOfBounds) {
+          this.resolveImpact(position.x, position.y, projectile);
+        }
+        this.world.destroyEntity(entityId);
+        this.world.match.phase = "transition";
+      }
+    }
+  }
+
+  private findHitTank(
+    projectileEntityId: EntityId,
+    projectile: ProjectileComponent,
+  ): EntityId | null {
+    const projectilePosition = this.world.positions.get(projectileEntityId);
+    if (!projectilePosition) return null;
+
+    for (const [tankEntityId, tank] of this.world.tanks) {
+      if (tank.playerId === projectile.ownerPlayerId || !tank.alive) continue;
+      const tankPosition = this.world.positions.get(tankEntityId);
+      if (!tankPosition) continue;
+
+      const dx = projectilePosition.x - tankPosition.x;
+      const dy = projectilePosition.y - (tankPosition.y - 20);
+      if (Math.sqrt(dx * dx + dy * dy) <= 28 + projectile.radius) {
+        return tankEntityId;
+      }
+    }
+
+    return null;
+  }
+
+  private resolveImpact(
+    x: number,
+    y: number,
+    projectile: ProjectileComponent,
+  ): void {
+    this.terrain.deform(x, y, projectile.blastRadius);
+
+    for (const [entityId, tank] of this.world.tanks) {
+      if (!tank.alive) continue;
+      const position = this.world.positions.get(entityId);
+      if (!position) continue;
+
+      const dx = x - position.x;
+      const dy = y - (position.y - 18);
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      if (distance > projectile.blastRadius) continue;
+
+      const falloff = 1 - distance / projectile.blastRadius;
+      tank.health = Math.max(
+        0,
+        tank.health - Math.ceil(projectile.damage * falloff),
+      );
+      tank.alive = tank.health > 0;
+    }
+  }
+
+  private updateTankGrounding(): void {
+    for (const [entityId, tank] of this.world.tanks) {
+      const position = this.world.positions.get(entityId);
+      if (!position || !tank.alive) continue;
+      position.y = this.terrain.getSurfaceY(position.x);
+      tank.bodyAngle = this.terrain.getSlopeAngle(position.x);
+    }
+  }
+
+  private updateWinner(): void {
+    const aliveTanks = [...this.world.tanks.values()].filter(
+      (tank) => tank.alive,
+    );
+    if (aliveTanks.length === 1) {
+      this.world.match.winnerPlayerId = aliveTanks[0]?.playerId ?? null;
+      this.world.match.phase = "gameOver";
+    }
+  }
+
+  private advanceTurn(): void {
+    for (let step = 1; step <= this.world.match.playerCount; step += 1) {
+      const nextPlayerId =
+        (this.world.match.activePlayerId + step) % this.world.match.playerCount;
+      const nextTankEntityId =
+        this.world.tankEntitiesByPlayer.get(nextPlayerId);
+      const nextTank = nextTankEntityId
+        ? this.world.tanks.get(nextTankEntityId)
+        : null;
+      if (nextTank?.alive) {
+        this.world.match.activePlayerId = nextPlayerId;
+        this.world.match.turnNumber += 1;
+        this.world.match.turnTimeRemaining = MAX_TURN_SECONDS;
+        nextTank.fuel = MAX_TANK_FUEL;
+        this.world.match.phase =
+          getLocalControllerKind(this.world.match.mode, nextPlayerId) === "ai"
+            ? "thinking"
+            : "aiming";
+        return;
+      }
+    }
+
+    this.world.match.phase = "gameOver";
+  }
+
+  private updateTurnTimer(dt: number): boolean {
+    this.world.match.turnTimeRemaining = Math.max(
+      0,
+      this.world.match.turnTimeRemaining - dt,
+    );
+
+    if (this.world.match.turnTimeRemaining > 0) return false;
+
+    const activeTankEntityId = this.world.getActiveTankEntity();
+    const tank = activeTankEntityId
+      ? this.world.tanks.get(activeTankEntityId)
+      : null;
+    const position = activeTankEntityId
+      ? this.world.positions.get(activeTankEntityId)
+      : null;
+
+    if (!tank || !position || !tank.alive) {
+      this.world.match.phase = "transition";
+      return true;
+    }
+
+    this.spawnProjectile(tank, position.x, position.y);
+    this.world.match.phase = "ballistics";
+    return true;
+  }
+}

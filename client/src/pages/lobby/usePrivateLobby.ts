@@ -99,18 +99,19 @@ export default function usePrivateLobby() {
     }
   }, [status, lobbyStatus]);
 
-  useEffect(() => {
-    if (wsError) {
-      setError(new ApiError(wsError, wsError.status));
-    }
-  }, [wsError]);
-
   const createGame = () => {
     if (isHost && playerCount === 2) {
       client?.publish({
         destination: "/app/game/create"
       })
     };
+  }
+
+  const leaveGame = () => {
+    if (lobbyStatus === "connected") {
+      client?.publish({ destination: "/app/lobby/leave" })
+      setLobbyStatus("disconnected")
+    }
   }
 
   return { action, lobbyStatus, error, lobbyId, username: user?.username || "", hostShareLink: isHost && lobbyId ? `${window.location.origin}/lobby/${lobbyId}` : null, canStartGame: isHost && playerCount === 2, isHost, playerCount, createGame };
