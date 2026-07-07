@@ -1,8 +1,9 @@
-import type { GameSnapshot, PlayerIntent } from "../types";
+import type { GameSnapshot, RemotePlayerIntent } from "../types";
 
 export type RemoteGameTransport = {
-  sendIntent(intent: PlayerIntent): void;
+  sendIntent(intent: RemotePlayerIntent): void;
   onSnapshot(listener: (snapshot: GameSnapshot) => void): () => void;
+  destroy?(): void;
 };
 
 export class RemoteSimulationAuthority {
@@ -15,7 +16,7 @@ export class RemoteSimulationAuthority {
     });
   }
 
-  submitIntent(intent: PlayerIntent): boolean {
+  submitIntent(intent: RemotePlayerIntent): boolean {
     this.transport.sendIntent(intent);
     return true;
   }
@@ -27,5 +28,6 @@ export class RemoteSimulationAuthority {
   destroy(): void {
     this.unsubscribe?.();
     this.unsubscribe = null;
+    this.transport.destroy?.();
   }
 }

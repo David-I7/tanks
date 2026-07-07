@@ -18,7 +18,10 @@ export default function OnlineMenu() {
         (async () => {
             const status = await getAuthStatus();
 
-            if (status.userSessionStatus === null || status.userSessionStatus.state !== "IN_GAME") {
+            if (
+                status?.userSessionStatus === null ||
+                status?.userSessionStatus?.state !== "IN_GAME"
+            ) {
                 setGameId(null);
             } else setGameId(status.userSessionStatus.gameId);
         })();

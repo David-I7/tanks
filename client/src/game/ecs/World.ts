@@ -3,8 +3,12 @@ import type {
   LifetimeComponent,
   MatchState,
   PositionComponent,
+  ProjectileDefinition,
   ProjectileComponent,
   TankComponent,
+  TankDefinition,
+  MatchSetupPlayer,
+  ImpactEvent,
   VelocityComponent,
 } from "../types";
 import { MAX_TANK_FUEL } from "../simulation/turnRules";
@@ -16,8 +20,10 @@ export class World {
   readonly tanks = new Map<EntityId, TankComponent>();
   readonly projectiles = new Map<EntityId, ProjectileComponent>();
   readonly lifetimes = new Map<EntityId, LifetimeComponent>();
+  readonly impactEvents = new Map<number, ImpactEvent>();
 
   readonly tankEntitiesByPlayer = new Map<number, EntityId>();
+  private nextImpactEventId = 1;
 
   constructor(public match: MatchState) {}
 
@@ -41,37 +47,72 @@ export class World {
     }
   }
 
-  createTank(playerId: number, x: number, y: number): EntityId {
+  createTank(player: MatchSetupPlayer, tankDefinition: TankDefinition, x: number, y: number): EntityId {
     const entityId = this.createEntity();
     this.positions.set(entityId, { x, y });
+    const defaultSlot = tankDefinition.loadout[0];
+    if (!defaultSlot) {
+      throw new Error(`Tank definition "${tankDefinition.id}" has no projectile slots`);
+    }
     this.tanks.set(entityId, {
-      playerId,
-      maxHealth: 100,
-      health: 100,
-      facing: playerId === 0 ? 1 : -1,
+      playerId: player.id,
+      displayName: player.displayName,
+      controllerKind: player.controllerKind,
+      tankDefinitionId: tankDefinition.id,
+      tankName: tankDefinition.name,
+      visual: { ...tankDefinition.visual },
+      loadout: tankDefinition.loadout.map((slot) => ({ ...slot })),
+      selectedProjectileSlotId: defaultSlot.id,
+      maxHealth: tankDefinition.maxHealth,
+      health: tankDefinition.maxHealth,
+      facing: player.id === 0 ? 1 : -1,
       bodyAngle: 0,
-      aimAngle: playerId === 0 ? -Math.PI / 4 : -Math.PI * 0.75,
+      aimAngle: player.id === 0 ? -Math.PI / 4 : -Math.PI * 0.75,
       power: 360,
       maxFuel: MAX_TANK_FUEL,
       fuel: MAX_TANK_FUEL,
       alive: true,
     });
-    this.tankEntitiesByPlayer.set(playerId, entityId);
+    this.tankEntitiesByPlayer.set(player.id, entityId);
     return entityId;
   }
 
-  createProjectile(ownerPlayerId: number, x: number, y: number, vx: number, vy: number): EntityId {
+  createProjectile(ownerPlayerId: number, projectileDefinition: ProjectileDefinition, power: number, x: number, y: number, vx: number, vy: number): EntityId {
     const entityId = this.createEntity();
     this.positions.set(entityId, { x, y });
     this.velocities.set(entityId, { x: vx, y: vy });
     this.projectiles.set(entityId, {
       ownerPlayerId,
-      radius: 4,
-      blastRadius: 46,
-      damage: 50,
+      projectileDefinitionId: projectileDefinition.id,
+      name: projectileDefinition.name,
+      power,
+      radius: projectileDefinition.physics.radius,
+      physics: { ...projectileDefinition.physics },
+      terrainEffect: { ...projectileDefinition.terrainEffect },
+      damageEffect: { ...projectileDefinition.damageEffect },
+      impactAnimationId: projectileDefinition.impactAnimationId,
+      impactDuration: projectileDefinition.impactDuration,
+      visual: { ...projectileDefinition.visual },
     });
     this.lifetimes.set(entityId, { active: true });
     return entityId;
+  }
+
+  createImpactEvent(
+    x: number,
+    y: number,
+    projectile: ProjectileComponent,
+  ): void {
+    const id = this.nextImpactEventId;
+    this.nextImpactEventId += 1;
+    this.impactEvents.set(id, {
+      id,
+      position: { x, y },
+      animationId: projectile.impactAnimationId,
+      age: 0,
+      duration: projectile.impactDuration,
+      visual: { ...projectile.visual },
+    });
   }
 
   getActiveTankEntity(): EntityId | null {

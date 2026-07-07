@@ -39,10 +39,15 @@ export class AiIntentSource {
     const distance = Math.sqrt(dx * dx + dy * dy);
     const angle = Math.atan2(dy - 120, dx);
     const power = Math.max(260, Math.min(distance * 0.72, 620));
+    const projectileSlotId =
+      self.tank.loadout[
+        Math.min(self.tank.loadout.length - 1, snapshot.match.turnNumber % 3)
+      ]?.id ?? self.tank.selectedProjectileSlotId;
 
     return [
+      { type: "selectProjectileSlot", projectileSlotId },
       { type: "aim", angle, power },
-      { type: "fire", angle, power },
+      { type: "fire", angle, power, projectileSlotId },
     ];
   }
 }

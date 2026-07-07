@@ -9,7 +9,7 @@ import { useWebSocketStore, type ConnectionStatus } from "../../store/useWebSock
 import { useAuthStore } from "../../store/useAuthStore";
 
 export default function usePrivateLobby() {
-  const { client, status, connect, error: wsError } = useWebSocketStore();
+  const { client, status, connect } = useWebSocketStore();
   const user = useAuthStore(state => state.user);
   const navigate = useNavigate();
   const { id: urlLobbyId } = useParams();
@@ -105,13 +105,6 @@ export default function usePrivateLobby() {
         destination: "/app/game/create"
       })
     };
-  }
-
-  const leaveGame = () => {
-    if (lobbyStatus === "connected") {
-      client?.publish({ destination: "/app/lobby/leave" })
-      setLobbyStatus("disconnected")
-    }
   }
 
   return { action, lobbyStatus, error, lobbyId, username: user?.username || "", hostShareLink: isHost && lobbyId ? `${window.location.origin}/lobby/${lobbyId}` : null, canStartGame: isHost && playerCount === 2, isHost, playerCount, createGame };

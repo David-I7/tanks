@@ -1,15 +1,20 @@
 import type { PlayerIntent } from "../types";
 import type { GameSnapshot } from "../types";
 import { calculateAimIntent } from "./aimMath";
+import { findProjectileSlotAtCanvasPoint } from "./projectileSelectorHitTest";
 
 export class CanvasInputSource {
   private readonly pressedKeys = new Set<string>();
-  private pendingFire = false;
+  private pendingPointerDown: { clientX: number; clientY: number } | null = null;
+  private pendingSlotNumber: number | null = null;
   private pointer = { clientX: 0, clientY: 0 };
   private active = true;
 
   private readonly onKeyDown = (event: KeyboardEvent) => {
     this.pressedKeys.add(event.key);
+    if (/^[1-5]$/.test(event.key)) {
+      this.pendingSlotNumber = Number(event.key);
+    }
   };
 
   private readonly onKeyUp = (event: KeyboardEvent) => {
@@ -23,8 +28,11 @@ export class CanvasInputSource {
     };
   };
 
-  private readonly onPointerDown = () => {
-    this.pendingFire = true;
+  private readonly onPointerDown = (event: PointerEvent) => {
+    this.pendingPointerDown = {
+      clientX: event.clientX,
+      clientY: event.clientY,
+    };
   };
 
   constructor(private readonly canvas: HTMLCanvasElement) {
@@ -51,9 +59,41 @@ export class CanvasInputSource {
       intents.push({ type: "move", direction: left ? -1 : 1 });
     }
 
+    const activeTank = snapshot.tanks.find(
+      (entry) => entry.tank.playerId === snapshot.match.activePlayerId,
+    );
+    if (this.pendingSlotNumber !== null && activeTank) {
+      const slot = activeTank.tank.loadout[this.pendingSlotNumber - 1];
+      if (slot) {
+        intents.push({
+          type: "selectProjectileSlot",
+          projectileSlotId: slot.id,
+        });
+      }
+    }
+
+    const rect = this.canvas.getBoundingClientRect();
+    if (this.pendingPointerDown) {
+      const scaleX = this.canvas.width / rect.width;
+      const scaleY = this.canvas.height / rect.height;
+      const selectedSlotId = findProjectileSlotAtCanvasPoint(
+        snapshot,
+        this.canvas.width,
+        this.canvas.height,
+        (this.pendingPointerDown.clientX - rect.left) * scaleX,
+        (this.pendingPointerDown.clientY - rect.top) * scaleY,
+      );
+      if (selectedSlotId) {
+        intents.push({
+          type: "selectProjectileSlot",
+          projectileSlotId: selectedSlotId,
+        });
+      }
+    }
+
     const aim = calculateAimIntent({
       ...this.pointer,
-      rect: this.canvas.getBoundingClientRect(),
+      rect,
       canvasWidth: this.canvas.width,
       canvasHeight: this.canvas.height,
       cameraX,
@@ -63,12 +103,32 @@ export class CanvasInputSource {
     if (aim) {
       intents.push(aim);
 
-      if (this.pendingFire) {
-        intents.push({ type: "fire", angle: aim.angle, power: aim.power });
+      if (this.pendingPointerDown) {
+        const scaleX = this.canvas.width / rect.width;
+        const scaleY = this.canvas.height / rect.height;
+        const clickedSlotId = findProjectileSlotAtCanvasPoint(
+          snapshot,
+          this.canvas.width,
+          this.canvas.height,
+          (this.pendingPointerDown.clientX - rect.left) * scaleX,
+          (this.pendingPointerDown.clientY - rect.top) * scaleY,
+        );
+        const projectileSlotId =
+          activeTank?.tank.selectedProjectileSlotId ??
+          activeTank?.tank.loadout[0]?.id;
+        if (projectileSlotId && !clickedSlotId) {
+          intents.push({
+            type: "fire",
+            angle: aim.angle,
+            power: aim.power,
+            projectileSlotId,
+          });
+        }
       }
     }
 
-    this.pendingFire = false;
+    this.pendingPointerDown = null;
+    this.pendingSlotNumber = null;
 
     return intents;
   }

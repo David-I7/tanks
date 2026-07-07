@@ -12,6 +12,9 @@ lerna-debug.log*
 docs
 .scratch
 CONTEXT.md
+tests
+scripts
+Gameplay.md
 
 node_modules
 dist

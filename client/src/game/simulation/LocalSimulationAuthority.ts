@@ -1,17 +1,21 @@
 import { World } from "../ecs/World";
 import { TerrainModel } from "../terrain/TerrainModel";
 import type {
+  DamageEffect,
   EntityId,
   GameSnapshot,
   PlayerIntent,
   ProjectileComponent,
+  ProjectileDefinition,
   TankComponent,
 } from "../types";
+import type { GameContent } from "../content/mockGameContent";
 import { getLocalControllerKind } from "../modes";
 import { GRAVITY, getMuzzlePosition } from "./ballistics";
 import { MAX_TANK_FUEL, MAX_TURN_SECONDS, MOVE_FUEL_COST } from "./turnRules";
 
 const TANK_HALF_WIDTH = 22;
+const TANK_MOVE_STEP = 2;
 
 export class LocalSimulationAuthority {
   private transitionTimer = 0;
@@ -19,6 +23,7 @@ export class LocalSimulationAuthority {
   constructor(
     readonly world: World,
     readonly terrain: TerrainModel,
+    readonly content: GameContent,
   ) {}
 
   submitIntent(playerId: number, intent: PlayerIntent): boolean {
@@ -40,7 +45,7 @@ export class LocalSimulationAuthority {
     if (intent.type === "move") {
       if (tank.fuel <= 0) return false;
       const fuelSpend = Math.min(tank.fuel, MOVE_FUEL_COST);
-      const moveDistance = 12 * (fuelSpend / MOVE_FUEL_COST);
+      const moveDistance = TANK_MOVE_STEP * (fuelSpend / MOVE_FUEL_COST);
       position.x = Math.max(
         TANK_HALF_WIDTH,
         Math.min(
@@ -54,11 +59,25 @@ export class LocalSimulationAuthority {
       return true;
     }
 
+    if (intent.type === "selectProjectileSlot") {
+      if (!this.resolveProjectileDefinition(tank, intent.projectileSlotId)) {
+        return false;
+      }
+      tank.selectedProjectileSlotId = intent.projectileSlotId;
+      return true;
+    }
+
     tank.aimAngle = intent.angle;
     tank.power = Math.max(120, Math.min(intent.power, 680));
 
     if (intent.type === "fire") {
-      this.spawnProjectile(tank, position.x, position.y);
+      const projectileDefinition = this.resolveProjectileDefinition(
+        tank,
+        intent.projectileSlotId,
+      );
+      if (!projectileDefinition) return false;
+      tank.selectedProjectileSlotId = intent.projectileSlotId;
+      this.spawnProjectile(tank, projectileDefinition, position.x, position.y);
       this.world.match.phase = "ballistics";
       this.world.match.turnTimeRemaining = 0;
     }
@@ -78,6 +97,13 @@ export class LocalSimulationAuthority {
       this.updateProjectiles(dt);
     }
 
+    if (this.world.match.phase === "impact") {
+      this.updateImpactEvents(dt);
+      if (this.world.impactEvents.size === 0) {
+        this.world.match.phase = "transition";
+      }
+    }
+
     if (this.world.match.phase === "transition") {
       this.transitionTimer += dt;
       if (this.transitionTimer >= 0.55) {
@@ -93,7 +119,19 @@ export class LocalSimulationAuthority {
   snapshot(): GameSnapshot {
     return {
       match: { ...this.world.match },
-      terrain: this.terrain.cloneSurface(),
+      terrain: this.terrain.snapshot(),
+      projectileDefinitions: Object.fromEntries(
+        Object.entries(this.content.projectiles).map(([id, definition]) => [
+          id,
+          {
+            ...definition,
+            physics: { ...definition.physics },
+            terrainEffect: { ...definition.terrainEffect },
+            damageEffect: { ...definition.damageEffect },
+            visual: { ...definition.visual },
+          },
+        ]),
+      ),
       tanks: [...this.world.tanks].map(([entityId, tank]) => ({
         entityId,
         position: { ...this.world.positions.get(entityId)! },
@@ -107,21 +145,30 @@ export class LocalSimulationAuthority {
           projectile: { ...projectile },
         }),
       ),
+      impactEvents: [...this.world.impactEvents.values()].map((event) => ({
+        ...event,
+        position: { ...event.position },
+        visual: { ...event.visual },
+      })),
     };
   }
 
   private spawnProjectile(
     tank: TankComponent,
+    projectileDefinition: ProjectileDefinition,
     tankX: number,
     tankY: number,
   ): void {
     const muzzle = getMuzzlePosition(tankX, tankY, tank.aimAngle);
+    const speedScale = projectileDefinition.physics.muzzleVelocityScale;
     this.world.createProjectile(
       tank.playerId,
+      projectileDefinition,
+      tank.power,
       muzzle.x,
       muzzle.y,
-      Math.cos(tank.aimAngle) * tank.power,
-      Math.sin(tank.aimAngle) * tank.power,
+      Math.cos(tank.aimAngle) * tank.power * speedScale,
+      Math.sin(tank.aimAngle) * tank.power * speedScale,
     );
   }
 
@@ -133,7 +180,9 @@ export class LocalSimulationAuthority {
       const velocity = this.world.velocities.get(entityId);
       if (!position || !velocity) continue;
 
-      velocity.y += GRAVITY * dt;
+      velocity.x *= Math.max(0, 1 - projectile.physics.drag * dt);
+      velocity.y *= Math.max(0, 1 - projectile.physics.drag * dt);
+      velocity.y += GRAVITY * projectile.physics.gravityScale * dt;
       position.x += velocity.x * dt;
       position.y += velocity.y * dt;
 
@@ -153,7 +202,8 @@ export class LocalSimulationAuthority {
           this.resolveImpact(position.x, position.y, projectile);
         }
         this.world.destroyEntity(entityId);
-        this.world.match.phase = "transition";
+        this.world.match.phase =
+          this.world.impactEvents.size > 0 ? "impact" : "transition";
       }
     }
   }
@@ -185,7 +235,17 @@ export class LocalSimulationAuthority {
     y: number,
     projectile: ProjectileComponent,
   ): void {
-    this.terrain.deform(x, y, projectile.blastRadius);
+    this.terrain.applyTerrainEffect(x, y, projectile.terrainEffect);
+    this.world.createImpactEvent(x, y, projectile);
+    this.applyDamageEffect(x, y, projectile.damageEffect);
+  }
+
+  private applyDamageEffect(
+    x: number,
+    y: number,
+    damageEffect: DamageEffect,
+  ): void {
+    const damageRadius = damageEffect.radius;
 
     for (const [entityId, tank] of this.world.tanks) {
       if (!tank.alive) continue;
@@ -195,12 +255,15 @@ export class LocalSimulationAuthority {
       const dx = x - position.x;
       const dy = y - (position.y - 18);
       const distance = Math.sqrt(dx * dx + dy * dy);
-      if (distance > projectile.blastRadius) continue;
+      if (distance > damageRadius) continue;
 
-      const falloff = 1 - distance / projectile.blastRadius;
+      const falloff =
+        damageEffect.type === "focused"
+          ? Math.max(0, 1 - distance / damageRadius) ** 2
+          : 1 - distance / damageRadius;
       tank.health = Math.max(
         0,
-        tank.health - Math.ceil(projectile.damage * falloff),
+        tank.health - Math.ceil(damageEffect.damage * falloff),
       );
       tank.alive = tank.health > 0;
     }
@@ -271,8 +334,34 @@ export class LocalSimulationAuthority {
       return true;
     }
 
-    this.spawnProjectile(tank, position.x, position.y);
+    const projectileDefinition = this.resolveProjectileDefinition(
+      tank,
+      tank.selectedProjectileSlotId,
+    );
+    if (!projectileDefinition) {
+      this.world.match.phase = "transition";
+      return true;
+    }
+    this.spawnProjectile(tank, projectileDefinition, position.x, position.y);
     this.world.match.phase = "ballistics";
     return true;
+  }
+
+  private resolveProjectileDefinition(
+    tank: TankComponent,
+    projectileSlotId: string,
+  ): ProjectileDefinition | null {
+    const slot = tank.loadout.find((entry) => entry.id === projectileSlotId);
+    if (!slot) return null;
+    return this.content.projectiles[slot.projectileDefinitionId] ?? null;
+  }
+
+  private updateImpactEvents(dt: number): void {
+    for (const [id, event] of this.world.impactEvents) {
+      event.age += dt;
+      if (event.age >= event.duration) {
+        this.world.impactEvents.delete(id);
+      }
+    }
   }
 }

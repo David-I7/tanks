@@ -29,9 +29,27 @@ export function simulateTrajectoryPreview(
     activeTank.position.y,
     activeTank.tank.aimAngle,
   );
+  const slot = activeTank.tank.loadout.find(
+    (entry) => entry.id === activeTank.tank.selectedProjectileSlotId,
+  );
+  const projectileDefinition = slot
+    ? snapshot.projectileDefinitions[slot.projectileDefinitionId]
+    : null;
+  const physics = projectileDefinition?.physics ?? {
+    radius: 4,
+    gravityScale: 1,
+    drag: 0,
+    muzzleVelocityScale: 1,
+  };
   const velocity = {
-    x: Math.cos(activeTank.tank.aimAngle) * activeTank.tank.power,
-    y: Math.sin(activeTank.tank.aimAngle) * activeTank.tank.power,
+    x:
+      Math.cos(activeTank.tank.aimAngle) *
+      activeTank.tank.power *
+      physics.muzzleVelocityScale,
+    y:
+      Math.sin(activeTank.tank.aimAngle) *
+      activeTank.tank.power *
+      physics.muzzleVelocityScale,
   };
   const points: TrajectoryPoint[] = [];
   const dt = 1 / 18;
@@ -41,15 +59,27 @@ export function simulateTrajectoryPreview(
   let vy = velocity.y;
 
   for (let i = 0; i < maxPoints; i += 1) {
-    vy += GRAVITY * dt;
+    vx *= Math.max(0, 1 - physics.drag * dt);
+    vy *= Math.max(0, 1 - physics.drag * dt);
+    vy += GRAVITY * physics.gravityScale * dt;
     x += vx * dt;
     y += vy * dt;
 
-    if (x < 0 || x >= snapshot.terrain.length || y > Math.max(...snapshot.terrain)) break;
+    if (
+      snapshot.terrain.kind !== "heightmap" ||
+      x < 0 ||
+      x >= snapshot.terrain.width ||
+      y > snapshot.terrain.height
+    ) {
+      break;
+    }
     points.push({ x, y });
 
-    const surfaceY = snapshot.terrain[Math.max(0, Math.min(snapshot.terrain.length - 1, Math.floor(x)))] ?? Infinity;
-    if (y >= surfaceY) break;
+    const surfaceY =
+      snapshot.terrain.surface[
+        Math.max(0, Math.min(snapshot.terrain.width - 1, Math.floor(x)))
+      ] ?? Infinity;
+    if (y + physics.radius >= surfaceY) break;
   }
 
   return points;
