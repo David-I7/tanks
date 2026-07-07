@@ -33,7 +33,7 @@ type AuthState = {
     ): Promise<void>;
     handlePostOAuth2Login(loginRequest: PostOauth2LoginRequestDto): Promise<void>;
     handleRefresh: () => Promise<RefreshResponseDto>;
-    getAuthStatus: () => Promise<AuthStatusResponseDto>;
+    getAuthStatus: () => Promise<AuthStatusResponseDto | null>;
     clearError: () => void;
 };
 
@@ -78,7 +78,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
         }
     }
 
-    async function getAuthStatus(): Promise<AuthStatusResponseDto> {
+    async function getAuthStatus(): Promise<AuthStatusResponseDto | null> {
         if (get().user === null) return null;
 
         setLoading();

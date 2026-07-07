@@ -2,10 +2,27 @@ export type EntityId = number;
 
 export type GameMode = "online" | "twoPlayer" | "ai" | "singlePlayer";
 
+export type ControllerKind = "human" | "ai" | "remote";
+
+export type ProjectileSlotId = string;
+export type ProjectileDefinitionId = string;
+export type TankDefinitionId = string;
+
 export type PlayerIntent =
   | { type: "move"; direction: -1 | 0 | 1 }
   | { type: "aim"; angle: number; power: number }
-  | { type: "fire"; angle: number; power: number };
+  | { type: "selectProjectileSlot"; projectileSlotId: ProjectileSlotId }
+  | {
+      type: "fire";
+      angle: number;
+      power: number;
+      projectileSlotId: ProjectileSlotId;
+    };
+
+export type RemotePlayerIntent = {
+  playerId: number;
+  intent: PlayerIntent;
+};
 
 export type TurnPhase =
   | "aiming"
@@ -20,12 +37,82 @@ export type Vec2 = {
   y: number;
 };
 
+export type VisualIdentity = {
+  fill: string;
+  stroke: string;
+  accent: string;
+  label: string;
+};
+
+export type ProjectilePhysics = {
+  radius: number;
+  gravityScale: number;
+  drag: number;
+  muzzleVelocityScale: number;
+};
+
+export type TerrainEffect =
+  | { type: "crater"; radius: number }
+  | { type: "drill"; radius: number; depth: number };
+
+export type DamageEffect =
+  | { type: "radial"; radius: number; damage: number }
+  | { type: "focused"; radius: number; damage: number };
+
+export type ProjectileDefinition = {
+  id: ProjectileDefinitionId;
+  name: string;
+  physics: ProjectilePhysics;
+  terrainEffect: TerrainEffect;
+  damageEffect: DamageEffect;
+  impactAnimationId: string;
+  impactDuration: number;
+  visual: VisualIdentity;
+};
+
+export type ProjectileSlot = {
+  id: ProjectileSlotId;
+  projectileDefinitionId: ProjectileDefinitionId;
+  label: string;
+};
+
+export type TankDefinition = {
+  id: TankDefinitionId;
+  name: string;
+  maxHealth: number;
+  loadout: ProjectileSlot[];
+  visual: VisualIdentity;
+};
+
+export type TankSelection = {
+  tankDefinitionId: TankDefinitionId;
+};
+
+export type MatchSetupPlayer = {
+  id: number;
+  displayName: string;
+  controllerKind: ControllerKind;
+  tankSelection: TankSelection;
+};
+
+export type MatchSetup = {
+  mode: GameMode;
+  players: MatchSetupPlayer[];
+};
+
 export type PositionComponent = Vec2;
 
 export type VelocityComponent = Vec2;
 
 export type TankComponent = {
   playerId: number;
+  displayName: string;
+  controllerKind: ControllerKind;
+  tankDefinitionId: TankDefinitionId;
+  tankName: string;
+  visual: VisualIdentity;
+  loadout: ProjectileSlot[];
+  selectedProjectileSlotId: ProjectileSlotId;
   maxHealth: number;
   health: number;
   facing: 1 | -1;
@@ -39,9 +126,25 @@ export type TankComponent = {
 
 export type ProjectileComponent = {
   ownerPlayerId: number;
+  projectileDefinitionId: ProjectileDefinitionId;
+  name: string;
+  power: number;
   radius: number;
-  blastRadius: number;
-  damage: number;
+  physics: ProjectilePhysics;
+  terrainEffect: TerrainEffect;
+  damageEffect: DamageEffect;
+  impactAnimationId: string;
+  impactDuration: number;
+  visual: VisualIdentity;
+};
+
+export type ImpactEvent = {
+  id: number;
+  position: Vec2;
+  animationId: string;
+  age: number;
+  duration: number;
+  visual: VisualIdentity;
 };
 
 export type LifetimeComponent = {
@@ -58,9 +161,26 @@ export type MatchState = {
   winnerPlayerId: number | null;
 };
 
+export type HeightmapTerrainSnapshot = {
+  kind: "heightmap";
+  width: number;
+  height: number;
+  surface: number[];
+};
+
+export type MaskTerrainSnapshot = {
+  kind: "mask";
+  width: number;
+  height: number;
+  solid: Uint8Array;
+};
+
+export type TerrainSnapshot = HeightmapTerrainSnapshot | MaskTerrainSnapshot;
+
 export type GameSnapshot = {
   match: MatchState;
-  terrain: number[];
+  terrain: TerrainSnapshot;
+  projectileDefinitions: Record<string, ProjectileDefinition>;
   tanks: Array<{
     entityId: EntityId;
     position: PositionComponent;
@@ -72,4 +192,11 @@ export type GameSnapshot = {
     velocity: VelocityComponent;
     projectile: ProjectileComponent;
   }>;
+  impactEvents: ImpactEvent[];
+};
+
+export type GameAssets = {
+  images: {
+    tank: HTMLImageElement;
+  };
 };

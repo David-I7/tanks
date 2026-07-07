@@ -1,7 +1,12 @@
 import { Bot, Monitor, Radio } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { GameEngine, type GameMode, type RemoteGameTransport } from "../../game";
-import tankImageUrl from "../../assets/graphics/tank.png";
+import {
+  GameEngine,
+  type GameMode,
+} from "../../game";
+import { createMockRemoteTransport } from "../../game/authority/createMockRemoteTransport";
+import { mockGameContent } from "../../game/content/mockGameContent";
+import { createDefaultMatchSetup } from "../../game/simulation/createInitialWorld";
 
 const modes: Array<{ value: GameMode; label: string; icon: typeof Monitor }> = [
   { value: "twoPlayer", label: "2 Player", icon: Monitor },
@@ -22,8 +27,15 @@ export default function TestPage() {
     const engine = new GameEngine({
       canvas,
       mode,
-      tankImageUrl,
-      remoteTransport: mode === "online" ? createPlaceholderRemoteTransport() : undefined,
+      remoteTransport:
+        mode === "online"
+          ? createMockRemoteTransport({
+              setup: createDefaultMatchSetup("online"),
+              content: mockGameContent,
+              width: canvas.width,
+              height: canvas.height,
+            })
+          : undefined,
     });
 
     engineRef.current = engine;
@@ -75,11 +87,4 @@ export default function TestPage() {
       />
     </main>
   );
-}
-
-function createPlaceholderRemoteTransport(): RemoteGameTransport {
-  return {
-    sendIntent: (_intent) => {},
-    onSnapshot: () => () => {},
-  };
 }
