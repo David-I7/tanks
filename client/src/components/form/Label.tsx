@@ -13,12 +13,12 @@ export default function Label(props: LabelProps) {
   return (
     <label
       className={twMerge(
-        "text-xs mb-1 block text-accent uppercase tracking-widest font-body font-bold select-none",
+        "text-xs mb-1 block text-text-body-high font-semibold select-none",
         props.className,
       )}
       {...props}
     >
-      <span className="text-primary mr-1">::</span> {props.children}
+      {props.children}
     </label>
   );
 }

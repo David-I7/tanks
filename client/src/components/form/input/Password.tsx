@@ -9,6 +9,7 @@ type PasswordProps = {
   value?: string;
   error?: boolean;
   errorMessage?: string;
+  autoComplete?: string;
   id: string;
 };
 
@@ -18,6 +19,7 @@ export default function Password({
   value,
   error,
   errorMessage,
+  autoComplete,
   id,
 }: PasswordProps) {
   const [visible, setVisible] = useState<boolean>(false);
@@ -27,20 +29,20 @@ export default function Password({
     <div className="flex flex-col gap-1 w-full">
       <div
         className={twMerge(
-          "flex rounded-lg bg-surface-main/80 border min-h-11 h-11 items-center justify-between pl-3 pr-1 transition-all duration-normal",
+          "flex rounded-lg bg-surface-main border min-h-11 h-11 items-center justify-between pl-3 pr-1 transition-colors duration-normal",
           error
             ? "border-error"
-            : "border-accent/40",
+            : "border-border-main",
           focused
             ? error
-              ? "border-error shadow-[0_0_8px_rgba(255,49,49,0.3)]"
-              : "border-accent shadow-[0_0_8px_rgba(0,240,255,0.3)]"
+              ? "border-error"
+              : "border-primary"
             : ""
         )}
       >
         <input
           id={id}
-          className="flex-1 bg-transparent border-0 outline-none text-text-body-high font-body placeholder:text-text-disabled h-full py-2"
+          className="flex-1 bg-transparent border-0 outline-none text-text-body-high placeholder:text-text-disabled h-full py-2"
           value={value}
           placeholder="Password..."
           ref={ref}
@@ -49,17 +51,18 @@ export default function Password({
           onBlur={() => setFocused(false)}
           type={visible ? "text" : "password"}
           name="password"
+          autoComplete={autoComplete}
         />
         <IconButton
           onClick={() => setVisible(!visible)}
-          className="border-none bg-transparent h-9 w-9 text-text-body/60 hover:text-accent hover:bg-transparent hover:shadow-none"
+          className="border-none bg-transparent h-9 w-9 text-text-body/60 hover:text-text-body-high"
         >
           {visible ? <Eye size={16} /> : <EyeOff size={16} />}
         </IconButton>
       </div>
 
       {error && errorMessage && (
-        <div className="text-error text-xs mt-0.5 ml-1 font-body">{errorMessage}</div>
+        <div className="text-error text-xs mt-0.5 ml-1">{errorMessage}</div>
       )}
     </div>
   );

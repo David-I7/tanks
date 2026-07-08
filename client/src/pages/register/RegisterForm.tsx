@@ -16,6 +16,7 @@ import NetworkError from "../../errors/NetworkError";
 import { useAuthStore } from "../../store/useAuthStore";
 import Loader from "../../components/misc/Loader";
 import InvalidStateError from "../../errors/InvalidStateError";
+import FormError from "../../components/form/FormError";
 
 export default function RegisterForm() {
   const handleRegister = useAuthStore(state => state.handleRegister);
@@ -139,9 +140,7 @@ export default function RegisterForm() {
       <div className="flex flex-col flex-1">
         <H1 className="text-center py-4">Sign Up</H1>
         {errors.form !== null && (
-          <div className="text-error text-xs font-bold bg-error/10 border border-error/30 p-2.5 rounded-lg mb-4 tracking-wide font-body">
-            {errors.form.message}
-          </div>
+          <FormError className="mb-4">{errors.form.message}</FormError>
         )}
         <div className="flex flex-col flex-1 justify-between pt-2">
           <div className="flex flex-col">
@@ -152,6 +151,7 @@ export default function RegisterForm() {
                 onChange={handleUsernameChange}
                 name="username"
                 placeholder="Username..."
+                autoComplete="username"
                 error={errors.username !== null}
                 errorMessage={errors.username?.message}
               />
@@ -163,6 +163,7 @@ export default function RegisterForm() {
                 onChange={handleEmailChange}
                 name="email"
                 placeholder="Email..."
+                autoComplete="email"
                 error={errors.email !== null}
                 errorMessage={errors.email?.message}
               />
@@ -171,6 +172,7 @@ export default function RegisterForm() {
               <Label htmlFor="password">Password:</Label>
               <Password
                 id={"password"}
+                autoComplete="new-password"
                 error={errors.password !== null}
                 errorMessage={errors.password?.message}
                 onChange={handlePasswordChange}
@@ -185,7 +187,7 @@ export default function RegisterForm() {
           >
             <span>{loading ? <Loader /> : "Sign Up"}</span>
           </Button>
-          <div className="text-xs text-text-body/60 mt-4 text-center font-body">
+          <div className="text-xs text-text-body/60 mt-4 text-center">
             Already have an account?{" "}
             <DefaultLink to={"/login"} className="text-xs font-bold">
               Log In

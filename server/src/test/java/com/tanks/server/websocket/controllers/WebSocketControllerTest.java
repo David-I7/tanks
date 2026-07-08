@@ -12,7 +12,6 @@ import com.tanks.server.websocket.security.interceptors.JwtAuthenticationInterce
 import com.tanks.server.websocket.security.services.GameAuthorizationService;
 import com.tanks.server.websocket.security.services.LobbyAuthorizationService;
 import com.tanks.server.websocket.services.GameSessionService;
-import com.tanks.server.websocket.services.LobbyReconnectService;
 import com.tanks.server.websocket.services.LobbyService;
 import com.tanks.server.websocket.services.QuickMatchService;
 import com.tanks.server.websocket.services.UserSessionService;
@@ -29,9 +28,7 @@ import org.springframework.web.socket.client.standard.StandardWebSocketClient;
 import org.springframework.web.socket.messaging.WebSocketStompClient;
 
 import java.lang.reflect.Type;
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;

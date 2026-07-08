@@ -11,7 +11,7 @@ export default function DefaultLink(props: DefaultLinkProps) {
     <Link
       {...props}
       className={twMerge(
-        "h-6 px-1 inline-flex items-center text-accent hover:text-accent-hover font-bold cursor-pointer hover:underline text-sm font-headings tracking-wider transition-all duration-normal",
+        "h-6 px-1 inline-flex items-center text-link hover:text-link-hover font-semibold cursor-pointer hover:underline text-sm transition-colors duration-normal",
         props.className,
       )}
     >

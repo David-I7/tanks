@@ -8,6 +8,7 @@ type TextInputProps = {
   error?: boolean;
   errorMessage?: string;
   placeholder?: string;
+  autoComplete?: string;
   name: string;
   id: string;
 };
@@ -19,6 +20,7 @@ export default function TextInput({
   error,
   errorMessage,
   placeholder,
+  autoComplete,
   name,
   id,
 }: TextInputProps) {
@@ -32,16 +34,17 @@ export default function TextInput({
         type="text"
         name={name}
         placeholder={placeholder}
+        autoComplete={autoComplete}
         className={twMerge(
-          "flex-1 rounded-lg text-text-body-high bg-surface-main/80 border min-h-11 h-11 px-3 outline-none font-body transition-all duration-normal placeholder:text-text-disabled",
+          "flex-1 rounded-lg text-text-body-high bg-surface-main border min-h-11 h-11 px-3 outline-none transition-colors duration-normal placeholder:text-text-disabled disabled:cursor-not-allowed disabled:opacity-60",
           error
-            ? "border-error focus:border-error focus:shadow-[0_0_8px_rgba(255,49,49,0.3)]"
-            : "border-accent/40 focus:border-accent focus:shadow-[0_0_8px_rgba(0,240,255,0.3)]"
+            ? "border-error focus:border-error"
+            : "border-border-main focus:border-primary"
         )}
       />
 
       {error && errorMessage && (
-        <div className="text-error text-xs mt-0.5 ml-1 font-body">{errorMessage}</div>
+        <div className="text-error text-xs mt-0.5 ml-1">{errorMessage}</div>
       )}
     </div>
   );

@@ -31,7 +31,8 @@ public class GameSessionController {
     // TODO: Implement game start logic
     @MessageMapping("/game/{id}/send")
     @SendTo("/topic/game/{id}")
-    public GameSession startGame(@DestinationVariable UUID id){
+    @PreAuthorize("@gameAuthorizationService.canSendMessageToTopic(authentication, '/topic/game/' + #id)")
+    public GameSession startGame(@DestinationVariable UUID id, Authentication authentication){
         return null;
     }
 

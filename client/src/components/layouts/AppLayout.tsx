@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { BrowserStorage } from "../../utils/storage";
 import { REDIRECT_KEY } from "../../constants";
 import { useLocation } from "react-router-dom";
+import AppBackground from "./AppBackground";
 
 export default function AppLayout() {
   const location = useLocation();
@@ -15,17 +16,13 @@ export default function AppLayout() {
     }
   }, [location.pathname]);
   return (
-    <main className="bg-background font-body text-text-body min-h-screen relative overflow-hidden">
-      <div className="cyber-bg-container">
-        <div className="cyber-grid"></div>
-        <div className="cyber-grid-overlay"></div>
-      </div>
+    <AppBackground>
       <div className="absolute top-4 right-4 z-50">
         <ThemeToggle />
       </div>
-      <div className="relative z-10 w-full min-h-screen">
+      <div className="w-full min-h-screen">
         <Outlet />
       </div>
-    </main>
+    </AppBackground>
   );
 }

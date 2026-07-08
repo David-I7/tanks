@@ -3,6 +3,7 @@ import Button from "../../components/buttons/Button";
 import useLobbyChat, { type ChatMessage } from "./useLobbyChat";
 import { useState, useRef, useEffect } from "react";
 import InvalidStateError from "../../errors/InvalidStateError";
+import Surface from "../../components/layouts/Surface";
 
 export function LobbyChat({ lobbyId }: { lobbyId: string }) {
   const { messages, username, typingUser, publishMessage, publishTypingEvent } =
@@ -15,17 +16,17 @@ export function LobbyChat({ lobbyId }: { lobbyId: string }) {
   }, [messages, typingUser]);
 
   return (
-    <div className="cyber-panel p-4 md:p-5 flex-1 flex flex-col justify-between h-[380px] w-full">
-      <div className="text-[10px] text-accent uppercase tracking-widest font-black mb-2 flex justify-between items-center">
+    <Surface className="p-4 md:p-5 flex-1 flex flex-col justify-between h-[380px] w-full">
+      <div className="text-[10px] text-text-body-low uppercase tracking-widest font-black mb-2 flex justify-between items-center">
         <span>Lobby Chat</span>
         {typingUser && (
-          <span className="text-neon-yellow animate-pulse font-normal lowercase italic">
+          <span className="text-primary animate-pulse font-normal lowercase italic">
             {typingUser} is writing...
           </span>
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto pr-1 bg-black/40 border border-accent/10 p-3 flex flex-col">
+      <div className="flex-1 overflow-y-auto pr-1 bg-background/60 border border-border-low rounded-lg p-3 flex flex-col">
         <div className="flex-1 flex flex-col justify-end">
           <div className="overflow-y-auto max-h-[200px]">
             {messages.map((msg, index) => (
@@ -63,7 +64,7 @@ export function LobbyChat({ lobbyId }: { lobbyId: string }) {
           Send
         </Button>
       </div>
-    </div>
+    </Surface>
   );
 }
 
@@ -77,7 +78,7 @@ function LobbyMessage({ username, message }: LobbyMessageProps) {
     const isConnect = message.type === "CONNECT";
     return (
       <div
-        className={`text-[11px] font-mono py-1 px-2 mb-1.5 border-l-2 bg-black/20 ${
+        className={`text-[11px] font-mono py-1 px-2 mb-1.5 border-l-2 bg-surface-high ${
           isConnect ? "border-success text-success" : "border-error text-error"
         }`}
       >
@@ -88,11 +89,11 @@ function LobbyMessage({ username, message }: LobbyMessageProps) {
     const isSelf = username === message.sender;
     return (
       <div
-        className={`text-xs font-mono py-1 px-1.5 mb-1 bg-black/10 border-b border-white/5 ${
+        className={`text-xs font-mono py-1 px-1.5 mb-1 bg-surface-high/60 border-b border-divider ${
           isSelf ? "text-right" : "text-left"
         }`}
       >
-        <span className={isSelf ? "text-accent font-bold" : "text-primary font-bold"}>
+        <span className={isSelf ? "text-link font-bold" : "text-primary font-bold"}>
           {isSelf ? "YOU" : message.sender}
         </span>
         <span className="text-text-body/30 mx-1.5">:</span>

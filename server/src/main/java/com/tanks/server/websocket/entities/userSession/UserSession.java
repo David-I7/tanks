@@ -27,8 +27,6 @@ public class UserSession {
 
     private String socketSessionId;
 
-    private Instant reconnectDeadlineAt;
-
     private Map<String, String> topicSubscriptions = null;
 
     public UserSession(UserSession userSession) {
@@ -38,7 +36,6 @@ public class UserSession {
         this.gameSessionId = userSession.gameSessionId;
         this.lobbyId = userSession.lobbyId;
         this.socketSessionId = userSession.socketSessionId;
-        this.reconnectDeadlineAt = userSession.reconnectDeadlineAt;
         this.topicSubscriptions = userSession.topicSubscriptions;
     }
 }
