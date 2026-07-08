@@ -1,5 +1,6 @@
 import type React from "react";
 import type { MouseEvent, ReactNode } from "react";
+import { twMerge } from "tailwind-merge";
 
 type IconButtonProps = {
   onClick?: (e: MouseEvent) => void;
@@ -19,7 +20,10 @@ export default function IconButton({
   return (
     <button
       type={type}
-      className={`cursor-pointer h-10 w-10 grid place-content-center rounded-lg border border-accent/40 text-accent bg-surface-main/80 hover:bg-accent/15 hover:border-accent hover:text-accent hover:shadow-[0_0_10px_rgba(0,240,255,0.4)] transition-all duration-normal active:scale-95 ${className}`}
+      className={twMerge(
+        "cursor-pointer h-10 w-10 grid place-content-center rounded-lg border border-border-main text-text-body-high bg-surface-main hover:bg-surface-high transition-colors duration-normal active:scale-95",
+        className,
+      )}
       onClick={onClick}
     >
       {icon || children}

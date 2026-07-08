@@ -68,10 +68,28 @@ public class LobbyAuthorizationService {
 
         if(userSession == null) return false;
 
+        String lobbyId;
+
+        if(!uri.startsWith(Lobby_PREFIX) || (lobbyId = uri.substring(Lobby_PREFIX.length())).isEmpty()){
+            throw new ProblemDetailException(
+                    HttpStatus.UNAUTHORIZED,
+                    "Invalid lobby Id.",
+                    URI.create(uri)
+            );
+        }
+
         if(!userSessionService.isConnectedToLobby(userSession)){
             throw new ProblemDetailException(
                     HttpStatus.UNAUTHORIZED,
                     "User is not connected to a lobby.",
+                    URI.create(uri)
+            );
+        }
+
+        if(!userSessionService.isInLobby(userSession, lobbyId)){
+            throw new ProblemDetailException(
+                    HttpStatus.UNAUTHORIZED,
+                    "User is not in the provided lobby.",
                     URI.create(uri)
             );
         }

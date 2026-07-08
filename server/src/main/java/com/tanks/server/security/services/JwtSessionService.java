@@ -8,7 +8,6 @@ import com.tanks.server.mappers.user.UserToUserDtoMapper;
 import com.tanks.server.security.model.JwtSession;
 import com.tanks.server.security.properties.JwtProperties;
 import com.tanks.server.services.RefreshTokenService;
-import com.tanks.server.utils.IdFactory;
 import io.jsonwebtoken.Claims;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -49,8 +48,8 @@ public class JwtSessionService{
                 .httpOnly(true)       // prevents JS access
                 .secure(!isDev)         // True in production
                 .path("/api/v1/auth") // limit where cookie is sent
-                .maxAge(Duration.ofMillis(jwtProperties.getRefreshTokenExpirationMS()))
-                .sameSite("Lax")   // "Strict" in production
+                .maxAge(Duration.ofMillis(jwtProperties.getRefreshTokenExpirationMS()).getSeconds())
+                .sameSite(isDev ? "Lax" : "Strict")   // "Strict" in production
                 .build();
     }
 
@@ -60,7 +59,7 @@ public class JwtSessionService{
                 .secure(!isDev)         // True in production
                 .path("/api/v1/auth") // limit where cookie is sent
                 .maxAge(0)
-                .sameSite("Lax")   // "Strict" in production
+                .sameSite(isDev ? "Lax" : "Strict")   // "Strict" in production
                 .build();
     }
 
@@ -74,7 +73,7 @@ public class JwtSessionService{
 
         refreshTokenService.save(token);
 
-        String refreshToken = jwtService.generateToken(user.getId().toString(), Map.of("jti",token.getId().toString()), expiration.toInstant().toEpochMilli());
+        String refreshToken = jwtService.generateRefreshToken(user.getId().toString(), Map.of("jti", token.getId().toString()));
 
         JwtSession session = new JwtSession(
                 this.generateAccessToken(user),
@@ -89,7 +88,7 @@ public class JwtSessionService{
     public JwtSession extendSession(String refreshToken){
         try{
             Claims claims = jwtService.parseClaims(refreshToken);
-            long expiresAt = claims.get("exp",Long.class);
+            long expiresAt = claims.getExpiration().toInstant().toEpochMilli();
 
             if(!shouldCreateNewSession(expiresAt)) return null;
 
@@ -140,14 +139,10 @@ public class JwtSessionService{
         return jwtService.generateAccessToken(user.getId().toString(),Map.of("username",user.getUsername(),"email",user.getEmail()));
     }
 
-    private String generateRefreshToken(User user){
-        return  jwtService.generateRefreshToken(user.getId().toString(),Map.of("jti", IdFactory.randomUUID()));
-    }
-
     public boolean shouldCreateNewSession(String refreshToken){
         try{
             Claims claims = jwtService.parseClaims(refreshToken);
-            return shouldCreateNewSession(claims.get("exp",Long.class));
+            return shouldCreateNewSession(claims.getExpiration().toInstant().toEpochMilli());
         } catch (InvalidJwtException e) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,e.getMessage());
         }
@@ -156,6 +151,6 @@ public class JwtSessionService{
     private boolean shouldCreateNewSession(long expiration){
         long timeTilExpires =  expiration - Instant.now().toEpochMilli();
 
-        return timeTilExpires > 0 && timeTilExpires <= 1000L * 60 * 60 * 60 * 24; // 1 DAY
+        return timeTilExpires > 0 && timeTilExpires <= Duration.ofDays(1).toMillis();
     }
 }

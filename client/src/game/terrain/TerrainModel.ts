@@ -1,4 +1,4 @@
-import type { TerrainEffect, TerrainSnapshot } from "../types";
+import type { TerrainEffect, TerrainPatch, TerrainSnapshot } from "../types";
 
 export class TerrainModel {
   readonly surface: number[];
@@ -33,16 +33,15 @@ export class TerrainModel {
     return false;
   }
 
-  applyTerrainEffect(cx: number, cy: number, effect: TerrainEffect): void {
+  applyTerrainEffect(cx: number, cy: number, effect: TerrainEffect): TerrainPatch {
     if (effect.type === "drill") {
-      this.deform(cx, cy + effect.depth, effect.radius);
-      return;
+      return this.deform(cx, cy + effect.depth, effect.radius);
     }
 
-    this.deform(cx, cy, effect.radius);
+    return this.deform(cx, cy, effect.radius);
   }
 
-  deform(cx: number, cy: number, radius: number): void {
+  deform(cx: number, cy: number, radius: number): TerrainPatch {
     const startX = Math.max(0, Math.floor(cx - radius));
     const endX = Math.min(this.width - 1, Math.ceil(cx + radius));
 
@@ -61,6 +60,13 @@ export class TerrainModel {
       Math.min(this.width - 1, endX + 10),
       5,
     );
+    const patchStartX = Math.max(0, startX - 10);
+    const patchEndX = Math.min(this.width - 1, endX + 10);
+    return {
+      kind: "heightmap-range",
+      startX: patchStartX,
+      surface: this.surface.slice(patchStartX, patchEndX + 1),
+    };
   }
 
   getSlopeAngle(x: number): number {

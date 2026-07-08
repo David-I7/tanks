@@ -17,19 +17,19 @@ export type ButtonProps = {
 const VARIANTS = {
   color: {
     filled: {
-      secondary: "bg-accent text-on-accent hover:bg-accent-hover hover:shadow-[0_0_15px_rgba(0,240,255,0.5)] border-b-2 border-r-2 border-transparent active:border-b-0 active:border-r-0",
-      primary: "bg-primary text-on-primary hover:bg-primary-hover hover:shadow-[0_0_15px_rgba(235,200,14,0.5)] border-b-2 border-r-2 border-transparent active:border-b-0 active:border-r-0",
-      success: "bg-success text-on-success hover:shadow-[0_0_15px_rgba(57,255,20,0.5)] border-b-2 border-r-2 border-transparent active:border-b-0 active:border-r-0",
-      error: "bg-error text-on-error hover:shadow-[0_0_15px_rgba(255,49,49,0.5)] border-b-2 border-r-2 border-transparent active:border-b-0 active:border-r-0",
+      secondary: "bg-secondary text-on-secondary hover:bg-secondary-hover",
+      primary: "bg-primary text-on-primary hover:bg-primary-hover",
+      success: "bg-success text-on-success hover:bg-success-hover",
+      error: "bg-error text-on-error hover:bg-error-hover",
     },
     outline: {
-      secondary: "border-2 border-accent text-accent hover:bg-accent/10 hover:shadow-[0_0_10px_rgba(0,240,255,0.3)]",
-      primary: "border-2 border-primary text-primary hover:bg-primary/10 hover:shadow-[0_0_10px_rgba(235,200,14,0.3)]",
-      success: "border-2 border-success text-success hover:bg-success/10 hover:shadow-[0_0_10px_rgba(57,255,20,0.3)]",
-      error: "border-2 border-error text-error hover:bg-error/10 hover:shadow-[0_0_10px_rgba(255,49,49,0.3)]",
+      secondary: "border border-secondary text-secondary hover:bg-secondary/10",
+      primary: "border border-primary text-primary hover:bg-primary/10",
+      success: "border border-success text-success hover:bg-success/10",
+      error: "border border-error text-error hover:bg-error/10",
     },
     ghost: {
-      secondary: "text-accent hover:bg-accent/10",
+      secondary: "text-secondary hover:bg-secondary/10",
       primary: "text-primary hover:bg-primary/10",
       success: "text-success hover:bg-success/10",
       error: "text-error hover:bg-error/10",
@@ -53,7 +53,7 @@ export default function Button({
       disabled={disabled}
       type={type}
       className={twMerge(
-        "cursor-pointer min-h-10 px-8 gap-2 flex items-center justify-center font-black rounded-lg transition-all duration-normal font-headings text-xs tracking-widest uppercase select-none active:translate-x-[1px] active:translate-y-[1px]",
+        "cursor-pointer min-h-10 px-6 gap-2 flex items-center justify-center font-semibold rounded-lg transition-colors duration-normal text-sm select-none active:translate-y-px",
         VARIANTS["color"][variant][color],
         leftIcon !== undefined ? "pl-4" : "",
         rightIcon !== undefined ? "pr-4" : "",

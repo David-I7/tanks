@@ -9,7 +9,7 @@ function Loader({ className }: LoaderProps) {
     <div className="flex items-center justify-center">
       <div
         className={twMerge(
-          "animate-spin w-6 h-6 border-3 border-accent border-b-transparent rounded-full inline-block",
+          "animate-spin w-6 h-6 border-3 border-primary border-b-transparent rounded-full inline-block",
           className,
         )}
       ></div>

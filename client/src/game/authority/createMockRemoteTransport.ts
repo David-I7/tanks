@@ -1,4 +1,4 @@
-import { createInitialWorld } from "../simulation/createInitialWorld";
+import { createInitialWorld } from "../world/createInitialWorld";
 import { LocalSimulationAuthority } from "../simulation/LocalSimulationAuthority";
 import type { GameContent } from "../content/mockGameContent";
 import type { GameSnapshot, MatchSetup, RemotePlayerIntent } from "../types";

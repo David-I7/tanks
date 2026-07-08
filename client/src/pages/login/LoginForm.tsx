@@ -16,6 +16,7 @@ import type ContraintValidationDto from "../../api/http/dto/ConstraintValidation
 import { useAuthStore } from "../../store/useAuthStore";
 import Loader from "../../components/misc/Loader";
 import InvalidStateError from "../../errors/InvalidStateError";
+import FormError from "../../components/form/FormError";
 
 
 export default function LoginForm() {
@@ -129,9 +130,7 @@ export default function LoginForm() {
       <div className="flex flex-col flex-1">
         <H1 className="text-center py-4">Log In</H1>
         {errors.form !== null && (
-          <div className="text-error text-xs font-bold bg-error/10 border border-error/30 p-2.5 rounded-lg mb-4 tracking-wide font-body">
-            {errors.form.message}
-          </div>
+          <FormError className="mb-4">{errors.form.message}</FormError>
         )}
         <div className="flex flex-col flex-1 justify-between pt-2">
           <div className="flex flex-col">
@@ -142,6 +141,7 @@ export default function LoginForm() {
                 onChange={handleUsernameChange}
                 name="username"
                 placeholder="Email or username..."
+                autoComplete="username"
                 error={errors.username !== null}
                 errorMessage={errors.username?.message}
               />
@@ -150,6 +150,7 @@ export default function LoginForm() {
               <Label htmlFor="password">Password:</Label>
               <Password
                 id={"password"}
+                autoComplete="current-password"
                 error={errors.password !== null}
                 errorMessage={errors.password?.message}
                 onChange={handlePasswordChange}
@@ -164,7 +165,7 @@ export default function LoginForm() {
           >
             <span>{loading ? <Loader /> : "Log In"}</span>
           </Button>
-          <div className="text-xs text-text-body/60 mt-4 text-center font-body">
+          <div className="text-xs text-text-body/60 mt-4 text-center">
             Don't have an account?{" "}
             <DefaultLink to={"/signup"} className="text-xs font-bold">
               Sign Up

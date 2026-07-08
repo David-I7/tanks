@@ -69,6 +69,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
         if (err instanceof ApiError) {
             if (err.status === 401 || err.status === 403) {
                 setError(new AuthenticationError(err.message, err.status));
+                return;
             }
             setError(err);
         } else if (err instanceof Error) {

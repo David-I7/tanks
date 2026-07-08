@@ -60,7 +60,6 @@ public class LobbyService {
 
         Lobby lobby = findById(lobbyId);
 
-        // The user is trying to connect multiple times (ex: multiple open tabs).
         if (isFullLobby(lobby))
             throw new ProblemDetailException(HttpStatus.BAD_REQUEST, "Lobby is full.", URI.create("/lobby/join/private/" + lobbyId));
 

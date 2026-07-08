@@ -1,6 +1,7 @@
 import Logout from "../../components/auth/Logout";
 import Button from "../../components/buttons/Button";
 import H1 from "../../components/headings/H1";
+import Surface from "../../components/layouts/Surface";
 import { useScreenStack } from "../../context/ScreenStack";
 import { useAuthStore } from "../../store/useAuthStore";
 import type { HomeScreenStack } from "./HomePage";
@@ -10,7 +11,7 @@ export default function RootScreen() {
     const user = useAuthStore(state => state.user);
 
     return (
-        <div className="cyber-panel px-8 py-8 w-full max-w-sm flex flex-col gap-5 text-center">
+        <Surface className="px-8 py-8 w-full max-w-sm flex flex-col gap-5 text-center">
             <H1 className="text-center py-2">Tanks!</H1>
             <Button onClick={() => pushScreen("onlineMenu")} color="primary">
                 Online Mode
@@ -26,6 +27,6 @@ export default function RootScreen() {
                     onFailure={console.error}
                 />
             }
-        </div>
+        </Surface>
     );
 }

@@ -72,10 +72,28 @@ public class GameAuthorizationService {
 
         if(userSession == null) return false;
 
+        String gameId;
+
+        if(!uri.startsWith(Game_PREFIX) || (gameId = uri.substring(Game_PREFIX.length())).isEmpty()){
+            throw new ProblemDetailException(
+                    HttpStatus.UNAUTHORIZED,
+                    "Invalid game Id.",
+                    URI.create(uri)
+            );
+        }
+
         if(!userSessionService.isConnectedToGame(userSession)){
             throw new ProblemDetailException(
                     HttpStatus.UNAUTHORIZED,
                     "User is not connected to a game.",
+                    URI.create(uri)
+            );
+        }
+
+        if(!userSessionService.isInGame(userSession, gameId)){
+            throw new ProblemDetailException(
+                    HttpStatus.UNAUTHORIZED,
+                    "User is not in the provided game.",
                     URI.create(uri)
             );
         }

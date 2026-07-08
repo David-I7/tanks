@@ -8,7 +8,6 @@ import com.tanks.server.websocket.security.entites.WebSocketAuthentication;
 import com.tanks.server.websocket.security.entites.WebSocketPrincipal;
 import com.tanks.server.websocket.security.services.GameAuthorizationService;
 import com.tanks.server.websocket.security.services.LobbyAuthorizationService;
-import com.tanks.server.websocket.services.LobbyReconnectService;
 import com.tanks.server.websocket.services.UserSessionService;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.Nullable;
@@ -22,9 +21,7 @@ import org.springframework.messaging.support.MessageHeaderAccessor;
 import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 
 
 @Component
@@ -40,8 +37,6 @@ public class AuthorizationInterceptor implements ChannelInterceptor {
     private final LobbyAuthorizationService lobbyAuthorizationService;
 
     private final GameAuthorizationService gameAuthorizationService;
-
-    private final LobbyReconnectService lobbyReconnectService;
 
     @Override
     public @Nullable Message<?> preSend(Message<?> message, MessageChannel channel) {
@@ -97,7 +92,6 @@ public class AuthorizationInterceptor implements ChannelInterceptor {
 
             if (accessor.getDestination().startsWith(TOPIC_LOBBY)) {
                 lobbyAuthorizationService.canJoinTopic(authentication, accessor.getDestination());
-                lobbyReconnectService.markConnected(userSession);
             } else if (accessor.getDestination().startsWith(TOPIC_GAME)) {
                 gameAuthorizationService.canJoinTopic(authentication, accessor.getDestination());
             }
