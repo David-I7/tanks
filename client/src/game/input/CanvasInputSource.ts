@@ -2,13 +2,154 @@ import type { PlayerIntent } from "../types";
 import type { GameSnapshot } from "../types";
 import { calculateAimIntent } from "./aimMath";
 import { findProjectileSlotAtCanvasPoint } from "./projectileSelectorHitTest";
+import type { ViewportSize } from "../world/worldSizing";
+import { canvasPointToViewportPoint } from "../world/worldSizing";
+
+export type CanvasInteractionState = {
+  pressedKeys: ReadonlySet<string>;
+  pendingPointerDown: { clientX: number; clientY: number } | null;
+  pendingSlotNumber: number | null;
+  pointer: { clientX: number; clientY: number };
+};
+
+export type CanvasInteractionContext = {
+  snapshot: GameSnapshot;
+  cameraX: number;
+  viewport: ViewportSize;
+  canvasRect: Pick<DOMRect, "left" | "top" | "width" | "height">;
+};
+
+export type CanvasInputLayout = {
+  viewport: ViewportSize;
+  canvasRect: Pick<DOMRect, "left" | "top" | "width" | "height">;
+};
+
+export type IntentProducer = (input: {
+  state: CanvasInteractionState;
+  context: CanvasInteractionContext;
+}) => PlayerIntent[];
+
+export function collectPlayerIntents(input: {
+  state: CanvasInteractionState;
+  context: CanvasInteractionContext;
+  producers?: IntentProducer[];
+}): PlayerIntent[] {
+  return (input.producers ?? defaultIntentProducers).flatMap((producer) =>
+    producer(input),
+  );
+}
+
+const movementIntentProducer: IntentProducer = ({ state }) => {
+  const left =
+    state.pressedKeys.has("a") ||
+    state.pressedKeys.has("A") ||
+    state.pressedKeys.has("ArrowLeft");
+  const right =
+    state.pressedKeys.has("d") ||
+    state.pressedKeys.has("D") ||
+    state.pressedKeys.has("ArrowRight");
+
+  return left !== right ? [{ type: "move", direction: left ? -1 : 1 }] : [];
+};
+
+const keyboardProjectileSlotIntentProducer: IntentProducer = ({
+  state,
+  context,
+}) => {
+  const activeTank = getActiveTank(context.snapshot);
+  if (state.pendingSlotNumber === null || !activeTank) return [];
+  const slot = activeTank.tank.loadout[state.pendingSlotNumber - 1];
+  return slot
+    ? [{ type: "selectProjectileSlot", projectileSlotId: slot.id }]
+    : [];
+};
+
+const pointerIntentProducer: IntentProducer = ({ state, context }) => {
+  const intents: PlayerIntent[] = [];
+  const activeTank = getActiveTank(context.snapshot);
+  const pointerDown = state.pendingPointerDown;
+  const pointerPoint = pointerDown
+    ? canvasPointToViewportPoint({
+        clientX: pointerDown.clientX,
+        clientY: pointerDown.clientY,
+        rect: context.canvasRect,
+        viewport: context.viewport,
+      })
+    : null;
+
+  if (pointerPoint) {
+    const selectedSlotId = findProjectileSlotAtCanvasPoint(
+      context.snapshot,
+      context.viewport.width,
+      context.viewport.height,
+      pointerPoint.x,
+      pointerPoint.y,
+    );
+    if (selectedSlotId) {
+      intents.push({
+        type: "selectProjectileSlot",
+        projectileSlotId: selectedSlotId,
+      });
+    }
+  }
+
+  const aim = calculateAimIntent({
+    ...state.pointer,
+    rect: context.canvasRect,
+    viewport: context.viewport,
+    cameraX: context.cameraX,
+    snapshot: context.snapshot,
+  });
+
+  if (!aim) return intents;
+  intents.push(aim);
+
+  if (pointerPoint) {
+    const clickedSlotId = findProjectileSlotAtCanvasPoint(
+      context.snapshot,
+      context.viewport.width,
+      context.viewport.height,
+      pointerPoint.x,
+      pointerPoint.y,
+    );
+    const projectileSlotId =
+      activeTank?.tank.selectedProjectileSlotId ??
+      activeTank?.tank.loadout[0]?.id;
+    if (projectileSlotId && !clickedSlotId) {
+      intents.push({
+        type: "fire",
+        angle: aim.angle,
+        power: aim.power,
+        projectileSlotId,
+      });
+    }
+  }
+
+  return intents;
+};
+
+const defaultIntentProducers: IntentProducer[] = [
+  movementIntentProducer,
+  keyboardProjectileSlotIntentProducer,
+  pointerIntentProducer,
+];
+
+function getActiveTank(snapshot: GameSnapshot): GameSnapshot["tanks"][number] | null {
+  return (
+    snapshot.tanks.find(
+      (entry) => entry.tank.playerId === snapshot.match.activePlayerId,
+    ) ?? null
+  );
+}
 
 export class CanvasInputSource {
   private readonly pressedKeys = new Set<string>();
-  private pendingPointerDown: { clientX: number; clientY: number } | null = null;
+  private pendingPointerDown: { clientX: number; clientY: number } | null =
+    null;
   private pendingSlotNumber: number | null = null;
   private pointer = { clientX: 0, clientY: 0 };
   private active = true;
+  private layout: CanvasInputLayout;
 
   private readonly onKeyDown = (event: KeyboardEvent) => {
     this.pressedKeys.add(event.key);
@@ -35,7 +176,14 @@ export class CanvasInputSource {
     };
   };
 
-  constructor(private readonly canvas: HTMLCanvasElement) {
+  constructor(
+    private readonly canvas: HTMLCanvasElement,
+    initialLayout: CanvasInputLayout = {
+      viewport: { width: canvas.width, height: canvas.height },
+      canvasRect: { left: 0, top: 0, width: canvas.width, height: canvas.height },
+    },
+  ) {
+    this.layout = initialLayout;
     window.addEventListener("keydown", this.onKeyDown);
     window.addEventListener("keyup", this.onKeyUp);
     canvas.addEventListener("pointermove", this.onPointerMove);
@@ -45,87 +193,20 @@ export class CanvasInputSource {
   poll(cameraX: number, snapshot: GameSnapshot): PlayerIntent[] {
     if (!this.active) return [];
 
-    const intents: PlayerIntent[] = [];
-    const left =
-      this.pressedKeys.has("a") ||
-      this.pressedKeys.has("A") ||
-      this.pressedKeys.has("ArrowLeft");
-    const right =
-      this.pressedKeys.has("d") ||
-      this.pressedKeys.has("D") ||
-      this.pressedKeys.has("ArrowRight");
-
-    if (left !== right) {
-      intents.push({ type: "move", direction: left ? -1 : 1 });
-    }
-
-    const activeTank = snapshot.tanks.find(
-      (entry) => entry.tank.playerId === snapshot.match.activePlayerId,
-    );
-    if (this.pendingSlotNumber !== null && activeTank) {
-      const slot = activeTank.tank.loadout[this.pendingSlotNumber - 1];
-      if (slot) {
-        intents.push({
-          type: "selectProjectileSlot",
-          projectileSlotId: slot.id,
-        });
-      }
-    }
-
-    const rect = this.canvas.getBoundingClientRect();
-    if (this.pendingPointerDown) {
-      const scaleX = this.canvas.width / rect.width;
-      const scaleY = this.canvas.height / rect.height;
-      const selectedSlotId = findProjectileSlotAtCanvasPoint(
+    const intents = collectPlayerIntents({
+      state: {
+        pressedKeys: this.pressedKeys,
+        pointer: this.pointer,
+        pendingPointerDown: this.pendingPointerDown,
+        pendingSlotNumber: this.pendingSlotNumber,
+      },
+      context: {
         snapshot,
-        this.canvas.width,
-        this.canvas.height,
-        (this.pendingPointerDown.clientX - rect.left) * scaleX,
-        (this.pendingPointerDown.clientY - rect.top) * scaleY,
-      );
-      if (selectedSlotId) {
-        intents.push({
-          type: "selectProjectileSlot",
-          projectileSlotId: selectedSlotId,
-        });
-      }
-    }
-
-    const aim = calculateAimIntent({
-      ...this.pointer,
-      rect,
-      canvasWidth: this.canvas.width,
-      canvasHeight: this.canvas.height,
-      cameraX,
-      snapshot,
+        cameraX,
+        viewport: this.layout.viewport,
+        canvasRect: this.layout.canvasRect,
+      },
     });
-
-    if (aim) {
-      intents.push(aim);
-
-      if (this.pendingPointerDown) {
-        const scaleX = this.canvas.width / rect.width;
-        const scaleY = this.canvas.height / rect.height;
-        const clickedSlotId = findProjectileSlotAtCanvasPoint(
-          snapshot,
-          this.canvas.width,
-          this.canvas.height,
-          (this.pendingPointerDown.clientX - rect.left) * scaleX,
-          (this.pendingPointerDown.clientY - rect.top) * scaleY,
-        );
-        const projectileSlotId =
-          activeTank?.tank.selectedProjectileSlotId ??
-          activeTank?.tank.loadout[0]?.id;
-        if (projectileSlotId && !clickedSlotId) {
-          intents.push({
-            type: "fire",
-            angle: aim.angle,
-            power: aim.power,
-            projectileSlotId,
-          });
-        }
-      }
-    }
 
     this.pendingPointerDown = null;
     this.pendingSlotNumber = null;
@@ -135,6 +216,10 @@ export class CanvasInputSource {
 
   setActive(active: boolean): void {
     this.active = active;
+  }
+
+  setLayout(layout: CanvasInputLayout): void {
+    this.layout = layout;
   }
 
   destroy(): void {

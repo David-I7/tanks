@@ -1,23 +1,26 @@
-import {
-  RemoteSimulationAuthority,
-  type RemoteGameTransport,
-} from "./authority/RemoteSimulationAuthority";
+import { type RemoteGameTransport } from "./authority/RemoteSimulationAuthority";
 import { AiIntentSource } from "./input/AiIntentSource";
-import { CanvasInputSource } from "./input/CanvasInputSource";
-import { CanvasGameRenderer } from "./rendering/CanvasGameRenderer";
-import { getLocalControllerKind } from "./modes";
 import {
-  createDefaultMatchSetup,
-  createInitialWorld,
-} from "./simulation/createInitialWorld";
-import { LocalSimulationAuthority } from "./simulation/LocalSimulationAuthority";
-import type {
-  GameMode,
-  GameSnapshot,
-  MatchSetup,
-  PlayerIntent,
-} from "./types";
+  CanvasInputSource,
+  type CanvasInputLayout,
+} from "./input/CanvasInputSource";
+import {
+  CanvasGameRenderer,
+  type RendererAssets,
+} from "./rendering/CanvasGameRenderer";
+import { getLocalControllerKind } from "./modes";
+import { createDefaultMatchSetup } from "./world/createInitialWorld";
+import type { GameMode, GameSnapshot, MatchSetup, PlayerIntent } from "./types";
 import { mockGameContent, type GameContent } from "./content/mockGameContent";
+import {
+  createLocalSimulationAuthority,
+  createRemoteSimulationAuthority,
+  type SimulationAuthority,
+} from "./authority/simulationAuthority";
+import {
+  createWorldSizingPolicy,
+  type WorldSizing,
+} from "./world/worldSizing";
 
 export type GameEngineOptions = {
   canvas: HTMLCanvasElement;
@@ -25,46 +28,52 @@ export type GameEngineOptions = {
   matchSetup?: MatchSetup;
   content?: GameContent;
   remoteTransport?: RemoteGameTransport;
+  rendererAssets?: RendererAssets;
 };
-
-type Authority =
-  | { kind: "local"; authority: LocalSimulationAuthority }
-  | { kind: "remote"; authority: RemoteSimulationAuthority };
 
 export class GameEngine {
   private readonly renderer: CanvasGameRenderer;
   private readonly localInput: CanvasInputSource;
   private readonly aiInput = new AiIntentSource();
-  private readonly authority: Authority;
-  private readonly snapshotListeners = new Set<(snapshot: GameSnapshot) => void>();
+  private readonly authority: SimulationAuthority;
+  private readonly snapshotListeners = new Set<
+    (snapshot: GameSnapshot) => void
+  >();
   private animationFrameId: number | null = null;
   private lastTimestamp = 0;
   private latestSnapshot: GameSnapshot | null = null;
+  private sizing: WorldSizing;
+  private inputLayout: CanvasInputLayout;
+  private readonly unsubscribeAuthority: () => void;
 
   constructor(private readonly options: GameEngineOptions) {
-    this.resize();
-    this.renderer = new CanvasGameRenderer(options.canvas, {});
-    this.localInput = new CanvasInputSource(options.canvas);
+    const initialLayout = this.measureCanvasLayout();
+    this.sizing = initialLayout.sizing;
+    this.inputLayout = initialLayout.inputLayout;
+    this.applyCanvasSizing();
+    this.renderer = new CanvasGameRenderer(
+      options.canvas,
+      options.rendererAssets ?? {},
+      this.sizing.viewport,
+    );
+    this.localInput = new CanvasInputSource(options.canvas, this.inputLayout);
 
     if (options.mode === "online" && options.remoteTransport) {
-      this.authority = {
-        kind: "remote",
-        authority: new RemoteSimulationAuthority(options.remoteTransport),
-      };
+      this.authority = createRemoteSimulationAuthority(options.remoteTransport);
     } else {
       const setup = options.matchSetup ?? createDefaultMatchSetup(options.mode);
       const content = options.content ?? mockGameContent;
-      const { world, terrain } = createInitialWorld(
+      this.authority = createLocalSimulationAuthority({
+        mode: options.mode,
         setup,
         content,
-        options.canvas.width,
-        options.canvas.height,
-      );
-      this.authority = {
-        kind: "local",
-        authority: new LocalSimulationAuthority(world, terrain, content),
-      };
+        worldSize: this.sizing.world,
+      });
     }
+
+    this.unsubscribeAuthority = this.authority.subscribe((snapshot) => {
+      this.publishSnapshot(snapshot);
+    });
   }
 
   start(): void {
@@ -79,32 +88,29 @@ export class GameEngine {
       this.animationFrameId = null;
     }
     this.localInput.destroy();
-    if (this.authority.kind === "remote") {
-      this.authority.authority.destroy();
-    }
+    this.unsubscribeAuthority();
+    this.authority.destroy();
   }
 
-  resize(): void {
-    const rect = this.options.canvas.getBoundingClientRect();
-    const scale = window.devicePixelRatio || 1;
-    this.options.canvas.width = Math.max(320, Math.floor(rect.width * scale));
-    this.options.canvas.height = Math.max(240, Math.floor(rect.height * scale));
+  resize(): WorldSizing {
+    const layout = this.measureCanvasLayout();
+    this.sizing = layout.sizing;
+    this.inputLayout = layout.inputLayout;
+    this.applyCanvasSizing();
+    this.renderer?.setViewport(this.sizing.viewport);
+    this.localInput?.setLayout(this.inputLayout);
+    return this.sizing;
   }
 
   submitIntent(playerId: number, intent: PlayerIntent): boolean {
-    if (this.authority.kind === "local") {
-      const accepted = this.authority.authority.submitIntent(playerId, intent);
-      this.publishSnapshot(this.authority.authority.snapshot());
-      return accepted;
-    }
-
-    return this.authority.authority.submitIntent({ playerId, intent });
+    const accepted = this.authority.submitIntent(playerId, intent);
+    const snapshot = this.authority.snapshot();
+    if (snapshot) this.publishSnapshot(snapshot);
+    return accepted;
   }
 
   getSnapshot(): GameSnapshot | null {
-    if (this.authority.kind === "local") {
-      this.latestSnapshot = this.authority.authority.snapshot();
-    }
+    this.latestSnapshot = this.authority.snapshot();
     return this.latestSnapshot;
   }
 
@@ -124,19 +130,17 @@ export class GameEngine {
     );
     this.lastTimestamp = timestamp;
 
-    if (this.authority.kind === "local") {
-      this.updateLocal(dt);
-    } else {
-      this.updateRemote();
-    }
+    this.update(dt);
 
     this.animationFrameId = requestAnimationFrame(this.tick);
   };
 
-  private updateLocal(dt: number): void {
-    if (this.authority.kind !== "local") return;
-    const authority = this.authority.authority;
-    const snapshotBeforeInput = authority.snapshot();
+  private update(dt: number): void {
+    const snapshotBeforeInput = this.authority.snapshot();
+    if (!snapshotBeforeInput) {
+      this.authority.update(dt);
+      return;
+    }
     const activePlayerId = snapshotBeforeInput.match.activePlayerId;
     const controllerKind = getLocalControllerKind(
       this.options.mode,
@@ -157,35 +161,17 @@ export class GameEngine {
       );
     }
 
-    authority.update(dt);
-    const snapshot = authority.snapshot();
-    this.renderer.render(snapshot);
-    this.publishSnapshot(snapshot);
-  }
-
-  private updateRemote(): void {
-    if (this.authority.kind !== "remote") return;
-    const authority = this.authority.authority;
-    const snapshot = authority.snapshot();
+    this.authority.update(dt);
+    const snapshot = this.authority.snapshot();
     if (snapshot) {
-      for (const intent of this.localInput.poll(
-        this.renderer.getCameraX(),
-        snapshot,
-      )) {
-        authority.submitIntent({
-          playerId: snapshot.match.activePlayerId,
-          intent,
-        });
-      }
       this.renderer.render(snapshot);
       this.publishSnapshot(snapshot);
     }
   }
 
   private submitIntents(playerId: number, intents: PlayerIntent[]): void {
-    if (this.authority.kind !== "local") return;
     for (const intent of intents) {
-      this.authority.authority.submitIntent(playerId, intent);
+      this.authority.submitIntent(playerId, intent);
     }
   }
 
@@ -194,5 +180,34 @@ export class GameEngine {
     for (const listener of this.snapshotListeners) {
       listener(snapshot);
     }
+  }
+
+  private measureCanvasLayout(): {
+    sizing: WorldSizing;
+    inputLayout: CanvasInputLayout;
+  } {
+    const rect = this.options.canvas.getBoundingClientRect();
+    const sizing = createWorldSizingPolicy({
+      viewport: { width: rect.width, height: rect.height },
+      devicePixelRatio: window.devicePixelRatio || 1,
+    });
+
+    return {
+      sizing,
+      inputLayout: {
+        viewport: sizing.viewport,
+        canvasRect: {
+          left: rect.left,
+          top: rect.top,
+          width: rect.width,
+          height: rect.height,
+        },
+      },
+    };
+  }
+
+  private applyCanvasSizing(): void {
+    this.options.canvas.width = this.sizing.backing.width;
+    this.options.canvas.height = this.sizing.backing.height;
   }
 }

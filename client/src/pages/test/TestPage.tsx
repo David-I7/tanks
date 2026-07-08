@@ -6,7 +6,10 @@ import {
 } from "../../game";
 import { createMockRemoteTransport } from "../../game/authority/createMockRemoteTransport";
 import { mockGameContent } from "../../game/content/mockGameContent";
-import { createDefaultMatchSetup } from "../../game/simulation/createInitialWorld";
+import ResourceManager from "../../game/resources/ResourceManager";
+import type { RendererAssets } from "../../game/rendering/CanvasGameRenderer";
+import { createWorldSizingPolicy } from "../../game/world/worldSizing";
+import { createDefaultMatchSetup } from "../../game/world/createInitialWorld";
 
 const modes: Array<{ value: GameMode; label: string; icon: typeof Monitor }> = [
   { value: "twoPlayer", label: "2 Player", icon: Monitor },
@@ -18,22 +21,44 @@ export default function TestPage() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const engineRef = useRef<GameEngine | null>(null);
   const [mode, setMode] = useState<GameMode>("twoPlayer");
+  const [rendererAssets, setRendererAssets] = useState<RendererAssets>({});
+
+  useEffect(() => {
+    let cancelled = false;
+    ResourceManager.getInstance()
+      .getImage("tank")
+      .then((tankImage) => {
+        if (!cancelled) setRendererAssets({ tankImage });
+      })
+      .catch(() => {
+        if (!cancelled) setRendererAssets({});
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
+    const rect = canvas.getBoundingClientRect();
+    const sizing = createWorldSizingPolicy({
+      viewport: { width: rect.width, height: rect.height },
+      devicePixelRatio: window.devicePixelRatio || 1,
+    });
     engineRef.current?.stop();
     const engine = new GameEngine({
       canvas,
       mode,
+      rendererAssets,
       remoteTransport:
         mode === "online"
           ? createMockRemoteTransport({
               setup: createDefaultMatchSetup("online"),
               content: mockGameContent,
-              width: canvas.width,
-              height: canvas.height,
+              width: sizing.world.width,
+              height: sizing.world.height,
             })
           : undefined,
     });
@@ -53,7 +78,7 @@ export default function TestPage() {
         engineRef.current = null;
       }
     };
-  }, [mode]);
+  }, [mode, rendererAssets]);
 
   return (
     <main className="relative z-10 flex min-h-screen flex-col bg-background p-4 text-text-body-high">

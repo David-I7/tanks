@@ -10,7 +10,7 @@ type LoadedResources = {
 
 const RESOURCE_URLS = {
   images: {
-    tank: "/assets/graphics/tank.png",
+    tank: tankImageUrl,
   },
 };
 
@@ -84,3 +84,4 @@ export default class ResourceManager {
     return this.resources.images[name];
   }
 }
+import tankImageUrl from "../../assets/graphics/tank.png";

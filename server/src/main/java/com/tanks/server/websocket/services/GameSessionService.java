@@ -16,16 +16,13 @@ import com.tanks.server.websocket.repositories.GameSessionRepository;
 import com.tanks.server.websocket.repositories.LobbyRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.data.redis.core.RedisOperations;
 import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.core.SessionCallback;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import tools.jackson.databind.ObjectMapper;
 
 import java.net.URI;
 import java.time.OffsetDateTime;
-import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -38,7 +35,6 @@ public class GameSessionService {
     private final QuickMatchService quickMatchService;
     private final ApplicationEventPublisher eventPublisher;
     private final RedisTemplate<String,Object> redisTemplate;
-    private final ObjectMapper objectMapper;
 
     public GameSession create(Lobby lobby) {
         UserSession host = userSessionService.findById(lobby.getHostId());
@@ -100,8 +96,7 @@ public class GameSessionService {
     }
 
     public GameSession getAndIncrementPlayerCount(UUID gameSessionId){
-        String key = "gameSession:" + gameSessionId;
-        var res = redisTemplate.opsForHash().increment(key, "connectedPlayerCount", 1L);
+        var res = redisTemplate.opsForHash().increment(member(gameSessionId), "connectedPlayerCount", 1L);
 
         var gameSession = findById(gameSessionId);
 
@@ -111,6 +106,10 @@ public class GameSessionService {
     }
 
     public void decremenentPlayerCount(UUID gameSessionId){
-        redisTemplate.opsForHash().increment("gameSession:" + gameSessionId, "connectedPlayerCount", -1L);
+        redisTemplate.opsForHash().increment(member(gameSessionId), "connectedPlayerCount", -1L);
+    }
+
+    private String member(UUID gameSessionId){
+        return "gameSession:" + gameSessionId;
     }
 }

@@ -97,7 +97,7 @@ public class AuthorizationInterceptor implements ChannelInterceptor {
 
             if (accessor.getDestination().startsWith(TOPIC_LOBBY)) {
                 lobbyAuthorizationService.canJoinTopic(authentication, accessor.getDestination());
-                lobbyReconnectService.markConnected(userSession);
+                //lobbyReconnectService.markConnected(userSession);
             } else if (accessor.getDestination().startsWith(TOPIC_GAME)) {
                 gameAuthorizationService.canJoinTopic(authentication, accessor.getDestination());
             }

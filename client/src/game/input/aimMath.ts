@@ -1,11 +1,14 @@
 import type { GameSnapshot, PlayerIntent } from "../types";
+import type { ViewportSize } from "../world/worldSizing";
+import { canvasPointToViewportPoint } from "../world/worldSizing";
 
 export type CanvasAimInput = {
   clientX: number;
   clientY: number;
   rect: Pick<DOMRect, "left" | "top" | "width" | "height">;
-  canvasWidth: number;
-  canvasHeight: number;
+  canvasWidth?: number;
+  canvasHeight?: number;
+  viewport?: ViewportSize;
   cameraX: number;
   snapshot: GameSnapshot;
 };
@@ -16,10 +19,20 @@ export function calculateAimIntent(input: CanvasAimInput): Extract<PlayerIntent,
   );
   if (!activeTank) return null;
 
-  const scaleX = input.canvasWidth / input.rect.width;
-  const scaleY = input.canvasHeight / input.rect.height;
-  const worldX = (input.clientX - input.rect.left) * scaleX + input.cameraX;
-  const worldY = (input.clientY - input.rect.top) * scaleY;
+  const viewport =
+    input.viewport ??
+    {
+      width: input.canvasWidth ?? input.rect.width,
+      height: input.canvasHeight ?? input.rect.height,
+    };
+  const point = canvasPointToViewportPoint({
+    clientX: input.clientX,
+    clientY: input.clientY,
+    rect: input.rect,
+    viewport,
+  });
+  const worldX = point.x + input.cameraX;
+  const worldY = point.y;
   const originX = activeTank.position.x;
   const originY = activeTank.position.y - 22;
   const dx = worldX - originX;

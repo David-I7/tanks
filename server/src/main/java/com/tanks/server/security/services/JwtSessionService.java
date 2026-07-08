@@ -49,8 +49,8 @@ public class JwtSessionService{
                 .httpOnly(true)       // prevents JS access
                 .secure(!isDev)         // True in production
                 .path("/api/v1/auth") // limit where cookie is sent
-                .maxAge(Duration.ofMillis(jwtProperties.getRefreshTokenExpirationMS()))
-                .sameSite("Lax")   // "Strict" in production
+                .maxAge(Duration.ofMillis(jwtProperties.getRefreshTokenExpirationMS()).getSeconds())
+                .sameSite(isDev ? "Lax" : "Strict")   // "Strict" in production
                 .build();
     }
 
@@ -60,7 +60,7 @@ public class JwtSessionService{
                 .secure(!isDev)         // True in production
                 .path("/api/v1/auth") // limit where cookie is sent
                 .maxAge(0)
-                .sameSite("Lax")   // "Strict" in production
+                .sameSite(isDev ? "Lax" : "Strict")   // "Strict" in production
                 .build();
     }
 

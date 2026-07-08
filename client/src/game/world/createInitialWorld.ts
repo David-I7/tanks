@@ -1,8 +1,9 @@
-import { World } from "../ecs/World";
+import { World } from "./World";
 import { TerrainModel } from "../terrain/TerrainModel";
 import { mockGameContent, type GameContent } from "../content/mockGameContent";
 import type { GameMode, MatchSetup } from "../types";
-import { MAX_TURN_SECONDS } from "./turnRules";
+import type { WorldSize } from "./worldSizing";
+import { MAX_TURN_SECONDS } from "../simulation/turnRules";
 
 export type InitialWorld = {
   world: World;
@@ -13,13 +14,17 @@ export type InitialWorld = {
 export function createInitialWorld(
   setup: MatchSetup,
   content: GameContent,
-  width: number,
-  height: number,
+  sizeOrWidth: WorldSize | number,
+  legacyHeight?: number,
 ): InitialWorld {
   validateMatchSetup(setup, content);
+  const size =
+    typeof sizeOrWidth === "number"
+      ? { width: sizeOrWidth, height: legacyHeight ?? 560 }
+      : sizeOrWidth;
   const terrain = new TerrainModel(
-    Math.max(800, Math.floor(width * 2.5)),
-    Math.max(420, height),
+    Math.max(800, Math.floor(size.width * 2.5)),
+    Math.max(420, size.height),
   );
   const world = new World({
     mode: setup.mode,
