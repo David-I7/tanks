@@ -39,7 +39,13 @@ public class GameSession {
 
     private long nextDiffSequence;
 
+    private long lastDiffServerTick;
+
     private int turnNumber;
+
+    private String playerAUnresolvedIntentId;
+
+    private String playerBUnresolvedIntentId;
 
     @Indexed
     private GameSessionState state;

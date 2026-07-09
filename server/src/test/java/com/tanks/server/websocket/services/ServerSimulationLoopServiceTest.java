@@ -74,11 +74,12 @@ class ServerSimulationLoopServiceTest {
         assertThat(gameSession.getNextDiffSequence()).isEqualTo(3);
 
         List<OnlineDiffEnvelopeDto<?>> diffs = gameplayDiffs(harness);
-        assertThat(diffs).hasSize(2);
+        assertThat(diffs).hasSize(1);
         assertThat(diffs).extracting(OnlineDiffEnvelopeDto::type)
-                .containsExactly(OnlineStateDiffType.TURN_TRANSITION, OnlineStateDiffType.TURN_TRANSITION);
-        assertThat(diffs).extracting(OnlineDiffEnvelopeDto::sequence).containsExactly(2L, 2L);
-        assertThat(diffs).extracting(OnlineDiffEnvelopeDto::serverTick).containsExactly(900L, 900L);
+                .containsExactly(OnlineStateDiffType.TURN_TRANSITION);
+        assertThat(diffs).extracting(OnlineDiffEnvelopeDto::sequence).containsExactly(2L);
+        assertThat(diffs).extracting(OnlineDiffEnvelopeDto::serverTick).containsExactly(900L);
+        assertThat(gameSession.getLastDiffServerTick()).isEqualTo(900);
 
         OnlineDiffPayloads.TurnTransition payload = (OnlineDiffPayloads.TurnTransition) diffs.getFirst().payload();
         assertThat(payload.previousPlayerId()).isEqualTo(1);
@@ -130,6 +131,7 @@ class ServerSimulationLoopServiceTest {
                 .serverTick(0)
                 .turnNumber(1)
                 .nextDiffSequence(2)
+                .lastDiffServerTick(0)
                 .state(GameSessionState.STARTED)
                 .build();
     }

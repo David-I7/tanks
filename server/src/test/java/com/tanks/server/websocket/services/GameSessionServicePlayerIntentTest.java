@@ -1,0 +1,315 @@
+package com.tanks.server.websocket.services;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.redis.core.RedisTemplate;
+
+import com.tanks.server.websocket.dto.gameplay.OnlineDiffEnvelopeDto;
+import com.tanks.server.websocket.dto.gameplay.OnlineDiffPayloads;
+import com.tanks.server.websocket.dto.gameplay.OnlineDiffPayloads.IntentRejectionReason;
+import com.tanks.server.websocket.dto.gameplay.OnlineGameplayProtocolVersion;
+import com.tanks.server.websocket.dto.gameplay.OnlineIntentPayloads;
+import com.tanks.server.websocket.dto.gameplay.OnlinePlayerIntentDto;
+import com.tanks.server.websocket.dto.gameplay.OnlinePlayerIntentType;
+import com.tanks.server.websocket.dto.gameplay.OnlineStateDiffType;
+import com.tanks.server.websocket.entities.gameSession.GameSession;
+import com.tanks.server.websocket.entities.gameSession.GameSessionState;
+import com.tanks.server.websocket.events.OnlineGameplayEvent;
+import com.tanks.server.websocket.gameplay.OnlineGameplayDefinitionCatalog;
+import com.tanks.server.websocket.gameplay.OnlineGameplayRules;
+import com.tanks.server.websocket.gameplay.OnlineInitialStateFactory;
+import com.tanks.server.websocket.repositories.GameSessionRepository;
+import com.tanks.server.websocket.repositories.LobbyRepository;
+
+class GameSessionServicePlayerIntentTest {
+
+    @Test
+    @DisplayName("Active player intent with current diff context is accepted as the player's unresolved intent")
+    void acceptsCurrentActivePlayerIntent() {
+        TestHarness harness = new TestHarness();
+        GameSession gameSession = startedGameSession();
+        when(harness.gameRepository.findById(gameSession.getId())).thenReturn(Optional.of(gameSession));
+        when(harness.gameRepository.save(any(GameSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        boolean accepted = harness.service.acceptPlayerIntent(
+                "host",
+                gameSession.getId(),
+                moveIntent(gameSession, 1, "move-1", 1, 0));
+
+        assertThat(accepted).isTrue();
+        assertThat(gameSession.getPlayerAUnresolvedIntentId()).isEqualTo("move-1");
+        assertThat(gameSession.getNextDiffSequence()).isEqualTo(2);
+        assertThat(gameplayDiffs(harness)).isEmpty();
+        verify(harness.gameRepository).save(gameSession);
+    }
+
+    @Test
+    @DisplayName("Inactive player intent is rejected with a sequenced Intent Rejection Diff")
+    void rejectsInactivePlayerIntent() {
+        TestHarness harness = new TestHarness();
+        GameSession gameSession = startedGameSession();
+        when(harness.gameRepository.findById(gameSession.getId())).thenReturn(Optional.of(gameSession));
+
+        boolean accepted = harness.service.acceptPlayerIntent(
+                "opponent",
+                gameSession.getId(),
+                moveIntent(gameSession, 2, "move-2", 1, 0));
+
+        assertThat(accepted).isFalse();
+        assertRejection(harness, gameSession, "move-2", 2, IntentRejectionReason.NOT_ACTIVE_PLAYER, 2, 0);
+        assertThat(gameSession.getNextDiffSequence()).isEqualTo(3);
+        assertThat(gameSession.getLastDiffServerTick()).isZero();
+        assertThat(gameSession.getPlayerBUnresolvedIntentId()).isNull();
+    }
+
+    @Test
+    @DisplayName("Player intent sender must match the declared active player")
+    void rejectsSpoofedActivePlayerIntent() {
+        TestHarness harness = new TestHarness();
+        GameSession gameSession = startedGameSession();
+        when(harness.gameRepository.findById(gameSession.getId())).thenReturn(Optional.of(gameSession));
+
+        boolean accepted = harness.service.acceptPlayerIntent(
+                "opponent",
+                gameSession.getId(),
+                moveIntent(gameSession, 1, "spoofed-move", 1, 0));
+
+        assertThat(accepted).isFalse();
+        assertRejection(harness, gameSession, "spoofed-move", 1, IntentRejectionReason.NOT_ACTIVE_PLAYER, 2, 0);
+        assertThat(gameSession.getPlayerAUnresolvedIntentId()).isNull();
+    }
+
+    @Test
+    @DisplayName("Stale diff sequence or server tick context is rejected by default")
+    void rejectsStaleIntentContext() {
+        TestHarness harness = new TestHarness();
+        GameSession gameSession = startedGameSession();
+        gameSession.setNextDiffSequence(5);
+        gameSession.setServerTick(90);
+        gameSession.setLastDiffServerTick(60);
+        when(harness.gameRepository.findById(gameSession.getId())).thenReturn(Optional.of(gameSession));
+
+        boolean accepted = harness.service.acceptPlayerIntent(
+                "host",
+                gameSession.getId(),
+                moveIntent(gameSession, 1, "stale-move", 3, 60));
+
+        assertThat(accepted).isFalse();
+        assertRejection(harness, gameSession, "stale-move", 1, IntentRejectionReason.STALE_BASE_STATE, 5, 90);
+        assertThat(gameSession.getNextDiffSequence()).isEqualTo(6);
+        assertThat(gameSession.getLastDiffServerTick()).isEqualTo(90);
+        assertThat(gameSession.getPlayerAUnresolvedIntentId()).isNull();
+    }
+
+    @Test
+    @DisplayName("Current diff context is not stale only because server ticks advanced without a diff")
+    void acceptsIntentWhenOnlyServerTickAdvanced() {
+        TestHarness harness = new TestHarness();
+        GameSession gameSession = startedGameSession();
+        gameSession.setServerTick(30);
+        gameSession.setLastDiffServerTick(0);
+        when(harness.gameRepository.findById(gameSession.getId())).thenReturn(Optional.of(gameSession));
+
+        boolean accepted = harness.service.acceptPlayerIntent(
+                "host",
+                gameSession.getId(),
+                moveIntent(gameSession, 1, "move-1", 1, 0));
+
+        assertThat(accepted).isTrue();
+        assertThat(gameSession.getPlayerAUnresolvedIntentId()).isEqualTo("move-1");
+    }
+
+    @Test
+    @DisplayName("A player cannot submit a second intent while one unresolved intent is tracked")
+    void enforcesOneUnresolvedIntentPerPlayer() {
+        TestHarness harness = new TestHarness();
+        GameSession gameSession = startedGameSession();
+        gameSession.setPlayerAUnresolvedIntentId("move-1");
+        when(harness.gameRepository.findById(gameSession.getId())).thenReturn(Optional.of(gameSession));
+
+        boolean accepted = harness.service.acceptPlayerIntent(
+                "host",
+                gameSession.getId(),
+                moveIntent(gameSession, 1, "move-2", 1, 0));
+
+        assertThat(accepted).isFalse();
+        assertRejection(harness, gameSession, "move-2", 1, IntentRejectionReason.TURN_ALREADY_RESOLVING, 2, 0);
+        assertThat(gameSession.getPlayerAUnresolvedIntentId()).isEqualTo("move-1");
+        assertThat(gameSession.getNextDiffSequence()).isEqualTo(3);
+    }
+
+    @Test
+    @DisplayName("Standalone aim intents are invalid because aim remains local until fire")
+    void rejectsStandaloneAimWithoutPredictionDiff() {
+        TestHarness harness = new TestHarness();
+        GameSession gameSession = startedGameSession();
+        when(harness.gameRepository.findById(gameSession.getId())).thenReturn(Optional.of(gameSession));
+
+        boolean accepted = harness.service.acceptPlayerIntent(
+                "host",
+                gameSession.getId(),
+                aimIntent(gameSession, 1, "aim-1", 1, 0));
+
+        assertThat(accepted).isFalse();
+        assertThat(gameSession.getPlayerAUnresolvedIntentId()).isNull();
+        assertThat(gameSession.getNextDiffSequence()).isEqualTo(2);
+        assertThat(gameplayDiffs(harness)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("Null intents are invalid payloads without sequenced rejection diffs")
+    void rejectsNullIntentWithoutPredictionDiff() {
+        TestHarness harness = new TestHarness();
+
+        boolean accepted = harness.service.acceptPlayerIntent("host", UUID.randomUUID(), null);
+
+        assertThat(accepted).isFalse();
+        assertThat(gameplayDiffs(harness)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("Resolved player intent clears the player's unresolved intent slot")
+    void resolvedIntentClearsUnresolvedIntentSlot() {
+        TestHarness harness = new TestHarness();
+        GameSession gameSession = startedGameSession();
+        gameSession.setPlayerAUnresolvedIntentId("move-1");
+        when(harness.gameRepository.findById(gameSession.getId())).thenReturn(Optional.of(gameSession));
+        when(harness.gameRepository.save(any(GameSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        boolean resolved = harness.service.resolvePlayerIntent(gameSession.getId(), 1, "move-1");
+
+        assertThat(resolved).isTrue();
+        assertThat(gameSession.getPlayerAUnresolvedIntentId()).isNull();
+        verify(harness.gameRepository).save(gameSession);
+    }
+
+    @Test
+    @DisplayName("Resolving a different intent leaves the unresolved intent slot unchanged")
+    void mismatchedResolvedIntentDoesNotClearUnresolvedIntentSlot() {
+        TestHarness harness = new TestHarness();
+        GameSession gameSession = startedGameSession();
+        gameSession.setPlayerAUnresolvedIntentId("move-1");
+        when(harness.gameRepository.findById(gameSession.getId())).thenReturn(Optional.of(gameSession));
+
+        boolean resolved = harness.service.resolvePlayerIntent(gameSession.getId(), 1, "move-2");
+
+        assertThat(resolved).isFalse();
+        assertThat(gameSession.getPlayerAUnresolvedIntentId()).isEqualTo("move-1");
+    }
+
+    private static GameSession startedGameSession() {
+        return GameSession.builder()
+                .id(UUID.randomUUID())
+                .playerA("host")
+                .playerB("opponent")
+                .playerTurn("host")
+                .playerTurnExpiresAt(ServerSimulationLoopService.TURN_TIMER_TICKS)
+                .serverTick(0)
+                .turnNumber(1)
+                .nextDiffSequence(2)
+                .lastDiffServerTick(0)
+                .state(GameSessionState.STARTED)
+                .build();
+    }
+
+    private static OnlinePlayerIntentDto<OnlineIntentPayloads.Move> moveIntent(
+            GameSession gameSession,
+            long playerId,
+            String intentId,
+            long lastConfirmedDiffSequence,
+            long lastConfirmedDiffServerTick) {
+        return new OnlinePlayerIntentDto<>(
+                OnlineGameplayProtocolVersion.V1,
+                gameSession.getId().toString(),
+                playerId,
+                intentId,
+                lastConfirmedDiffSequence,
+                lastConfirmedDiffServerTick,
+                OnlinePlayerIntentType.MOVE,
+                new OnlineIntentPayloads.Move(1));
+    }
+
+    private static OnlinePlayerIntentDto<OnlineIntentPayloads.Aim> aimIntent(
+            GameSession gameSession,
+            long playerId,
+            String intentId,
+            long lastConfirmedDiffSequence,
+            long lastConfirmedDiffServerTick) {
+        return new OnlinePlayerIntentDto<>(
+                OnlineGameplayProtocolVersion.V1,
+                gameSession.getId().toString(),
+                playerId,
+                intentId,
+                lastConfirmedDiffSequence,
+                lastConfirmedDiffServerTick,
+                OnlinePlayerIntentType.AIM,
+                new OnlineIntentPayloads.Aim(42, 0.5));
+    }
+
+    private static void assertRejection(
+            TestHarness harness,
+            GameSession gameSession,
+            String intentId,
+            long playerId,
+            IntentRejectionReason reason,
+            long sequence,
+            long serverTick) {
+        List<OnlineDiffEnvelopeDto<?>> diffs = gameplayDiffs(harness);
+        assertThat(diffs).hasSize(1);
+        assertThat(diffs).extracting(OnlineDiffEnvelopeDto::type)
+                .containsExactly(OnlineStateDiffType.INTENT_REJECTION);
+        assertThat(diffs).extracting(OnlineDiffEnvelopeDto::sequence).containsExactly(sequence);
+        assertThat(diffs).extracting(OnlineDiffEnvelopeDto::serverTick).containsExactly(serverTick);
+        assertThat(diffs).extracting(OnlineDiffEnvelopeDto::intentId).containsExactly(intentId);
+
+        OnlineDiffPayloads.IntentRejection payload = (OnlineDiffPayloads.IntentRejection) diffs.getFirst().payload();
+        assertThat(payload.rejectedIntentId()).isEqualTo(intentId);
+        assertThat(payload.playerId()).isEqualTo(playerId);
+        assertThat(payload.reason()).isEqualTo(reason);
+        assertThat(payload.authoritativeSequence()).isEqualTo(gameSession.getNextDiffSequence());
+        assertThat(payload.authoritativeServerTick()).isEqualTo(gameSession.getServerTick());
+    }
+
+    private static List<OnlineDiffEnvelopeDto<?>> gameplayDiffs(TestHarness harness) {
+        return harness.events.stream()
+                .filter(OnlineGameplayEvent.class::isInstance)
+                .map(OnlineGameplayEvent.class::cast)
+                .map(OnlineGameplayEvent::getPayload)
+                .toList();
+    }
+
+    private static class TestHarness {
+        private final GameSessionRepository gameRepository = mock(GameSessionRepository.class);
+        private final UserSessionService userSessionService = mock(UserSessionService.class);
+        private final LobbyRepository lobbyRepository = mock(LobbyRepository.class);
+        private final QuickMatchService quickMatchService = mock(QuickMatchService.class);
+        private final List<Object> events = new ArrayList<>();
+        private final ApplicationEventPublisher eventPublisher = events::add;
+        private final RedisTemplate<String, Object> redisTemplate = mock(RedisTemplate.class);
+        private final RedisClaimService redisClaimService = mock(RedisClaimService.class);
+        private final OnlineGameplayRules gameplayRules = new OnlineGameplayRules(new OnlineGameplayDefinitionCatalog());
+        private final OnlineInitialStateFactory initialStateFactory = new OnlineInitialStateFactory(gameplayRules);
+        private final GameSessionService service = new GameSessionService(
+                gameRepository,
+                userSessionService,
+                lobbyRepository,
+                quickMatchService,
+                eventPublisher,
+                redisTemplate,
+                redisClaimService,
+                gameplayRules,
+                initialStateFactory);
+    }
+}

@@ -108,8 +108,12 @@ public class ServerSimulationLoopService implements ApplicationListener<ContextC
                         gameSession.getPlayerTurnExpiresAt()));
 
         gameSession.setNextDiffSequence(gameSession.getNextDiffSequence() + 1);
-        eventPublisher.publishEvent(new OnlineGameplayEvent(this, gameSession.getPlayerA(), "/queue/replies", diff));
-        eventPublisher.publishEvent(new OnlineGameplayEvent(this, gameSession.getPlayerB(), "/queue/replies", diff));
+        gameSession.setLastDiffServerTick(gameSession.getServerTick());
+        eventPublisher.publishEvent(new OnlineGameplayEvent(
+                this,
+                null,
+                "/topic/game/" + gameSession.getId(),
+                diff));
     }
 
     private long playerId(GameSession gameSession, String player) {

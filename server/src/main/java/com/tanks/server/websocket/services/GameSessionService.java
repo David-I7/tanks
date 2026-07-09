@@ -1,6 +1,13 @@
 package com.tanks.server.websocket.services;
 
 import com.tanks.server.utils.IdFactory;
+import com.tanks.server.websocket.dto.gameplay.OnlineDiffEnvelopeDto;
+import com.tanks.server.websocket.dto.gameplay.OnlineDiffPayloads;
+import com.tanks.server.websocket.dto.gameplay.OnlineGameplayProtocolVersion;
+import com.tanks.server.websocket.dto.gameplay.OnlineIntentPayloads;
+import com.tanks.server.websocket.dto.gameplay.OnlinePlayerIntentDto;
+import com.tanks.server.websocket.dto.gameplay.OnlinePlayerIntentType;
+import com.tanks.server.websocket.dto.gameplay.OnlineStateDiffType;
 import com.tanks.server.websocket.dto.game.GameEventResponseDto;
 import com.tanks.server.websocket.dto.game.GameEventType;
 import com.tanks.server.websocket.dto.game.GameIdPayload;
@@ -145,6 +152,7 @@ public class GameSessionService {
             freshGameSession.setServerTick(0);
             freshGameSession.setTurnNumber(1);
             freshGameSession.setNextDiffSequence(2);
+            freshGameSession.setLastDiffServerTick(0);
             freshGameSession.setState(GameSessionState.STARTED);
             gameRepository.save(freshGameSession);
 
@@ -177,6 +185,43 @@ public class GameSessionService {
                 initialStateFactory.create(gameSession)));
     }
 
+    public boolean acceptPlayerIntent(String username, UUID gameSessionId, OnlinePlayerIntentDto<?> intent) {
+        if (intent == null) {
+            return false;
+        }
+
+        GameSession gameSession = findById(gameSessionId);
+        OnlineDiffPayloads.IntentRejectionReason rejectionReason = rejectionReason(gameSession, username, intent);
+
+        if (rejectionReason != null) {
+            if (rejectionReason == OnlineDiffPayloads.IntentRejectionReason.INVALID_PAYLOAD) {
+                return false;
+            }
+            publishIntentRejection(gameSession, intent, rejectionReason);
+            gameRepository.save(gameSession);
+            return false;
+        }
+
+        setUnresolvedIntent(gameSession, intent.playerId(), intent.intentId());
+        gameRepository.save(gameSession);
+        return true;
+    }
+
+    public boolean resolvePlayerIntent(UUID gameSessionId, long playerId, String intentId) {
+        if (intentId == null) {
+            return false;
+        }
+
+        GameSession gameSession = findById(gameSessionId);
+        if (!intentId.equals(unresolvedIntentId(gameSession, playerId))) {
+            return false;
+        }
+
+        clearUnresolvedIntent(gameSession, playerId);
+        gameRepository.save(gameSession);
+        return true;
+    }
+
     public GameSession findById(UUID gameSessionId) {
         return gameRepository.findById(gameSessionId).orElseThrow(() -> new ProblemDetailException(HttpStatus.NOT_FOUND,"Game session not found", URI.create("about:blank")));
     }
@@ -203,6 +248,118 @@ public class GameSessionService {
 
     private String member(UUID gameSessionId){
         return "gameSession:" + gameSessionId;
+    }
+
+    private OnlineDiffPayloads.IntentRejectionReason rejectionReason(
+            GameSession gameSession,
+            String username,
+            OnlinePlayerIntentDto<?> intent) {
+        if (!OnlineGameplayProtocolVersion.V1.equals(intent.protocolVersion())
+                || !GameSessionState.STARTED.equals(gameSession.getState())
+                || !gameSession.getId().toString().equals(intent.gameSessionId())
+                || !validPayload(intent)) {
+            return OnlineDiffPayloads.IntentRejectionReason.INVALID_PAYLOAD;
+        }
+
+        if (!playerUsername(gameSession, intent.playerId()).equals(username)
+                || !isActivePlayer(gameSession, intent.playerId())) {
+            return OnlineDiffPayloads.IntentRejectionReason.NOT_ACTIVE_PLAYER;
+        }
+
+        if (intent.lastConfirmedDiffSequence() != gameSession.getNextDiffSequence() - 1
+                || intent.lastConfirmedDiffServerTick() != gameSession.getLastDiffServerTick()) {
+            return OnlineDiffPayloads.IntentRejectionReason.STALE_BASE_STATE;
+        }
+
+        if (unresolvedIntentId(gameSession, intent.playerId()) != null) {
+            return OnlineDiffPayloads.IntentRejectionReason.TURN_ALREADY_RESOLVING;
+        }
+
+        return null;
+    }
+
+    private boolean validPayload(OnlinePlayerIntentDto<?> intent) {
+        if (intent.intentId() == null || intent.intentId().isBlank() || intent.type() == null) {
+            return false;
+        }
+
+        if (intent.type() == OnlinePlayerIntentType.MOVE && intent.payload() instanceof OnlineIntentPayloads.Move move) {
+            return gameplayRules.acceptsMoveIntent(move);
+        }
+        if (intent.type() == OnlinePlayerIntentType.FIRE && intent.payload() instanceof OnlineIntentPayloads.Fire fire) {
+            return gameplayRules.acceptsFireIntent(fire);
+        }
+
+        return false;
+    }
+
+    private boolean isActivePlayer(GameSession gameSession, long playerId) {
+        return playerUsername(gameSession, playerId).equals(gameSession.getPlayerTurn());
+    }
+
+    private String playerUsername(GameSession gameSession, long playerId) {
+        if (playerId == 1) {
+            return gameSession.getPlayerA();
+        }
+        if (playerId == 2) {
+            return gameSession.getPlayerB();
+        }
+        return "";
+    }
+
+    private String unresolvedIntentId(GameSession gameSession, long playerId) {
+        if (playerId == 1) {
+            return gameSession.getPlayerAUnresolvedIntentId();
+        }
+        if (playerId == 2) {
+            return gameSession.getPlayerBUnresolvedIntentId();
+        }
+        return null;
+    }
+
+    private void setUnresolvedIntent(GameSession gameSession, long playerId, String intentId) {
+        if (playerId == 1) {
+            gameSession.setPlayerAUnresolvedIntentId(intentId);
+        } else if (playerId == 2) {
+            gameSession.setPlayerBUnresolvedIntentId(intentId);
+        }
+    }
+
+    private void clearUnresolvedIntent(GameSession gameSession, long playerId) {
+        if (playerId == 1) {
+            gameSession.setPlayerAUnresolvedIntentId(null);
+        } else if (playerId == 2) {
+            gameSession.setPlayerBUnresolvedIntentId(null);
+        }
+    }
+
+    private void publishIntentRejection(
+            GameSession gameSession,
+            OnlinePlayerIntentDto<?> intent,
+            OnlineDiffPayloads.IntentRejectionReason reason) {
+        long sequence = gameSession.getNextDiffSequence();
+        gameSession.setNextDiffSequence(sequence + 1);
+        gameSession.setLastDiffServerTick(gameSession.getServerTick());
+
+        OnlineDiffEnvelopeDto<OnlineDiffPayloads.IntentRejection> diff = new OnlineDiffEnvelopeDto<>(
+                OnlineGameplayProtocolVersion.V1,
+                gameSession.getId().toString(),
+                sequence,
+                gameSession.getServerTick(),
+                OnlineStateDiffType.INTENT_REJECTION,
+                intent.intentId(),
+                new OnlineDiffPayloads.IntentRejection(
+                        intent.intentId(),
+                        intent.playerId(),
+                        reason,
+                        gameSession.getNextDiffSequence(),
+                        gameSession.getServerTick()));
+
+        eventPublisher.publishEvent(new OnlineGameplayEvent(
+                this,
+                null,
+                "/topic/game/" + gameSession.getId(),
+                diff));
     }
 
     private void deleteGameQuietly(GameSession gameSession) {
