@@ -1,15 +1,14 @@
 package com.tanks.server.websocket.services;
 
 import com.tanks.server.websocket.entities.lobby.Lobby;
-import com.tanks.server.entities.User;
 import com.tanks.server.websocket.repositories.LobbyRepository;
 import lombok.AllArgsConstructor;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -22,16 +21,29 @@ public class QuickMatchService {
 
     private final RedisTemplate<String,Object> redisTemplate;
 
-    public Optional<Lobby> findBestQuickMatch(){
-        Set<Object> lobbyIds =  redisTemplate.opsForZSet().range(QUICK_MATCH_KEY,0,0);
+    public Optional<Lobby> popBestQuickMatch(){
+        ZSetOperations.TypedTuple<Object> lobbyTuple;
 
-        if(lobbyIds == null || lobbyIds.isEmpty()){
-            return Optional.empty();
+        while ((lobbyTuple = redisTemplate.opsForZSet().popMin(QUICK_MATCH_KEY)) != null) {
+            Object lobbyId = lobbyTuple.getValue();
+
+            if(lobbyId == null) {
+                continue;
+            }
+
+            Optional<Lobby> lobby;
+            try {
+                lobby = lobbyRepository.findById(UUID.fromString(lobbyId.toString()));
+            } catch (IllegalArgumentException ex) {
+                continue;
+            }
+
+            if(lobby.isPresent()) {
+                return lobby;
+            }
         }
 
-        String lobbyId = (String)lobbyIds.iterator().next();
-
-        return lobbyRepository.findById(UUID.fromString(lobbyId));
+        return Optional.empty();
     }
 
     public void delete(Lobby lobby){
