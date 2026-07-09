@@ -26,6 +26,8 @@ public final class OnlineDiffPayloads {
                         long projectileEntityId,
                         long ownerPlayerId,
                         String projectileDefinitionId,
+                        String projectileRenderAssetId,
+                        String impactRenderAssetId,
                         OnlineVec2Dto launch,
                         OnlineVec2Dto impact,
                         List<OnlineTankDamageDto> damagedTanks) {

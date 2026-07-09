@@ -109,6 +109,8 @@ export type OnlineProjectileResolutionDiff = {
     projectileEntityId: EntityId;
     ownerPlayerId: PlayerId;
     projectileDefinitionId: string;
+    projectileRenderAssetId: string;
+    impactRenderAssetId: string;
     launch: OnlineVec2;
     impact: OnlineVec2;
     damagedTanks: OnlineTankDamage[];
@@ -166,6 +168,7 @@ export type OnlineTankDamage = {
 };
 
 export type OnlineGameStateSnapshot = {
+  gameplayDefinitionVersion: string;
   match: {
     phase: "AIMING" | "BALLISTICS" | "IMPACT" | "TRANSITION" | "GAME_OVER";
     activePlayerId: PlayerId;
@@ -213,6 +216,7 @@ export type OnlineTankSnapshot = {
   playerId: PlayerId;
   displayName: string;
   tankDefinitionId: string;
+  renderAssetId: string;
   position: OnlineVec2;
   facing: 1 | -1;
   aimAngle: number;
@@ -228,11 +232,13 @@ export type OnlineProjectileSnapshot = {
   entityId: EntityId;
   ownerPlayerId: PlayerId;
   projectileDefinitionId: string;
+  renderAssetId: string;
   position: OnlineVec2;
   velocity: OnlineVec2;
 };
 
 const exampleState: OnlineGameStateSnapshot = {
+  gameplayDefinitionVersion: "online-gameplay-definitions.v1",
   match: {
     phase: "AIMING",
     activePlayerId: 1,
@@ -252,14 +258,15 @@ const exampleState: OnlineGameStateSnapshot = {
       entityId: 10,
       playerId: 1,
       displayName: "Player 1",
-      tankDefinitionId: "standard",
+      tankDefinitionId: "vanguard",
+      renderAssetId: "tank.vanguard",
       position: { x: 50, y: 120 },
       facing: 1,
       aimAngle: 45,
       power: 0.5,
-      selectedProjectileSlotId: "shell",
-      health: 100,
-      maxHealth: 100,
+      selectedProjectileSlotId: "standard",
+      health: 110,
+      maxHealth: 110,
       fuel: 100,
       alive: true,
     },
@@ -279,7 +286,7 @@ export const onlineGameplayProtocolExamples = {
     payload: {
       angle: 42,
       power: 0.75,
-      projectileSlotId: "shell",
+      projectileSlotId: "standard",
     },
   },
   diffs: [

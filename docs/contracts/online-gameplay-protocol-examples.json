@@ -10,7 +10,7 @@
     "payload": {
       "angle": 42.0,
       "power": 0.75,
-      "projectileSlotId": "shell"
+      "projectileSlotId": "standard"
     }
   },
   "diffs": [
@@ -23,6 +23,7 @@
       "intentId": null,
       "payload": {
         "state": {
+          "gameplayDefinitionVersion": "online-gameplay-definitions.v1",
           "match": {
             "phase": "AIMING",
             "activePlayerId": 1,
@@ -42,7 +43,8 @@
               "entityId": 10,
               "playerId": 1,
               "displayName": "Player 1",
-              "tankDefinitionId": "standard",
+              "tankDefinitionId": "vanguard",
+              "renderAssetId": "tank.vanguard",
               "position": {
                 "x": 50.0,
                 "y": 120.0
@@ -50,9 +52,9 @@
               "facing": 1,
               "aimAngle": 45.0,
               "power": 0.5,
-              "selectedProjectileSlotId": "shell",
-              "health": 100.0,
-              "maxHealth": 100.0,
+              "selectedProjectileSlotId": "standard",
+              "health": 110.0,
+              "maxHealth": 110.0,
               "fuel": 100.0,
               "alive": true
             }

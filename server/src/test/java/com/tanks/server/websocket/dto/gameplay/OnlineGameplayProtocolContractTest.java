@@ -33,7 +33,7 @@ class OnlineGameplayProtocolContractTest {
                                 7,
                                 210,
                                 OnlinePlayerIntentType.FIRE,
-                                new Fire(42, 0.75, "shell"));
+                                new Fire(42, 0.75, "standard"));
 
                 JsonNode json = objectMapper.valueToTree(intent);
 
@@ -43,7 +43,7 @@ class OnlineGameplayProtocolContractTest {
                 assertThat(json.get("lastConfirmedDiffSequence").asLong()).isEqualTo(7);
                 assertThat(json.get("lastConfirmedDiffServerTick").asLong()).isEqualTo(210);
                 assertThat(json.get("type").asText()).isEqualTo("FIRE");
-                assertThat(json.at("/payload/projectileSlotId").asText()).isEqualTo("shell");
+                assertThat(json.at("/payload/projectileSlotId").asText()).isEqualTo("standard");
         }
 
         @Test
@@ -71,6 +71,34 @@ class OnlineGameplayProtocolContractTest {
                 assertThat(json.get("type").asText()).isEqualTo("INTENT_REJECTION");
                 assertThat(json.get("intentId").asText()).isEqualTo("intent-abc");
                 assertThat(json.at("/payload/reason").asText()).isEqualTo("STALE_BASE_STATE");
+        }
+
+        @Test
+        @DisplayName("Projectile Resolution exposes render asset IDs without client asset paths")
+        void projectileResolutionRenderAssetIds() {
+                var diff = new OnlineDiffEnvelopeDto<>(
+                                OnlineGameplayProtocolVersion.V1,
+                                "game-123",
+                                4,
+                                90,
+                                OnlineStateDiffType.PROJECTILE_RESOLUTION,
+                                "intent-fire",
+                                new OnlineDiffPayloads.ProjectileResolution(
+                                                20,
+                                                1,
+                                                "basicShell",
+                                                "projectile.basic-shell",
+                                                "impact.orange-pop",
+                                                new OnlineVec2Dto(55, 110),
+                                                new OnlineVec2Dto(120, 130),
+                                                List.of(new OnlineTankDamageDto(11, 2, 35, 65))));
+
+                JsonNode json = objectMapper.valueToTree(diff);
+
+                assertThat(json.at("/payload/projectileRenderAssetId").asText()).isEqualTo("projectile.basic-shell");
+                assertThat(json.at("/payload/impactRenderAssetId").asText()).isEqualTo("impact.orange-pop");
+                assertThat(json.at("/payload/projectileRenderAssetId").asText()).doesNotContain("/", "\\");
+                assertThat(json.at("/payload/impactRenderAssetId").asText()).doesNotContain("/", "\\");
         }
 
         @Test
@@ -122,7 +150,9 @@ class OnlineGameplayProtocolContractTest {
                                                 new OnlineDiffPayloads.ProjectileResolution(
                                                                 20,
                                                                 1,
-                                                                "shell",
+                                                                "basicShell",
+                                                                "projectile.basic-shell",
+                                                                "impact.orange-pop",
                                                                 new OnlineVec2Dto(55, 110),
                                                                 new OnlineVec2Dto(120, 130),
                                                                 List.of(new OnlineTankDamageDto(11, 2, 35, 65)))),
@@ -200,6 +230,7 @@ class OnlineGameplayProtocolContractTest {
 
         private static OnlineGameStateSnapshotDto stateSnapshot() {
                 return new OnlineGameStateSnapshotDto(
+                                "online-gameplay-definitions.v1",
                                 new OnlineMatchSnapshotDto(MatchPhase.AIMING, 1, 2, 1, 900, null),
                                 new OnlineTerrainSnapshotDto.Heightmap(TerrainSnapshotKind.HEIGHTMAP, 4, 3,
                                                 List.of(2, 2, 1, 2)),
@@ -207,14 +238,15 @@ class OnlineGameplayProtocolContractTest {
                                                 10,
                                                 1,
                                                 "Player 1",
-                                                "standard",
+                                                "vanguard",
+                                                "tank.vanguard",
                                                 new OnlineVec2Dto(50, 120),
                                                 1,
                                                 45,
                                                 0.5,
-                                                "shell",
-                                                100,
-                                                100,
+                                                "standard",
+                                                110,
+                                                110,
                                                 100,
                                                 true)),
                                 List.of());
@@ -229,7 +261,7 @@ class OnlineGameplayProtocolContractTest {
                                 7,
                                 210,
                                 OnlinePlayerIntentType.FIRE,
-                                new Fire(42, 0.75, "shell"));
+                                new Fire(42, 0.75, "standard"));
         }
 
         private static OnlineDiffEnvelopeDto<OnlineDiffPayloads.InitialState> initialStateFixture() {

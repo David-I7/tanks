@@ -5,6 +5,7 @@ public record OnlineTankSnapshotDto(
                 long playerId,
                 String displayName,
                 String tankDefinitionId,
+                String renderAssetId,
                 OnlineVec2Dto position,
                 int facing,
                 double aimAngle,

@@ -1,10 +1,11 @@
 export type GameEventPayload = { id: string, playerName: string };
 
 export type GameStartedPayload = {
-    id: string;
+    gameSessionId: string;
     playerA: string;
     playerB: string;
-    startedAt: Date;
+    gameStartedAt: string;
+    gameplayDefinitionVersion: string;
 }
 
 export type GameEvent = {
