@@ -36,5 +36,7 @@ public class GameSession {
 
     private GameSessionState state;
 
+    private String gameplayDefinitionVersion;
+
     private int connectedPlayerCount = 0;
 }

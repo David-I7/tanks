@@ -1,0 +1,91 @@
+{
+  "playerIntent": {
+    "protocolVersion": "online-gameplay.v1",
+    "gameSessionId": "game-123",
+    "playerId": 1,
+    "intentId": "intent-abc",
+    "lastConfirmedDiffSequence": 7,
+    "lastConfirmedDiffServerTick": 210,
+    "type": "FIRE",
+    "payload": {
+      "angle": 42.0,
+      "power": 0.75,
+      "projectileSlotId": "standard"
+    }
+  },
+  "diffs": [
+    {
+      "protocolVersion": "online-gameplay.v1",
+      "gameSessionId": "game-123",
+      "sequence": 1,
+      "serverTick": 0,
+      "type": "INITIAL_STATE",
+      "intentId": null,
+      "payload": {
+        "expectedNextDiffSequence": 2,
+        "state": {
+          "gameplayDefinitionVersion": "online-gameplay-definitions.v1",
+          "match": {
+            "phase": "AIMING",
+            "activePlayerId": 1,
+            "playerCount": 2,
+            "turnNumber": 1,
+            "turnTimeRemainingTicks": 900,
+            "winnerPlayerId": null
+          },
+          "terrain": {
+            "kind": "HEIGHTMAP",
+            "width": 4,
+            "height": 3,
+            "surface": [2, 2, 1, 2]
+          },
+          "tanks": [
+            {
+              "entityId": 10,
+              "playerId": 1,
+              "displayName": "Player 1",
+              "tankDefinitionId": "vanguard",
+              "renderAssetId": "tank.vanguard",
+              "position": {
+                "x": 50.0,
+                "y": 120.0
+              },
+              "facing": 1,
+              "aimAngle": 45.0,
+              "power": 0.5,
+              "selectedProjectileSlotId": "standard",
+              "loadout": [
+                {
+                  "id": "standard",
+                  "projectileDefinitionId": "basicShell",
+                  "label": "Std",
+                  "renderAssetId": "projectile-slot.standard"
+                }
+              ],
+              "health": 110.0,
+              "maxHealth": 110.0,
+              "fuel": 100.0,
+              "alive": true
+            }
+          ],
+          "projectiles": []
+        }
+      }
+    },
+    {
+      "protocolVersion": "online-gameplay.v1",
+      "gameSessionId": "game-123",
+      "sequence": 8,
+      "serverTick": 240,
+      "type": "INTENT_REJECTION",
+      "intentId": "intent-abc",
+      "payload": {
+        "rejectedIntentId": "intent-abc",
+        "playerId": 1,
+        "reason": "STALE_BASE_STATE",
+        "authoritativeSequence": 9,
+        "authoritativeServerTick": 270
+      }
+    }
+  ]
+}

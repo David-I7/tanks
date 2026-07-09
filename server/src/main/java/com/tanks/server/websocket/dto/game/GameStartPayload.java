@@ -7,6 +7,7 @@ public record GameStartPayload(
     UUID gameSessionId,
     String playerA,
     String playerB,
-    OffsetDateTime gameStartedAt
+    OffsetDateTime gameStartedAt,
+    String gameplayDefinitionVersion
 ) {
 }
