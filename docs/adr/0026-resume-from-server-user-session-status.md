@@ -1,0 +1,3 @@
+# Resume from server user session status
+
+On reconnect or page reload, the client uses server-reported User Session status to resume into an existing Lobby or Game Session when that live state is still valid. A resumed game client establishes presence, subscribes to the game topic, requests Resync State, clears Pending Predictions, sets the expected next Diff Sequence, and only then processes new diffs. A resumed lobby client restores lightweight lobby state through server status or replies after subscribing to the lobby topic, without gameplay Resync State. If the server no longer has valid live state for the user, the client falls back to the idle/home flow instead of trusting cached route state.

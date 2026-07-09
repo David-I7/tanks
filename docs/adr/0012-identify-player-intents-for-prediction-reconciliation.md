@@ -1,0 +1,3 @@
+# Identify player intents for prediction reconciliation
+
+Every online Player Intent carries a client-generated random Intent ID plus the last confirmed Diff Sequence and Diff Server Tick known by the client when the intent was sent. The server still validates against authoritative current state, but this base-state context lets it reject or adjust stale intents intentionally and makes reconciliation easier to debug. Server-confirmed State Diffs include the accepted or rejected Intent ID in the canonical broadcast payload so the originating client can remove or correct the matching Pending Prediction without relying on action type, timing, or local ordering guesses; other clients ignore the identifier.

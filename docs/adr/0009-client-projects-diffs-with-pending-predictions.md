@@ -1,0 +1,3 @@
+# Client projects diffs with pending predictions
+
+The online client treats its local game state as a projection of server-confirmed State Diffs plus Pending Predictions. `confirmedState` is produced by applying accepted diffs, `pendingPredictions` tracks local intents that have not been accepted or rejected yet, and `renderState` combines confirmed state, pending predictions, and interpolation for display without making the client authoritative. Each Pending Prediction records the Intent ID plus the last confirmed Diff Sequence and Diff Server Tick known when the intent was sent, so reconciliation can detect predictions based on stale simulation state.
