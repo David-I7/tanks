@@ -19,6 +19,8 @@ import com.tanks.server.websocket.services.RedisClaimService;
 import com.tanks.server.websocket.services.UserSessionService;
 import com.tanks.server.websocket.events.GameEvent;
 import com.tanks.server.websocket.events.LobbyEvent;
+import com.tanks.server.websocket.events.OnlineGameplayEvent;
+import com.tanks.server.websocket.events.WebSocketEvent;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -61,15 +63,20 @@ public class WebSocketEventListeners {
 
     @EventListener
     public void handleLobbyEvent(LobbyEvent event) {
-        if (event.getUsername() != null) {
-            simpMessagingTemplate.convertAndSendToUser(event.getUsername(), event.getDestination(), event.getPayload());
-        } else {
-            simpMessagingTemplate.convertAndSend(event.getDestination(), event.getPayload());
-        }
+        send(event);
     }
 
     @EventListener
     public void handleGameEvent(GameEvent event) {
+        send(event);
+    }
+
+    @EventListener
+    public void handleOnlineGameplayEvent(OnlineGameplayEvent event) {
+        send(event);
+    }
+
+    private void send(WebSocketEvent<?> event) {
         if (event.getUsername() != null) {
             simpMessagingTemplate.convertAndSendToUser(event.getUsername(), event.getDestination(), event.getPayload());
         } else {
@@ -163,6 +170,8 @@ public class WebSocketEventListeners {
 
             if(gameSession.getConnectedPlayerCount() == 2 && gameSession.getState().equals(GameSessionState.CREATED)){
                 gameSessionService.startGame(gameSession);
+            } else if (gameSession.getState().equals(GameSessionState.STARTED)) {
+                gameSessionService.sendInitialStateToPlayer(gameSession, authentication.getName());
             }
         }
     }

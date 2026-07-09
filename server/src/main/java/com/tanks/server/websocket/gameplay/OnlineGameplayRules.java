@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 
 import com.tanks.server.websocket.dto.gameplay.OnlineDiffPayloads;
 import com.tanks.server.websocket.dto.gameplay.OnlineIntentPayloads;
+import com.tanks.server.websocket.dto.gameplay.OnlineProjectileSlotSnapshotDto;
 import com.tanks.server.websocket.dto.gameplay.OnlineProjectileSnapshotDto;
 import com.tanks.server.websocket.dto.gameplay.OnlineTankSnapshotDto;
 import com.tanks.server.websocket.dto.gameplay.OnlineVec2Dto;
@@ -44,6 +45,13 @@ public class OnlineGameplayRules {
                 45,
                 0.5,
                 selectedSlot.id(),
+                tank.loadout().stream()
+                        .map(slot -> new OnlineProjectileSlotSnapshotDto(
+                                slot.id(),
+                                slot.projectileDefinitionId(),
+                                slot.label(),
+                                slot.renderAssetId()))
+                        .toList(),
                 tank.maxHealth(),
                 tank.maxHealth(),
                 tank.maxFuel(),

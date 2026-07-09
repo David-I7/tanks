@@ -7,7 +7,7 @@ public final class OnlineDiffPayloads {
         private OnlineDiffPayloads() {
         }
 
-        public record InitialState(OnlineGameStateSnapshotDto state) {
+        public record InitialState(long expectedNextDiffSequence, OnlineGameStateSnapshotDto state) {
         }
 
         public record ResyncState(long replacesSequence, ResyncReason reason, OnlineGameStateSnapshotDto state) {

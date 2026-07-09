@@ -78,6 +78,7 @@ export type OnlineDiffEnvelope<TDiff extends OnlineStateDiff = OnlineStateDiff> 
 export type OnlineInitialStateDiff = {
   type: "INITIAL_STATE";
   payload: {
+    expectedNextDiffSequence: DiffSequence;
     state: OnlineGameStateSnapshot;
   };
 };
@@ -222,10 +223,18 @@ export type OnlineTankSnapshot = {
   aimAngle: number;
   power: number;
   selectedProjectileSlotId: string;
+  loadout: OnlineProjectileSlotSnapshot[];
   health: number;
   maxHealth: number;
   fuel: number;
   alive: boolean;
+};
+
+export type OnlineProjectileSlotSnapshot = {
+  id: string;
+  projectileDefinitionId: string;
+  label: string;
+  renderAssetId: string;
 };
 
 export type OnlineProjectileSnapshot = {
@@ -265,6 +274,14 @@ const exampleState: OnlineGameStateSnapshot = {
       aimAngle: 45,
       power: 0.5,
       selectedProjectileSlotId: "standard",
+      loadout: [
+        {
+          id: "standard",
+          projectileDefinitionId: "basicShell",
+          label: "Std",
+          renderAssetId: "projectile-slot.standard",
+        },
+      ],
       health: 110,
       maxHealth: 110,
       fuel: 100,
@@ -298,6 +315,7 @@ export const onlineGameplayProtocolExamples = {
       type: "INITIAL_STATE",
       intentId: null,
       payload: {
+        expectedNextDiffSequence: 2,
         state: exampleState,
       },
     },

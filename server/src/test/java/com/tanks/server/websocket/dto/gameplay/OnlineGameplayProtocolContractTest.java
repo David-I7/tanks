@@ -114,7 +114,7 @@ class OnlineGameplayProtocolContractTest {
                                                 0,
                                                 OnlineStateDiffType.INITIAL_STATE,
                                                 null,
-                                                new OnlineDiffPayloads.InitialState(state)),
+                                                new OnlineDiffPayloads.InitialState(2, state)),
                                 new OnlineDiffEnvelopeDto<>(
                                                 OnlineGameplayProtocolVersion.V1,
                                                 "game-123",
@@ -245,6 +245,11 @@ class OnlineGameplayProtocolContractTest {
                                                 45,
                                                 0.5,
                                                 "standard",
+                                                List.of(new OnlineProjectileSlotSnapshotDto(
+                                                                "standard",
+                                                                "basicShell",
+                                                                "Std",
+                                                                "projectile-slot.standard")),
                                                 110,
                                                 110,
                                                 100,
@@ -272,7 +277,7 @@ class OnlineGameplayProtocolContractTest {
                                 0,
                                 OnlineStateDiffType.INITIAL_STATE,
                                 null,
-                                new OnlineDiffPayloads.InitialState(stateSnapshot()));
+                                new OnlineDiffPayloads.InitialState(2, stateSnapshot()));
         }
 
         private static OnlineDiffEnvelopeDto<IntentRejection> intentRejectionFixture() {

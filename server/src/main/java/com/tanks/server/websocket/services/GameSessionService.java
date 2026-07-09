@@ -12,6 +12,8 @@ import com.tanks.server.websocket.entities.lobby.LobbyStatus;
 import com.tanks.server.websocket.entities.lobby.LobbyType;
 import com.tanks.server.websocket.entities.userSession.UserSession;
 import com.tanks.server.websocket.events.GameEvent;
+import com.tanks.server.websocket.events.OnlineGameplayEvent;
+import com.tanks.server.websocket.gameplay.OnlineInitialStateFactory;
 import com.tanks.server.websocket.exceptions.ProblemDetailException;
 import com.tanks.server.websocket.gameplay.OnlineGameplayRules;
 import com.tanks.server.websocket.repositories.GameSessionRepository;
@@ -40,6 +42,7 @@ public class GameSessionService {
     private final RedisTemplate<String, Object> redisTemplate;
     private final RedisClaimService redisClaimService;
     private final OnlineGameplayRules gameplayRules;
+    private final OnlineInitialStateFactory initialStateFactory;
 
     public GameSession create(Lobby lobby) {
         if (!redisClaimService.claimGameCreation(lobby.getId(), lobby.getHostId())) {
@@ -155,9 +158,19 @@ public class GameSessionService {
 
             eventPublisher.publishEvent(new GameEvent(this, freshGameSession.getPlayerA(), "/queue/replies", response));
             eventPublisher.publishEvent(new GameEvent(this, freshGameSession.getPlayerB(), "/queue/replies", response));
+            sendInitialStateToPlayer(freshGameSession, freshGameSession.getPlayerA());
+            sendInitialStateToPlayer(freshGameSession, freshGameSession.getPlayerB());
         } finally {
             redisClaimService.deleteGameStart(gameSession.getId());
         }
+    }
+
+    public void sendInitialStateToPlayer(GameSession gameSession, String username) {
+        eventPublisher.publishEvent(new OnlineGameplayEvent(
+                this,
+                username,
+                "/queue/replies",
+                initialStateFactory.create(gameSession)));
     }
 
     public GameSession findById(UUID gameSessionId) {

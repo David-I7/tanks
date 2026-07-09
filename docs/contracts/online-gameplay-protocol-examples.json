@@ -22,6 +22,7 @@
       "type": "INITIAL_STATE",
       "intentId": null,
       "payload": {
+        "expectedNextDiffSequence": 2,
         "state": {
           "gameplayDefinitionVersion": "online-gameplay-definitions.v1",
           "match": {
@@ -53,6 +54,14 @@
               "aimAngle": 45.0,
               "power": 0.5,
               "selectedProjectileSlotId": "standard",
+              "loadout": [
+                {
+                  "id": "standard",
+                  "projectileDefinitionId": "basicShell",
+                  "label": "Std",
+                  "renderAssetId": "projectile-slot.standard"
+                }
+              ],
               "health": 110.0,
               "maxHealth": 110.0,
               "fuel": 100.0,

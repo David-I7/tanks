@@ -20,6 +20,7 @@ import com.tanks.server.websocket.entities.lobby.LobbyStatus;
 import com.tanks.server.websocket.entities.lobby.LobbyType;
 import com.tanks.server.websocket.entities.userSession.UserSession;
 import com.tanks.server.websocket.gameplay.OnlineGameplayDefinitionCatalog;
+import com.tanks.server.websocket.gameplay.OnlineInitialStateFactory;
 import com.tanks.server.websocket.gameplay.OnlineGameplayRules;
 import com.tanks.server.websocket.repositories.GameSessionRepository;
 import com.tanks.server.websocket.repositories.LobbyRepository;
@@ -47,7 +48,8 @@ class GameSessionServiceGameplayDefinitionsTest {
                 eventPublisher,
                 redisTemplate,
                 redisClaimService,
-                gameplayRules);
+                gameplayRules,
+                new OnlineInitialStateFactory(gameplayRules));
 
         UUID lobbyId = UUID.randomUUID();
         Lobby lobby = Lobby.builder()

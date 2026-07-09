@@ -1,5 +1,7 @@
 package com.tanks.server.websocket.dto.gameplay;
 
+import java.util.List;
+
 public record OnlineTankSnapshotDto(
                 long entityId,
                 long playerId,
@@ -11,6 +13,7 @@ public record OnlineTankSnapshotDto(
                 double aimAngle,
                 double power,
                 String selectedProjectileSlotId,
+                List<OnlineProjectileSlotSnapshotDto> loadout,
                 double health,
                 double maxHealth,
                 double fuel,
