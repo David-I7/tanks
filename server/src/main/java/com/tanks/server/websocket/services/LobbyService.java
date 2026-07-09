@@ -12,6 +12,7 @@ import com.tanks.server.websocket.events.LobbyEvent;
 import com.tanks.server.websocket.exceptions.ProblemDetailException;
 import com.tanks.server.websocket.repositories.LobbyRepository;
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -23,6 +24,7 @@ import java.util.UUID;
 
 @Service
 @AllArgsConstructor
+@Slf4j
 public class LobbyService {
 
     private final LobbyRepository lobbyRepository;
@@ -31,9 +33,12 @@ public class LobbyService {
 
     private final UserSessionService userSessionService;
 
+    private final RedisClaimService redisClaimService;
+
     private final ApplicationEventPublisher eventPublisher;
 
     public Lobby create(UserSession userSession, LobbyType type) {
+        UserSession originalUserSession = new UserSession(userSession);
         UUID uuid = IdFactory.randomUUID();
         Lobby lobby = Lobby.builder()
                 .hostId(userSession.getId())
@@ -42,41 +47,64 @@ public class LobbyService {
                 .id(uuid)
                 .build();
 
-        lobbyRepository.save(lobby);
-        if (lobby.getType() == LobbyType.QUICK_MATCH) {
-            quickMatchService.create(lobby);
+        try {
+            lobbyRepository.save(lobby);
+            if (lobby.getType() == LobbyType.QUICK_MATCH) {
+                quickMatchService.create(lobby);
+            }
+
+            userSessionService.transitionToLobby(userSession,uuid);
+            userSessionService.save(userSession);
+
+            eventPublisher.publishEvent(new LobbyEvent(this, userSession.getUsername(), "/queue/replies",
+                    new LobbyEventResponseDto(LobbyEventType.LOBBY_CREATED, "@SERVER", new LobbyEventPayload(uuid, userSession.getUsername()))));
+        } catch (RuntimeException ex) {
+            restoreUserSession(userSession, originalUserSession);
+            cleanupLobby(lobby);
+            throw ex;
         }
-
-        userSessionService.transitionToLobby(userSession,uuid);
-        userSessionService.save(userSession);
-
-        eventPublisher.publishEvent(new LobbyEvent(this, userSession.getUsername(), "/queue/replies",
-                new LobbyEventResponseDto(LobbyEventType.LOBBY_CREATED, "@SERVER", new LobbyEventPayload(uuid, userSession.getUsername()))));
 
         return lobby;
     }
 
     public void join(UUID lobbyId, UserSession userSession) {
 
+        if (!redisClaimService.claimLobbyJoin(lobbyId, userSession.getId())) {
+            throw new ProblemDetailException(HttpStatus.CONFLICT, "Lobby join is already in progress.", URI.create("/lobby/join/private/" + lobbyId));
+        }
+
         Lobby lobby = findById(lobbyId);
+        Long originalOpponentId = lobby.getOpponentId();
+        LobbyStatus originalStatus = lobby.getStatus();
+        UserSession originalUserSession = new UserSession(userSession);
 
-        if (isFullLobby(lobby))
+        if (isFullLobby(lobby)) {
+            redisClaimService.releaseLobbyJoin(lobbyId, userSession.getId());
             throw new ProblemDetailException(HttpStatus.BAD_REQUEST, "Lobby is full.", URI.create("/lobby/join/private/" + lobbyId));
+        }
 
-        // New user has joined
-        lobby.setOpponentId(userSession.getId());
-        lobby.setStatus(LobbyStatus.READY);
-        lobbyRepository.save(lobby);
+        try {
+            // New user has joined
+            lobby.setOpponentId(userSession.getId());
+            lobby.setStatus(LobbyStatus.READY);
+            lobbyRepository.save(lobby);
 
-        userSessionService.transitionToLobby(userSession,lobbyId);
-        userSessionService.save(userSession);
+            userSessionService.transitionToLobby(userSession,lobbyId);
+            userSessionService.save(userSession);
 
-        eventPublisher.publishEvent(new LobbyEvent(this, userSession.getUsername(), "/queue/replies",
-                new LobbyEventResponseDto(LobbyEventType.LOBBY_JOINED, "@SERVER", new LobbyEventPayload(lobbyId, userSession.getUsername()))));
+            eventPublisher.publishEvent(new LobbyEvent(this, userSession.getUsername(), "/queue/replies",
+                    new LobbyEventResponseDto(LobbyEventType.LOBBY_JOINED, "@SERVER", new LobbyEventPayload(lobbyId, userSession.getUsername()))));
+            redisClaimService.deleteLobbyJoin(lobbyId);
+        } catch (RuntimeException ex) {
+            restoreUserSession(userSession, originalUserSession);
+            restoreLobby(lobby, originalOpponentId, originalStatus);
+            redisClaimService.releaseLobbyJoin(lobbyId, userSession.getId());
+            throw ex;
+        }
     }
 
     public void joinQuickMatch(UserSession userSession) {
-        Optional<Lobby> lobbyOpt = findBestQuickMatch();
+        Optional<Lobby> lobbyOpt = popBestQuickMatch();
 
         if (lobbyOpt.isPresent()) {
             Lobby quickMatchLobby = lobbyOpt.get();
@@ -105,6 +133,7 @@ public class LobbyService {
             lobby.setOpponentId(null);
             lobby.setStatus(LobbyStatus.WAITING_FOR_OPPONENT);
             lobbyRepository.save(lobby);
+            redisClaimService.deleteLobbyJoin(lobby.getId());
 
             eventPublisher.publishEvent(new LobbyEvent(this,null,
                     "/topic/lobby/" + userSession.getLobbyId(),
@@ -119,6 +148,8 @@ public class LobbyService {
 
     public void delete(Lobby lobby) {
         lobbyRepository.delete(lobby);
+        redisClaimService.deleteLobbyJoin(lobby.getId());
+        redisClaimService.deleteGameCreation(lobby.getId());
         if(lobby.getType() == LobbyType.QUICK_MATCH){
             quickMatchService.delete(lobby);
         }
@@ -128,8 +159,8 @@ public class LobbyService {
         quickMatchService.delete(lobby);
     }
 
-    public Optional<Lobby> findBestQuickMatch(){
-        return quickMatchService.findBestQuickMatch();
+    public Optional<Lobby> popBestQuickMatch(){
+        return quickMatchService.popBestQuickMatch();
     }
 
     public Lobby findById(UUID lobbyId){
@@ -147,6 +178,32 @@ public class LobbyService {
     private boolean isConnectedUser(Lobby lobby, Long userId){
         return userId.equals(lobby.getOpponentId())
                 || userId.equals(lobby.getHostId());
+    }
+
+    private void cleanupLobby(Lobby lobby) {
+        try {
+            delete(lobby);
+        } catch (RuntimeException cleanupEx) {
+            log.warn("Failed to clean up lobby '{}' after failed operation", lobby.getId(), cleanupEx);
+        }
+    }
+
+    private void restoreLobby(Lobby lobby, Long opponentId, LobbyStatus status) {
+        try {
+            lobby.setOpponentId(opponentId);
+            lobby.setStatus(status);
+            lobbyRepository.save(lobby);
+        } catch (RuntimeException restoreEx) {
+            log.warn("Failed to restore lobby '{}' after failed join", lobby.getId(), restoreEx);
+        }
+    }
+
+    private void restoreUserSession(UserSession target, UserSession source) {
+        target.setState(source.getState());
+        target.setGameSessionId(source.getGameSessionId());
+        target.setLobbyId(source.getLobbyId());
+        target.setSocketSessionId(source.getSocketSessionId());
+        target.setTopicSubscriptions(source.getTopicSubscriptions());
     }
 
 }

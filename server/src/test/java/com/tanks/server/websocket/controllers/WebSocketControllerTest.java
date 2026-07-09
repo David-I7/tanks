@@ -4,16 +4,20 @@ import com.tanks.server.dto.UserDto;
 import com.tanks.server.services.AuthService;
 import com.tanks.server.websocket.config.WebSocketConfig;
 import com.tanks.server.websocket.config.WebSocketSecurityConfig;
+import com.tanks.server.websocket.entities.gameSession.GameSession;
+import com.tanks.server.websocket.entities.gameSession.GameSessionState;
 import com.tanks.server.websocket.entities.userSession.UserSession;
 import com.tanks.server.websocket.entities.userSession.UserSessionState;
 import com.tanks.server.websocket.listeners.WebSocketEventListeners;
 import com.tanks.server.websocket.security.interceptors.AuthorizationInterceptor;
 import com.tanks.server.websocket.security.interceptors.JwtAuthenticationInterceptor;
+import com.tanks.server.websocket.security.interceptors.UserSessionReloadInterceptor;
 import com.tanks.server.websocket.security.services.GameAuthorizationService;
 import com.tanks.server.websocket.security.services.LobbyAuthorizationService;
 import com.tanks.server.websocket.services.GameSessionService;
 import com.tanks.server.websocket.services.LobbyService;
 import com.tanks.server.websocket.services.QuickMatchService;
+import com.tanks.server.websocket.services.RedisClaimService;
 import com.tanks.server.websocket.services.UserSessionService;
 import com.tanks.server.websocket.exceptions.StompErrorHandler;
 import com.tanks.server.websocket.exceptions.WebSocketExceptionHandler;
@@ -54,13 +58,13 @@ public class WebSocketControllerTest {
     private LobbyService lobbyService;
 
     @MockitoBean
-    private LobbyReconnectService lobbyReconnectService;
-
-    @MockitoBean
     private GameSessionService gameSessionService;
 
     @MockitoBean
     private QuickMatchService quickMatchService;
+
+    @MockitoBean
+    private RedisClaimService redisClaimService;
 
     @MockitoBean
     private com.tanks.server.utils.ProblemDetailWriter problemDetailWriter;
@@ -76,6 +80,7 @@ public class WebSocketControllerTest {
             WebSocketConfig.class,
             WebSocketSecurityConfig.class,
             JwtAuthenticationInterceptor.class,
+            UserSessionReloadInterceptor.class,
             AuthorizationInterceptor.class,
             WebSocketEventListeners.class,
             LobbyController.class,
@@ -103,6 +108,8 @@ public class WebSocketControllerTest {
         // 1. Mock Authentication
         UserDto userDto = new UserDto(1L, "player1", "player1@test.com");
         when(authService.parseUser("valid-token")).thenReturn(userDto);
+        when(redisClaimService.claimSocket(any(Long.class), anyString())).thenReturn(true);
+        when(redisClaimService.consumeUserSessionReloadRequired(1L)).thenReturn(true);
 
         // 2. Mock UserSession behavior
         // Initially, user is in LOBBY in the database (Redis)
@@ -141,6 +148,12 @@ public class WebSocketControllerTest {
         when(userSessionService.isIdle(any(UserSession.class))).thenCallRealMethod();
         when(userSessionService.isConnectedToLobby(any(UserSession.class))).thenCallRealMethod();
         when(userSessionService.isConnectedToGame(any(UserSession.class))).thenCallRealMethod();
+        when(gameSessionService.getAndIncrementPlayerCount(gameId))
+                .thenReturn(GameSession.builder()
+                        .id(gameId)
+                        .connectedPlayerCount(1)
+                        .state(GameSessionState.CREATED)
+                        .build());
 
         // 3. Connect to WebSocket
         WebSocketStompClient stompClient = new WebSocketStompClient(new StandardWebSocketClient());

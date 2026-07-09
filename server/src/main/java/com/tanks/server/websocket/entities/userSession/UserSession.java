@@ -4,7 +4,6 @@ import lombok.*;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.redis.core.RedisHash;
 
-import java.time.Instant;
 import java.util.*;
 
 @Builder
@@ -36,6 +35,8 @@ public class UserSession {
         this.gameSessionId = userSession.gameSessionId;
         this.lobbyId = userSession.lobbyId;
         this.socketSessionId = userSession.socketSessionId;
-        this.topicSubscriptions = userSession.topicSubscriptions;
+        this.topicSubscriptions = userSession.topicSubscriptions == null
+                ? null
+                : new HashMap<>(userSession.topicSubscriptions);
     }
 }

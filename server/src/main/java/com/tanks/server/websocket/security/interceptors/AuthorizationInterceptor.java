@@ -8,6 +8,7 @@ import com.tanks.server.websocket.security.entites.WebSocketAuthentication;
 import com.tanks.server.websocket.security.entites.WebSocketPrincipal;
 import com.tanks.server.websocket.security.services.GameAuthorizationService;
 import com.tanks.server.websocket.security.services.LobbyAuthorizationService;
+import com.tanks.server.websocket.services.RedisClaimService;
 import com.tanks.server.websocket.services.UserSessionService;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.Nullable;
@@ -38,6 +39,8 @@ public class AuthorizationInterceptor implements ChannelInterceptor {
 
     private final GameAuthorizationService gameAuthorizationService;
 
+    private final RedisClaimService redisClaimService;
+
     @Override
     public @Nullable Message<?> preSend(Message<?> message, MessageChannel channel) {
 
@@ -50,11 +53,17 @@ public class AuthorizationInterceptor implements ChannelInterceptor {
 
             WebSocketPrincipal principal = (WebSocketPrincipal) ((WebSocketAuthentication) accessor.getUser()).getPrincipal();
             String sessionId = accessor.getSessionId();
+            Long userId = principal.getUserDto().id();
+
+            if (!redisClaimService.claimSocket(userId, sessionId)) {
+                throw new ProblemDetailException(HttpStatus.BAD_REQUEST,"User is already connected", null);
+            }
 
             try {
-                UserSession userSession = userSessionService.findById(principal.getUserDto().id());
+                UserSession userSession = userSessionService.findById(userId);
 
                 if(userSession.getSocketSessionId() != null && !sessionId.equals(userSession.getSocketSessionId())){
+                    redisClaimService.releaseSocket(userId, sessionId);
                     throw new ProblemDetailException(HttpStatus.BAD_REQUEST,"User is already connected", null);
                 }
 
@@ -72,17 +81,25 @@ public class AuthorizationInterceptor implements ChannelInterceptor {
                             .build();
 
                     principal.setUserSession(userSession);
-                    userSessionService.save(userSession);
+                    try {
+                        userSessionService.save(userSession);
+                    } catch (RuntimeException saveEx) {
+                        redisClaimService.releaseSocket(userId, sessionId);
+                        throw saveEx;
+                    }
                 }else {
+                    redisClaimService.releaseSocket(userId, sessionId);
                     throw ex;
                 }
+            } catch (RuntimeException ex) {
+                redisClaimService.releaseSocket(userId, sessionId);
+                throw ex;
             }
         }
 
         if(StompCommand.SUBSCRIBE.equals(accessor.getCommand())) {
             WebSocketPrincipal principal = (WebSocketPrincipal)authentication.getPrincipal();
-            UserSession userSession = userSessionService.findById(principal.getUserDto().id());
-            principal.setUserSession(userSession);
+            UserSession userSession = principal.getUserSession();
 
             Map<String, String> topicSubscriptions = userSession.getTopicSubscriptions();
 
