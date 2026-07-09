@@ -81,6 +81,11 @@ class GameSessionServiceInitialStateTest {
         assertThat(payload.state().tanks().get(0).displayName()).isEqualTo("host");
         assertThat(payload.state().tanks().get(0).loadout()).extracting("id").containsExactly("standard", "mortar", "heavy", "cluster", "needle");
         assertThat(payload.state().projectiles()).isEmpty();
+        assertThat(gameSession.getServerTick()).isZero();
+        assertThat(gameSession.getPlayerTurn()).isEqualTo("host");
+        assertThat(gameSession.getPlayerTurnExpiresAt()).isEqualTo(ServerSimulationLoopService.TURN_TIMER_TICKS);
+        assertThat(gameSession.getTurnNumber()).isEqualTo(1);
+        assertThat(gameSession.getNextDiffSequence()).isEqualTo(2);
         assertThat(harness.events.stream()
                 .filter(OnlineGameplayEvent.class::isInstance)
                 .map(OnlineGameplayEvent.class::cast)

@@ -141,6 +141,10 @@ public class GameSessionService {
 
             freshGameSession.setStartedAt(OffsetDateTime.now());
             freshGameSession.setPlayerTurn(freshGameSession.getPlayerA());
+            freshGameSession.setPlayerTurnExpiresAt(ServerSimulationLoopService.TURN_TIMER_TICKS);
+            freshGameSession.setServerTick(0);
+            freshGameSession.setTurnNumber(1);
+            freshGameSession.setNextDiffSequence(2);
             freshGameSession.setState(GameSessionState.STARTED);
             gameRepository.save(freshGameSession);
 

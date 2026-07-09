@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.redis.core.RedisHash;
+import org.springframework.data.redis.core.index.Indexed;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
@@ -34,6 +35,13 @@ public class GameSession {
 
     private String playerTurn;
 
+    private long serverTick;
+
+    private long nextDiffSequence;
+
+    private int turnNumber;
+
+    @Indexed
     private GameSessionState state;
 
     private String gameplayDefinitionVersion;
