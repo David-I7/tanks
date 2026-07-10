@@ -257,6 +257,14 @@ class OnlineGameplayProtocolContractTest {
         }
 
         @Test
+        @DisplayName("Chat is not an authoritative State Diff shape")
+        void chatIsNotAStateDiffShape() {
+                assertThat(OnlineStateDiffType.values())
+                                .extracting(Enum::name)
+                                .doesNotContain("CHAT", "CHAT_MESSAGE", "LOBBY_CHAT");
+        }
+
+        @Test
         @DisplayName("Shared examples match server serialization")
         void sharedExamples() throws Exception {
                 JsonNode expected = objectMapper.readTree(Path.of("..", "docs", "contracts",
