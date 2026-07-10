@@ -84,12 +84,14 @@ class OnlineGameplayProtocolContractTest {
                                 OnlineStateDiffType.PROJECTILE_RESOLUTION,
                                 "intent-fire",
                                 new OnlineDiffPayloads.ProjectileResolution(
+                                                "intent-fire",
                                                 20,
                                                 1,
                                                 "basicShell",
                                                 "projectile.basic-shell",
                                                 "impact.orange-pop",
                                                 new OnlineVec2Dto(55, 110),
+                                                List.of(new OnlineVec2Dto(55, 110), new OnlineVec2Dto(120, 130)),
                                                 new OnlineVec2Dto(120, 130),
                                                 List.of(new OnlineTankDamageDto(11, 2, 35, 65))));
 
@@ -97,8 +99,39 @@ class OnlineGameplayProtocolContractTest {
 
                 assertThat(json.at("/payload/projectileRenderAssetId").asText()).isEqualTo("projectile.basic-shell");
                 assertThat(json.at("/payload/impactRenderAssetId").asText()).isEqualTo("impact.orange-pop");
+                assertThat(json.at("/payload/intentId").asText()).isEqualTo("intent-fire");
+                assertThat(json.at("/payload/trajectory").size()).isEqualTo(2);
                 assertThat(json.at("/payload/projectileRenderAssetId").asText()).doesNotContain("/", "\\");
                 assertThat(json.at("/payload/impactRenderAssetId").asText()).doesNotContain("/", "\\");
+        }
+
+        @Test
+        @DisplayName("Accepted intent diffs include the Intent ID in the canonical payload")
+        void acceptedIntentDiffPayloadsIncludeIntentId() {
+                var movement = new OnlineDiffEnvelopeDto<>(
+                                OnlineGameplayProtocolVersion.V1,
+                                "game-123",
+                                3,
+                                60,
+                                OnlineStateDiffType.MOVEMENT_SEGMENT,
+                                "intent-move",
+                                new OnlineDiffPayloads.MovementSegment(
+                                                "intent-move",
+                                                1,
+                                                10,
+                                                new OnlineVec2Dto(50, 120),
+                                                new OnlineVec2Dto(55, 120),
+                                                100,
+                                                95,
+                                                5,
+                                                60,
+                                                75,
+                                                15));
+
+                JsonNode json = objectMapper.valueToTree(movement);
+
+                assertThat(json.get("intentId").asText()).isEqualTo("intent-move");
+                assertThat(json.at("/payload/intentId").asText()).isEqualTo("intent-move");
         }
 
         @Test
@@ -134,12 +167,17 @@ class OnlineGameplayProtocolContractTest {
                                                 OnlineStateDiffType.MOVEMENT_SEGMENT,
                                                 "intent-move",
                                                 new OnlineDiffPayloads.MovementSegment(
+                                                                "intent-move",
                                                                 1,
                                                                 10,
                                                                 new OnlineVec2Dto(50, 120),
                                                                 new OnlineVec2Dto(55, 120),
+                                                                100,
+                                                                95,
+                                                                5,
                                                                 60,
-                                                                75)),
+                                                                75,
+                                                                15)),
                                 new OnlineDiffEnvelopeDto<>(
                                                 OnlineGameplayProtocolVersion.V1,
                                                 "game-123",
@@ -148,12 +186,15 @@ class OnlineGameplayProtocolContractTest {
                                                 OnlineStateDiffType.PROJECTILE_RESOLUTION,
                                                 "intent-fire",
                                                 new OnlineDiffPayloads.ProjectileResolution(
+                                                                "intent-fire",
                                                                 20,
                                                                 1,
                                                                 "basicShell",
                                                                 "projectile.basic-shell",
                                                                 "impact.orange-pop",
                                                                 new OnlineVec2Dto(55, 110),
+                                                                List.of(new OnlineVec2Dto(55, 110),
+                                                                                new OnlineVec2Dto(120, 130)),
                                                                 new OnlineVec2Dto(120, 130),
                                                                 List.of(new OnlineTankDamageDto(11, 2, 35, 65)))),
                                 new OnlineDiffEnvelopeDto<>(

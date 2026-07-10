@@ -16,6 +16,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.redis.core.RedisTemplate;
 
+import com.tanks.server.repositories.GameResultRepository;
+import com.tanks.server.repositories.UserRepository;
 import com.tanks.server.websocket.dto.gameplay.OnlineDiffEnvelopeDto;
 import com.tanks.server.websocket.dto.gameplay.OnlineDiffPayloads;
 import com.tanks.server.websocket.dto.gameplay.OnlineGameplayProtocolVersion;
@@ -131,6 +133,93 @@ class GameSessionServiceInitialStateTest {
     }
 
     @Test
+    @DisplayName("Authorized Game participant can request complete authoritative Resync State")
+    void requestResyncStatePublishesCurrentAuthoritativeSnapshot() {
+        TestHarness harness = new TestHarness();
+        UUID gameSessionId = UUID.randomUUID();
+        GameSession gameSession = GameSession.builder()
+                .id(gameSessionId)
+                .playerA("host")
+                .playerB("opponent")
+                .playerTurn("opponent")
+                .playerTurnExpiresAt(930)
+                .serverTick(120)
+                .lastDiffServerTick(90)
+                .turnNumber(2)
+                .nextDiffSequence(8)
+                .playerATankX(180.0)
+                .playerATankY(396.0)
+                .playerATankFuel(75.0)
+                .playerATankHealth(80.0)
+                .playerBTankX(780.0)
+                .playerBTankY(420.0)
+                .playerBTankFuel(95.0)
+                .playerBTankHealth(94.0)
+                .state(GameSessionState.STARTED)
+                .gameplayDefinitionVersion(harness.gameplayRules.currentVersion())
+                .build();
+
+        when(harness.gameRepository.findById(gameSessionId)).thenReturn(Optional.of(gameSession));
+
+        harness.service.sendResyncStateToPlayer(
+                gameSessionId,
+                "host",
+                OnlineDiffPayloads.ResyncReason.RECONNECT);
+
+        OnlineGameplayEvent event = harness.events.stream()
+                .filter(OnlineGameplayEvent.class::isInstance)
+                .map(OnlineGameplayEvent.class::cast)
+                .findFirst()
+                .orElseThrow();
+        OnlineDiffEnvelopeDto<?> resync = event.getPayload();
+
+        assertThat(event.getUsername()).isEqualTo("host");
+        assertThat(event.getDestination()).isEqualTo("/queue/replies");
+        assertThat(resync.protocolVersion()).isEqualTo(OnlineGameplayProtocolVersion.V1);
+        assertThat(resync.gameSessionId()).isEqualTo(gameSessionId.toString());
+        assertThat(resync.sequence()).isEqualTo(7);
+        assertThat(resync.serverTick()).isEqualTo(90);
+        assertThat(resync.type()).isEqualTo(OnlineStateDiffType.RESYNC_STATE);
+        assertThat(resync.intentId()).isNull();
+
+        OnlineDiffPayloads.ResyncState payload = (OnlineDiffPayloads.ResyncState) resync.payload();
+        assertThat(payload.replacesSequence()).isEqualTo(7);
+        assertThat(payload.reason()).isEqualTo(OnlineDiffPayloads.ResyncReason.RECONNECT);
+        assertThat(payload.state().match().activePlayerId()).isEqualTo(2);
+        assertThat(payload.state().match().turnNumber()).isEqualTo(2);
+        assertThat(payload.state().match().turnTimeRemainingTicks()).isEqualTo(810);
+        assertThat(payload.state().tanks()).hasSize(2);
+        assertThat(payload.state().tanks().get(0).position().x()).isEqualTo(180);
+        assertThat(payload.state().tanks().get(0).fuel()).isEqualTo(75);
+        assertThat(payload.state().tanks().get(1).health()).isEqualTo(94);
+        assertThat(gameSession.getNextDiffSequence()).isEqualTo(8);
+    }
+
+    @Test
+    @DisplayName("Resync requests before authoritative gameplay starts do not replace Initial State")
+    void requestResyncBeforeGameStartDoesNotPublishSnapshot() {
+        TestHarness harness = new TestHarness();
+        UUID gameSessionId = UUID.randomUUID();
+        GameSession gameSession = GameSession.builder()
+                .id(gameSessionId)
+                .playerA("host")
+                .playerB("opponent")
+                .state(GameSessionState.CREATED)
+                .gameplayDefinitionVersion(harness.gameplayRules.currentVersion())
+                .build();
+
+        when(harness.gameRepository.findById(gameSessionId)).thenReturn(Optional.of(gameSession));
+
+        boolean sent = harness.service.sendResyncStateToPlayer(
+                gameSessionId,
+                "host",
+                OnlineDiffPayloads.ResyncReason.RECONNECT);
+
+        assertThat(sent).isFalse();
+        assertThat(harness.events).isEmpty();
+    }
+
+    @Test
     @DisplayName("Creating a Game Session from an unready Lobby is rejected")
     void createRejectsUnreadyLobby() {
         TestHarness harness = new TestHarness();
@@ -159,6 +248,8 @@ class GameSessionServiceInitialStateTest {
         private final ApplicationEventPublisher eventPublisher = events::add;
         private final RedisTemplate<String, Object> redisTemplate = mock(RedisTemplate.class);
         private final RedisClaimService redisClaimService = mock(RedisClaimService.class);
+        private final GameResultRepository gameResultRepository = mock(GameResultRepository.class);
+        private final UserRepository userRepository = mock(UserRepository.class);
         private final OnlineGameplayRules gameplayRules = new OnlineGameplayRules(new OnlineGameplayDefinitionCatalog());
         private final OnlineInitialStateFactory initialStateFactory = new OnlineInitialStateFactory(gameplayRules);
         private final GameSessionService service = new GameSessionService(
@@ -170,6 +261,8 @@ class GameSessionServiceInitialStateTest {
                 redisTemplate,
                 redisClaimService,
                 gameplayRules,
-                initialStateFactory);
+                initialStateFactory,
+                gameResultRepository,
+                userRepository);
     }
 }

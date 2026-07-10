@@ -30,3 +30,4 @@ public sealed interface OnlineTerrainSnapshotDto
                         String solidBase64) implements OnlineTerrainSnapshotDto {
         }
 }
+

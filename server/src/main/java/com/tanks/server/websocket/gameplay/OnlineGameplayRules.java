@@ -8,11 +8,30 @@ import com.tanks.server.websocket.dto.gameplay.OnlineDiffPayloads;
 import com.tanks.server.websocket.dto.gameplay.OnlineIntentPayloads;
 import com.tanks.server.websocket.dto.gameplay.OnlineProjectileSlotSnapshotDto;
 import com.tanks.server.websocket.dto.gameplay.OnlineProjectileSnapshotDto;
+import com.tanks.server.websocket.dto.gameplay.OnlineTankDamageDto;
 import com.tanks.server.websocket.dto.gameplay.OnlineTankSnapshotDto;
+import com.tanks.server.websocket.dto.gameplay.OnlineTerrainPatchDto;
 import com.tanks.server.websocket.dto.gameplay.OnlineVec2Dto;
 
 @Service
 public class OnlineGameplayRules {
+
+    public static final double WORLD_MIN_X = 0;
+    public static final double WORLD_MAX_X = 960;
+    public static final long MOVEMENT_SEGMENT_DURATION_TICKS = 6;
+    public static final String PLAYER_A_TANK_DEFINITION_ID = "vanguard";
+    public static final String PLAYER_B_TANK_DEFINITION_ID = "specter";
+    public static final double PLAYER_A_INITIAL_TANK_X = 160;
+    public static final double PLAYER_A_INITIAL_TANK_Y = 420;
+    public static final double PLAYER_B_INITIAL_TANK_X = 800;
+    public static final double PLAYER_B_INITIAL_TANK_Y = 420;
+    public static final double INITIAL_TANK_FUEL = 100;
+    private static final double PROJECTILE_BASE_VELOCITY = 1000;
+    private static final double PROJECTILE_GRAVITY = 500;
+    private static final double PROJECTILE_TIME_STEP_SECONDS = 1.0 / 30.0;
+    private static final double PROJECTILE_LAUNCH_Y_OFFSET = 24;
+    private static final double TANK_HIT_RADIUS = 32;
+    private static final int MAX_PROJECTILE_STEPS = 180;
 
     private final OnlineGameplayDefinitionCatalog gameplayDefinitionCatalog;
 
@@ -31,6 +50,39 @@ public class OnlineGameplayRules {
             String tankDefinitionId,
             OnlineVec2Dto position,
             int facing) {
+        OnlineTankDefinition tank = requireTank(tankDefinitionId);
+        return createTankSnapshot(entityId, playerId, displayName, tankDefinitionId, position, facing, tank.maxFuel());
+    }
+
+    public OnlineTankSnapshotDto createTankSnapshot(
+            long entityId,
+            long playerId,
+            String displayName,
+            String tankDefinitionId,
+            OnlineVec2Dto position,
+            int facing,
+            double fuel) {
+        OnlineTankDefinition tank = requireTank(tankDefinitionId);
+        return createTankSnapshot(
+                entityId,
+                playerId,
+                displayName,
+                tankDefinitionId,
+                position,
+                facing,
+                tank.maxHealth(),
+                fuel);
+    }
+
+    public OnlineTankSnapshotDto createTankSnapshot(
+            long entityId,
+            long playerId,
+            String displayName,
+            String tankDefinitionId,
+            OnlineVec2Dto position,
+            int facing,
+            double health,
+            double fuel) {
         OnlineTankDefinition tank = requireTank(tankDefinitionId);
         OnlineProjectileSlotDefinition selectedSlot = tank.loadout().getFirst();
 
@@ -52,10 +104,10 @@ public class OnlineGameplayRules {
                                 slot.label(),
                                 slot.renderAssetId()))
                         .toList(),
+                health,
                 tank.maxHealth(),
-                tank.maxHealth(),
-                tank.maxFuel(),
-                true);
+                fuel,
+                health > 0);
     }
 
     public OnlineProjectileSnapshotDto createProjectileSnapshot(
@@ -76,22 +128,92 @@ public class OnlineGameplayRules {
     }
 
     public OnlineDiffPayloads.ProjectileResolution createProjectileResolution(
+            String intentId,
             long projectileEntityId,
             long ownerPlayerId,
             String projectileDefinitionId,
             OnlineVec2Dto launch,
             OnlineVec2Dto impact) {
+        return createProjectileResolution(
+                intentId,
+                projectileEntityId,
+                ownerPlayerId,
+                projectileDefinitionId,
+                launch,
+                List.of(launch, impact),
+                impact);
+    }
+
+    public OnlineDiffPayloads.ProjectileResolution createProjectileResolution(
+            String intentId,
+            long projectileEntityId,
+            long ownerPlayerId,
+            String projectileDefinitionId,
+            OnlineVec2Dto launch,
+            List<OnlineVec2Dto> trajectory,
+            OnlineVec2Dto impact) {
         OnlineProjectileDefinition projectile = requireProjectile(projectileDefinitionId);
 
         return new OnlineDiffPayloads.ProjectileResolution(
+                intentId,
                 projectileEntityId,
                 ownerPlayerId,
                 projectile.id(),
                 projectile.renderAssetId(),
                 projectile.impactRenderAssetId(),
                 launch,
+                trajectory,
                 impact,
                 List.of());
+    }
+
+    public OnlineDiffPayloads.ProjectileResolution createProjectileResolution(
+            String intentId,
+            long projectileEntityId,
+            long ownerPlayerId,
+            String projectileDefinitionId,
+            OnlineVec2Dto launch,
+            List<OnlineVec2Dto> trajectory,
+            OnlineVec2Dto impact,
+            List<OnlineTankDamageDto> damagedTanks) {
+        OnlineProjectileDefinition projectile = requireProjectile(projectileDefinitionId);
+
+        return new OnlineDiffPayloads.ProjectileResolution(
+                intentId,
+                projectileEntityId,
+                ownerPlayerId,
+                projectile.id(),
+                projectile.renderAssetId(),
+                projectile.impactRenderAssetId(),
+                launch,
+                trajectory,
+                impact,
+                damagedTanks);
+    }
+
+    public OnlineDiffPayloads.MovementSegment createMovementSegment(
+            String intentId,
+            long playerId,
+            long tankEntityId,
+            OnlineVec2Dto from,
+            OnlineIntentPayloads.Move move,
+            double fuelBefore,
+            long startedServerTick) {
+        double distance = Math.abs(move.direction());
+        double nextX = from.x() + move.direction();
+        double fuelAfter = fuelBefore - distance;
+        return new OnlineDiffPayloads.MovementSegment(
+                intentId,
+                playerId,
+                tankEntityId,
+                from,
+                new OnlineVec2Dto(nextX, from.y()),
+                fuelBefore,
+                fuelAfter,
+                distance,
+                startedServerTick,
+                startedServerTick + MOVEMENT_SEGMENT_DURATION_TICKS,
+                MOVEMENT_SEGMENT_DURATION_TICKS);
     }
 
     public OnlineTerrainEffect terrainEffect(String projectileDefinitionId) {
@@ -100,6 +222,100 @@ public class OnlineGameplayRules {
 
     public OnlineDamageEffect damageEffect(String projectileDefinitionId) {
         return requireProjectile(projectileDefinitionId).damageEffect();
+    }
+
+    public double maxTankHealth(String tankDefinitionId) {
+        return requireTank(tankDefinitionId).maxHealth();
+    }
+
+    public String projectileDefinitionIdForSlot(String projectileSlotId) {
+        return definitions().tanks().values().stream()
+                .flatMap(tank -> tank.loadout().stream())
+                .filter(slot -> slot.id().equals(projectileSlotId))
+                .map(OnlineProjectileSlotDefinition::projectileDefinitionId)
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Unknown projectile slot: " + projectileSlotId));
+    }
+
+    public ResolvedProjectile resolveProjectile(
+            String projectileDefinitionId,
+            long ownerPlayerId,
+            OnlineVec2Dto firingTankPosition,
+            long targetPlayerId,
+            OnlineVec2Dto targetTankPosition,
+            OnlineIntentPayloads.Fire fire) {
+        OnlineProjectilePhysics physics = requireProjectile(projectileDefinitionId).physics();
+        OnlineVec2Dto launch = new OnlineVec2Dto(firingTankPosition.x(), firingTankPosition.y() - PROJECTILE_LAUNCH_Y_OFFSET);
+        double facing = ownerPlayerId == 2 ? -1 : 1;
+        double angleRadians = Math.toRadians(fire.angle());
+        double speed = PROJECTILE_BASE_VELOCITY * fire.power() * physics.muzzleVelocityScale();
+        double x = launch.x();
+        double y = launch.y();
+        double velocityX = Math.cos(angleRadians) * speed * facing;
+        double velocityY = -Math.sin(angleRadians) * speed;
+        double gravity = PROJECTILE_GRAVITY * physics.gravityScale();
+        List<OnlineVec2Dto> trajectory = new java.util.ArrayList<>();
+        trajectory.add(launch);
+
+        for (int step = 0; step < MAX_PROJECTILE_STEPS; step++) {
+            x += velocityX * PROJECTILE_TIME_STEP_SECONDS;
+            y += velocityY * PROJECTILE_TIME_STEP_SECONDS;
+            velocityY += gravity * PROJECTILE_TIME_STEP_SECONDS;
+            velocityX *= Math.max(0, 1 - physics.drag());
+
+            OnlineVec2Dto point = new OnlineVec2Dto(round(x), round(y));
+            trajectory.add(point);
+
+            if (distance(point, targetTankPosition) <= physics.radius() + TANK_HIT_RADIUS) {
+                return new ResolvedProjectile(launch, trajectory, point, targetPlayerId);
+            }
+
+            if (point.x() < WORLD_MIN_X || point.x() > WORLD_MAX_X || point.y() >= terrainSurfaceY(point.x())) {
+                return new ResolvedProjectile(launch, trajectory, point, null);
+            }
+        }
+
+        OnlineVec2Dto impact = trajectory.getLast();
+        return new ResolvedProjectile(launch, trajectory, impact, null);
+    }
+
+    public List<OnlineTerrainPatchDto> createTerrainPatches(
+            String projectileDefinitionId,
+            OnlineVec2Dto impact) {
+        OnlineTerrainEffect effect = terrainEffect(projectileDefinitionId);
+        if (effect instanceof OnlineTerrainEffect.Crater crater) {
+            int radius = (int) Math.round(crater.radius());
+            int startX = Math.max((int) Math.round(impact.x()) - radius, (int) WORLD_MIN_X);
+            int width = Math.max(1, radius * 2 + 1);
+            List<Integer> surface = java.util.stream.IntStream.range(0, width)
+                    .map(i -> (int) Math.round(impact.y() + craterDepth(i, radius)))
+                    .boxed()
+                    .toList();
+            return List.of(new OnlineTerrainPatchDto.HeightmapRange(
+                    OnlineTerrainPatchDto.TerrainPatchKind.HEIGHTMAP_RANGE,
+                    startX,
+                    surface));
+        }
+
+        OnlineTerrainEffect.Drill drill = (OnlineTerrainEffect.Drill) effect;
+        int radius = (int) Math.round(drill.radius());
+        int depth = (int) Math.round(drill.depth());
+        return List.of(new OnlineTerrainPatchDto.MaskRect(
+                OnlineTerrainPatchDto.TerrainPatchKind.MASK_RECT,
+                (int) Math.round(impact.x()) - radius,
+                (int) Math.round(impact.y()),
+                Math.max(1, radius * 2),
+                Math.max(1, depth),
+                ""));
+    }
+
+    public double calculateDamage(String projectileDefinitionId) {
+        OnlineDamageEffect effect = damageEffect(projectileDefinitionId);
+        if (effect instanceof OnlineDamageEffect.Radial radial) {
+            return radial.damage();
+        }
+        OnlineDamageEffect.Focused focused = (OnlineDamageEffect.Focused) effect;
+        return focused.damage();
     }
 
     public boolean acceptsFireIntent(OnlineIntentPayloads.Fire fire) {
@@ -116,6 +332,15 @@ public class OnlineGameplayRules {
         OnlineValidationRules validation = definitions().validation();
         return move.direction() != 0
                 && Math.abs(move.direction()) <= validation.maxMoveIntentDistance();
+    }
+
+    public boolean hasFuelForMove(double fuel, OnlineIntentPayloads.Move move) {
+        return fuel >= Math.abs(move.direction());
+    }
+
+    public boolean isMoveInBounds(OnlineVec2Dto from, OnlineIntentPayloads.Move move) {
+        double nextX = from.x() + move.direction();
+        return nextX >= WORLD_MIN_X && nextX <= WORLD_MAX_X;
     }
 
     private boolean hasProjectileSlot(String projectileSlotId) {
@@ -135,7 +360,36 @@ public class OnlineGameplayRules {
                         "Unknown online projectile definition: " + projectileDefinitionId));
     }
 
+    private static double craterDepth(int offset, int radius) {
+        if (radius <= 0) {
+            return 0;
+        }
+        double normalized = (offset - radius) / (double) radius;
+        return Math.max(0, 1 - Math.abs(normalized)) * radius * 0.35;
+    }
+
+    private static double round(double value) {
+        return Math.round(value * 100.0) / 100.0;
+    }
+
+    private static double distance(OnlineVec2Dto a, OnlineVec2Dto b) {
+        double deltaX = a.x() - b.x();
+        double deltaY = a.y() - b.y();
+        return Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+    }
+
+    private static double terrainSurfaceY(double x) {
+        return PLAYER_A_INITIAL_TANK_Y;
+    }
+
     private OnlineGameplayDefinitions definitions() {
         return gameplayDefinitionCatalog.current();
+    }
+
+    public record ResolvedProjectile(
+            OnlineVec2Dto launch,
+            List<OnlineVec2Dto> trajectory,
+            OnlineVec2Dto impact,
+            Long hitPlayerId) {
     }
 }

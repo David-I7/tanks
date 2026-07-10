@@ -7,14 +7,6 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-.agents
-.codex
-docs
-.scratch
-CONTEXT.md
-tests
-scripts
-Gameplay.md
 
 node_modules
 dist

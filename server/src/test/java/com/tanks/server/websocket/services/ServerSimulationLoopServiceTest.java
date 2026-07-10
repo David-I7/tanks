@@ -7,6 +7,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -14,6 +15,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 
 import com.tanks.server.websocket.dto.gameplay.OnlineDiffEnvelopeDto;
@@ -121,6 +123,37 @@ class ServerSimulationLoopServiceTest {
         verify(harness.gameRepository, times(1)).save(any(GameSession.class));
     }
 
+    @Test
+    @DisplayName("Ended Game Sessions are deleted after the final-delivery grace period")
+    void endedGameSessionsAreCleanedUpAfterGracePeriod() {
+        TestHarness harness = new TestHarness();
+        GameSession gameSession = startedGameSession();
+        gameSession.setState(GameSessionState.ENDED);
+        gameSession.setEndedAt(OffsetDateTime.now()
+                .minusSeconds(ServerSimulationLoopService.TERMINAL_DELIVERY_GRACE_SECONDS + 1));
+        when(harness.gameRepository.findByState(GameSessionState.ENDED)).thenReturn(List.of(gameSession));
+
+        harness.service.cleanupTerminalSessions();
+
+        verify(harness.gameRepository).delete(gameSession);
+        verify(harness.redisTemplate).delete("gameSession:" + gameSession.getId());
+    }
+
+    @Test
+    @DisplayName("Recently ended Game Sessions remain available during final delivery")
+    void recentlyEndedGameSessionsAreNotCleanedUp() {
+        TestHarness harness = new TestHarness();
+        GameSession gameSession = startedGameSession();
+        gameSession.setState(GameSessionState.ENDED);
+        gameSession.setEndedAt(OffsetDateTime.now());
+        when(harness.gameRepository.findByState(GameSessionState.ENDED)).thenReturn(List.of(gameSession));
+
+        harness.service.cleanupTerminalSessions();
+
+        verify(harness.gameRepository, times(0)).delete(any(GameSession.class));
+        verify(harness.redisTemplate, times(0)).delete(any(String.class));
+    }
+
     private static GameSession startedGameSession() {
         return GameSession.builder()
                 .id(UUID.randomUUID())
@@ -148,6 +181,10 @@ class ServerSimulationLoopServiceTest {
         private final GameSessionRepository gameRepository = mock(GameSessionRepository.class);
         private final List<Object> events = new ArrayList<>();
         private final ApplicationEventPublisher eventPublisher = events::add;
-        private final ServerSimulationLoopService service = new ServerSimulationLoopService(gameRepository, eventPublisher);
+        private final RedisTemplate<String, Object> redisTemplate = mock(RedisTemplate.class);
+        private final ServerSimulationLoopService service = new ServerSimulationLoopService(
+                gameRepository,
+                eventPublisher,
+                redisTemplate);
     }
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ApiError } from "../../errors/ApiError";
 import type { WebSocketEventResponseDto } from "../../api/ws/dto/WebSocketEventResponseDto";
 import type { EndpointSubscription } from "../../api/ws/TanksWebSocketClient";
@@ -11,6 +11,7 @@ import { useAuthStore } from "../../store/useAuthStore";
 export default function usePrivateLobby() {
   const { client, status, connect } = useWebSocketStore();
   const user = useAuthStore(state => state.user);
+  const getAuthStatus = useAuthStore(state => state.getAuthStatus);
   const navigate = useNavigate();
   const { id: urlLobbyId } = useParams();
   const action = urlLobbyId ? "JOIN" : "CREATE";
@@ -19,6 +20,7 @@ export default function usePrivateLobby() {
   const [lobbyId, setLobbyId] = useState<string | null>(null);
   const [isHost, setIsHost] = useState<boolean>(action === "CREATE");
   const [playerCount, setPlayerCount] = useState<number>(0);
+  const skipNextOwnConnectIncrement = useRef(false);
 
   useEffect(() => {
     if (!client) {
@@ -36,13 +38,23 @@ export default function usePrivateLobby() {
       );
     }
 
+    let cancelled = false;
+    let lobbyTopicCleanup: (() => void) | undefined;
+    let repliesCleanup: (() => void) | undefined;
+    let errorsCleanup: (() => void) | undefined;
+
+    const subscribeToLobby = (id: string, onSubscribed?: () => void) => {
+      lobbyTopicCleanup = client.subscribe({
+        destination: "/topic/lobby/:id",
+        id,
+        onMessage: handleLobbyMessage,
+      });
+      onSubscribed?.();
+    };
+
     let handleReply: EndpointSubscription<WebSocketEventResponseDto>["onMessage"] = (message) => {
       if (message.body.type === "LOBBY_CREATED" || message.body.type === "LOBBY_JOINED") {
-        client.subscribe({
-          destination: "/topic/lobby/:id",
-          id: message.body.payload.id,
-          onMessage: handleLobbyMessage,
-        });
+        subscribeToLobby(message.body.payload.id);
         return;
       }
 
@@ -56,7 +68,11 @@ export default function usePrivateLobby() {
     const handleLobbyMessage: EndpointSubscription<WebSocketEventResponseDto>["onMessage"] =
       (message) => {
         if (message.body.type === "LOBBY_CONNECT") {
-          setPlayerCount(prev => prev + 1);
+          if (user!.username === message.body.payload.playerName && skipNextOwnConnectIncrement.current) {
+            skipNextOwnConnectIncrement.current = false;
+          } else {
+            setPlayerCount(prev => prev + 1);
+          }
           if (user!.username === message.body.payload.playerName) {
             const lobbyId = message.body.payload["id"];
             setLobbyId(lobbyId);
@@ -70,28 +86,49 @@ export default function usePrivateLobby() {
         }
       };
 
-    client.subscribe({
+    repliesCleanup = client.subscribe({
       destination: "/user/queue/replies",
       onMessage: handleReply,
     });
 
-    client.subscribe<ProblemDetailDto>({
+    errorsCleanup = client.subscribe<ProblemDetailDto>({
       destination: "/user/queue/errors",
       onMessage: (message) => {
         setError(new ApiError(message.body, message.body.status));
       },
     });
 
-    if (action === "CREATE") {
-      client.publish({ destination: "/app/lobby/create/private" });
-    } else {
-      client.publish({
-        destination: "/app/lobby/join/private/:id",
-        id: urlLobbyId,
-      });
-    }
+    void (async () => {
+      if (action === "CREATE") {
+        client.publish({ destination: "/app/lobby/create/private" });
+        return;
+      }
 
-  }, [client, status]);
+      const authStatus = await getAuthStatus();
+      if (cancelled) return;
+
+      const session = authStatus?.userSessionStatus;
+      if (session?.state === "IN_LOBBY" && session.lobbyId === urlLobbyId) {
+        subscribeToLobby(urlLobbyId, () => {
+          setLobbyId(urlLobbyId);
+          setPlayerCount(session.lobbyPlayerCount ?? 1);
+          setIsHost(session.lobbyHostId === user?.id);
+          skipNextOwnConnectIncrement.current = true;
+        });
+        return;
+      }
+
+      navigate("/", { replace: true });
+    })();
+
+    return () => {
+      cancelled = true;
+      lobbyTopicCleanup?.();
+      repliesCleanup?.();
+      errorsCleanup?.();
+    };
+
+  }, [action, client, getAuthStatus, navigate, status, urlLobbyId, user?.id, user?.username]);
 
   useEffect(() => {
     if ((status === "disconnecting" || status === "disconnected") && lobbyStatus === "connected") {

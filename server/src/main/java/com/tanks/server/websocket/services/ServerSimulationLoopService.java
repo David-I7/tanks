@@ -1,12 +1,15 @@
 package com.tanks.server.websocket.services;
 
+import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 import org.springframework.context.ApplicationListener;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.ContextClosedEvent;
 import org.springframework.dao.DataAccessException;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -29,10 +32,12 @@ public class ServerSimulationLoopService implements ApplicationListener<ContextC
 
     public static final int TICKS_PER_SECOND = 30;
     public static final int TURN_TIMER_TICKS = TICKS_PER_SECOND * 30;
+    public static final int TERMINAL_DELIVERY_GRACE_SECONDS = 5;
     public static final long TICK_RATE_NANOS = 1_000_000_000L / TICKS_PER_SECOND;
 
     private final GameSessionRepository gameRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final RedisTemplate<String, Object> redisTemplate;
     private volatile boolean acceptingFrames = true;
 
     @Scheduled(fixedRate = TICK_RATE_NANOS, timeUnit = TimeUnit.NANOSECONDS)
@@ -50,6 +55,29 @@ public class ServerSimulationLoopService implements ApplicationListener<ContextC
                 log.warn("Skipping server simulation frame because active sessions could not be loaded.", ex);
             } else {
                 log.debug("Skipping server simulation frame during shutdown.", ex);
+            }
+        }
+    }
+
+    @Scheduled(fixedRate = 1, timeUnit = TimeUnit.SECONDS)
+    public void cleanupTerminalSessions() {
+        if (!acceptingFrames) {
+            return;
+        }
+
+        try {
+            OffsetDateTime now = OffsetDateTime.now();
+            for (GameSession gameSession : terminalSessions()) {
+                if (isReadyForCleanup(gameSession, now)) {
+                    gameRepository.delete(gameSession);
+                    redisTemplate.delete(member(gameSession.getId()));
+                }
+            }
+        } catch (DataAccessException ex) {
+            if (acceptingFrames) {
+                log.warn("Skipping terminal game cleanup because ended sessions could not be loaded.", ex);
+            } else {
+                log.debug("Skipping terminal game cleanup during shutdown.", ex);
             }
         }
     }
@@ -72,6 +100,19 @@ public class ServerSimulationLoopService implements ApplicationListener<ContextC
 
     private List<GameSession> activeSessions() {
         return gameRepository.findByState(GameSessionState.STARTED);
+    }
+
+    private List<GameSession> terminalSessions() {
+        return gameRepository.findByState(GameSessionState.ENDED);
+    }
+
+    private boolean isReadyForCleanup(GameSession gameSession, OffsetDateTime now) {
+        return gameSession.getEndedAt() != null
+                && !gameSession.getEndedAt().plusSeconds(TERMINAL_DELIVERY_GRACE_SECONDS).isAfter(now);
+    }
+
+    private String member(UUID gameSessionId) {
+        return "gameSession:" + gameSessionId;
     }
 
     private void advanceTurnWithoutShot(GameSession gameSession) {

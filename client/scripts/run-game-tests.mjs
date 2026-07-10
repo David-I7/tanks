@@ -4,6 +4,7 @@ const tests = [
   "tests\\game-behavior-tests.ts",
   "tests\\online-gameplay-protocol-contract-tests.ts",
   "tests\\online-initial-state-tests.ts",
+  "tests\\online-client-state-projection-tests.ts",
 ];
 
 for (const test of tests) {

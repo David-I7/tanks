@@ -95,18 +95,24 @@ export type OnlineResyncStateDiff = {
 export type OnlineMovementSegmentDiff = {
   type: "MOVEMENT_SEGMENT";
   payload: {
+    intentId: IntentId;
     playerId: PlayerId;
     tankEntityId: EntityId;
     from: OnlineVec2;
     to: OnlineVec2;
+    fuelBefore: number;
+    fuelAfter: number;
+    fuelSpent: number;
     startedServerTick: ServerTick;
     endedServerTick: ServerTick;
+    durationTicks: number;
   };
 };
 
 export type OnlineProjectileResolutionDiff = {
   type: "PROJECTILE_RESOLUTION";
   payload: {
+    intentId: IntentId;
     projectileEntityId: EntityId;
     ownerPlayerId: PlayerId;
     projectileDefinitionId: string;
@@ -130,7 +136,13 @@ export type OnlineIntentRejectionDiff = {
   payload: {
     rejectedIntentId: IntentId;
     playerId: PlayerId;
-    reason: "STALE_BASE_STATE" | "NOT_ACTIVE_PLAYER" | "INVALID_PAYLOAD" | "TURN_ALREADY_RESOLVING";
+    reason:
+      | "STALE_BASE_STATE"
+      | "NOT_ACTIVE_PLAYER"
+      | "INVALID_PAYLOAD"
+      | "TURN_ALREADY_RESOLVING"
+      | "INSUFFICIENT_FUEL"
+      | "OUT_OF_BOUNDS";
     authoritativeSequence: DiffSequence;
     authoritativeServerTick: ServerTick;
   };

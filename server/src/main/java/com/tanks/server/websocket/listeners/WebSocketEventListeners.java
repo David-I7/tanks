@@ -170,8 +170,6 @@ public class WebSocketEventListeners {
 
             if(gameSession.getConnectedPlayerCount() == 2 && gameSession.getState().equals(GameSessionState.CREATED)){
                 gameSessionService.startGame(gameSession);
-            } else if (gameSession.getState().equals(GameSessionState.STARTED)) {
-                gameSessionService.sendInitialStateToPlayer(gameSession, authentication.getName());
             }
         }
     }
@@ -241,14 +239,24 @@ public class WebSocketEventListeners {
 
     private void handleLobbyUnsubscribe(UserSession userSession){
         if(userSessionService.isConnectedToLobby(userSession)) {
-            lobbyService.removeUser(userSession);
-            Map<String, String> topics = userSession.getTopicSubscriptions();
-            topics.remove(TOPIC_LOBBY + userSession.getLobbyId());
-            if (topics.isEmpty()) {
-                userSession.setTopicSubscriptions(null);
-            }
-            userSessionService.save(userSession);
+            markLobbySocketAbsentAndNotify(userSession);
         }
+    }
+
+    private void markLobbySocketAbsentAndNotify(UserSession userSession) {
+        String lobbyTopic = TOPIC_LOBBY + userSession.getLobbyId();
+        UUID lobbyId = userSession.getLobbyId();
+        userSession.setTopicSubscriptions(null);
+        userSession.setSocketSessionId(null);
+        userSessionService.save(userSession);
+        simpMessagingTemplate.convertAndSend(
+                lobbyTopic,
+                new LobbyEventResponseDto(
+                        LobbyEventType.LOBBY_DISCONNECT,
+                        "@SERVER",
+                        new LobbyEventPayload(lobbyId, userSession.getUsername())
+                )
+        );
     }
 
     private void handleUserRepliesUnsubscribe(UserSession userSession){

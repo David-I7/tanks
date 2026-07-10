@@ -29,6 +29,8 @@ public class GameSession {
 
     private OffsetDateTime startedAt;
 
+    private OffsetDateTime endedAt;
+
     private OffsetDateTime createdAt;
 
     private long playerTurnExpiresAt;
@@ -46,6 +48,22 @@ public class GameSession {
     private String playerAUnresolvedIntentId;
 
     private String playerBUnresolvedIntentId;
+
+    private Double playerATankX;
+
+    private Double playerATankY;
+
+    private Double playerATankFuel;
+
+    private Double playerATankHealth;
+
+    private Double playerBTankX;
+
+    private Double playerBTankY;
+
+    private Double playerBTankFuel;
+
+    private Double playerBTankHealth;
 
     @Indexed
     private GameSessionState state;

@@ -30,12 +30,14 @@ class OnlineGameplayRulesTest {
     @DisplayName("Online projectile results derive render IDs, damage, and terrain effects from server-owned definitions")
     void projectileResultsUseServerOwnedDefinitions() {
         var resolution = rules.createProjectileResolution(
+                "intent-fire",
                 20,
                 1,
                 "basicShell",
                 new OnlineVec2Dto(55, 110),
                 new OnlineVec2Dto(120, 130));
 
+        assertThat(resolution.intentId()).isEqualTo("intent-fire");
         assertThat(resolution.projectileDefinitionId()).isEqualTo("basicShell");
         assertThat(resolution.projectileRenderAssetId()).isEqualTo("projectile.basic-shell");
         assertThat(resolution.impactRenderAssetId()).isEqualTo("impact.orange-pop");
@@ -65,6 +67,7 @@ class OnlineGameplayRulesTest {
                 .hasMessageContaining("Unknown online tank definition");
 
         assertThatThrownBy(() -> rules.createProjectileResolution(
+                "intent-fire",
                 20,
                 1,
                 "client-only-shell",

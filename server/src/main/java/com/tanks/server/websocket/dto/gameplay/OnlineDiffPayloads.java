@@ -14,21 +14,28 @@ public final class OnlineDiffPayloads {
         }
 
         public record MovementSegment(
+                        String intentId,
                         long playerId,
                         long tankEntityId,
                         OnlineVec2Dto from,
                         OnlineVec2Dto to,
+                        double fuelBefore,
+                        double fuelAfter,
+                        double fuelSpent,
                         long startedServerTick,
-                        long endedServerTick) {
+                        long endedServerTick,
+                        long durationTicks) {
         }
 
         public record ProjectileResolution(
+                        String intentId,
                         long projectileEntityId,
                         long ownerPlayerId,
                         String projectileDefinitionId,
                         String projectileRenderAssetId,
                         String impactRenderAssetId,
                         OnlineVec2Dto launch,
+                        List<OnlineVec2Dto> trajectory,
                         OnlineVec2Dto impact,
                         List<OnlineTankDamageDto> damagedTanks) {
         }
@@ -68,7 +75,9 @@ public final class OnlineDiffPayloads {
                 STALE_BASE_STATE,
                 NOT_ACTIVE_PLAYER,
                 INVALID_PAYLOAD,
-                TURN_ALREADY_RESOLVING
+                TURN_ALREADY_RESOLVING,
+                INSUFFICIENT_FUEL,
+                OUT_OF_BOUNDS
         }
 
         public enum TurnPhase {

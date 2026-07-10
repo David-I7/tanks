@@ -112,13 +112,13 @@ export default function PrivateLobbyRoom() {
 
 function LeaveCreatedLobby() {
   const { popScreen } = useScreenStack();
-  const { disconnect } = useWebSocketStore();
+  const leaveLobby = useLeaveLobby();
 
   return (
     <Button
       color="secondary"
       variant="outline"
-      onClick={() => { disconnect(); popScreen() }}
+      onClick={() => { leaveLobby(); popScreen() }}
       className="w-full text-xs font-black select-none"
     >
       Leave Room
@@ -128,15 +128,24 @@ function LeaveCreatedLobby() {
 
 function LeaveJoinedLobby() {
   const navigate = useNavigate();
-  const { disconnect } = useWebSocketStore();
+  const leaveLobby = useLeaveLobby();
   return (
     <Button
       color="secondary"
       variant="outline"
-      onClick={() => { disconnect(); navigate("/", { replace: true }) }}
+      onClick={() => { leaveLobby(); navigate("/", { replace: true }) }}
       className="w-full text-xs font-black select-none"
     >
       Leave Room
     </Button>
   );
+}
+
+function useLeaveLobby() {
+  const { client, disconnect } = useWebSocketStore();
+
+  return () => {
+    client?.publish({ destination: "/app/lobby/leave" });
+    disconnect();
+  };
 }
