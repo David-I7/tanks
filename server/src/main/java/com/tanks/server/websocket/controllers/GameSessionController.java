@@ -1,5 +1,6 @@
 package com.tanks.server.websocket.controllers;
 
+import com.tanks.server.websocket.dto.gameplay.OnlinePlayerIntentDto;
 import com.tanks.server.websocket.entities.gameSession.GameSession;
 import com.tanks.server.websocket.entities.lobby.Lobby;
 import com.tanks.server.websocket.entities.lobby.LobbyStatus;
@@ -12,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
+import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.handler.annotation.SendTo;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -34,6 +36,15 @@ public class GameSessionController {
     @PreAuthorize("@gameAuthorizationService.canSendMessageToTopic(authentication, '/topic/game/' + #id)")
     public GameSession startGame(@DestinationVariable UUID id, Authentication authentication){
         return null;
+    }
+
+    @MessageMapping("/game/{id}/intent")
+    @PreAuthorize("@gameAuthorizationService.canSendMessageToTopic(authentication, '/topic/game/' + #id)")
+    public void acceptPlayerIntent(
+            @DestinationVariable UUID id,
+            @Payload OnlinePlayerIntentDto<?> intent,
+            Authentication authentication) {
+        gameSessionService.acceptPlayerIntent(authentication.getName(), id, intent);
     }
 
     @MessageMapping("/game/create")

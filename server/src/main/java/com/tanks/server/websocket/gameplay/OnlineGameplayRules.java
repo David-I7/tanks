@@ -112,6 +112,12 @@ public class OnlineGameplayRules {
         return powerInBounds && angleInBounds && hasProjectileSlot(fire.projectileSlotId());
     }
 
+    public boolean acceptsMoveIntent(OnlineIntentPayloads.Move move) {
+        OnlineValidationRules validation = definitions().validation();
+        return move.direction() != 0
+                && Math.abs(move.direction()) <= validation.maxMoveIntentDistance();
+    }
+
     private boolean hasProjectileSlot(String projectileSlotId) {
         return definitions().tanks().values().stream()
                 .flatMap(tank -> tank.loadout().stream())
