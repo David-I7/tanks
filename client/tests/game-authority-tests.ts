@@ -85,7 +85,7 @@ import { createDefaultMatchSetup } from "../src/game/world/createInitialWorld";
 
   assert.equal(authority.getViewState()?.match.activePlayerId, 1);
   assert.equal(authority.getViewState()?.match.phase, "thinking");
-  assert.equal(authority.submitAction({ type: "move", direction: 1 }), false);
+  assert.equal(authority.submitAction({ type: "move", direction: 1 }), true);
   authority.destroy();
 }
 

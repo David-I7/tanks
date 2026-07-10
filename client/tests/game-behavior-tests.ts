@@ -14,7 +14,7 @@ import {
 import { snapshotToGameViewState } from "../src/game/authority/gameAuthority";
 import { createWorldSizingPolicy } from "../src/game/world/worldSizing";
 import { createWorldStatePublisher } from "../src/game/world/worldStatePublisher";
-import { collectPlayerIntents } from "../src/game/input/CanvasInputSource";
+import { collectGameActions } from "../src/game/input/CanvasInputSource";
 import {
   findProjectileSlotAtCanvasPoint,
   getProjectileSelectorLayout,
@@ -45,7 +45,7 @@ async function expectSharedAuthoritySelection(
     seen.push(snapshot.tanks[0]?.tank.selectedProjectileSlotId ?? "");
   });
   assert.equal(
-    authority.submitIntent(0, {
+    authority.submitPlayerAction(0, {
       type: "selectProjectileSlot",
       projectileSlotId: "mortar",
     }),
@@ -150,7 +150,7 @@ async function expectSharedAuthoritySelection(
   const authority = makeAuthority();
   const before = firstTank(authority).position.x;
   assert.equal(firstTank(authority).tank.maxFuel, 240);
-  authority.submitIntent(0, { type: "move", direction: 1 });
+  authority.submitPlayerAction(0, { type: "move", direction: 1 });
   const after = firstTank(authority).position.x;
   assert.ok(
     after - before <= 3,
@@ -162,14 +162,14 @@ async function expectSharedAuthoritySelection(
 {
   const authority = makeAuthority();
   assert.equal(
-    authority.submitIntent(1, {
+    authority.submitPlayerAction(1, {
       type: "selectProjectileSlot",
       projectileSlotId: "mortar",
     }),
     false,
   );
   assert.equal(
-    authority.submitIntent(0, {
+    authority.submitPlayerAction(0, {
       type: "selectProjectileSlot",
       projectileSlotId: "mortar",
     }),
@@ -203,7 +203,7 @@ async function expectSharedAuthoritySelection(
 {
   const authority = makeAuthority();
   assert.equal(
-    authority.submitIntent(0, {
+    authority.submitPlayerAction(0, {
       type: "fire",
       angle: -0.6,
       power: 400,
@@ -236,7 +236,7 @@ async function expectSharedAuthoritySelection(
 
 {
   const authority = makeAuthority();
-  authority.submitIntent(0, {
+  authority.submitPlayerAction(0, {
     type: "fire",
     angle: 1.35,
     power: 520,
@@ -282,7 +282,7 @@ async function expectSharedAuthoritySelection(
   const unsubscribe = authority.subscribeMessages((message) => {
     messages.push(message.type);
   });
-  authority.submitIntent(0, {
+  authority.submitPlayerAction(0, {
     type: "fire",
     angle: 1.35,
     power: 520,
@@ -313,7 +313,7 @@ async function expectSharedAuthoritySelection(
 {
   const authority = makeAuthority();
   const snapshot = authority.snapshot();
-  const intents = collectPlayerIntents({
+  const intents = collectGameActions({
     state: {
       pressedKeys: new Set(["ArrowRight"]),
       pointer: { clientX: 480, clientY: 280 },
@@ -409,3 +409,4 @@ async function expectSharedAuthoritySelection(
   assert.equal(onlinePlayer1.displayName, "Player 2");
   assert.equal(onlinePlayer1.controllerKind, "remote");
 }
+

@@ -1,5 +1,4 @@
 import type { GameContent } from "../content/mockGameContent";
-import { getLocalControllerKind } from "../modes";
 import type { WorldSize } from "../world/worldSizing";
 import {
   createLocalSimulationAuthority,
@@ -21,10 +20,6 @@ export type GameAuthority = {
   getViewState(): GameViewState | null;
   subscribe(listener: (state: GameViewState) => void): () => void;
   destroy(): void;
-};
-
-export type PlayerAddressableGameAuthority = GameAuthority & {
-  submitPlayerIntent(playerId: number, action: GameAction): boolean;
 };
 
 export function snapshotToGameViewState(snapshot: GameSnapshot): GameViewState {
@@ -76,22 +71,17 @@ export function createLocalGameAuthority(options: {
   setup?: MatchSetup;
   content: GameContent;
   worldSize: WorldSize;
-}): PlayerAddressableGameAuthority {
+}): GameAuthority {
   return new SimulationGameAuthority(
     createLocalSimulationAuthority(options),
-    (state) => {
-      const activePlayerId = state.match.activePlayerId;
-      return getLocalControllerKind(options.mode, activePlayerId) === "human"
-        ? activePlayerId
-        : null;
-    },
+    (state) => state.match.activePlayerId,
   );
 }
 
 export function createRemoteGameAuthority(options: {
   transport: RemoteGameTransport;
   localPlayerId: number;
-}): PlayerAddressableGameAuthority {
+}): GameAuthority {
   return new SimulationGameAuthority(
     createRemoteSimulationAuthority(options.transport),
     () => options.localPlayerId,
@@ -111,11 +101,7 @@ class SimulationGameAuthority implements GameAuthority {
     const playerId = this.resolveActor(state);
     if (playerId === null) return false;
 
-    return this.submitPlayerIntent(playerId, action);
-  }
-
-  submitPlayerIntent(playerId: number, action: GameAction): boolean {
-    return this.simulationAuthority.submitIntent(playerId, action);
+    return this.simulationAuthority.submitPlayerAction(playerId, action);
   }
 
   update(dt: number): void {

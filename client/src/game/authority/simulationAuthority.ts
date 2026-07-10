@@ -5,14 +5,14 @@ import {
   createInitialWorld,
 } from "../world/createInitialWorld";
 import { LocalSimulationAuthority } from "../simulation/LocalSimulationAuthority";
-import type { GameMode, GameSnapshot, MatchSetup, PlayerIntent } from "../types";
+import type { GameAction, GameMode, GameSnapshot, MatchSetup } from "../types";
 import {
   RemoteSimulationAuthority,
   type RemoteGameTransport,
 } from "./RemoteSimulationAuthority";
 
 export type SimulationAuthority = {
-  submitIntent(playerId: number, intent: PlayerIntent): boolean;
+  submitPlayerAction(playerId: number, action: GameAction): boolean;
   update(dt: number): void;
   snapshot(): GameSnapshot | null;
   subscribe(listener: (snapshot: GameSnapshot) => void): () => void;
@@ -33,8 +33,8 @@ export function createLocalSimulationAuthority(options: {
   );
   const localAuthority = new LocalSimulationAuthority(world, terrain, content);
   return {
-    submitIntent(playerId: number, intent: PlayerIntent): boolean {
-      return localAuthority.submitIntent(playerId, intent);
+    submitPlayerAction(playerId: number, action: GameAction): boolean {
+      return localAuthority.submitPlayerAction(playerId, action);
     },
     update(dt: number): void {
       localAuthority.update(dt);

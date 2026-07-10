@@ -15,13 +15,12 @@ import type {
   GameMode,
   GameViewState,
   MatchSetup,
-  PlayerIntent,
 } from "./types";
 import { mockGameContent, type GameContent } from "./content/mockGameContent";
 import {
   createLocalGameAuthority,
   createRemoteGameAuthority,
-  type PlayerAddressableGameAuthority,
+  type GameAuthority,
 } from "./authority/gameAuthority";
 import {
   createWorldSizingPolicy,
@@ -42,7 +41,7 @@ export class GameEngine {
   private readonly renderer: CanvasGameRenderer;
   private readonly localInput: CanvasInputSource;
   private readonly aiInput = new AiIntentSource();
-  private readonly authority: PlayerAddressableGameAuthority;
+  private readonly authority: GameAuthority;
   private readonly snapshotListeners = new Set<
     (snapshot: GameViewState) => void
   >();
@@ -112,16 +111,6 @@ export class GameEngine {
     return this.sizing;
   }
 
-  submitIntent(playerId: number, intent: PlayerIntent): boolean {
-    const snapshotBeforeAction = this.authority.getViewState();
-    if (snapshotBeforeAction?.match.activePlayerId !== playerId) return false;
-
-    const accepted = this.authority.submitPlayerIntent(playerId, intent);
-    const snapshot = this.authority.getViewState();
-    if (snapshot) this.publishSnapshot(snapshot);
-    return accepted;
-  }
-
   submitAction(action: GameAction): boolean {
     const accepted = this.authority.submitAction(action);
     const snapshot = this.authority.getViewState();
@@ -168,16 +157,14 @@ export class GameEngine {
     );
 
     if (controllerKind === "human") {
-      this.submitIntents(
-        activePlayerId,
+      this.submitActions(
         this.localInput.poll(this.renderer.getCameraX(), snapshotBeforeInput),
       );
     }
 
     if (controllerKind === "ai") {
-      this.submitIntents(
-        activePlayerId,
-        this.aiInput.poll(snapshotBeforeInput, activePlayerId, dt),
+      this.submitActions(
+        this.aiInput.poll(snapshotBeforeInput, dt),
       );
     }
 
@@ -189,11 +176,9 @@ export class GameEngine {
     }
   }
 
-  private submitIntents(playerId: number, intents: PlayerIntent[]): void {
-    for (const intent of intents) {
-      if (snapshotActivePlayerMatches(this.authority.getViewState(), playerId)) {
-        this.authority.submitPlayerIntent(playerId, intent);
-      }
+  private submitActions(actions: GameAction[]): void {
+    for (const action of actions) {
+      this.authority.submitAction(action);
     }
   }
 
@@ -232,11 +217,4 @@ export class GameEngine {
     this.options.canvas.width = this.sizing.backing.width;
     this.options.canvas.height = this.sizing.backing.height;
   }
-}
-
-function snapshotActivePlayerMatches(
-  snapshot: GameViewState | null,
-  playerId: number,
-): boolean {
-  return snapshot?.match.activePlayerId === playerId;
 }

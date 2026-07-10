@@ -28,7 +28,7 @@ export type IntentProducer = (input: {
   context: CanvasInteractionContext;
 }) => GameAction[];
 
-export function collectPlayerIntents(input: {
+export function collectGameActions(input: {
   state: CanvasInteractionState;
   context: CanvasInteractionContext;
   producers?: IntentProducer[];
@@ -193,7 +193,7 @@ export class CanvasInputSource {
   poll(cameraX: number, snapshot: GameViewState): GameAction[] {
     if (!this.active) return [];
 
-    const intents = collectPlayerIntents({
+    const actions = collectGameActions({
       state: {
         pressedKeys: this.pressedKeys,
         pointer: this.pointer,
@@ -211,7 +211,7 @@ export class CanvasInputSource {
     this.pendingPointerDown = null;
     this.pendingSlotNumber = null;
 
-    return intents;
+    return actions;
   }
 
   setActive(active: boolean): void {

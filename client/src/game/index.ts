@@ -16,6 +16,5 @@ export type {
   GameSnapshot,
   GameViewState,
   MatchSetup,
-  PlayerIntent,
-  RemotePlayerIntent,
+  RemoteGameAction,
 } from "./types";

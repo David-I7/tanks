@@ -6,11 +6,10 @@ export class AiIntentSource {
   private thinkingElapsed = 0;
   private plannedThinkingSeconds = 1.2;
 
-  poll(snapshot: GameViewState, playerId: number, dt: number): GameAction[] {
-    if (
-      snapshot.match.phase !== "thinking" ||
-      snapshot.match.activePlayerId !== playerId
-    ) {
+  poll(snapshot: GameViewState, dt: number): GameAction[] {
+    const playerId = snapshot.match.activePlayerId;
+
+    if (snapshot.match.phase !== "thinking") {
       return [];
     }
 

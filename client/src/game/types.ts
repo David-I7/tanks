@@ -19,11 +19,9 @@ export type GameAction =
       projectileSlotId: ProjectileSlotId;
     };
 
-export type PlayerIntent = GameAction;
-
-export type RemotePlayerIntent = {
+export type RemoteGameAction = {
   playerId: number;
-  intent: PlayerIntent;
+  intent: GameAction;
 };
 
 export type TurnPhase =
