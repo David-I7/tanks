@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -32,35 +33,61 @@ import com.tanks.server.websocket.gameplay.OnlineInitialStateFactory;
 import com.tanks.server.websocket.repositories.GameSessionRepository;
 import com.tanks.server.websocket.repositories.LobbyRepository;
 
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+
 class GoldenSimulationTest {
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final UUID gameSessionId = UUID.fromString("00000000-0000-0000-0000-000000000123");
+
+    private GameSession parseInitialState(String scenarioName) throws Exception {
+        Path path = Path.of("../docs/contracts/tanks-golden-simulation-scenarios.json");
+        JsonNode root = objectMapper.readTree(path.toFile());
+        for (JsonNode scenario : root) {
+            if (scenario.get("name").asText().equals(scenarioName)) {
+                JsonNode state = scenario.get("initialState");
+                JsonNode match = state.get("match");
+                JsonNode tanks = state.get("tanks");
+                JsonNode tankA = tanks.get(0);
+                JsonNode tankB = tanks.get(1);
+
+                // Default nextDiffSequence to 2, or 7 for resync scenario
+                long nextSeq = scenarioName.equals("resync") ? 7 : 2;
+                long lastTick = scenarioName.equals("resync") ? 906 : 0;
+                long serverTick = scenarioName.equals("resync") ? 906 : 0;
+
+                return GameSession.builder()
+                        .id(gameSessionId)
+                        .playerA(scenario.get("playerA").asText())
+                        .playerB(scenario.get("playerB").asText())
+                        .playerTurn(match.get("activePlayerId").asInt() == 1 ? scenario.get("playerA").asText() : scenario.get("playerB").asText())
+                        .playerTurnExpiresAt(match.get("turnTimeRemainingTicks").asLong())
+                        .serverTick(serverTick)
+                        .turnNumber(match.get("turnNumber").asInt())
+                        .nextDiffSequence(nextSeq)
+                        .lastDiffServerTick(lastTick)
+                        .state(GameSessionState.STARTED)
+                        .playerATankX(tankA.get("position").get("x").asDouble())
+                        .playerATankY(tankA.get("position").get("y").asDouble())
+                        .playerATankHealth(tankA.get("health").asDouble())
+                        .playerATankFuel(tankA.get("fuel").asDouble())
+                        .playerBTankX(tankB.get("position").get("x").asDouble())
+                        .playerBTankY(tankB.get("position").get("y").asDouble())
+                        .playerBTankHealth(tankB.get("health").asDouble())
+                        .playerBTankFuel(tankB.get("fuel").asDouble())
+                        .gameplayDefinitionVersion(state.get("gameplayDefinitionVersion").asText())
+                        .build();
+            }
+        }
+        throw new IllegalArgumentException("Scenario not found: " + scenarioName);
+    }
 
     @Test
     @DisplayName("Golden simulation case: Movement")
     void movementScenario() throws Exception {
         TestHarness harness = new TestHarness();
-        UUID gameSessionId = UUID.fromString("00000000-0000-0000-0000-000000000123");
-        
-        GameSession gameSession = GameSession.builder()
-                .id(gameSessionId)
-                .playerA("host")
-                .playerB("opponent")
-                .playerTurn("host")
-                .playerTurnExpiresAt(900)
-                .serverTick(0)
-                .turnNumber(1)
-                .nextDiffSequence(2)
-                .lastDiffServerTick(0)
-                .state(GameSessionState.STARTED)
-                .playerATankX(160.0)
-                .playerATankY(420.0)
-                .playerATankHealth(110.0)
-                .playerATankFuel(100.0)
-                .playerBTankX(800.0)
-                .playerBTankY(420.0)
-                .playerBTankHealth(100.0)
-                .playerBTankFuel(100.0)
-                .gameplayDefinitionVersion("online-gameplay-definitions.v1")
-                .build();
+        GameSession gameSession = parseInitialState("movement");
 
         when(harness.gameRepository.findById(gameSessionId)).thenReturn(Optional.of(gameSession));
         when(harness.gameRepository.save(any(GameSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -96,29 +123,7 @@ class GoldenSimulationTest {
     @DisplayName("Golden simulation case: Projectile impact, terrain damage, damage application")
     void projectileImpactScenario() throws Exception {
         TestHarness harness = new TestHarness();
-        UUID gameSessionId = UUID.fromString("00000000-0000-0000-0000-000000000123");
-        
-        GameSession gameSession = GameSession.builder()
-                .id(gameSessionId)
-                .playerA("host")
-                .playerB("opponent")
-                .playerTurn("host")
-                .playerTurnExpiresAt(900)
-                .serverTick(0)
-                .turnNumber(1)
-                .nextDiffSequence(2)
-                .lastDiffServerTick(0)
-                .state(GameSessionState.STARTED)
-                .playerATankX(160.0)
-                .playerATankY(420.0)
-                .playerATankHealth(110.0)
-                .playerATankFuel(100.0)
-                .playerBTankX(800.0)
-                .playerBTankY(420.0)
-                .playerBTankHealth(94.0)
-                .playerBTankFuel(100.0)
-                .gameplayDefinitionVersion("online-gameplay-definitions.v1")
-                .build();
+        GameSession gameSession = parseInitialState("projectile_impact");
 
         when(harness.gameRepository.findById(gameSessionId)).thenReturn(Optional.of(gameSession));
         when(harness.gameRepository.save(any(GameSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -146,6 +151,11 @@ class GoldenSimulationTest {
                 OnlineStateDiffType.TURN_TRANSITION
         );
 
+        OnlineDiffPayloads.ProjectileResolution resolution = (OnlineDiffPayloads.ProjectileResolution) diffs.get(0).payload();
+        assertThat(resolution.impact().x()).isEqualTo(795.23);
+        assertThat(resolution.impact().y()).isEqualTo(423.56);
+        assertThat(resolution.trajectory()).hasSize(21);
+
         // Check state updates
         assertThat(gameSession.getPlayerBTankHealth()).isEqualTo(46.0);
         assertThat(gameSession.getPlayerTurn()).isEqualTo("opponent");
@@ -156,29 +166,7 @@ class GoldenSimulationTest {
     @DisplayName("Golden simulation case: Turn timeout, no-shot advance, disconnect continuation")
     void turnTimeoutScenario() throws Exception {
         TestHarness harness = new TestHarness();
-        UUID gameSessionId = UUID.fromString("00000000-0000-0000-0000-000000000123");
-        
-        GameSession gameSession = GameSession.builder()
-                .id(gameSessionId)
-                .playerA("host")
-                .playerB("opponent")
-                .playerTurn("opponent")
-                .playerTurnExpiresAt(900)
-                .serverTick(0)
-                .turnNumber(2)
-                .nextDiffSequence(2)
-                .lastDiffServerTick(0)
-                .state(GameSessionState.STARTED)
-                .playerATankX(160.0)
-                .playerATankY(420.0)
-                .playerATankHealth(110.0)
-                .playerATankFuel(100.0)
-                .playerBTankX(800.0)
-                .playerBTankY(420.0)
-                .playerBTankHealth(46.0)
-                .playerBTankFuel(100.0)
-                .gameplayDefinitionVersion("online-gameplay-definitions.v1")
-                .build();
+        GameSession gameSession = parseInitialState("turn_timeout");
 
         when(harness.gameRepository.findById(gameSessionId)).thenReturn(Optional.of(gameSession));
         when(harness.gameRepository.save(any(GameSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -205,29 +193,7 @@ class GoldenSimulationTest {
     @DisplayName("Golden simulation case: Resync after missed diffs")
     void resyncScenario() throws Exception {
         TestHarness harness = new TestHarness();
-        UUID gameSessionId = UUID.fromString("00000000-0000-0000-0000-000000000123");
-        
-        GameSession gameSession = GameSession.builder()
-                .id(gameSessionId)
-                .playerA("host")
-                .playerB("opponent")
-                .playerTurn("host")
-                .playerTurnExpiresAt(1800)
-                .serverTick(906)
-                .turnNumber(3)
-                .nextDiffSequence(7)
-                .lastDiffServerTick(906)
-                .state(GameSessionState.STARTED)
-                .playerATankX(161.0)
-                .playerATankY(420.0)
-                .playerATankHealth(110.0)
-                .playerATankFuel(99.0)
-                .playerBTankX(800.0)
-                .playerBTankY(420.0)
-                .playerBTankHealth(46.0)
-                .playerBTankFuel(100.0)
-                .gameplayDefinitionVersion("online-gameplay-definitions.v1")
-                .build();
+        GameSession gameSession = parseInitialState("resync");
 
         when(harness.gameRepository.findById(gameSessionId)).thenReturn(Optional.of(gameSession));
 
@@ -248,6 +214,39 @@ class GoldenSimulationTest {
         assertThat(resync.reason()).isEqualTo(OnlineDiffPayloads.ResyncReason.MISSED_DIFF);
         assertThat(resync.state().tanks().get(0).position().x()).isEqualTo(161.0);
         assertThat(resync.state().tanks().get(1).health()).isEqualTo(46.0);
+    }
+
+    @Test
+    @DisplayName("Golden simulation case: Disconnect continuation")
+    void disconnectContinuationScenario() throws Exception {
+        TestHarness harness = new TestHarness();
+        GameSession gameSession = parseInitialState("disconnect_continuation");
+
+        when(harness.gameRepository.findById(gameSessionId)).thenReturn(Optional.of(gameSession));
+        when(harness.gameRepository.save(any(GameSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // Stub redisTemplate hash operations for connectedPlayerCount decrement
+        var hashOps = mock(org.springframework.data.redis.core.HashOperations.class);
+        when(harness.redisTemplate.opsForHash()).thenReturn(hashOps);
+        when(hashOps.increment(any(), any(), org.mockito.Mockito.anyLong())).thenReturn(1L);
+
+        // Player 2 disconnects
+        harness.service.decremenentPlayerCount(gameSessionId);
+
+        // Verify connectedPlayerCount decrement was called
+        org.mockito.Mockito.verify(hashOps).increment("gameSession:" + gameSessionId, "connectedPlayerCount", -1L);
+
+        // Let turn expire for Player 1 (who is still connected)
+        gameSession.setServerTick(900);
+        harness.loopService.advance(gameSession);
+
+        // Check turn transition occurred normally (game continues)
+        List<OnlineDiffEnvelopeDto<?>> diffs = gameplayDiffs(harness);
+        assertThat(diffs).hasSize(1);
+        assertThat(diffs.get(0).type()).isEqualTo(OnlineStateDiffType.TURN_TRANSITION);
+
+        assertThat(gameSession.getPlayerTurn()).isEqualTo("opponent");
+        assertThat(gameSession.getTurnNumber()).isEqualTo(2);
     }
 
     private static List<OnlineDiffEnvelopeDto<?>> gameplayDiffs(TestHarness harness) {
