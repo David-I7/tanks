@@ -35,6 +35,7 @@ public final class OnlineDiffPayloads {
                         String projectileRenderAssetId,
                         String impactRenderAssetId,
                         OnlineVec2Dto launch,
+                        List<OnlineVec2Dto> trajectory,
                         OnlineVec2Dto impact,
                         List<OnlineTankDamageDto> damagedTanks) {
         }

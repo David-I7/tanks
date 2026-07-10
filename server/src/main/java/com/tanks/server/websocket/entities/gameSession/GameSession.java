@@ -53,11 +53,15 @@ public class GameSession {
 
     private Double playerATankFuel;
 
+    private Double playerATankHealth;
+
     private Double playerBTankX;
 
     private Double playerBTankY;
 
     private Double playerBTankFuel;
+
+    private Double playerBTankHealth;
 
     @Indexed
     private GameSessionState state;

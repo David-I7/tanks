@@ -266,6 +266,140 @@ class GameSessionServicePlayerIntentTest {
     }
 
     @Test
+    @DisplayName("Fire intent resolves projectile trajectory, impact, terrain, damage, and next turn diffs")
+    void fireIntentResolvesProjectileTerrainDamageAndTurn() {
+        TestHarness harness = new TestHarness();
+        GameSession gameSession = startedGameSession();
+        when(harness.gameRepository.findById(gameSession.getId())).thenReturn(Optional.of(gameSession));
+        when(harness.gameRepository.save(any(GameSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        boolean accepted = harness.service.acceptPlayerIntent(
+                "host",
+                gameSession.getId(),
+                fireIntent(gameSession, 1, "fire-1", 1, 0, 7, 0.96, "standard"));
+
+        assertThat(accepted).isTrue();
+        assertThat(gameSession.getPlayerAUnresolvedIntentId()).isNull();
+        assertThat(gameSession.getPlayerTurn()).isEqualTo("opponent");
+        assertThat(gameSession.getTurnNumber()).isEqualTo(2);
+        assertThat(gameSession.getPlayerBTankHealth()).isEqualTo(46);
+        assertThat(gameSession.getNextDiffSequence()).isEqualTo(5);
+        assertThat(gameSession.getLastDiffServerTick()).isEqualTo(0);
+
+        List<OnlineDiffEnvelopeDto<?>> diffs = gameplayDiffs(harness);
+        assertThat(diffs).extracting(OnlineDiffEnvelopeDto::type).containsExactly(
+                OnlineStateDiffType.PROJECTILE_RESOLUTION,
+                OnlineStateDiffType.TERRAIN_PATCH,
+                OnlineStateDiffType.TURN_TRANSITION);
+        assertThat(diffs).extracting(OnlineDiffEnvelopeDto::sequence).containsExactly(2L, 3L, 4L);
+        assertThat(diffs).extracting(OnlineDiffEnvelopeDto::intentId).containsExactly("fire-1", "fire-1", "fire-1");
+
+        OnlineDiffPayloads.ProjectileResolution projectile =
+                (OnlineDiffPayloads.ProjectileResolution) diffs.get(0).payload();
+        assertThat(projectile.intentId()).isEqualTo("fire-1");
+        assertThat(projectile.projectileEntityId()).isEqualTo(20);
+        assertThat(projectile.projectileDefinitionId()).isEqualTo("basicShell");
+        assertThat(projectile.launch()).isEqualTo(new com.tanks.server.websocket.dto.gameplay.OnlineVec2Dto(160, 396));
+        assertThat(projectile.impact().x()).isBetween(760.0, 840.0);
+        assertThat(projectile.impact().y()).isBetween(380.0, 460.0);
+        assertThat(projectile.trajectory()).hasSizeGreaterThanOrEqualTo(3);
+        assertThat(projectile.trajectory().getFirst()).isEqualTo(projectile.launch());
+        assertThat(projectile.trajectory().getLast()).isEqualTo(projectile.impact());
+        assertThat(projectile.damagedTanks()).containsExactly(
+                new com.tanks.server.websocket.dto.gameplay.OnlineTankDamageDto(11, 2, 48, 46));
+
+        OnlineDiffPayloads.TerrainPatch terrain = (OnlineDiffPayloads.TerrainPatch) diffs.get(1).payload();
+        assertThat(terrain.patches()).hasSize(1);
+        assertThat(terrain.patches().getFirst().kind())
+                .isEqualTo(com.tanks.server.websocket.dto.gameplay.OnlineTerrainPatchDto.TerrainPatchKind.HEIGHTMAP_RANGE);
+
+        OnlineDiffPayloads.TurnTransition turn = (OnlineDiffPayloads.TurnTransition) diffs.get(2).payload();
+        assertThat(turn.previousPlayerId()).isEqualTo(1);
+        assertThat(turn.activePlayerId()).isEqualTo(2);
+        assertThat(turn.turnNumber()).isEqualTo(2);
+        assertThat(turn.turnEndsAtServerTick()).isEqualTo(ServerSimulationLoopService.TURN_TIMER_TICKS);
+    }
+
+    @Test
+    @DisplayName("Valid fire intent that misses still emits projectile, terrain, and turn diffs without damage")
+    void fireIntentMissDoesNotDamageTarget() {
+        TestHarness harness = new TestHarness();
+        GameSession gameSession = startedGameSession();
+        when(harness.gameRepository.findById(gameSession.getId())).thenReturn(Optional.of(gameSession));
+        when(harness.gameRepository.save(any(GameSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        boolean accepted = harness.service.acceptPlayerIntent(
+                "host",
+                gameSession.getId(),
+                fireIntent(gameSession, 1, "miss-1", 1, 0, 80, 0.4, "standard"));
+
+        assertThat(accepted).isTrue();
+        assertThat(gameSession.getPlayerBTankHealth()).isEqualTo(94);
+
+        List<OnlineDiffEnvelopeDto<?>> diffs = gameplayDiffs(harness);
+        assertThat(diffs).extracting(OnlineDiffEnvelopeDto::type).containsExactly(
+                OnlineStateDiffType.PROJECTILE_RESOLUTION,
+                OnlineStateDiffType.TERRAIN_PATCH,
+                OnlineStateDiffType.TURN_TRANSITION);
+
+        OnlineDiffPayloads.ProjectileResolution projectile =
+                (OnlineDiffPayloads.ProjectileResolution) diffs.getFirst().payload();
+        assertThat(projectile.damagedTanks()).isEmpty();
+        assertThat(projectile.impact()).isNotEqualTo(new com.tanks.server.websocket.dto.gameplay.OnlineVec2Dto(800, 420));
+    }
+
+    @Test
+    @DisplayName("Terminal projectile damage emits a game-over diff after the authoritative turn diffs")
+    void terminalFireIntentEmitsGameOverDiff() {
+        TestHarness harness = new TestHarness();
+        GameSession gameSession = startedGameSession();
+        gameSession.setPlayerBTankHealth(30.0);
+        when(harness.gameRepository.findById(gameSession.getId())).thenReturn(Optional.of(gameSession));
+        when(harness.gameRepository.save(any(GameSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        boolean accepted = harness.service.acceptPlayerIntent(
+                "host",
+                gameSession.getId(),
+                fireIntent(gameSession, 1, "finisher", 1, 0, 7, 0.96, "standard"));
+
+        assertThat(accepted).isTrue();
+        assertThat(gameSession.getState()).isEqualTo(GameSessionState.ENDED);
+        assertThat(gameSession.getPlayerBTankHealth()).isZero();
+
+        List<OnlineDiffEnvelopeDto<?>> diffs = gameplayDiffs(harness);
+        assertThat(diffs).extracting(OnlineDiffEnvelopeDto::type).containsExactly(
+                OnlineStateDiffType.PROJECTILE_RESOLUTION,
+                OnlineStateDiffType.TERRAIN_PATCH,
+                OnlineStateDiffType.TURN_TRANSITION,
+                OnlineStateDiffType.TERMINAL_GAME);
+        assertThat(diffs).extracting(OnlineDiffEnvelopeDto::sequence).containsExactly(2L, 3L, 4L, 5L);
+
+        OnlineDiffPayloads.TerminalGame terminal = (OnlineDiffPayloads.TerminalGame) diffs.get(3).payload();
+        assertThat(terminal.winnerPlayerId()).isEqualTo(1L);
+        assertThat(terminal.reason()).isEqualTo(OnlineDiffPayloads.TerminalGameReason.LAST_TANK_STANDING);
+        assertThat(terminal.finalState().match().phase())
+                .isEqualTo(com.tanks.server.websocket.dto.gameplay.OnlineMatchSnapshotDto.MatchPhase.GAME_OVER);
+        assertThat(terminal.finalState().match().winnerPlayerId()).isEqualTo(1L);
+    }
+
+    @Test
+    @DisplayName("Fire intent with an unknown projectile slot is rejected as an invalid payload")
+    void rejectsInvalidFireIntentWithoutPredictionDiff() {
+        TestHarness harness = new TestHarness();
+        GameSession gameSession = startedGameSession();
+        when(harness.gameRepository.findById(gameSession.getId())).thenReturn(Optional.of(gameSession));
+
+        boolean accepted = harness.service.acceptPlayerIntent(
+                "host",
+                gameSession.getId(),
+                fireIntent(gameSession, 1, "bad-fire", 1, 0, 18, 1, "missing-slot"));
+
+        assertThat(accepted).isFalse();
+        assertThat(gameSession.getNextDiffSequence()).isEqualTo(2);
+        assertThat(gameplayDiffs(harness)).isEmpty();
+    }
+
+    @Test
     @DisplayName("Null intents are invalid payloads without sequenced rejection diffs")
     void rejectsNullIntentWithoutPredictionDiff() {
         TestHarness harness = new TestHarness();
@@ -353,6 +487,26 @@ class GameSessionServicePlayerIntentTest {
                 lastConfirmedDiffServerTick,
                 OnlinePlayerIntentType.AIM,
                 new OnlineIntentPayloads.Aim(42, 0.5));
+    }
+
+    private static OnlinePlayerIntentDto<OnlineIntentPayloads.Fire> fireIntent(
+            GameSession gameSession,
+            long playerId,
+            String intentId,
+            long lastConfirmedDiffSequence,
+            long lastConfirmedDiffServerTick,
+            double angle,
+            double power,
+            String projectileSlotId) {
+        return new OnlinePlayerIntentDto<>(
+                OnlineGameplayProtocolVersion.V1,
+                gameSession.getId().toString(),
+                playerId,
+                intentId,
+                lastConfirmedDiffSequence,
+                lastConfirmedDiffServerTick,
+                OnlinePlayerIntentType.FIRE,
+                new OnlineIntentPayloads.Fire(angle, power, projectileSlotId));
     }
 
     private static void assertRejection(

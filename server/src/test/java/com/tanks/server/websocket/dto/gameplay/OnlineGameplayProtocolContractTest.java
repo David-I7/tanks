@@ -91,6 +91,7 @@ class OnlineGameplayProtocolContractTest {
                                                 "projectile.basic-shell",
                                                 "impact.orange-pop",
                                                 new OnlineVec2Dto(55, 110),
+                                                List.of(new OnlineVec2Dto(55, 110), new OnlineVec2Dto(120, 130)),
                                                 new OnlineVec2Dto(120, 130),
                                                 List.of(new OnlineTankDamageDto(11, 2, 35, 65))));
 
@@ -99,6 +100,7 @@ class OnlineGameplayProtocolContractTest {
                 assertThat(json.at("/payload/projectileRenderAssetId").asText()).isEqualTo("projectile.basic-shell");
                 assertThat(json.at("/payload/impactRenderAssetId").asText()).isEqualTo("impact.orange-pop");
                 assertThat(json.at("/payload/intentId").asText()).isEqualTo("intent-fire");
+                assertThat(json.at("/payload/trajectory").size()).isEqualTo(2);
                 assertThat(json.at("/payload/projectileRenderAssetId").asText()).doesNotContain("/", "\\");
                 assertThat(json.at("/payload/impactRenderAssetId").asText()).doesNotContain("/", "\\");
         }
@@ -191,6 +193,8 @@ class OnlineGameplayProtocolContractTest {
                                                                 "projectile.basic-shell",
                                                                 "impact.orange-pop",
                                                                 new OnlineVec2Dto(55, 110),
+                                                                List.of(new OnlineVec2Dto(55, 110),
+                                                                                new OnlineVec2Dto(120, 130)),
                                                                 new OnlineVec2Dto(120, 130),
                                                                 List.of(new OnlineTankDamageDto(11, 2, 35, 65)))),
                                 new OnlineDiffEnvelopeDto<>(
