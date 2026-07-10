@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { getPlayerMatchConfig } from "../src/game/modes";
 import {
   createDefaultMatchSetup,
   createInitialWorld,
@@ -383,4 +384,27 @@ async function expectSharedAuthoritySelection(
   const { world } = createInitialWorld(setup, mockGameContent, 960, 560);
   assert.equal(world.match.mode, "playerVsAi");
   assert.equal(world.match.playerCount, 2);
+}
+
+{
+  // Test getPlayerMatchConfig helper
+  const aiPlayer0 = getPlayerMatchConfig("playerVsAi", 0);
+  assert.equal(aiPlayer0.displayName, "Player 1");
+  assert.equal(aiPlayer0.controllerKind, "human");
+
+  const aiPlayer1 = getPlayerMatchConfig("playerVsAi", 1);
+  assert.equal(aiPlayer1.displayName, "CPU");
+  assert.equal(aiPlayer1.controllerKind, "ai");
+
+  const localPlayer0 = getPlayerMatchConfig("localTwoPlayer", 0);
+  assert.equal(localPlayer0.displayName, "Player 1");
+  assert.equal(localPlayer0.controllerKind, "human");
+
+  const localPlayer1 = getPlayerMatchConfig("localTwoPlayer", 1);
+  assert.equal(localPlayer1.displayName, "Player 2");
+  assert.equal(localPlayer1.controllerKind, "human");
+
+  const onlinePlayer1 = getPlayerMatchConfig("online", 1);
+  assert.equal(onlinePlayer1.displayName, "Player 2");
+  assert.equal(onlinePlayer1.controllerKind, "remote");
 }

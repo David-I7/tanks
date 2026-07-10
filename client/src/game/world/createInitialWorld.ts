@@ -4,6 +4,7 @@ import { mockGameContent, type GameContent } from "../content/mockGameContent";
 import type { GameMode, MatchSetup } from "../types";
 import type { WorldSize } from "./worldSizing";
 import { MAX_TURN_SECONDS } from "../simulation/turnRules";
+import { getPlayerMatchConfig } from "../modes";
 
 export type InitialWorld = {
   world: World;
@@ -59,19 +60,21 @@ export function createInitialWorld(
 }
 
 export function createDefaultMatchSetup(mode: GameMode): MatchSetup {
+  const p0 = getPlayerMatchConfig(mode, 0);
+  const p1 = getPlayerMatchConfig(mode, 1);
   return {
     mode,
     players: [
       {
         id: 0,
-        displayName: "Player 1",
-        controllerKind: "human",
+        displayName: p0.displayName,
+        controllerKind: p0.controllerKind,
         tankSelection: { tankDefinitionId: "vanguard" },
       },
       {
         id: 1,
-        displayName: mode === "playerVsAi" ? "CPU" : "Player 2",
-        controllerKind: mode === "playerVsAi" ? "ai" : mode === "online" ? "remote" : "human",
+        displayName: p1.displayName,
+        controllerKind: p1.controllerKind,
         tankSelection: { tankDefinitionId: "specter" },
       },
     ],

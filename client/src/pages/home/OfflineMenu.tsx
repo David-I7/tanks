@@ -15,8 +15,8 @@ export default function OfflineMenu() {
                 <IconButton onClick={() => popScreen()} icon={<ArrowLeft size={16} />} />
             </div>
             <H1 className="text-center mb-2">Offline</H1>
-            <Button color="primary" onClick={() => navigate("/test", { state: { mode: "playerVsAi" } })}>Player vs AI</Button>
-            <Button color="secondary" onClick={() => navigate("/test", { state: { mode: "localTwoPlayer" } })}>Local Two-Player</Button>
+            <Button color="primary" onClick={() => navigate("/game/local?mode=playerVsAi")}>Player vs AI</Button>
+            <Button color="secondary" onClick={() => navigate("/game/local?mode=localTwoPlayer")}>Local Two-Player</Button>
         </Surface>
     );
 }
