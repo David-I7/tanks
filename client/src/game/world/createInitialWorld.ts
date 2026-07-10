@@ -70,8 +70,8 @@ export function createDefaultMatchSetup(mode: GameMode): MatchSetup {
       },
       {
         id: 1,
-        displayName: mode === "ai" ? "CPU" : "Player 2",
-        controllerKind: mode === "ai" ? "ai" : mode === "online" ? "remote" : "human",
+        displayName: mode === "playerVsAi" ? "CPU" : "Player 2",
+        controllerKind: mode === "playerVsAi" ? "ai" : mode === "online" ? "remote" : "human",
         tankSelection: { tankDefinitionId: "specter" },
       },
     ],

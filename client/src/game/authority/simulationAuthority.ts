@@ -25,7 +25,7 @@ export function createLocalSimulationAuthority(options: {
   content: GameContent;
   worldSize: WorldSize;
 }): SimulationAuthority {
-  const setup = options.setup ?? createDefaultMatchSetup(options.mode ?? "twoPlayer");
+  const setup = options.setup ?? createDefaultMatchSetup(options.mode ?? "localTwoPlayer");
   const { world, terrain, content } = createInitialWorld(
     setup,
     options.content,

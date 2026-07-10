@@ -1,6 +1,6 @@
 export type EntityId = number;
 
-export type GameMode = "online" | "twoPlayer" | "ai" | "singlePlayer";
+export type GameMode = "online" | "localTwoPlayer" | "playerVsAi";
 
 export type ControllerKind = "human" | "ai" | "remote";
 

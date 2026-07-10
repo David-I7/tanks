@@ -24,7 +24,7 @@ import {
 } from "../src/game/content/mockGameContent";
 import type { MatchSetup } from "../src/game/types";
 
-function makeAuthority(setup: MatchSetup = createDefaultMatchSetup("twoPlayer")) {
+function makeAuthority(setup: MatchSetup = createDefaultMatchSetup("localTwoPlayer")) {
   const { world, terrain, content } = createInitialWorld(setup, mockGameContent, 960, 560);
   return new LocalSimulationAuthority(world, terrain, content);
 }
@@ -80,12 +80,12 @@ async function expectSharedAuthoritySelection(
   assert.deepEqual(sizing.backing, { width: 1920, height: 1120 });
 
   const first = createInitialWorld(
-    createDefaultMatchSetup("twoPlayer"),
+    createDefaultMatchSetup("localTwoPlayer"),
     mockGameContent,
     sizing.world,
   );
   const second = createInitialWorld(
-    createDefaultMatchSetup("twoPlayer"),
+    createDefaultMatchSetup("localTwoPlayer"),
     mockGameContent,
     sameViewportDifferentDpr.world,
   );
@@ -98,7 +98,7 @@ async function expectSharedAuthoritySelection(
     () =>
       createInitialWorld(
         {
-          mode: "twoPlayer",
+          mode: "localTwoPlayer",
           players: [
             {
               id: 0,
@@ -126,7 +126,7 @@ async function expectSharedAuthoritySelection(
     () =>
       createInitialWorld(
         {
-          mode: "twoPlayer",
+          mode: "localTwoPlayer",
           players: [
             {
               id: 0,
@@ -179,7 +179,7 @@ async function expectSharedAuthoritySelection(
 {
   await expectSharedAuthoritySelection(
     createLocalSimulationAuthority({
-      setup: createDefaultMatchSetup("twoPlayer"),
+      setup: createDefaultMatchSetup("localTwoPlayer"),
       content: mockGameContent,
       worldSize: { width: 960, height: 560 },
     }),
@@ -353,4 +353,34 @@ async function expectSharedAuthoritySelection(
   unsubscribe();
   transport.destroy?.();
   assert.ok(seen.includes("mortar"));
+}
+
+{
+  // Test local mode setup for Local Two-Player
+  const setup = createDefaultMatchSetup("localTwoPlayer");
+  assert.equal(setup.mode, "localTwoPlayer");
+  assert.equal(setup.players.length, 2);
+  assert.equal(setup.players[0]?.controllerKind, "human");
+  assert.equal(setup.players[1]?.controllerKind, "human");
+  assert.equal(setup.players[0]?.displayName, "Player 1");
+  assert.equal(setup.players[1]?.displayName, "Player 2");
+
+  const { world } = createInitialWorld(setup, mockGameContent, 960, 560);
+  assert.equal(world.match.mode, "localTwoPlayer");
+  assert.equal(world.match.playerCount, 2);
+}
+
+{
+  // Test local mode setup for Player vs AI
+  const setup = createDefaultMatchSetup("playerVsAi");
+  assert.equal(setup.mode, "playerVsAi");
+  assert.equal(setup.players.length, 2);
+  assert.equal(setup.players[0]?.controllerKind, "human");
+  assert.equal(setup.players[1]?.controllerKind, "ai");
+  assert.equal(setup.players[0]?.displayName, "Player 1");
+  assert.equal(setup.players[1]?.displayName, "CPU");
+
+  const { world } = createInitialWorld(setup, mockGameContent, 960, 560);
+  assert.equal(world.match.mode, "playerVsAi");
+  assert.equal(world.match.playerCount, 2);
 }

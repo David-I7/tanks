@@ -6,7 +6,7 @@ This is a turn-based artillery tank game. The client sends Player Intents into a
 
 A match starts from a `MatchSetup`:
 
-- `mode`: `twoPlayer`, `ai`, `online`, or `singlePlayer`
+- `mode`: `localTwoPlayer`, `playerVsAi`, or `online`
 - players
 - display names
 - controller kind: `human`, `ai`, or `remote`

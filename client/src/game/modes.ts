@@ -3,7 +3,7 @@ import type { GameMode } from "./types";
 export type LocalControllerKind = "human" | "ai";
 
 export function getLocalControllerKind(mode: GameMode, activePlayerId: number): LocalControllerKind {
-  if (mode === "ai") {
+  if (mode === "playerVsAi") {
     return activePlayerId === 0 ? "human" : "ai";
   }
 
