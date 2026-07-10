@@ -75,16 +75,235 @@
     {
       "protocolVersion": "online-gameplay.v1",
       "gameSessionId": "game-123",
-      "sequence": 8,
-      "serverTick": 240,
-      "type": "INTENT_REJECTION",
-      "intentId": "intent-abc",
+      "sequence": 2,
+      "serverTick": 30,
+      "type": "RESYNC_STATE",
+      "intentId": null,
       "payload": {
-        "rejectedIntentId": "intent-abc",
+        "replacesSequence": 1,
+        "reason": "MISSED_DIFF",
+        "state": {
+          "gameplayDefinitionVersion": "online-gameplay-definitions.v1",
+          "match": {
+            "phase": "AIMING",
+            "activePlayerId": 1,
+            "playerCount": 2,
+            "turnNumber": 1,
+            "turnTimeRemainingTicks": 900,
+            "winnerPlayerId": null
+          },
+          "terrain": {
+            "kind": "HEIGHTMAP",
+            "width": 4,
+            "height": 3,
+            "surface": [2, 2, 1, 2]
+          },
+          "tanks": [
+            {
+              "entityId": 10,
+              "playerId": 1,
+              "displayName": "Player 1",
+              "tankDefinitionId": "vanguard",
+              "renderAssetId": "tank.vanguard",
+              "position": {
+                "x": 50.0,
+                "y": 120.0
+              },
+              "facing": 1,
+              "aimAngle": 45.0,
+              "power": 0.5,
+              "selectedProjectileSlotId": "standard",
+              "loadout": [
+                {
+                  "id": "standard",
+                  "projectileDefinitionId": "basicShell",
+                  "label": "Std",
+                  "renderAssetId": "projectile-slot.standard"
+                }
+              ],
+              "health": 110.0,
+              "maxHealth": 110.0,
+              "fuel": 100.0,
+              "alive": true
+            }
+          ],
+          "projectiles": []
+        }
+      }
+    },
+    {
+      "protocolVersion": "online-gameplay.v1",
+      "gameSessionId": "game-123",
+      "sequence": 3,
+      "serverTick": 60,
+      "type": "MOVEMENT_SEGMENT",
+      "intentId": "intent-move",
+      "payload": {
+        "intentId": "intent-move",
+        "playerId": 1,
+        "tankEntityId": 10,
+        "from": {
+          "x": 50.0,
+          "y": 120.0
+        },
+        "to": {
+          "x": 55.0,
+          "y": 120.0
+        },
+        "fuelBefore": 100.0,
+        "fuelAfter": 95.0,
+        "fuelSpent": 5.0,
+        "startedServerTick": 60,
+        "endedServerTick": 75,
+        "durationTicks": 15
+      }
+    },
+    {
+      "protocolVersion": "online-gameplay.v1",
+      "gameSessionId": "game-123",
+      "sequence": 4,
+      "serverTick": 90,
+      "type": "PROJECTILE_RESOLUTION",
+      "intentId": "intent-fire",
+      "payload": {
+        "intentId": "intent-fire",
+        "projectileEntityId": 20,
+        "ownerPlayerId": 1,
+        "projectileDefinitionId": "basicShell",
+        "projectileRenderAssetId": "projectile.basic-shell",
+        "impactRenderAssetId": "impact.orange-pop",
+        "launch": {
+          "x": 55.0,
+          "y": 110.0
+        },
+        "trajectory": [
+          {
+            "x": 55.0,
+            "y": 110.0
+          },
+          {
+            "x": 120.0,
+            "y": 130.0
+          }
+        ],
+        "impact": {
+          "x": 120.0,
+          "y": 130.0
+        },
+        "damagedTanks": [
+          {
+            "tankEntityId": 11,
+            "playerId": 2,
+            "damage": 35.0,
+            "remainingHealth": 65.0
+          }
+        ]
+      }
+    },
+    {
+      "protocolVersion": "online-gameplay.v1",
+      "gameSessionId": "game-123",
+      "sequence": 5,
+      "serverTick": 90,
+      "type": "TERRAIN_PATCH",
+      "intentId": null,
+      "payload": {
+        "patches": [
+          {
+            "kind": "HEIGHTMAP_RANGE",
+            "startX": 2,
+            "surface": [1, 1, 2]
+          }
+        ]
+      }
+    },
+    {
+      "protocolVersion": "online-gameplay.v1",
+      "gameSessionId": "game-123",
+      "sequence": 6,
+      "serverTick": 120,
+      "type": "INTENT_REJECTION",
+      "intentId": "intent-stale",
+      "payload": {
+        "rejectedIntentId": "intent-stale",
         "playerId": 1,
         "reason": "STALE_BASE_STATE",
-        "authoritativeSequence": 9,
-        "authoritativeServerTick": 270
+        "authoritativeSequence": 6,
+        "authoritativeServerTick": 120
+      }
+    },
+    {
+      "protocolVersion": "online-gameplay.v1",
+      "gameSessionId": "game-123",
+      "sequence": 7,
+      "serverTick": 150,
+      "type": "TURN_TRANSITION",
+      "intentId": null,
+      "payload": {
+        "previousPlayerId": 1,
+        "activePlayerId": 2,
+        "turnNumber": 2,
+        "phase": "AIMING",
+        "turnEndsAtServerTick": 1050
+      }
+    },
+    {
+      "protocolVersion": "online-gameplay.v1",
+      "gameSessionId": "game-123",
+      "sequence": 8,
+      "serverTick": 180,
+      "type": "TERMINAL_GAME",
+      "intentId": null,
+      "payload": {
+        "winnerPlayerId": 1,
+        "reason": "LAST_TANK_STANDING",
+        "finalState": {
+          "gameplayDefinitionVersion": "online-gameplay-definitions.v1",
+          "match": {
+            "phase": "AIMING",
+            "activePlayerId": 1,
+            "playerCount": 2,
+            "turnNumber": 1,
+            "turnTimeRemainingTicks": 900,
+            "winnerPlayerId": null
+          },
+          "terrain": {
+            "kind": "HEIGHTMAP",
+            "width": 4,
+            "height": 3,
+            "surface": [2, 2, 1, 2]
+          },
+          "tanks": [
+            {
+              "entityId": 10,
+              "playerId": 1,
+              "displayName": "Player 1",
+              "tankDefinitionId": "vanguard",
+              "renderAssetId": "tank.vanguard",
+              "position": {
+                "x": 50.0,
+                "y": 120.0
+              },
+              "facing": 1,
+              "aimAngle": 45.0,
+              "power": 0.5,
+              "selectedProjectileSlotId": "standard",
+              "loadout": [
+                {
+                  "id": "standard",
+                  "projectileDefinitionId": "basicShell",
+                  "label": "Std",
+                  "renderAssetId": "projectile-slot.standard"
+                }
+              ],
+              "health": 110.0,
+              "maxHealth": 110.0,
+              "fuel": 100.0,
+              "alive": true
+            }
+          ],
+          "projectiles": []
+        }
       }
     }
   ]

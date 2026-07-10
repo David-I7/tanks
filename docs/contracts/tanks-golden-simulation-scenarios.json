@@ -1,0 +1,604 @@
+[
+  {
+    "name": "movement",
+    "playerA": "host",
+    "playerB": "opponent",
+    "initialState": {
+      "gameplayDefinitionVersion": "online-gameplay-definitions.v1",
+      "match": {
+        "phase": "AIMING",
+        "activePlayerId": 1,
+        "playerCount": 2,
+        "turnNumber": 1,
+        "turnTimeRemainingTicks": 900,
+        "winnerPlayerId": null
+      },
+      "terrain": {
+        "kind": "HEIGHTMAP",
+        "width": 16,
+        "height": 560,
+        "surface": [420, 420, 421, 422, 424, 426, 428, 430, 431, 430, 428, 426, 424, 422, 421, 420]
+      },
+      "tanks": [
+        {
+          "entityId": 10,
+          "playerId": 1,
+          "displayName": "host",
+          "tankDefinitionId": "vanguard",
+          "renderAssetId": "tank.vanguard",
+          "position": {
+            "x": 160.0,
+            "y": 420.0
+          },
+          "facing": 1,
+          "aimAngle": 45.0,
+          "power": 0.5,
+          "selectedProjectileSlotId": "standard",
+          "loadout": [
+            {
+              "id": "standard",
+              "projectileDefinitionId": "basicShell",
+              "label": "Std",
+              "renderAssetId": "projectile-slot.standard"
+            }
+          ],
+          "health": 110.0,
+          "maxHealth": 110.0,
+          "fuel": 100.0,
+          "alive": true
+        },
+        {
+          "entityId": 11,
+          "playerId": 2,
+          "displayName": "opponent",
+          "tankDefinitionId": "specter",
+          "renderAssetId": "tank.specter",
+          "position": {
+            "x": 800.0,
+            "y": 420.0
+          },
+          "facing": -1,
+          "aimAngle": 45.0,
+          "power": 0.5,
+          "selectedProjectileSlotId": "standard",
+          "loadout": [
+            {
+              "id": "standard",
+              "projectileDefinitionId": "basicShell",
+              "label": "Std",
+              "renderAssetId": "projectile-slot.standard"
+            }
+          ],
+          "health": 94.0,
+          "maxHealth": 94.0,
+          "fuel": 100.0,
+          "alive": true
+        }
+      ],
+      "projectiles": []
+    },
+    "steps": [
+      {
+        "description": "Host moves right by 1 unit",
+        "action": {
+          "type": "MOVE",
+          "playerId": 1,
+          "intentId": "intent-move-1"
+        },
+        "expectedDiffs": [
+          {
+            "protocolVersion": "online-gameplay.v1",
+            "gameSessionId": "game-123",
+            "sequence": 2,
+            "serverTick": 6,
+            "type": "MOVEMENT_SEGMENT",
+            "intentId": "intent-move-1",
+            "payload": {
+              "intentId": "intent-move-1",
+              "playerId": 1,
+              "tankEntityId": 10,
+              "from": {
+                "x": 160.0,
+                "y": 420.0
+              },
+              "to": {
+                "x": 161.0,
+                "y": 420.0
+              },
+              "fuelBefore": 100.0,
+              "fuelAfter": 99.0,
+              "fuelSpent": 1.0,
+              "startedServerTick": 0,
+              "endedServerTick": 6,
+              "durationTicks": 6
+            }
+          }
+        ],
+        "expectedState": {
+          "activePlayerId": 1,
+          "playerATankX": 161.0,
+          "playerATankFuel": 99.0,
+          "playerTurn": "host",
+          "serverTick": 6,
+          "nextDiffSequence": 3
+        }
+      }
+    ]
+  },
+  {
+    "name": "projectile_impact",
+    "playerA": "host",
+    "playerB": "opponent",
+    "initialState": {
+      "gameplayDefinitionVersion": "online-gameplay-definitions.v1",
+      "match": {
+        "phase": "AIMING",
+        "activePlayerId": 1,
+        "playerCount": 2,
+        "turnNumber": 1,
+        "turnTimeRemainingTicks": 900,
+        "winnerPlayerId": null
+      },
+      "terrain": {
+        "kind": "HEIGHTMAP",
+        "width": 16,
+        "height": 560,
+        "surface": [420, 420, 421, 422, 424, 426, 428, 430, 431, 430, 428, 426, 424, 422, 421, 420]
+      },
+      "tanks": [
+        {
+          "entityId": 10,
+          "playerId": 1,
+          "displayName": "host",
+          "tankDefinitionId": "vanguard",
+          "renderAssetId": "tank.vanguard",
+          "position": {
+            "x": 160.0,
+            "y": 420.0
+          },
+          "facing": 1,
+          "aimAngle": 45.0,
+          "power": 0.5,
+          "selectedProjectileSlotId": "standard",
+          "loadout": [
+            {
+              "id": "standard",
+              "projectileDefinitionId": "basicShell",
+              "label": "Std",
+              "renderAssetId": "projectile-slot.standard"
+            }
+          ],
+          "health": 110.0,
+          "maxHealth": 110.0,
+          "fuel": 100.0,
+          "alive": true
+        },
+        {
+          "entityId": 11,
+          "playerId": 2,
+          "displayName": "opponent",
+          "tankDefinitionId": "specter",
+          "renderAssetId": "tank.specter",
+          "position": {
+            "x": 800.0,
+            "y": 420.0
+          },
+          "facing": -1,
+          "aimAngle": 45.0,
+          "power": 0.5,
+          "selectedProjectileSlotId": "standard",
+          "loadout": [
+            {
+              "id": "standard",
+              "projectileDefinitionId": "basicShell",
+              "label": "Std",
+              "renderAssetId": "projectile-slot.standard"
+            }
+          ],
+          "health": 94.0,
+          "maxHealth": 94.0,
+          "fuel": 100.0,
+          "alive": true
+        }
+      ],
+      "projectiles": []
+    },
+    "steps": [
+      {
+        "description": "Host fires standard basic shell at opponent",
+        "action": {
+          "type": "FIRE",
+          "playerId": 1,
+          "intentId": "intent-fire-1",
+          "payload": {
+            "angle": 7.0,
+            "power": 0.96,
+            "projectileSlotId": "standard"
+          }
+        },
+        "expectedDiffs": [
+          {
+            "protocolVersion": "online-gameplay.v1",
+            "gameSessionId": "game-123",
+            "sequence": 2,
+            "serverTick": 0,
+            "type": "PROJECTILE_RESOLUTION",
+            "intentId": "intent-fire-1",
+            "payload": {
+              "intentId": "intent-fire-1",
+              "projectileEntityId": 20,
+              "ownerPlayerId": 1,
+              "projectileDefinitionId": "basicShell",
+              "projectileRenderAssetId": "projectile.basic-shell",
+              "impactRenderAssetId": "impact.orange-pop",
+              "launch": {
+                "x": 160.0,
+                "y": 396.0
+              },
+              "trajectory": [
+                {
+                  "x": 160.0,
+                  "y": 396.0
+                },
+                {
+                  "x": 800.0,
+                  "y": 420.0
+                }
+              ],
+              "impact": {
+                "x": 800.0,
+                "y": 420.0
+              },
+              "damagedTanks": [
+                {
+                  "tankEntityId": 11,
+                  "playerId": 2,
+                  "damage": 48.0,
+                  "remainingHealth": 46.0
+                }
+              ]
+            }
+          },
+          {
+            "protocolVersion": "online-gameplay.v1",
+            "gameSessionId": "game-123",
+            "sequence": 3,
+            "serverTick": 0,
+            "type": "TERRAIN_PATCH",
+            "intentId": "intent-fire-1",
+            "payload": {
+              "patches": [
+                {
+                  "kind": "HEIGHTMAP_RANGE",
+                  "startX": 776,
+                  "surface": [429, 429, 429]
+                }
+              ]
+            }
+          },
+          {
+            "protocolVersion": "online-gameplay.v1",
+            "gameSessionId": "game-123",
+            "sequence": 4,
+            "serverTick": 0,
+            "type": "TURN_TRANSITION",
+            "intentId": "intent-fire-1",
+            "payload": {
+              "previousPlayerId": 1,
+              "activePlayerId": 2,
+              "turnNumber": 2,
+              "phase": "AIMING",
+              "turnEndsAtServerTick": 900
+            }
+          }
+        ],
+        "expectedState": {
+          "activePlayerId": 2,
+          "playerTurn": "opponent",
+          "playerBTankHealth": 46.0,
+          "turnNumber": 2,
+          "serverTick": 0,
+          "nextDiffSequence": 5
+        }
+      }
+    ]
+  },
+  {
+    "name": "turn_timeout",
+    "playerA": "host",
+    "playerB": "opponent",
+    "initialState": {
+      "gameplayDefinitionVersion": "online-gameplay-definitions.v1",
+      "match": {
+        "phase": "AIMING",
+        "activePlayerId": 2,
+        "playerCount": 2,
+        "turnNumber": 2,
+        "turnTimeRemainingTicks": 900,
+        "winnerPlayerId": null
+      },
+      "terrain": {
+        "kind": "HEIGHTMAP",
+        "width": 16,
+        "height": 560,
+        "surface": [420, 420, 421, 422, 424, 426, 428, 430, 431, 430, 428, 426, 424, 422, 421, 420]
+      },
+      "tanks": [
+        {
+          "entityId": 10,
+          "playerId": 1,
+          "displayName": "host",
+          "tankDefinitionId": "vanguard",
+          "renderAssetId": "tank.vanguard",
+          "position": {
+            "x": 160.0,
+            "y": 420.0
+          },
+          "facing": 1,
+          "aimAngle": 45.0,
+          "power": 0.5,
+          "selectedProjectileSlotId": "standard",
+          "loadout": [
+            {
+              "id": "standard",
+              "projectileDefinitionId": "basicShell",
+              "label": "Std",
+              "renderAssetId": "projectile-slot.standard"
+            }
+          ],
+          "health": 110.0,
+          "maxHealth": 110.0,
+          "fuel": 100.0,
+          "alive": true
+        },
+        {
+          "entityId": 11,
+          "playerId": 2,
+          "displayName": "opponent",
+          "tankDefinitionId": "specter",
+          "renderAssetId": "tank.specter",
+          "position": {
+            "x": 800.0,
+            "y": 420.0
+          },
+          "facing": -1,
+          "aimAngle": 45.0,
+          "power": 0.5,
+          "selectedProjectileSlotId": "standard",
+          "loadout": [
+            {
+              "id": "standard",
+              "projectileDefinitionId": "basicShell",
+              "label": "Std",
+              "renderAssetId": "projectile-slot.standard"
+            }
+          ],
+          "health": 46.0,
+          "maxHealth": 100.0,
+          "fuel": 100.0,
+          "alive": true
+        }
+      ],
+      "projectiles": []
+    },
+    "steps": [
+      {
+        "description": "Simulation advances to turn expiration",
+        "action": {
+          "type": "TIMEOUT",
+          "playerId": 2
+        },
+        "expectedDiffs": [
+          {
+            "protocolVersion": "online-gameplay.v1",
+            "gameSessionId": "game-123",
+            "sequence": 2,
+            "serverTick": 900,
+            "type": "TURN_TRANSITION",
+            "intentId": null,
+            "payload": {
+              "previousPlayerId": 2,
+              "activePlayerId": 1,
+              "turnNumber": 3,
+              "phase": "AIMING",
+              "turnEndsAtServerTick": 1800
+            }
+          }
+        ],
+        "expectedState": {
+          "activePlayerId": 1,
+          "playerTurn": "host",
+          "turnNumber": 3,
+          "serverTick": 900,
+          "nextDiffSequence": 3
+        }
+      }
+    ]
+  },
+  {
+    "name": "resync",
+    "playerA": "host",
+    "playerB": "opponent",
+    "initialState": {
+      "gameplayDefinitionVersion": "online-gameplay-definitions.v1",
+      "match": {
+        "phase": "AIMING",
+        "activePlayerId": 1,
+        "playerCount": 2,
+        "turnNumber": 1,
+        "turnTimeRemainingTicks": 900,
+        "winnerPlayerId": null
+      },
+      "terrain": {
+        "kind": "HEIGHTMAP",
+        "width": 16,
+        "height": 560,
+        "surface": [420, 420, 421, 422, 424, 426, 428, 430, 431, 430, 428, 426, 424, 422, 421, 420]
+      },
+      "tanks": [
+        {
+          "entityId": 10,
+          "playerId": 1,
+          "displayName": "host",
+          "tankDefinitionId": "vanguard",
+          "renderAssetId": "tank.vanguard",
+          "position": {
+            "x": 160.0,
+            "y": 420.0
+          },
+          "facing": 1,
+          "aimAngle": 45.0,
+          "power": 0.5,
+          "selectedProjectileSlotId": "standard",
+          "loadout": [
+            {
+              "id": "standard",
+              "projectileDefinitionId": "basicShell",
+              "label": "Std",
+              "renderAssetId": "projectile-slot.standard"
+            }
+          ],
+          "health": 110.0,
+          "maxHealth": 110.0,
+          "fuel": 100.0,
+          "alive": true
+        },
+        {
+          "entityId": 11,
+          "playerId": 2,
+          "displayName": "opponent",
+          "tankDefinitionId": "specter",
+          "renderAssetId": "tank.specter",
+          "position": {
+            "x": 800.0,
+            "y": 420.0
+          },
+          "facing": -1,
+          "aimAngle": 45.0,
+          "power": 0.5,
+          "selectedProjectileSlotId": "standard",
+          "loadout": [
+            {
+              "id": "standard",
+              "projectileDefinitionId": "basicShell",
+              "label": "Std",
+              "renderAssetId": "projectile-slot.standard"
+            }
+          ],
+          "health": 100.0,
+          "maxHealth": 100.0,
+          "fuel": 100.0,
+          "alive": true
+        }
+      ],
+      "projectiles": []
+    },
+    "steps": [
+      {
+        "description": "Client recovers state via resync diff",
+        "action": {
+          "type": "RESYNC",
+          "replacesSequence": 7,
+          "reason": "MISSED_DIFF"
+        },
+        "expectedDiffs": [
+          {
+            "protocolVersion": "online-gameplay.v1",
+            "gameSessionId": "game-123",
+            "sequence": 7,
+            "serverTick": 906,
+            "type": "RESYNC_STATE",
+            "intentId": null,
+            "payload": {
+              "replacesSequence": 6,
+              "reason": "MISSED_DIFF",
+              "state": {
+                "gameplayDefinitionVersion": "online-gameplay-definitions.v1",
+                "match": {
+                  "phase": "AIMING",
+                  "activePlayerId": 1,
+                  "playerCount": 2,
+                  "turnNumber": 3,
+                  "turnTimeRemainingTicks": 900,
+                  "winnerPlayerId": null
+                },
+                "terrain": {
+                  "kind": "HEIGHTMAP",
+                  "width": 16,
+                  "height": 560,
+                  "surface": [420, 420, 421, 422, 424, 426, 428, 430, 431, 430, 428, 426, 424, 422, 421, 420]
+                },
+                "tanks": [
+                  {
+                    "entityId": 10,
+                    "playerId": 1,
+                    "displayName": "host",
+                    "tankDefinitionId": "vanguard",
+                    "renderAssetId": "tank.vanguard",
+                    "position": {
+                      "x": 161.0,
+                      "y": 420.0
+                    },
+                    "facing": 1,
+                    "aimAngle": 45.0,
+                    "power": 0.5,
+                    "selectedProjectileSlotId": "standard",
+                    "loadout": [
+                      {
+                        "id": "standard",
+                        "projectileDefinitionId": "basicShell",
+                        "label": "Std",
+                        "renderAssetId": "projectile-slot.standard"
+                      }
+                    ],
+                    "health": 110.0,
+                    "maxHealth": 110.0,
+                    "fuel": 99.0,
+                    "alive": true
+                  },
+                  {
+                    "entityId": 11,
+                    "playerId": 2,
+                    "displayName": "opponent",
+                    "tankDefinitionId": "specter",
+                    "renderAssetId": "tank.specter",
+                    "position": {
+                      "x": 800.0,
+                      "y": 420.0
+                    },
+                    "facing": -1,
+                    "aimAngle": 45.0,
+                    "power": 0.5,
+                    "selectedProjectileSlotId": "standard",
+                    "loadout": [
+                      {
+                        "id": "standard",
+                        "projectileDefinitionId": "basicShell",
+                        "label": "Std",
+                        "renderAssetId": "projectile-slot.standard"
+                      }
+                    ],
+                    "health": 46.0,
+                    "maxHealth": 100.0,
+                    "fuel": 100.0,
+                    "alive": true
+                  }
+                ],
+                "projectiles": []
+              }
+            }
+          }
+        ],
+        "expectedState": {
+          "activePlayerId": 1,
+          "playerTurn": "host",
+          "turnNumber": 3,
+          "serverTick": 906,
+          "nextDiffSequence": 7,
+          "playerATankX": 161.0,
+          "playerBTankHealth": 46.0
+        }
+      }
+    ]
+  }
+]
