@@ -114,6 +114,37 @@ class GameSessionServicePlayerIntentTest {
     }
 
     @Test
+    @DisplayName("Rejected player intents are emitted in monotonically increasing order per Game Session")
+    void rejectedPlayerIntentsAreOrderedPerGameSession() {
+        TestHarness harness = new TestHarness();
+        GameSession gameSession = startedGameSession();
+        gameSession.setNextDiffSequence(5);
+        gameSession.setServerTick(90);
+        gameSession.setLastDiffServerTick(60);
+        when(harness.gameRepository.findById(gameSession.getId())).thenReturn(Optional.of(gameSession));
+
+        boolean firstAccepted = harness.service.acceptPlayerIntent(
+                "host",
+                gameSession.getId(),
+                moveIntent(gameSession, 1, "stale-move-1", 3, 60));
+        boolean secondAccepted = harness.service.acceptPlayerIntent(
+                "host",
+                gameSession.getId(),
+                moveIntent(gameSession, 1, "stale-move-2", 4, 60));
+
+        assertThat(firstAccepted).isFalse();
+        assertThat(secondAccepted).isFalse();
+        assertThat(gameplayDiffs(harness))
+                .extracting(OnlineDiffEnvelopeDto::sequence)
+                .containsExactly(5L, 6L);
+        assertThat(gameplayDiffs(harness))
+                .extracting(OnlineDiffEnvelopeDto::serverTick)
+                .containsExactly(90L, 90L);
+        assertThat(gameSession.getNextDiffSequence()).isEqualTo(7);
+        assertThat(gameSession.getLastDiffServerTick()).isEqualTo(90);
+    }
+
+    @Test
     @DisplayName("Current diff context is not stale only because server ticks advanced without a diff")
     void acceptsIntentWhenOnlyServerTickAdvanced() {
         TestHarness harness = new TestHarness();

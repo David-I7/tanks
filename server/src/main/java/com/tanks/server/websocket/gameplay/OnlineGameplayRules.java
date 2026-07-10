@@ -76,6 +76,7 @@ public class OnlineGameplayRules {
     }
 
     public OnlineDiffPayloads.ProjectileResolution createProjectileResolution(
+            String intentId,
             long projectileEntityId,
             long ownerPlayerId,
             String projectileDefinitionId,
@@ -84,6 +85,7 @@ public class OnlineGameplayRules {
         OnlineProjectileDefinition projectile = requireProjectile(projectileDefinitionId);
 
         return new OnlineDiffPayloads.ProjectileResolution(
+                intentId,
                 projectileEntityId,
                 ownerPlayerId,
                 projectile.id(),

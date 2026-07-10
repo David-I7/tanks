@@ -14,6 +14,7 @@ public final class OnlineDiffPayloads {
         }
 
         public record MovementSegment(
+                        String intentId,
                         long playerId,
                         long tankEntityId,
                         OnlineVec2Dto from,
@@ -23,6 +24,7 @@ public final class OnlineDiffPayloads {
         }
 
         public record ProjectileResolution(
+                        String intentId,
                         long projectileEntityId,
                         long ownerPlayerId,
                         String projectileDefinitionId,

@@ -95,6 +95,7 @@ export type OnlineResyncStateDiff = {
 export type OnlineMovementSegmentDiff = {
   type: "MOVEMENT_SEGMENT";
   payload: {
+    intentId: IntentId;
     playerId: PlayerId;
     tankEntityId: EntityId;
     from: OnlineVec2;
@@ -107,6 +108,7 @@ export type OnlineMovementSegmentDiff = {
 export type OnlineProjectileResolutionDiff = {
   type: "PROJECTILE_RESOLUTION";
   payload: {
+    intentId: IntentId;
     projectileEntityId: EntityId;
     ownerPlayerId: PlayerId;
     projectileDefinitionId: string;
