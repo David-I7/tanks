@@ -8,6 +8,7 @@ import {
 import type { RemoteGameTransport } from "./RemoteSimulationAuthority";
 import type {
   GameAction,
+  ControllerKind,
   GameMode,
   GameSnapshot,
   GameViewState,
@@ -15,12 +16,14 @@ import type {
 } from "../types";
 
 export type GameAuthority = {
-  submitAction(action: GameAction): boolean;
+  submitAction(action: GameAction, source?: LocalActionSource): boolean;
   update(dt: number): void;
   getViewState(): GameViewState | null;
   subscribe(listener: (state: GameViewState) => void): () => void;
   destroy(): void;
 };
+
+export type LocalActionSource = Extract<ControllerKind, "human" | "ai">;
 
 export function snapshotToGameViewState(snapshot: GameSnapshot): GameViewState {
   return {
@@ -74,7 +77,7 @@ export function createLocalGameAuthority(options: {
 }): GameAuthority {
   return new SimulationGameAuthority(
     createLocalSimulationAuthority(options),
-    (state) => state.match.activePlayerId,
+    (state, source) => resolveActiveLocalActor(state, source),
   );
 }
 
@@ -91,14 +94,20 @@ export function createRemoteGameAuthority(options: {
 class SimulationGameAuthority implements GameAuthority {
   constructor(
     private readonly simulationAuthority: SimulationAuthority,
-    private readonly resolveActor: (state: GameViewState) => number | null,
+    private readonly resolveActor: (
+      state: GameViewState,
+      source: LocalActionSource,
+    ) => number | null,
   ) {}
 
-  submitAction(action: GameAction): boolean {
+  submitAction(
+    action: GameAction,
+    source: LocalActionSource = "human",
+  ): boolean {
     const state = this.getViewState();
     if (!state) return false;
 
-    const playerId = this.resolveActor(state);
+    const playerId = this.resolveActor(state, source);
     if (playerId === null) return false;
 
     return this.simulationAuthority.submitPlayerAction(playerId, action);
@@ -122,4 +131,17 @@ class SimulationGameAuthority implements GameAuthority {
   destroy(): void {
     this.simulationAuthority.destroy();
   }
+}
+
+function resolveActiveLocalActor(
+  state: GameViewState,
+  source: LocalActionSource,
+): number | null {
+  const activeTank = state.tanks.find(
+    (entry) => entry.playerId === state.match.activePlayerId,
+  );
+
+  if (!activeTank) return null;
+  if (activeTank.controllerKind !== source) return null;
+  return activeTank.playerId;
 }

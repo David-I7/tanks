@@ -8,7 +8,6 @@ import {
   CanvasGameRenderer,
   type RendererAssets,
 } from "./rendering/CanvasGameRenderer";
-import { getLocalControllerKind } from "./modes";
 import { createDefaultMatchSetup } from "./world/createInitialWorld";
 import type {
   GameAction,
@@ -151,21 +150,18 @@ export class GameEngine {
       return;
     }
     const activePlayerId = snapshotBeforeInput.match.activePlayerId;
-    const controllerKind = getLocalControllerKind(
-      this.options.mode,
-      activePlayerId,
-    );
+    const activeControllerKind = snapshotBeforeInput.tanks.find(
+      (entry) => entry.playerId === activePlayerId,
+    )?.controllerKind;
 
-    if (controllerKind === "human") {
+    if (activeControllerKind === "human") {
       this.submitActions(
         this.localInput.poll(this.renderer.getCameraX(), snapshotBeforeInput),
       );
     }
 
-    if (controllerKind === "ai") {
-      this.submitActions(
-        this.aiInput.poll(snapshotBeforeInput, dt),
-      );
+    if (activeControllerKind === "ai") {
+      this.submitActions(this.aiInput.poll(snapshotBeforeInput, dt), "ai");
     }
 
     this.authority.update(dt);
@@ -176,9 +172,12 @@ export class GameEngine {
     }
   }
 
-  private submitActions(actions: GameAction[]): void {
+  private submitActions(
+    actions: GameAction[],
+    source: "human" | "ai" = "human",
+  ): void {
     for (const action of actions) {
-      this.authority.submitAction(action);
+      this.authority.submitAction(action, source);
     }
   }
 
