@@ -13,6 +13,8 @@ export type UserSessionStatus = {
     state: "IN_LOBBY";
     lobbyId: string;
     gameId: null;
+    lobbyPlayerCount?: number;
+    lobbyHostId?: number;
 } | {
     state: "IN_GAME";
     lobbyId: null;

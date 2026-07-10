@@ -1,4 +1,4 @@
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { uuidSchema } from "../../validation/lobby";
 import { useAuthStore } from "../../store/useAuthStore";
 import { useWebSocketStore } from "../../store/useWebSocketStore";
@@ -27,8 +27,10 @@ export default function GamePage() {
 
 function GameView() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { client, status, connect } = useWebSocketStore();
   const user = useAuthStore(state => state.user);
+  const getAuthStatus = useAuthStore(state => state.getAuthStatus);
   const [connected, setConnected] = useState<boolean>(false);
   const [confirmedState, setConfirmedState] = useState<OnlineConfirmedState | null>(null);
 
@@ -41,7 +43,13 @@ function GameView() {
 
     if (status !== "connected") return;
 
-    client.subscribe<GameEvent>({
+    let cancelled = false;
+    let requestedResync = false;
+    let errorsCleanup: (() => void) | undefined;
+    let repliesCleanup: (() => void) | undefined;
+    let gameTopicCleanup: (() => void) | undefined;
+
+    errorsCleanup = client.subscribe<GameEvent>({
       destination: "/user/queue/errors",
       onMessage: (message) => {
         console.error("Error:", message.body);
@@ -91,7 +99,7 @@ function GameView() {
       }
     };
 
-    client.subscribe<GameEvent | OnlineDiffEnvelope>({
+    repliesCleanup = client.subscribe<GameEvent | OnlineDiffEnvelope>({
       destination: "/user/queue/replies",
       onMessage: (message) => {
         handleGameplayDiff(message.body);
@@ -99,25 +107,45 @@ function GameView() {
       }
     })
 
-    client.subscribe<GameEvent | OnlineDiffEnvelope>({
-      destination: "/topic/game/:id",
-      id,
-      onMessage: (message) => {
-        if (message.body.type === "GAME_CONNECT") {
-          if (message.body.payload.playerName === user?.username)
-            setConnected(true);
-        }
+    void (async () => {
+      const authStatus = await getAuthStatus();
+      if (cancelled) return;
 
-        if (message.body.type === "GAME_STARTED") {
-          console.log("Game started:", message.body.payload);
-        }
-
-        handleGameplayDiff(message.body);
+      if (authStatus?.userSessionStatus?.state !== "IN_GAME" || authStatus.userSessionStatus.gameId !== id) {
+        navigate("/", { replace: true });
+        return;
       }
-    });
 
-    requestResync();
-  }, [client, status])
+      gameTopicCleanup = client.subscribe<GameEvent | OnlineDiffEnvelope>({
+        destination: "/topic/game/:id",
+        id,
+        onMessage: (message) => {
+          if (message.body.type === "GAME_CONNECT") {
+            if (message.body.payload.playerName === user?.username) {
+              setConnected(true);
+              if (!requestedResync) {
+                requestedResync = true;
+                requestResync();
+              }
+            }
+          }
+
+          if (message.body.type === "GAME_STARTED") {
+            console.log("Game started:", message.body.payload);
+          }
+
+          handleGameplayDiff(message.body);
+        }
+      });
+    })();
+
+    return () => {
+      cancelled = true;
+      errorsCleanup?.();
+      repliesCleanup?.();
+      gameTopicCleanup?.();
+    };
+  }, [client, getAuthStatus, id, navigate, status, user?.username])
 
 
   return (

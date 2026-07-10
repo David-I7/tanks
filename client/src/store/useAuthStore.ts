@@ -17,10 +17,12 @@ import { ApiError } from "../errors/ApiError";
 import { AuthenticationError } from "../errors/AuthenticationError";
 import InvalidStateError from "../errors/InvalidStateError";
 import type AuthStatusResponseDto from "../api/http/dto/AuthStatusResponseDto";
+import type { UserSessionStatus } from "../api/http/dto/AuthStatusResponseDto";
 import AuthStatusRequest from "../api/http/requests/auth/AuthStatusRequest";
 
 type AuthState = {
     user: User | null;
+    userSessionStatus: UserSessionStatus | null;
     accessToken: string | null;
     loading: boolean;
     state: "loading" | "error" | "authenticated" | "unauthenticated";
@@ -42,7 +44,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
     const tanksClient = new TanksClient();
 
     function setAuthenticated(value: RefreshResponseDto) {
-        set(prev => ({ ...prev, loading: false, user: value.user, accessToken: value.accessToken, state: "authenticated", error: null }));
+        set(prev => ({ ...prev, loading: false, user: value.user, userSessionStatus: null, accessToken: value.accessToken, state: "authenticated", error: null }));
     }
 
     function setError(value: Error) {
@@ -50,7 +52,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
     }
 
     function setUnauthenticated() {
-        set(prev => ({ ...prev, loading: false, state: "unauthenticated", error: null, user: null, accessToken: null }));
+        set(prev => ({ ...prev, loading: false, state: "unauthenticated", error: null, user: null, accessToken: null, userSessionStatus: null }));
     }
 
     function setLoading() {
@@ -85,8 +87,17 @@ export const useAuthStore = create<AuthState>((set, get) => {
         setLoading();
         try {
             const data = await tanksClient.send(new AuthStatusRequest());
+            set(prev => ({
+                ...prev,
+                loading: false,
+                state: "authenticated",
+                user: data.user,
+                userSessionStatus: data.userSessionStatus,
+                error: null,
+            }));
             return data;
         } catch (err) {
+            set(prev => ({ ...prev, loading: false }));
             return null;
         }
     }
@@ -153,6 +164,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
 
     return {
         user: null,
+        userSessionStatus: null,
         accessToken: null,
         loading: true,
         state: "loading",

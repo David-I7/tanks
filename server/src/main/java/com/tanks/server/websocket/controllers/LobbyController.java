@@ -4,6 +4,7 @@ import com.tanks.server.websocket.entities.lobby.LobbyType;
 import com.tanks.server.websocket.entities.userSession.UserSession;
 import com.tanks.server.websocket.security.entites.WebSocketPrincipal;
 import com.tanks.server.websocket.services.LobbyService;
+import com.tanks.server.websocket.services.UserSessionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
@@ -18,6 +19,7 @@ import java.util.UUID;
 public class LobbyController {
 
     private final LobbyService lobbyService;
+    private final UserSessionService userSessionService;
 
     @PreAuthorize("@lobbyAuthorizationService.canJoinOrCreateLobby(authentication, '/lobby/create/private')")
     @MessageMapping("/lobby/create/private")
@@ -41,5 +43,14 @@ public class LobbyController {
         WebSocketPrincipal principal = (WebSocketPrincipal) authentication.getPrincipal();
         UserSession userSession = principal.getUserSession();
         lobbyService.joinQuickMatch(userSession);
+    }
+
+    @PreAuthorize("@lobbyAuthorizationService.canLeaveLobby(authentication, '/lobby/leave')")
+    @MessageMapping("/lobby/leave")
+    public void leaveLobby(Authentication authentication) {
+        WebSocketPrincipal principal = (WebSocketPrincipal) authentication.getPrincipal();
+        UserSession userSession = principal.getUserSession();
+        lobbyService.removeUser(userSession);
+        userSessionService.delete(userSession);
     }
 }

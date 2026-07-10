@@ -97,6 +97,22 @@ public class LobbyAuthorizationService {
         return true;
     }
 
+    public boolean canLeaveLobby(Authentication authentication, String uri) {
+        UserSession userSession = getUserSession(authentication);
+
+        if (userSession == null) return false;
+
+        if (userSession.getLobbyId() == null || !userSessionService.isInLobby(userSession, userSession.getLobbyId().toString())) {
+            throw new ProblemDetailException(
+                    HttpStatus.UNAUTHORIZED,
+                    "User is not in a lobby.",
+                    URI.create(uri)
+            );
+        }
+
+        return true;
+    }
+
     private UserSession getUserSession(Authentication authentication){
         if(authentication == null) return null;
 
