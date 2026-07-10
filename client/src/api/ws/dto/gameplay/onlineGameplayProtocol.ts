@@ -100,8 +100,12 @@ export type OnlineMovementSegmentDiff = {
     tankEntityId: EntityId;
     from: OnlineVec2;
     to: OnlineVec2;
+    fuelBefore: number;
+    fuelAfter: number;
+    fuelSpent: number;
     startedServerTick: ServerTick;
     endedServerTick: ServerTick;
+    durationTicks: number;
   };
 };
 
@@ -132,7 +136,13 @@ export type OnlineIntentRejectionDiff = {
   payload: {
     rejectedIntentId: IntentId;
     playerId: PlayerId;
-    reason: "STALE_BASE_STATE" | "NOT_ACTIVE_PLAYER" | "INVALID_PAYLOAD" | "TURN_ALREADY_RESOLVING";
+    reason:
+      | "STALE_BASE_STATE"
+      | "NOT_ACTIVE_PLAYER"
+      | "INVALID_PAYLOAD"
+      | "TURN_ALREADY_RESOLVING"
+      | "INSUFFICIENT_FUEL"
+      | "OUT_OF_BOUNDS";
     authoritativeSequence: DiffSequence;
     authoritativeServerTick: ServerTick;
   };

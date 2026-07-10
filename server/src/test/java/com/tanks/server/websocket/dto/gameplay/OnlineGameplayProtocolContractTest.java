@@ -119,8 +119,12 @@ class OnlineGameplayProtocolContractTest {
                                                 10,
                                                 new OnlineVec2Dto(50, 120),
                                                 new OnlineVec2Dto(55, 120),
+                                                100,
+                                                95,
+                                                5,
                                                 60,
-                                                75));
+                                                75,
+                                                15));
 
                 JsonNode json = objectMapper.valueToTree(movement);
 
@@ -166,8 +170,12 @@ class OnlineGameplayProtocolContractTest {
                                                                 10,
                                                                 new OnlineVec2Dto(50, 120),
                                                                 new OnlineVec2Dto(55, 120),
+                                                                100,
+                                                                95,
+                                                                5,
                                                                 60,
-                                                                75)),
+                                                                75,
+                                                                15)),
                                 new OnlineDiffEnvelopeDto<>(
                                                 OnlineGameplayProtocolVersion.V1,
                                                 "game-123",

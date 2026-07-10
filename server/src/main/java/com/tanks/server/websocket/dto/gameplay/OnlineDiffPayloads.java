@@ -19,8 +19,12 @@ public final class OnlineDiffPayloads {
                         long tankEntityId,
                         OnlineVec2Dto from,
                         OnlineVec2Dto to,
+                        double fuelBefore,
+                        double fuelAfter,
+                        double fuelSpent,
                         long startedServerTick,
-                        long endedServerTick) {
+                        long endedServerTick,
+                        long durationTicks) {
         }
 
         public record ProjectileResolution(
@@ -70,7 +74,9 @@ public final class OnlineDiffPayloads {
                 STALE_BASE_STATE,
                 NOT_ACTIVE_PLAYER,
                 INVALID_PAYLOAD,
-                TURN_ALREADY_RESOLVING
+                TURN_ALREADY_RESOLVING,
+                INSUFFICIENT_FUEL,
+                OUT_OF_BOUNDS
         }
 
         public enum TurnPhase {

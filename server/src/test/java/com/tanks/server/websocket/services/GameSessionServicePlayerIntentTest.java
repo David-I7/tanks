@@ -36,7 +36,7 @@ import com.tanks.server.websocket.repositories.LobbyRepository;
 class GameSessionServicePlayerIntentTest {
 
     @Test
-    @DisplayName("Active player intent with current diff context is accepted as the player's unresolved intent")
+    @DisplayName("Active move intent with current diff context emits a Movement Segment diff")
     void acceptsCurrentActivePlayerIntent() {
         TestHarness harness = new TestHarness();
         GameSession gameSession = startedGameSession();
@@ -49,9 +49,22 @@ class GameSessionServicePlayerIntentTest {
                 moveIntent(gameSession, 1, "move-1", 1, 0));
 
         assertThat(accepted).isTrue();
-        assertThat(gameSession.getPlayerAUnresolvedIntentId()).isEqualTo("move-1");
-        assertThat(gameSession.getNextDiffSequence()).isEqualTo(2);
-        assertThat(gameplayDiffs(harness)).isEmpty();
+        assertThat(gameSession.getPlayerAUnresolvedIntentId()).isNull();
+        assertThat(gameSession.getNextDiffSequence()).isEqualTo(3);
+        assertThat(gameSession.getLastDiffServerTick()).isEqualTo(OnlineGameplayRules.MOVEMENT_SEGMENT_DURATION_TICKS);
+        assertThat(gameSession.getPlayerATankX()).isEqualTo(161);
+        assertThat(gameSession.getPlayerATankFuel()).isEqualTo(99);
+        assertMovementSegment(
+                harness,
+                "move-1",
+                1,
+                2,
+                OnlineGameplayRules.MOVEMENT_SEGMENT_DURATION_TICKS,
+                0,
+                160,
+                161,
+                100,
+                99);
         verify(harness.gameRepository).save(gameSession);
     }
 
@@ -159,7 +172,60 @@ class GameSessionServicePlayerIntentTest {
                 moveIntent(gameSession, 1, "move-1", 1, 0));
 
         assertThat(accepted).isTrue();
-        assertThat(gameSession.getPlayerAUnresolvedIntentId()).isEqualTo("move-1");
+        assertThat(gameSession.getPlayerAUnresolvedIntentId()).isNull();
+        assertThat(gameplayDiffs(harness)).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("Movement intent without enough fuel is rejected and clears the matching Pending Prediction")
+    void rejectsMovementWithoutEnoughFuel() {
+        TestHarness harness = new TestHarness();
+        GameSession gameSession = startedGameSession();
+        gameSession.setPlayerATankFuel(0.0);
+        when(harness.gameRepository.findById(gameSession.getId())).thenReturn(Optional.of(gameSession));
+
+        boolean accepted = harness.service.acceptPlayerIntent(
+                "host",
+                gameSession.getId(),
+                moveIntent(gameSession, 1, "empty-tank-move", 1, 0));
+
+        assertThat(accepted).isFalse();
+        assertRejection(
+                harness,
+                gameSession,
+                "empty-tank-move",
+                1,
+                IntentRejectionReason.INSUFFICIENT_FUEL,
+                2,
+                0);
+        assertThat(gameSession.getPlayerATankFuel()).isZero();
+        assertThat(gameSession.getPlayerATankX()).isEqualTo(160);
+    }
+
+    @Test
+    @DisplayName("Movement intent that would leave world bounds is rejected and clears the matching Pending Prediction")
+    void rejectsMovementOutsideWorldBounds() {
+        TestHarness harness = new TestHarness();
+        GameSession gameSession = startedGameSession();
+        gameSession.setPlayerATankX(960.0);
+        when(harness.gameRepository.findById(gameSession.getId())).thenReturn(Optional.of(gameSession));
+
+        boolean accepted = harness.service.acceptPlayerIntent(
+                "host",
+                gameSession.getId(),
+                moveIntent(gameSession, 1, "bounds-move", 1, 0));
+
+        assertThat(accepted).isFalse();
+        assertRejection(
+                harness,
+                gameSession,
+                "bounds-move",
+                1,
+                IntentRejectionReason.OUT_OF_BOUNDS,
+                2,
+                0);
+        assertThat(gameSession.getPlayerATankX()).isEqualTo(960);
+        assertThat(gameSession.getPlayerATankFuel()).isEqualTo(100);
     }
 
     @Test
@@ -311,6 +377,39 @@ class GameSessionServicePlayerIntentTest {
         assertThat(payload.reason()).isEqualTo(reason);
         assertThat(payload.authoritativeSequence()).isEqualTo(gameSession.getNextDiffSequence());
         assertThat(payload.authoritativeServerTick()).isEqualTo(gameSession.getServerTick());
+    }
+
+    private static void assertMovementSegment(
+            TestHarness harness,
+            String intentId,
+            long playerId,
+            long sequence,
+            long diffServerTick,
+            long startedServerTick,
+            double fromX,
+            double toX,
+            double fuelBefore,
+            double fuelAfter) {
+        List<OnlineDiffEnvelopeDto<?>> diffs = gameplayDiffs(harness);
+        assertThat(diffs).hasSize(1);
+        assertThat(diffs).extracting(OnlineDiffEnvelopeDto::type)
+                .containsExactly(OnlineStateDiffType.MOVEMENT_SEGMENT);
+        assertThat(diffs).extracting(OnlineDiffEnvelopeDto::sequence).containsExactly(sequence);
+        assertThat(diffs).extracting(OnlineDiffEnvelopeDto::serverTick).containsExactly(diffServerTick);
+        assertThat(diffs).extracting(OnlineDiffEnvelopeDto::intentId).containsExactly(intentId);
+
+        OnlineDiffPayloads.MovementSegment payload = (OnlineDiffPayloads.MovementSegment) diffs.getFirst().payload();
+        assertThat(payload.intentId()).isEqualTo(intentId);
+        assertThat(payload.playerId()).isEqualTo(playerId);
+        assertThat(payload.tankEntityId()).isEqualTo(10);
+        assertThat(payload.from().x()).isEqualTo(fromX);
+        assertThat(payload.to().x()).isEqualTo(toX);
+        assertThat(payload.fuelBefore()).isEqualTo(fuelBefore);
+        assertThat(payload.fuelAfter()).isEqualTo(fuelAfter);
+        assertThat(payload.fuelSpent()).isEqualTo(fuelBefore - fuelAfter);
+        assertThat(payload.startedServerTick()).isEqualTo(startedServerTick);
+        assertThat(payload.endedServerTick()).isEqualTo(diffServerTick);
+        assertThat(payload.durationTicks()).isEqualTo(OnlineGameplayRules.MOVEMENT_SEGMENT_DURATION_TICKS);
     }
 
     private static List<OnlineDiffEnvelopeDto<?>> gameplayDiffs(TestHarness harness) {

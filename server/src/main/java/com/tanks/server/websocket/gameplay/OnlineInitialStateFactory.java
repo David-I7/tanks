@@ -48,15 +48,53 @@ public class OnlineInitialStateFactory {
                                 1,
                                 gameSession.getPlayerA(),
                                 "vanguard",
-                                new OnlineVec2Dto(160, 420),
-                                1),
+                                new OnlineVec2Dto(playerAX(gameSession), playerAY(gameSession)),
+                                1,
+                                playerAFuel(gameSession)),
                         gameplayRules.createTankSnapshot(
                                 11,
                                 2,
                                 gameSession.getPlayerB(),
                                 "specter",
-                                new OnlineVec2Dto(800, 420),
-                                -1)),
+                                new OnlineVec2Dto(playerBX(gameSession), playerBY(gameSession)),
+                                -1,
+                                playerBFuel(gameSession))),
                 List.of());
+    }
+
+    private static double playerAX(GameSession gameSession) {
+        return gameSession.getPlayerATankX() == null
+                ? OnlineGameplayRules.PLAYER_A_INITIAL_TANK_X
+                : gameSession.getPlayerATankX();
+    }
+
+    private static double playerAY(GameSession gameSession) {
+        return gameSession.getPlayerATankY() == null
+                ? OnlineGameplayRules.PLAYER_A_INITIAL_TANK_Y
+                : gameSession.getPlayerATankY();
+    }
+
+    private static double playerBX(GameSession gameSession) {
+        return gameSession.getPlayerBTankX() == null
+                ? OnlineGameplayRules.PLAYER_B_INITIAL_TANK_X
+                : gameSession.getPlayerBTankX();
+    }
+
+    private static double playerBY(GameSession gameSession) {
+        return gameSession.getPlayerBTankY() == null
+                ? OnlineGameplayRules.PLAYER_B_INITIAL_TANK_Y
+                : gameSession.getPlayerBTankY();
+    }
+
+    private static double playerAFuel(GameSession gameSession) {
+        return gameSession.getPlayerATankFuel() == null
+                ? OnlineGameplayRules.INITIAL_TANK_FUEL
+                : gameSession.getPlayerATankFuel();
+    }
+
+    private static double playerBFuel(GameSession gameSession) {
+        return gameSession.getPlayerBTankFuel() == null
+                ? OnlineGameplayRules.INITIAL_TANK_FUEL
+                : gameSession.getPlayerBTankFuel();
     }
 }

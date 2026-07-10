@@ -47,6 +47,18 @@ public class GameSession {
 
     private String playerBUnresolvedIntentId;
 
+    private Double playerATankX;
+
+    private Double playerATankY;
+
+    private Double playerATankFuel;
+
+    private Double playerBTankX;
+
+    private Double playerBTankY;
+
+    private Double playerBTankFuel;
+
     @Indexed
     private GameSessionState state;
 

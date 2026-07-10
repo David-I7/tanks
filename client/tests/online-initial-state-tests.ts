@@ -4,12 +4,14 @@ import {
   OnlineDiffSequenceError,
   applyOnlineStateDiff,
   initializeOnlineConfirmedState,
+  predictOnlineMovement,
   type OnlineConfirmedState,
 } from "../src/game/online/onlineConfirmedState";
 import type {
   OnlineDiffEnvelope,
   OnlineInitialStateDiff,
   OnlineIntentRejectionDiff,
+  OnlineMovementSegmentDiff,
 } from "../src/api/ws/dto/gameplay/onlineGameplayProtocol";
 
 const initialStateDiff = {
@@ -112,6 +114,45 @@ assert.equal(afterRejection.lastConfirmedDiffSequence, 2);
 assert.equal(afterRejection.lastConfirmedDiffServerTick, 30);
 assert.equal(afterRejection.expectedNextDiffSequence, 3);
 assert.equal(afterRejection.pendingPredictions.length, 0);
+
+const confirmedWithMovePrediction = predictOnlineMovement(confirmed, "intent-move", 1, { direction: 1 });
+
+assert.equal(confirmedWithMovePrediction.pendingPredictions.length, 1);
+assert.equal(confirmedWithMovePrediction.pendingPredictions[0]?.baseDiffSequence, 1);
+assert.equal(confirmedWithMovePrediction.pendingPredictions[0]?.baseDiffServerTick, 0);
+assert.equal(confirmedWithMovePrediction.pendingPredictions[0]?.predictedMovement?.to.x, 51);
+assert.equal(confirmedWithMovePrediction.pendingPredictions[0]?.predictedMovement?.fuelAfter, 99);
+
+const movementDiff = {
+  protocolVersion: "online-gameplay.v1",
+  gameSessionId: "game-123",
+  sequence: 2,
+  serverTick: 60,
+  type: "MOVEMENT_SEGMENT",
+  intentId: "intent-move",
+  payload: {
+    intentId: "intent-move",
+    playerId: 1,
+    tankEntityId: 10,
+    from: { x: 50, y: 120 },
+    to: { x: 55, y: 120 },
+    fuelBefore: 100,
+    fuelAfter: 95,
+    fuelSpent: 5,
+    startedServerTick: 60,
+    endedServerTick: 75,
+    durationTicks: 15,
+  },
+} satisfies OnlineDiffEnvelope<OnlineMovementSegmentDiff>;
+
+const afterMovement = applyOnlineStateDiff(confirmedWithMovePrediction, movementDiff, () => 1234);
+
+assert.equal(afterMovement.pendingPredictions.length, 0);
+assert.equal(afterMovement.state.tanks[0]?.position.x, 55);
+assert.equal(afterMovement.state.tanks[0]?.fuel, 95);
+assert.equal(afterMovement.confirmedMovementSegments.length, 1);
+assert.equal(afterMovement.confirmedMovementSegments[0]?.receivedAtMonotonicMs, 1234);
+assert.equal(afterMovement.confirmedMovementSegments[0]?.durationMs, 500);
 
 const skippedDiff = {
   ...rejectionDiff,
