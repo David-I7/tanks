@@ -1,6 +1,8 @@
 package com.tanks.server.websocket.services;
 
 import com.tanks.server.websocket.entities.lobby.Lobby;
+import com.tanks.server.websocket.entities.lobby.LobbyStatus;
+import com.tanks.server.websocket.entities.lobby.LobbyType;
 import com.tanks.server.websocket.repositories.LobbyRepository;
 import lombok.AllArgsConstructor;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -38,7 +40,7 @@ public class QuickMatchService {
                 continue;
             }
 
-            if(lobby.isPresent()) {
+            if(lobby.filter(this::isValidWaitingQuickMatchLobby).isPresent()) {
                 return lobby;
             }
         }
@@ -57,6 +59,13 @@ public class QuickMatchService {
 
     private double computeScore(){
         return Instant.now().toEpochMilli() / 1000.0 / 60 / 60;
+    }
+
+    private boolean isValidWaitingQuickMatchLobby(Lobby lobby) {
+        return lobby.getType() == LobbyType.QUICK_MATCH
+                && lobby.getStatus() == LobbyStatus.WAITING_FOR_OPPONENT
+                && lobby.getHostId() != null
+                && lobby.getOpponentId() == null;
     }
 
 }

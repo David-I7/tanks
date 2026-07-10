@@ -222,7 +222,8 @@ public class WebSocketEventListeners {
     }
 
     private void handleLobbyDisconnect(UserSession userSession){
-        markLobbySocketAbsentAndNotify(userSession);
+        lobbyService.removeUser(userSession);
+        userSessionService.delete(userSession);
     }
 
     private void handleGameDisconnect(UserSession userSession){

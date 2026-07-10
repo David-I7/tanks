@@ -97,6 +97,13 @@ public class AuthorizationInterceptor implements ChannelInterceptor {
             }
         }
 
+        if (authentication != null
+                && !StompCommand.CONNECT.equals(accessor.getCommand())
+                && !StompCommand.DISCONNECT.equals(accessor.getCommand())) {
+            WebSocketPrincipal principal = (WebSocketPrincipal) authentication.getPrincipal();
+            redisClaimService.refreshSocketClaim(principal.getUserDto().id());
+        }
+
         if(StompCommand.SUBSCRIBE.equals(accessor.getCommand())) {
             WebSocketPrincipal principal = (WebSocketPrincipal)authentication.getPrincipal();
             UserSession userSession = principal.getUserSession();

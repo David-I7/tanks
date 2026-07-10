@@ -102,6 +102,14 @@ public class LobbyAuthorizationService {
 
         if (userSession == null) return false;
 
+        if(!userSessionService.isConnectedToLobby(userSession)){
+            throw new ProblemDetailException(
+                    HttpStatus.UNAUTHORIZED,
+                    "User is not connected to a lobby.",
+                    URI.create(uri)
+            );
+        }
+
         if (userSession.getLobbyId() == null || !userSessionService.isInLobby(userSession, userSession.getLobbyId().toString())) {
             throw new ProblemDetailException(
                     HttpStatus.UNAUTHORIZED,
