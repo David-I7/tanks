@@ -65,6 +65,17 @@ export type OnlineStateDiff =
   | OnlineTurnTransitionDiff
   | OnlineTerminalGameDiff;
 
+const ONLINE_STATE_DIFF_TYPES = new Set([
+  "INITIAL_STATE",
+  "RESYNC_STATE",
+  "MOVEMENT_SEGMENT",
+  "PROJECTILE_RESOLUTION",
+  "TERRAIN_PATCH",
+  "INTENT_REJECTION",
+  "TURN_TRANSITION",
+  "TERMINAL_GAME",
+]);
+
 export type OnlineDiffEnvelope<TDiff extends OnlineStateDiff = OnlineStateDiff> = {
   protocolVersion: OnlineGameplayProtocolVersion;
   gameSessionId: GameSessionId;
@@ -74,6 +85,32 @@ export type OnlineDiffEnvelope<TDiff extends OnlineStateDiff = OnlineStateDiff> 
   intentId: IntentId | null;
   payload: TDiff["payload"];
 };
+
+export function isOnlineDiffEnvelope(value: unknown): value is OnlineDiffEnvelope {
+  if (!value || typeof value !== "object") return false;
+
+  const candidate = value as {
+    protocolVersion?: unknown;
+    gameSessionId?: unknown;
+    sequence?: unknown;
+    serverTick?: unknown;
+    type?: unknown;
+    intentId?: unknown;
+    payload?: unknown;
+  };
+
+  return (
+    candidate.protocolVersion === "online-gameplay.v1" &&
+    typeof candidate.gameSessionId === "string" &&
+    typeof candidate.sequence === "number" &&
+    typeof candidate.serverTick === "number" &&
+    typeof candidate.type === "string" &&
+    ONLINE_STATE_DIFF_TYPES.has(candidate.type) &&
+    (typeof candidate.intentId === "string" || candidate.intentId === null) &&
+    typeof candidate.payload === "object" &&
+    candidate.payload !== null
+  );
+}
 
 export type OnlineInitialStateDiff = {
   type: "INITIAL_STATE";
