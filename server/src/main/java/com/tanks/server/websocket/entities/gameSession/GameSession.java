@@ -29,6 +29,8 @@ public class GameSession {
 
     private OffsetDateTime startedAt;
 
+    private OffsetDateTime endedAt;
+
     private OffsetDateTime createdAt;
 
     private long playerTurnExpiresAt;

@@ -16,6 +16,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.redis.core.RedisTemplate;
 
+import com.tanks.server.repositories.GameResultRepository;
+import com.tanks.server.repositories.UserRepository;
 import com.tanks.server.websocket.dto.gameplay.OnlineDiffEnvelopeDto;
 import com.tanks.server.websocket.dto.gameplay.OnlineDiffPayloads;
 import com.tanks.server.websocket.dto.gameplay.OnlineGameplayProtocolVersion;
@@ -246,6 +248,8 @@ class GameSessionServiceInitialStateTest {
         private final ApplicationEventPublisher eventPublisher = events::add;
         private final RedisTemplate<String, Object> redisTemplate = mock(RedisTemplate.class);
         private final RedisClaimService redisClaimService = mock(RedisClaimService.class);
+        private final GameResultRepository gameResultRepository = mock(GameResultRepository.class);
+        private final UserRepository userRepository = mock(UserRepository.class);
         private final OnlineGameplayRules gameplayRules = new OnlineGameplayRules(new OnlineGameplayDefinitionCatalog());
         private final OnlineInitialStateFactory initialStateFactory = new OnlineInitialStateFactory(gameplayRules);
         private final GameSessionService service = new GameSessionService(
@@ -257,6 +261,8 @@ class GameSessionServiceInitialStateTest {
                 redisTemplate,
                 redisClaimService,
                 gameplayRules,
-                initialStateFactory);
+                initialStateFactory,
+                gameResultRepository,
+                userRepository);
     }
 }

@@ -6,16 +6,23 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.mockito.ArgumentCaptor;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.redis.core.RedisTemplate;
 
+import com.tanks.server.entities.User;
+import com.tanks.server.entities.gameResult.GameOutcome;
+import com.tanks.server.entities.gameResult.GameResult;
+import com.tanks.server.repositories.GameResultRepository;
+import com.tanks.server.repositories.UserRepository;
 import com.tanks.server.websocket.dto.gameplay.OnlineDiffEnvelopeDto;
 import com.tanks.server.websocket.dto.gameplay.OnlineDiffPayloads;
 import com.tanks.server.websocket.dto.gameplay.OnlineDiffPayloads.IntentRejectionReason;
@@ -353,9 +360,15 @@ class GameSessionServicePlayerIntentTest {
     void terminalFireIntentEmitsGameOverDiff() {
         TestHarness harness = new TestHarness();
         GameSession gameSession = startedGameSession();
+        OffsetDateTime startedAt = OffsetDateTime.parse("2026-07-10T08:00:00Z");
+        User host = User.builder().id(1L).username("host").email("host@example.com").build();
+        User opponent = User.builder().id(2L).username("opponent").email("opponent@example.com").build();
+        gameSession.setStartedAt(startedAt);
         gameSession.setPlayerBTankHealth(30.0);
         when(harness.gameRepository.findById(gameSession.getId())).thenReturn(Optional.of(gameSession));
         when(harness.gameRepository.save(any(GameSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(harness.userRepository.findByUsername("host")).thenReturn(Optional.of(host));
+        when(harness.userRepository.findByUsername("opponent")).thenReturn(Optional.of(opponent));
 
         boolean accepted = harness.service.acceptPlayerIntent(
                 "host",
@@ -364,6 +377,7 @@ class GameSessionServicePlayerIntentTest {
 
         assertThat(accepted).isTrue();
         assertThat(gameSession.getState()).isEqualTo(GameSessionState.ENDED);
+        assertThat(gameSession.getEndedAt()).isNotNull();
         assertThat(gameSession.getPlayerBTankHealth()).isZero();
 
         List<OnlineDiffEnvelopeDto<?>> diffs = gameplayDiffs(harness);
@@ -380,6 +394,16 @@ class GameSessionServicePlayerIntentTest {
         assertThat(terminal.finalState().match().phase())
                 .isEqualTo(com.tanks.server.websocket.dto.gameplay.OnlineMatchSnapshotDto.MatchPhase.GAME_OVER);
         assertThat(terminal.finalState().match().winnerPlayerId()).isEqualTo(1L);
+
+        ArgumentCaptor<GameResult> resultCaptor = ArgumentCaptor.forClass(GameResult.class);
+        verify(harness.gameResultRepository).save(resultCaptor.capture());
+        GameResult result = resultCaptor.getValue();
+        assertThat(result.getPlayerA()).isSameAs(host);
+        assertThat(result.getPlayerB()).isSameAs(opponent);
+        assertThat(result.getWinner()).isSameAs(host);
+        assertThat(result.getOutcome()).isEqualTo(GameOutcome.WIN);
+        assertThat(result.getGameStartedAt()).isEqualTo(startedAt);
+        assertThat(result.getGameEndedAt()).isEqualTo(gameSession.getEndedAt());
     }
 
     @Test
@@ -583,6 +607,8 @@ class GameSessionServicePlayerIntentTest {
         private final ApplicationEventPublisher eventPublisher = events::add;
         private final RedisTemplate<String, Object> redisTemplate = mock(RedisTemplate.class);
         private final RedisClaimService redisClaimService = mock(RedisClaimService.class);
+        private final GameResultRepository gameResultRepository = mock(GameResultRepository.class);
+        private final UserRepository userRepository = mock(UserRepository.class);
         private final OnlineGameplayRules gameplayRules = new OnlineGameplayRules(new OnlineGameplayDefinitionCatalog());
         private final OnlineInitialStateFactory initialStateFactory = new OnlineInitialStateFactory(gameplayRules);
         private final GameSessionService service = new GameSessionService(
@@ -594,6 +620,8 @@ class GameSessionServicePlayerIntentTest {
                 redisTemplate,
                 redisClaimService,
                 gameplayRules,
-                initialStateFactory);
+                initialStateFactory,
+                gameResultRepository,
+                userRepository);
     }
 }

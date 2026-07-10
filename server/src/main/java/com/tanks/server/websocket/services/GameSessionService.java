@@ -1,5 +1,10 @@
 package com.tanks.server.websocket.services;
 
+import com.tanks.server.entities.User;
+import com.tanks.server.entities.gameResult.GameOutcome;
+import com.tanks.server.entities.gameResult.GameResult;
+import com.tanks.server.repositories.GameResultRepository;
+import com.tanks.server.repositories.UserRepository;
 import com.tanks.server.utils.IdFactory;
 import com.tanks.server.websocket.dto.gameplay.OnlineDiffEnvelopeDto;
 import com.tanks.server.websocket.dto.gameplay.OnlineDiffPayloads;
@@ -54,6 +59,8 @@ public class GameSessionService {
     private final RedisClaimService redisClaimService;
     private final OnlineGameplayRules gameplayRules;
     private final OnlineInitialStateFactory initialStateFactory;
+    private final GameResultRepository gameResultRepository;
+    private final UserRepository userRepository;
 
     public GameSession create(Lobby lobby) {
         if (!redisClaimService.claimGameCreation(lobby.getId(), lobby.getHostId())) {
@@ -554,7 +561,7 @@ public class GameSessionService {
         advanceTurnAfterShot(gameSession, firingPlayerId, targetPlayerId, intent.intentId());
 
         if (projectile.hitPlayerId() != null && targetRemainingHealth <= 0) {
-            gameSession.setState(GameSessionState.ENDED);
+            finalizeWinResult(gameSession, firingPlayerId);
             publishDiff(
                     gameSession,
                     OnlineStateDiffType.TERMINAL_GAME,
@@ -565,6 +572,43 @@ public class GameSessionService {
                             OnlineDiffPayloads.TerminalGameReason.LAST_TANK_STANDING,
                             initialStateFactory.create(gameSession).payload().state()));
         }
+    }
+
+    private void finalizeWinResult(GameSession gameSession, long winnerPlayerId) {
+        OffsetDateTime endedAt = OffsetDateTime.now();
+        User playerA = userByUsername(gameSession.getPlayerA());
+        User playerB = userByUsername(gameSession.getPlayerB());
+        User winner = winnerPlayerId == 1 ? playerA : playerB;
+
+        gameResultRepository.save(GameResult.builder()
+                .playerA(playerA)
+                .playerB(playerB)
+                .winner(winner)
+                .outcome(GameOutcome.WIN)
+                .gameStartedAt(gameStartedAt(gameSession, endedAt))
+                .gameEndedAt(endedAt)
+                .build());
+
+        gameSession.setEndedAt(endedAt);
+        gameSession.setState(GameSessionState.ENDED);
+    }
+
+    private User userByUsername(String username) {
+        return userRepository.findByUsername(username)
+                .orElseThrow(() -> new ProblemDetailException(
+                        HttpStatus.NOT_FOUND,
+                        "Game result participant not found.",
+                        URI.create("about:blank")));
+    }
+
+    private OffsetDateTime gameStartedAt(GameSession gameSession, OffsetDateTime endedAt) {
+        if (gameSession.getStartedAt() != null) {
+            return gameSession.getStartedAt();
+        }
+        if (gameSession.getCreatedAt() != null) {
+            return gameSession.getCreatedAt();
+        }
+        return endedAt;
     }
 
     private void advanceTurnAfterShot(

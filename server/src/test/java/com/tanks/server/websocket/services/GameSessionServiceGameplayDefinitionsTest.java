@@ -14,6 +14,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.redis.core.RedisTemplate;
 
+import com.tanks.server.repositories.GameResultRepository;
+import com.tanks.server.repositories.UserRepository;
 import com.tanks.server.websocket.entities.gameSession.GameSession;
 import com.tanks.server.websocket.entities.lobby.Lobby;
 import com.tanks.server.websocket.entities.lobby.LobbyStatus;
@@ -37,6 +39,8 @@ class GameSessionServiceGameplayDefinitionsTest {
         ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
         RedisTemplate<String, Object> redisTemplate = mock(RedisTemplate.class);
         RedisClaimService redisClaimService = mock(RedisClaimService.class);
+        GameResultRepository gameResultRepository = mock(GameResultRepository.class);
+        UserRepository userRepository = mock(UserRepository.class);
         OnlineGameplayDefinitionCatalog gameplayDefinitionCatalog = new OnlineGameplayDefinitionCatalog();
         OnlineGameplayRules gameplayRules = new OnlineGameplayRules(gameplayDefinitionCatalog);
 
@@ -49,7 +53,9 @@ class GameSessionServiceGameplayDefinitionsTest {
                 redisTemplate,
                 redisClaimService,
                 gameplayRules,
-                new OnlineInitialStateFactory(gameplayRules));
+                new OnlineInitialStateFactory(gameplayRules),
+                gameResultRepository,
+                userRepository);
 
         UUID lobbyId = UUID.randomUUID();
         Lobby lobby = Lobby.builder()
