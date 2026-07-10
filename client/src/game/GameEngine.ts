@@ -41,12 +41,12 @@ export class GameEngine {
   private readonly localInput: CanvasInputSource;
   private readonly aiInput = new AiIntentSource();
   private readonly authority: GameAuthority;
-  private readonly snapshotListeners = new Set<
-    (snapshot: GameViewState) => void
+  private readonly viewStateListeners = new Set<
+    (viewState: GameViewState) => void
   >();
   private animationFrameId: number | null = null;
   private lastTimestamp = 0;
-  private latestSnapshot: GameViewState | null = null;
+  private latestViewState: GameViewState | null = null;
   private sizing: WorldSizing;
   private inputLayout: CanvasInputLayout;
   private readonly unsubscribeAuthority: () => void;
@@ -79,8 +79,8 @@ export class GameEngine {
       });
     }
 
-    this.unsubscribeAuthority = this.authority.subscribe((snapshot) => {
-      this.publishSnapshot(snapshot);
+    this.unsubscribeAuthority = this.authority.subscribe((viewState) => {
+      this.publishViewState(viewState);
     });
   }
 
@@ -112,22 +112,22 @@ export class GameEngine {
 
   submitAction(action: GameAction): boolean {
     const accepted = this.authority.submitAction(action);
-    const snapshot = this.authority.getViewState();
-    if (snapshot) this.publishSnapshot(snapshot);
+    const viewState = this.authority.getViewState();
+    if (viewState) this.publishViewState(viewState);
     return accepted;
   }
 
-  getSnapshot(): GameViewState | null {
-    this.latestSnapshot = this.authority.getViewState();
-    return this.latestSnapshot;
+  getViewState(): GameViewState | null {
+    this.latestViewState = this.authority.getViewState();
+    return this.latestViewState;
   }
 
-  subscribe(listener: (snapshot: GameViewState) => void): () => void {
-    this.snapshotListeners.add(listener);
-    const snapshot = this.getSnapshot();
-    if (snapshot) listener(snapshot);
+  subscribe(listener: (viewState: GameViewState) => void): () => void {
+    this.viewStateListeners.add(listener);
+    const viewState = this.getViewState();
+    if (viewState) listener(viewState);
     return () => {
-      this.snapshotListeners.delete(listener);
+      this.viewStateListeners.delete(listener);
     };
   }
 
@@ -144,31 +144,31 @@ export class GameEngine {
   };
 
   private update(dt: number): void {
-    const snapshotBeforeInput = this.authority.getViewState();
-    if (!snapshotBeforeInput) {
+    const viewStateBeforeInput = this.authority.getViewState();
+    if (!viewStateBeforeInput) {
       this.authority.update(dt);
       return;
     }
-    const activePlayerId = snapshotBeforeInput.match.activePlayerId;
-    const activeControllerKind = snapshotBeforeInput.tanks.find(
+    const activePlayerId = viewStateBeforeInput.match.activePlayerId;
+    const activeControllerKind = viewStateBeforeInput.tanks.find(
       (entry) => entry.playerId === activePlayerId,
     )?.controllerKind;
 
     if (activeControllerKind === "human") {
       this.submitActions(
-        this.localInput.poll(this.renderer.getCameraX(), snapshotBeforeInput),
+        this.localInput.poll(this.renderer.getCameraX(), viewStateBeforeInput),
       );
     }
 
     if (activeControllerKind === "ai") {
-      this.submitActions(this.aiInput.poll(snapshotBeforeInput, dt), "ai");
+      this.submitActions(this.aiInput.poll(viewStateBeforeInput, dt), "ai");
     }
 
     this.authority.update(dt);
-    const snapshot = this.authority.getViewState();
-    if (snapshot) {
-      this.renderer.render(snapshot);
-      this.publishSnapshot(snapshot);
+    const viewState = this.authority.getViewState();
+    if (viewState) {
+      this.renderer.render(viewState);
+      this.publishViewState(viewState);
     }
   }
 
@@ -181,10 +181,10 @@ export class GameEngine {
     }
   }
 
-  private publishSnapshot(snapshot: GameViewState): void {
-    this.latestSnapshot = snapshot;
-    for (const listener of this.snapshotListeners) {
-      listener(snapshot);
+  private publishViewState(viewState: GameViewState): void {
+    this.latestViewState = viewState;
+    for (const listener of this.viewStateListeners) {
+      listener(viewState);
     }
   }
 

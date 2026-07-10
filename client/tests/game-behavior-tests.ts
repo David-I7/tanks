@@ -24,7 +24,7 @@ import {
   mockGameContent,
   type GameContent,
 } from "../src/game/content/mockGameContent";
-import type { MatchSetup } from "../src/game/types";
+import type { GameViewState, MatchSetup } from "../src/game/types";
 
 function makeAuthority(setup: MatchSetup = createDefaultMatchSetup("localTwoPlayer")) {
   const { world, terrain, content } = createInitialWorld(setup, mockGameContent, 960, 560);
@@ -35,6 +35,36 @@ function firstTank(authority: LocalSimulationAuthority) {
   const tank = authority.snapshot().tanks.find((entry) => entry.tank.playerId === 0);
   assert.ok(tank);
   return tank;
+}
+
+function viewStateWithActiveSecondTank(
+  authority: LocalSimulationAuthority,
+): GameViewState {
+  const viewState = snapshotToGameViewState(authority.snapshot());
+  viewState.match.activePlayerId = 1;
+  const activeTank = viewState.tanks.find((entry) => entry.playerId === 1);
+  assert.ok(activeTank);
+  activeTank.loadout = withDistinctSecondPlayerSlotIds(activeTank.loadout);
+  activeTank.selectedProjectileSlotId = activeTank.loadout[0]!.id;
+  return viewState;
+}
+
+function withDistinctSecondPlayerSlotIds(
+  loadout: GameViewState["tanks"][number]["loadout"],
+): GameViewState["tanks"][number]["loadout"] {
+  return loadout.map((slot) => ({
+    ...slot,
+    id: `second-player-${slot.id}`,
+  }));
+}
+
+function canvasInteractionContext(gameViewState: GameViewState) {
+  return {
+    gameViewState,
+    cameraX: 0,
+    viewport: { width: 960, height: 560 },
+    canvasRect: { left: 0, top: 0, width: 960, height: 560 },
+  };
 }
 
 async function expectSharedAuthoritySelection(
@@ -320,12 +350,7 @@ async function expectSharedAuthoritySelection(
       pendingPointerDown: null,
       pendingSlotNumber: 2,
     },
-    context: {
-      snapshot: snapshotToGameViewState(snapshot),
-      cameraX: 0,
-      viewport: { width: 960, height: 560 },
-      canvasRect: { left: 0, top: 0, width: 960, height: 560 },
-    },
+    context: canvasInteractionContext(snapshotToGameViewState(snapshot)),
   });
   assert.deepEqual(intents[0], { type: "move", direction: 1 });
   assert.deepEqual(intents[1], {
@@ -333,6 +358,49 @@ async function expectSharedAuthoritySelection(
     projectileSlotId: "mortar",
   });
   assert.equal(intents[2]?.type, "aim");
+}
+
+{
+  const authority = makeAuthority();
+  const viewState = viewStateWithActiveSecondTank(authority);
+  const activeTank = viewState.tanks.find((entry) => entry.playerId === 1);
+  assert.ok(activeTank);
+  const layout = getProjectileSelectorLayout(
+    960,
+    560,
+    activeTank.loadout.length,
+  );
+
+  const selectedSlot = findProjectileSlotAtCanvasPoint(
+    viewState,
+    960,
+    560,
+    layout.x + layout.slotSize + layout.gap + layout.slotSize / 2,
+    layout.y + layout.slotSize / 2,
+  );
+  assert.equal(selectedSlot, "second-player-mortar");
+
+  const intents = collectGameActions({
+    state: {
+      pressedKeys: new Set(),
+      pointer: {
+        clientX: activeTank.position.x + 100,
+        clientY: activeTank.position.y - 22,
+      },
+      pendingPointerDown: null,
+      pendingSlotNumber: 2,
+    },
+    context: canvasInteractionContext(viewState),
+  });
+
+  assert.deepEqual(intents[0], {
+    type: "selectProjectileSlot",
+    projectileSlotId: "second-player-mortar",
+  });
+  assert.equal(intents[1]?.type, "aim");
+  assert.ok(
+    intents[1]?.type === "aim" && Math.abs(intents[1].angle) < 0.000001,
+  );
 }
 
 {

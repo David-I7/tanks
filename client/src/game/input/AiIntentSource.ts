@@ -6,16 +6,16 @@ export class AiIntentSource {
   private thinkingElapsed = 0;
   private plannedThinkingSeconds = 1.2;
 
-  poll(snapshot: GameViewState, dt: number): GameAction[] {
-    const playerId = snapshot.match.activePlayerId;
+  poll(viewState: GameViewState, dt: number): GameAction[] {
+    const playerId = viewState.match.activePlayerId;
 
-    if (snapshot.match.phase !== "thinking") {
+    if (viewState.match.phase !== "thinking") {
       return [];
     }
 
-    if (this.lastTurnNumber !== snapshot.match.turnNumber) {
+    if (this.lastTurnNumber !== viewState.match.turnNumber) {
       this.hasQueuedShotForTurn = false;
-      this.lastTurnNumber = snapshot.match.turnNumber;
+      this.lastTurnNumber = viewState.match.turnNumber;
       this.thinkingElapsed = 0;
       this.plannedThinkingSeconds = 1.15 + Math.random() * 1.35;
     }
@@ -24,10 +24,10 @@ export class AiIntentSource {
     this.thinkingElapsed += dt;
     if (this.thinkingElapsed < this.plannedThinkingSeconds) return [];
 
-    const self = snapshot.tanks.find(
+    const self = viewState.tanks.find(
       (entry) => entry.playerId === playerId && entry.alive,
     );
-    const target = snapshot.tanks.find(
+    const target = viewState.tanks.find(
       (entry) => entry.playerId !== playerId && entry.alive,
     );
     if (!self || !target) return [];
@@ -40,7 +40,7 @@ export class AiIntentSource {
     const power = Math.max(260, Math.min(distance * 0.72, 620));
     const projectileSlotId =
       self.loadout[
-        Math.min(self.loadout.length - 1, snapshot.match.turnNumber % 3)
+        Math.min(self.loadout.length - 1, viewState.match.turnNumber % 3)
       ]?.id ?? self.selectedProjectileSlotId;
 
     return [

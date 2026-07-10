@@ -24,18 +24,22 @@ export function getProjectileSelectorLayout(
 }
 
 export function findProjectileSlotAtCanvasPoint(
-  snapshot: GameViewState,
+  gameViewState: GameViewState,
   canvasWidth: number,
   canvasHeight: number,
   canvasX: number,
   canvasY: number,
 ): ProjectileSlotId | null {
-  if (snapshot.match.phase !== "aiming" && snapshot.match.phase !== "thinking") {
+  if (
+    gameViewState.match.phase !== "aiming" &&
+    gameViewState.match.phase !== "thinking"
+  ) {
     return null;
   }
 
-  const activeTank = snapshot.tanks.find(
-    (entry) => entry.playerId === snapshot.match.activePlayerId && entry.alive,
+  const activeTank = gameViewState.tanks.find(
+    (entry) =>
+      entry.playerId === gameViewState.match.activePlayerId && entry.alive,
   );
   if (!activeTank) return null;
 
