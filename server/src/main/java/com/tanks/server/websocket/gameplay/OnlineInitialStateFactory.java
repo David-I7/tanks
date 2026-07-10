@@ -37,6 +37,20 @@ public class OnlineInitialStateFactory {
                 new OnlineDiffPayloads.InitialState(initialSequence + 1, createSnapshot(gameSession)));
     }
 
+    public OnlineDiffEnvelopeDto<OnlineDiffPayloads.ResyncState> createResync(
+            GameSession gameSession,
+            OnlineDiffPayloads.ResyncReason reason) {
+        long replacesSequence = Math.max(1, gameSession.getNextDiffSequence() - 1);
+        return new OnlineDiffEnvelopeDto<>(
+                OnlineGameplayProtocolVersion.V1,
+                gameSession.getId().toString(),
+                replacesSequence,
+                gameSession.getLastDiffServerTick(),
+                OnlineStateDiffType.RESYNC_STATE,
+                null,
+                new OnlineDiffPayloads.ResyncState(replacesSequence, reason, createSnapshot(gameSession)));
+    }
+
     private OnlineGameStateSnapshotDto createSnapshot(GameSession gameSession) {
         return new OnlineGameStateSnapshotDto(
                 gameSession.getGameplayDefinitionVersion(),

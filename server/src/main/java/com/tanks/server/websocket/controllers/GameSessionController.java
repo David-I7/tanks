@@ -1,5 +1,6 @@
 package com.tanks.server.websocket.controllers;
 
+import com.tanks.server.websocket.dto.gameplay.OnlineDiffPayloads;
 import com.tanks.server.websocket.dto.gameplay.OnlinePlayerIntentDto;
 import com.tanks.server.websocket.entities.gameSession.GameSession;
 import com.tanks.server.websocket.entities.lobby.Lobby;
@@ -45,6 +46,14 @@ public class GameSessionController {
             @Payload OnlinePlayerIntentDto<?> intent,
             Authentication authentication) {
         gameSessionService.acceptPlayerIntent(authentication.getName(), id, intent);
+    }
+
+    @MessageMapping("/game/{id}/resync")
+    @PreAuthorize("@gameAuthorizationService.canSendMessageToTopic(authentication, '/topic/game/' + #id)")
+    public void requestResyncState(
+            @DestinationVariable UUID id,
+            Authentication authentication) {
+        gameSessionService.sendResyncStateToPlayer(id, authentication.getName(), OnlineDiffPayloads.ResyncReason.MISSED_DIFF);
     }
 
     @MessageMapping("/game/create")

@@ -170,8 +170,6 @@ public class WebSocketEventListeners {
 
             if(gameSession.getConnectedPlayerCount() == 2 && gameSession.getState().equals(GameSessionState.CREATED)){
                 gameSessionService.startGame(gameSession);
-            } else if (gameSession.getState().equals(GameSessionState.STARTED)) {
-                gameSessionService.sendInitialStateToPlayer(gameSession, authentication.getName());
             }
         }
     }

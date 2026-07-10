@@ -190,6 +190,21 @@ public class GameSessionService {
                 initialStateFactory.create(gameSession)));
     }
 
+    public boolean sendResyncStateToPlayer(UUID gameSessionId, String username, OnlineDiffPayloads.ResyncReason reason) {
+        GameSession gameSession = findById(gameSessionId);
+        if (!GameSessionState.STARTED.equals(gameSession.getState())
+                && !GameSessionState.ENDED.equals(gameSession.getState())) {
+            return false;
+        }
+
+        eventPublisher.publishEvent(new OnlineGameplayEvent(
+                this,
+                username,
+                "/queue/replies",
+                initialStateFactory.createResync(gameSession, reason)));
+        return true;
+    }
+
     public boolean acceptPlayerIntent(String username, UUID gameSessionId, OnlinePlayerIntentDto<?> intent) {
         if (intent == null) {
             return false;

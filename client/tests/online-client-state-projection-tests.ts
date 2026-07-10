@@ -17,6 +17,7 @@ import {
   initializeOnlineConfirmedState,
   predictOnlineMovement,
   projectOnlineRenderState,
+  requestOnlineResyncState,
 } from "../src/game/online/onlineConfirmedState";
 
 function initialState(): OnlineGameStateSnapshot {
@@ -131,6 +132,34 @@ function movementDiff(
       endedServerTick: 45,
       durationTicks: 15,
       ...overrides.payload,
+    },
+  };
+}
+
+function resyncDiff(
+  overrides: Partial<OnlineDiffEnvelope<OnlineResyncStateDiff>> & {
+    payload?: Partial<OnlineResyncStateDiff["payload"]> & {
+      state?: Partial<OnlineGameStateSnapshot>;
+    };
+  } = {},
+): OnlineDiffEnvelope<OnlineResyncStateDiff> {
+  return {
+    protocolVersion: "online-gameplay.v1",
+    gameSessionId: "game-123",
+    sequence: 5,
+    serverTick: 150,
+    type: "RESYNC_STATE",
+    intentId: null,
+    ...overrides,
+    payload: {
+      replacesSequence: 5,
+      reason: "MISSED_DIFF",
+      state: initialState(),
+      ...overrides.payload,
+      state: {
+        ...initialState(),
+        ...overrides.payload?.state,
+      },
     },
   };
 }
@@ -311,18 +340,12 @@ function movementDiff(
 {
   const confirmed = initializeOnlineConfirmedState(initialDiff());
   const predicted = predictOnlineMovement(confirmed, "intent-before-resync", 1, { direction: 1 });
-  const resync = {
-    protocolVersion: "online-gameplay.v1",
-    gameSessionId: "game-123",
+  const resync = resyncDiff({
     sequence: 9,
     serverTick: 270,
-    type: "RESYNC_STATE",
-    intentId: null,
     payload: {
       replacesSequence: 9,
-      reason: "MISSED_DIFF",
       state: {
-        ...initialState(),
         tanks: [
           {
             ...initialState().tanks[0]!,
@@ -333,13 +356,107 @@ function movementDiff(
         ],
       },
     },
-  } satisfies OnlineDiffEnvelope<OnlineResyncStateDiff>;
+  });
 
   const afterResync = applyOnlineStateDiff(predicted, resync);
 
   assert.equal(afterResync.pendingPredictions.length, 0);
   assert.equal(afterResync.expectedNextDiffSequence, 10);
+  assert.equal(afterResync.resyncStatus.kind, "READY");
+  assert.equal(afterResync.resyncStatus.lastResyncSequence, 9);
   assert.equal(afterResync.state.tanks[0]?.position.x, 75);
+}
+
+{
+  const confirmed = initializeOnlineConfirmedState(initialDiff());
+  const waitingForResync = requestOnlineResyncState(confirmed);
+  const staleLiveDiff = movementDiff({
+    sequence: 2,
+    payload: {
+      to: { x: 60, y: 120 },
+      fuelAfter: 90,
+    },
+  });
+
+  const afterStaleLiveDiff = applyOnlineStateDiff(waitingForResync, staleLiveDiff);
+
+  assert.equal(afterStaleLiveDiff.resyncStatus.kind, "REQUESTED");
+  assert.equal(afterStaleLiveDiff.expectedNextDiffSequence, 2);
+  assert.equal(afterStaleLiveDiff.state.tanks[0]?.position.x, 50);
+  assert.equal(afterStaleLiveDiff.state.tanks[0]?.fuel, 100);
+}
+
+{
+  const confirmed = initializeOnlineConfirmedState(initialDiff());
+  const waitingForResync = requestOnlineResyncState(confirmed);
+  const resync = resyncDiff({
+    payload: {
+      reason: "RECONNECT",
+      state: {
+        tanks: [
+          {
+            ...initialState().tanks[0]!,
+            position: { x: 70, y: 120 },
+            fuel: 85,
+          },
+          initialState().tanks[1]!,
+        ],
+      },
+    },
+  });
+  const liveAfterResync = movementDiff({
+    sequence: 6,
+    serverTick: 180,
+    payload: {
+      from: { x: 70, y: 120 },
+      to: { x: 72, y: 120 },
+      fuelBefore: 85,
+      fuelAfter: 83,
+      fuelSpent: 2,
+      startedServerTick: 180,
+      endedServerTick: 195,
+    },
+  });
+
+  const afterResync = applyOnlineStateDiff(waitingForResync, resync);
+  const afterLiveDiff = applyOnlineStateDiff(afterResync, liveAfterResync);
+
+  assert.equal(afterResync.expectedNextDiffSequence, 6);
+  assert.equal(afterLiveDiff.expectedNextDiffSequence, 7);
+  assert.equal(afterLiveDiff.state.tanks[0]?.position.x, 72);
+}
+
+{
+  const confirmed = initializeOnlineConfirmedState(initialDiff());
+  const waitingForResync = requestOnlineResyncState(confirmed);
+  const resync = resyncDiff({
+    payload: {
+      state: {
+        tanks: [
+          {
+            ...initialState().tanks[0]!,
+            position: { x: 70, y: 120 },
+            fuel: 85,
+          },
+          initialState().tanks[1]!,
+        ],
+      },
+    },
+  });
+  const latePreResyncDiff = movementDiff({
+    sequence: 4,
+    payload: {
+      to: { x: 60, y: 120 },
+      fuelAfter: 90,
+    },
+  });
+
+  const afterResync = applyOnlineStateDiff(waitingForResync, resync);
+  const afterLatePreResyncDiff = applyOnlineStateDiff(afterResync, latePreResyncDiff);
+
+  assert.equal(afterLatePreResyncDiff.expectedNextDiffSequence, 6);
+  assert.equal(afterLatePreResyncDiff.state.tanks[0]?.position.x, 70);
+  assert.equal(afterLatePreResyncDiff.state.tanks[0]?.fuel, 85);
 }
 
 {

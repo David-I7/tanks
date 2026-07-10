@@ -26,6 +26,7 @@ export type PublishParams = {
   destination:
   | "/app/chat/:id/send"
   | "/app/game/:id/send"
+  | "/app/game/:id/resync"
   | "/app/game/create"
   | "/app/lobby/leave"
   | "/app/lobby/create/private"

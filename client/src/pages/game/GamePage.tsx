@@ -7,7 +7,11 @@ import Loader from "../../components/misc/Loader";
 import type { GameEvent } from "../../api/ws/dto/game/GameEventDto";
 import type { OnlineDiffEnvelope } from "../../api/ws/dto/gameplay/onlineGameplayProtocol";
 import {
+  OnlineDiffSequenceError,
+  applyOnlineStateDiff,
   initializeOnlineConfirmedState,
+  initializeOnlineConfirmedStateFromResync,
+  requestOnlineResyncState,
   type OnlineConfirmedState,
 } from "../../game/online/onlineConfirmedState";
 
@@ -44,16 +48,53 @@ function GameView() {
       }
     })
 
-    const handleInitialState = (message: GameEvent | OnlineDiffEnvelope) => {
+    const requestResync = () => {
+      client.publish({
+        destination: "/app/game/:id/resync",
+        id,
+      });
+    };
+
+    const handleGameplayDiff = (message: GameEvent | OnlineDiffEnvelope) => {
       if (message.type === "INITIAL_STATE") {
         setConfirmedState(initializeOnlineConfirmedState(message));
+        return;
+      }
+
+      if (
+        message.type === "RESYNC_STATE" ||
+        message.type === "MOVEMENT_SEGMENT" ||
+        message.type === "PROJECTILE_RESOLUTION" ||
+        message.type === "TERRAIN_PATCH" ||
+        message.type === "INTENT_REJECTION" ||
+        message.type === "TURN_TRANSITION" ||
+        message.type === "TERMINAL_GAME"
+      ) {
+        setConfirmedState((current) => {
+          if (current === null) {
+            return message.type === "RESYNC_STATE"
+              ? initializeOnlineConfirmedStateFromResync(message)
+              : current;
+          }
+
+          try {
+            return applyOnlineStateDiff(current, message);
+          } catch (error) {
+            if (error instanceof OnlineDiffSequenceError && error.kind === "MISSING_DIFF") {
+              requestResync();
+              return requestOnlineResyncState(current);
+            }
+
+            throw error;
+          }
+        });
       }
     };
 
     client.subscribe<GameEvent | OnlineDiffEnvelope>({
       destination: "/user/queue/replies",
       onMessage: (message) => {
-        handleInitialState(message.body);
+        handleGameplayDiff(message.body);
         console.log("Reply:", message.body);
       }
     })
@@ -71,9 +112,11 @@ function GameView() {
           console.log("Game started:", message.body.payload);
         }
 
-        handleInitialState(message.body);
+        handleGameplayDiff(message.body);
       }
     });
+
+    requestResync();
   }, [client, status])
 
 

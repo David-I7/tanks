@@ -40,9 +40,14 @@ export type OnlineConfirmedState = {
   lastConfirmedDiffSequence: DiffSequence;
   lastConfirmedDiffServerTick: ServerTick;
   expectedNextDiffSequence: DiffSequence;
+  resyncStatus: OnlineResyncStatus;
   pendingPredictions: PendingPrediction[];
   confirmedMovementSegments: ConfirmedMovementSegment[];
 };
+
+export type OnlineResyncStatus =
+  | { kind: "READY"; lastResyncSequence: DiffSequence | null }
+  | { kind: "REQUESTED"; lastResyncSequence: DiffSequence | null };
 
 export type OnlineDiffSequenceErrorKind = "MISSING_DIFF" | "OUT_OF_ORDER_DIFF";
 
@@ -78,6 +83,28 @@ export function initializeOnlineConfirmedState(
     lastConfirmedDiffSequence: diff.sequence,
     lastConfirmedDiffServerTick: diff.serverTick,
     expectedNextDiffSequence: payload.expectedNextDiffSequence,
+    resyncStatus: { kind: "READY", lastResyncSequence: null },
+    pendingPredictions: [],
+    confirmedMovementSegments: [],
+  };
+}
+
+export function initializeOnlineConfirmedStateFromResync(
+  diff: OnlineDiffEnvelope,
+): OnlineConfirmedState {
+  if (diff.type !== "RESYNC_STATE") {
+    throw new Error(`Expected RESYNC_STATE diff, received ${diff.type}`);
+  }
+
+  const payload = diff.payload as OnlineResyncStateDiff["payload"];
+
+  return {
+    gameSessionId: diff.gameSessionId,
+    state: payload.state,
+    lastConfirmedDiffSequence: diff.sequence,
+    lastConfirmedDiffServerTick: diff.serverTick,
+    expectedNextDiffSequence: payload.replacesSequence + 1,
+    resyncStatus: { kind: "READY", lastResyncSequence: payload.replacesSequence },
     pendingPredictions: [],
     confirmedMovementSegments: [],
   };
@@ -94,10 +121,22 @@ export function applyOnlineStateDiff(
         ...confirmed,
         lastConfirmedDiffSequence: diff.sequence,
         lastConfirmedDiffServerTick: diff.serverTick,
+        resyncStatus: { kind: "READY", lastResyncSequence: confirmed.resyncStatus.lastResyncSequence },
       },
       diff,
       monotonicNowMs,
     );
+  }
+
+  if (confirmed.resyncStatus.kind === "REQUESTED") {
+    return confirmed;
+  }
+
+  if (
+    confirmed.resyncStatus.lastResyncSequence !== null &&
+    diff.sequence <= confirmed.resyncStatus.lastResyncSequence
+  ) {
+    return confirmed;
   }
 
   if (diff.sequence !== confirmed.expectedNextDiffSequence) {
@@ -123,6 +162,16 @@ export function applyOnlineStateDiff(
     pendingPredictions: nextWithPayload.pendingPredictions.filter(
       (prediction) => !isMatchingPendingPrediction(prediction, reconciledIntent),
     ),
+  };
+}
+
+export function requestOnlineResyncState(confirmed: OnlineConfirmedState): OnlineConfirmedState {
+  return {
+    ...confirmed,
+    resyncStatus: {
+      kind: "REQUESTED",
+      lastResyncSequence: confirmed.resyncStatus.lastResyncSequence,
+    },
   };
 }
 
@@ -204,6 +253,7 @@ function applyDiffPayload(
         ...confirmed,
         state: resyncPayload.state,
         expectedNextDiffSequence: resyncPayload.replacesSequence + 1,
+        resyncStatus: { kind: "READY", lastResyncSequence: resyncPayload.replacesSequence },
         pendingPredictions: [],
         confirmedMovementSegments: [],
       };

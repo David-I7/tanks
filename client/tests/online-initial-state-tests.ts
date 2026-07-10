@@ -4,6 +4,7 @@ import {
   OnlineDiffSequenceError,
   applyOnlineStateDiff,
   initializeOnlineConfirmedState,
+  initializeOnlineConfirmedStateFromResync,
   predictOnlineMovement,
   type OnlineConfirmedState,
 } from "../src/game/online/onlineConfirmedState";
@@ -12,6 +13,7 @@ import type {
   OnlineInitialStateDiff,
   OnlineIntentRejectionDiff,
   OnlineMovementSegmentDiff,
+  OnlineResyncStateDiff,
 } from "../src/api/ws/dto/gameplay/onlineGameplayProtocol";
 
 const initialStateDiff = {
@@ -81,8 +83,41 @@ assert.equal(confirmed.state.gameplayDefinitionVersion, "online-gameplay-definit
 assert.equal(confirmed.state.match.activePlayerId, 1);
 assert.equal(confirmed.state.tanks[0]?.loadout[0]?.projectileDefinitionId, "basicShell");
 
+const resyncStateDiff = {
+  protocolVersion: "online-gameplay.v1",
+  gameSessionId: "game-123",
+  sequence: 7,
+  serverTick: 120,
+  type: "RESYNC_STATE",
+  intentId: null,
+  payload: {
+    replacesSequence: 7,
+    reason: "RECONNECT",
+    state: {
+      ...initialStateDiff.payload.state,
+      tanks: [
+        {
+          ...initialStateDiff.payload.state.tanks[0]!,
+          position: { x: 70, y: 120 },
+          fuel: 85,
+        },
+      ],
+    },
+  },
+} satisfies OnlineDiffEnvelope<OnlineResyncStateDiff>;
+
+const confirmedFromResync = initializeOnlineConfirmedStateFromResync(resyncStateDiff);
+
+assert.equal(confirmedFromResync.lastConfirmedDiffSequence, 7);
+assert.equal(confirmedFromResync.expectedNextDiffSequence, 8);
+assert.equal(confirmedFromResync.resyncStatus.kind, "READY");
+assert.equal(confirmedFromResync.resyncStatus.lastResyncSequence, 7);
+assert.equal(confirmedFromResync.pendingPredictions.length, 0);
+assert.equal(confirmedFromResync.state.tanks[0]?.position.x, 70);
+
 const confirmedWithPrediction: OnlineConfirmedState = {
   ...confirmed,
+  resyncStatus: { kind: "READY", lastResyncSequence: null },
   pendingPredictions: [
     {
       intentId: "intent-stale",
