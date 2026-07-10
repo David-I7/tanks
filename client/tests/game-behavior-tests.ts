@@ -11,6 +11,7 @@ import {
   createRemoteSimulationAuthority,
   type SimulationAuthority,
 } from "../src/game/authority/simulationAuthority";
+import { snapshotToGameViewState } from "../src/game/authority/gameAuthority";
 import { createWorldSizingPolicy } from "../src/game/world/worldSizing";
 import { createWorldStatePublisher } from "../src/game/world/worldStatePublisher";
 import { collectPlayerIntents } from "../src/game/input/CanvasInputSource";
@@ -224,7 +225,7 @@ async function expectSharedAuthoritySelection(
   const slotCount = snapshot.tanks[0]?.tank.loadout.length ?? 0;
   const layout = getProjectileSelectorLayout(960, 560, slotCount);
   const selectedSlot = findProjectileSlotAtCanvasPoint(
-    snapshot,
+    snapshotToGameViewState(snapshot),
     960,
     560,
     layout.x + layout.slotSize + layout.gap + layout.slotSize / 2,
@@ -320,7 +321,7 @@ async function expectSharedAuthoritySelection(
       pendingSlotNumber: 2,
     },
     context: {
-      snapshot,
+      snapshot: snapshotToGameViewState(snapshot),
       cameraX: 0,
       viewport: { width: 960, height: 560 },
       canvasRect: { left: 0, top: 0, width: 960, height: 560 },

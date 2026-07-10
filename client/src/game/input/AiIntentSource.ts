@@ -1,4 +1,4 @@
-import type { GameSnapshot, PlayerIntent } from "../types";
+import type { GameAction, GameViewState } from "../types";
 
 export class AiIntentSource {
   private hasQueuedShotForTurn = false;
@@ -6,7 +6,7 @@ export class AiIntentSource {
   private thinkingElapsed = 0;
   private plannedThinkingSeconds = 1.2;
 
-  poll(snapshot: GameSnapshot, playerId: number, dt: number): PlayerIntent[] {
+  poll(snapshot: GameViewState, playerId: number, dt: number): GameAction[] {
     if (
       snapshot.match.phase !== "thinking" ||
       snapshot.match.activePlayerId !== playerId
@@ -26,10 +26,10 @@ export class AiIntentSource {
     if (this.thinkingElapsed < this.plannedThinkingSeconds) return [];
 
     const self = snapshot.tanks.find(
-      (entry) => entry.tank.playerId === playerId && entry.tank.alive,
+      (entry) => entry.playerId === playerId && entry.alive,
     );
     const target = snapshot.tanks.find(
-      (entry) => entry.tank.playerId !== playerId && entry.tank.alive,
+      (entry) => entry.playerId !== playerId && entry.alive,
     );
     if (!self || !target) return [];
 
@@ -40,9 +40,9 @@ export class AiIntentSource {
     const angle = Math.atan2(dy - 120, dx);
     const power = Math.max(260, Math.min(distance * 0.72, 620));
     const projectileSlotId =
-      self.tank.loadout[
-        Math.min(self.tank.loadout.length - 1, snapshot.match.turnNumber % 3)
-      ]?.id ?? self.tank.selectedProjectileSlotId;
+      self.loadout[
+        Math.min(self.loadout.length - 1, snapshot.match.turnNumber % 3)
+      ]?.id ?? self.selectedProjectileSlotId;
 
     return [
       { type: "selectProjectileSlot", projectileSlotId },

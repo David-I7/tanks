@@ -1,4 +1,4 @@
-import type { GameSnapshot, ProjectileSlotId } from "../types";
+import type { GameViewState, ProjectileSlotId } from "../types";
 
 export type ProjectileSelectorLayout = {
   x: number;
@@ -24,7 +24,7 @@ export function getProjectileSelectorLayout(
 }
 
 export function findProjectileSlotAtCanvasPoint(
-  snapshot: GameSnapshot,
+  snapshot: GameViewState,
   canvasWidth: number,
   canvasHeight: number,
   canvasX: number,
@@ -35,18 +35,18 @@ export function findProjectileSlotAtCanvasPoint(
   }
 
   const activeTank = snapshot.tanks.find(
-    (entry) => entry.tank.playerId === snapshot.match.activePlayerId && entry.tank.alive,
+    (entry) => entry.playerId === snapshot.match.activePlayerId && entry.alive,
   );
   if (!activeTank) return null;
 
   const layout = getProjectileSelectorLayout(
     canvasWidth,
     canvasHeight,
-    activeTank.tank.loadout.length,
+    activeTank.loadout.length,
   );
 
-  for (let index = 0; index < activeTank.tank.loadout.length; index += 1) {
-    const slot = activeTank.tank.loadout[index];
+  for (let index = 0; index < activeTank.loadout.length; index += 1) {
+    const slot = activeTank.loadout[index];
     if (!slot) continue;
     const slotX = layout.x + index * (layout.slotSize + layout.gap);
     if (

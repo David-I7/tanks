@@ -1,4 +1,4 @@
-import type { GameSnapshot, PlayerIntent } from "../types";
+import type { GameAction, GameViewState } from "../types";
 import type { ViewportSize } from "../world/worldSizing";
 import { canvasPointToViewportPoint } from "../world/worldSizing";
 
@@ -10,12 +10,14 @@ export type CanvasAimInput = {
   canvasHeight?: number;
   viewport?: ViewportSize;
   cameraX: number;
-  snapshot: GameSnapshot;
+  snapshot: GameViewState;
 };
 
-export function calculateAimIntent(input: CanvasAimInput): Extract<PlayerIntent, { type: "aim" }> | null {
+export function calculateAimIntent(
+  input: CanvasAimInput,
+): Extract<GameAction, { type: "aim" }> | null {
   const activeTank = input.snapshot.tanks.find(
-    (entry) => entry.tank.playerId === input.snapshot.match.activePlayerId && entry.tank.alive,
+    (entry) => entry.playerId === input.snapshot.match.activePlayerId && entry.alive,
   );
   if (!activeTank) return null;
 

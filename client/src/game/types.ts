@@ -8,7 +8,7 @@ export type ProjectileSlotId = string;
 export type ProjectileDefinitionId = string;
 export type TankDefinitionId = string;
 
-export type PlayerIntent =
+export type GameAction =
   | { type: "move"; direction: -1 | 0 | 1 }
   | { type: "aim"; angle: number; power: number }
   | { type: "selectProjectileSlot"; projectileSlotId: ProjectileSlotId }
@@ -18,6 +18,8 @@ export type PlayerIntent =
       power: number;
       projectileSlotId: ProjectileSlotId;
     };
+
+export type PlayerIntent = GameAction;
 
 export type RemotePlayerIntent = {
   playerId: number;
@@ -201,6 +203,26 @@ export type GameSnapshot = {
     projectile: ProjectileComponent;
   }>;
   impactEvents: ImpactEvent[];
+};
+
+export type GameViewState = {
+  match: MatchState;
+  terrain: TerrainSnapshot;
+  projectileDefinitions: Record<string, ProjectileDefinition>;
+  tanks: GameViewTank[];
+  projectiles: GameViewProjectile[];
+  impactEvents: ImpactEvent[];
+};
+
+export type GameViewTank = TankComponent & {
+  entityId: EntityId;
+  position: PositionComponent;
+};
+
+export type GameViewProjectile = ProjectileComponent & {
+  entityId: EntityId;
+  position: PositionComponent;
+  velocity: VelocityComponent;
 };
 
 export type GameAssets = {

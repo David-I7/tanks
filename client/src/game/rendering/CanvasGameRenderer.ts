@@ -1,4 +1,4 @@
-import type { GameSnapshot } from "../types";
+import type { GameViewState } from "../types";
 import { simulateTrajectoryPreview } from "../simulation/ballistics";
 import { getProjectileSelectorLayout } from "../input/projectileSelectorHitTest";
 import type { ViewportSize } from "../world/worldSizing";
@@ -17,7 +17,7 @@ type RenderPass = {
   name: string;
   draw(
     ctx: CanvasRenderingContext2D,
-    snapshot: GameSnapshot,
+    snapshot: GameViewState,
     context: RenderContext,
   ): void;
 };
@@ -70,7 +70,7 @@ export class CanvasGameRenderer {
     return this.cameraX;
   }
 
-  render(snapshot: GameSnapshot): void {
+  render(snapshot: GameViewState): void {
     const ctx = this.canvas.getContext("2d");
     if (!ctx) return;
 
@@ -105,9 +105,9 @@ export class CanvasGameRenderer {
     }
   }
 
-  private updateCamera(snapshot: GameSnapshot): void {
+  private updateCamera(snapshot: GameViewState): void {
     const activeTank = snapshot.tanks.find(
-      (entry) => entry.tank.playerId === snapshot.match.activePlayerId,
+      (entry) => entry.playerId === snapshot.match.activePlayerId,
     );
     const focusX =
       snapshot.projectiles[0]?.position.x ??
@@ -135,7 +135,7 @@ export class CanvasGameRenderer {
 
   private drawTerrain(
     ctx: CanvasRenderingContext2D,
-    snapshot: GameSnapshot,
+    snapshot: GameViewState,
   ): void {
     if (snapshot.terrain.kind !== "heightmap") return;
 
@@ -161,28 +161,28 @@ export class CanvasGameRenderer {
 
   private drawTanks(
     ctx: CanvasRenderingContext2D,
-    snapshot: GameSnapshot,
+    snapshot: GameViewState,
   ): void {
     for (const entry of snapshot.tanks) {
-      if (!entry.tank.alive) continue;
+      if (!entry.alive) continue;
 
       ctx.save();
       ctx.translate(entry.position.x, entry.position.y);
-      ctx.rotate(entry.tank.bodyAngle);
+      ctx.rotate(entry.bodyAngle);
 
       if (this.assets.tankImage?.complete) {
         const image = this.assets.tankImage;
-        ctx.scale(entry.tank.facing, 1);
+        ctx.scale(entry.facing, 1);
         ctx.drawImage(image, -24, -30, 48, 28);
       } else {
-        ctx.fillStyle = entry.tank.visual.fill;
-        ctx.strokeStyle = entry.tank.visual.stroke;
+        ctx.fillStyle = entry.visual.fill;
+        ctx.strokeStyle = entry.visual.stroke;
         ctx.lineWidth = 3;
         ctx.beginPath();
         ctx.roundRect(-25, -27, 50, 24, 7);
         ctx.fill();
         ctx.stroke();
-        ctx.fillStyle = entry.tank.visual.accent;
+        ctx.fillStyle = entry.visual.accent;
         ctx.beginPath();
         ctx.arc(0, -28, 10, 0, Math.PI * 2);
         ctx.fill();
@@ -193,15 +193,15 @@ export class CanvasGameRenderer {
       const turretX = entry.position.x;
       const turretY = entry.position.y - 22;
       ctx.strokeStyle =
-        entry.tank.playerId === snapshot.match.activePlayerId
+        entry.playerId === snapshot.match.activePlayerId
           ? "#ebc80e"
           : "#d8dee9";
       ctx.lineWidth = 4;
       ctx.beginPath();
       ctx.moveTo(turretX, turretY);
       ctx.lineTo(
-        turretX + Math.cos(entry.tank.aimAngle) * 34,
-        turretY + Math.sin(entry.tank.aimAngle) * 34,
+        turretX + Math.cos(entry.aimAngle) * 34,
+        turretY + Math.sin(entry.aimAngle) * 34,
       );
       ctx.stroke();
     }
@@ -209,17 +209,17 @@ export class CanvasGameRenderer {
 
   private drawProjectiles(
     ctx: CanvasRenderingContext2D,
-    snapshot: GameSnapshot,
+    snapshot: GameViewState,
   ): void {
     for (const entry of snapshot.projectiles) {
-      ctx.fillStyle = entry.projectile.visual.fill;
-      ctx.strokeStyle = entry.projectile.visual.stroke;
+      ctx.fillStyle = entry.visual.fill;
+      ctx.strokeStyle = entry.visual.stroke;
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.arc(
         entry.position.x,
         entry.position.y,
-        entry.projectile.radius,
+        entry.radius,
         0,
         Math.PI * 2,
       );
@@ -230,7 +230,7 @@ export class CanvasGameRenderer {
 
   private drawImpactEvents(
     ctx: CanvasRenderingContext2D,
-    snapshot: GameSnapshot,
+    snapshot: GameViewState,
   ): void {
     for (const event of snapshot.impactEvents) {
       const ratio = Math.min(1, event.age / event.duration);
@@ -254,7 +254,7 @@ export class CanvasGameRenderer {
 
   private drawTrajectoryPreview(
     ctx: CanvasRenderingContext2D,
-    snapshot: GameSnapshot,
+    snapshot: GameViewState,
   ): void {
     if (
       snapshot.match.phase !== "aiming" &&
@@ -278,7 +278,7 @@ export class CanvasGameRenderer {
     }
   }
 
-  private drawHud(ctx: CanvasRenderingContext2D, snapshot: GameSnapshot): void {
+  private drawHud(ctx: CanvasRenderingContext2D, snapshot: GameViewState): void {
     const headerHeight = 74;
     ctx.fillStyle = "rgba(6, 6, 8, 0.78)";
     ctx.fillRect(0, 0, this.viewport.width, headerHeight);
@@ -296,11 +296,11 @@ export class CanvasGameRenderer {
     ctx.font = "15px 'Share Tech Mono', monospace";
     ctx.textAlign = "center";
     const activeTank = snapshot.tanks.find(
-      (entry) => entry.tank.playerId === snapshot.match.activePlayerId,
+      (entry) => entry.playerId === snapshot.match.activePlayerId,
     );
     const seconds = Math.ceil(snapshot.match.turnTimeRemaining);
     ctx.fillText(
-      `${snapshot.match.mode} | Player ${snapshot.match.activePlayerId + 1} | ${snapshot.match.phase} | ${seconds}s | Fuel ${Math.ceil(activeTank?.tank.fuel ?? 0)}`,
+      `${snapshot.match.mode} | Player ${snapshot.match.activePlayerId + 1} | ${snapshot.match.phase} | ${seconds}s | Fuel ${Math.ceil(activeTank?.fuel ?? 0)}`,
       this.viewport.width / 2,
       47,
     );
@@ -323,9 +323,9 @@ export class CanvasGameRenderer {
 
   private drawHeaderTankStatus(
     ctx: CanvasRenderingContext2D,
-    snapshot: GameSnapshot,
+    snapshot: GameViewState,
   ): void {
-    const aliveTanks = snapshot.tanks.filter((entry) => entry.tank.alive);
+    const aliveTanks = snapshot.tanks.filter((entry) => entry.alive);
     if (aliveTanks.length === 0) return;
 
     const leftTank = aliveTanks[0];
@@ -347,16 +347,16 @@ export class CanvasGameRenderer {
 
   private drawHeaderHealthCard(
     ctx: CanvasRenderingContext2D,
-    entry: GameSnapshot["tanks"][number],
+    entry: GameViewState["tanks"][number],
     x: number,
     y: number,
     align: "left" | "right",
-    snapshot: GameSnapshot,
+    snapshot: GameViewState,
   ): void {
     const width = 260;
-    const ratio = Math.max(0, entry.tank.health / entry.tank.maxHealth);
-    const selected = entry.tank.playerId === snapshot.match.activePlayerId;
-    const name = `${entry.tank.displayName} - ${entry.tank.tankName}`;
+    const ratio = Math.max(0, entry.health / entry.maxHealth);
+    const selected = entry.playerId === snapshot.match.activePlayerId;
+    const name = `${entry.displayName} - ${entry.tankName}`;
 
     ctx.fillStyle = selected
       ? "rgba(235, 200, 14, 0.14)"
@@ -368,7 +368,7 @@ export class CanvasGameRenderer {
     ctx.fill();
     ctx.stroke();
 
-    ctx.fillStyle = entry.tank.visual.fill;
+    ctx.fillStyle = entry.visual.fill;
     ctx.beginPath();
     ctx.arc(
       align === "left" ? x + 20 : x + width - 20,
@@ -398,7 +398,7 @@ export class CanvasGameRenderer {
     ctx.font = "11px 'Share Tech Mono', monospace";
     ctx.textAlign = align === "left" ? "right" : "left";
     ctx.fillText(
-      `${Math.ceil(entry.tank.health)}/${entry.tank.maxHealth}`,
+      `${Math.ceil(entry.health)}/${entry.maxHealth}`,
       align === "left" ? x + width - 12 : x + 12,
       y + 36,
     );
@@ -407,7 +407,7 @@ export class CanvasGameRenderer {
 
   private drawPowerAngleReadout(
     ctx: CanvasRenderingContext2D,
-    snapshot: GameSnapshot,
+    snapshot: GameViewState,
   ): void {
     if (
       snapshot.match.phase !== "aiming" &&
@@ -418,16 +418,15 @@ export class CanvasGameRenderer {
 
     const activeTank = snapshot.tanks.find(
       (entry) =>
-        entry.tank.playerId === snapshot.match.activePlayerId &&
-        entry.tank.alive,
+        entry.playerId === snapshot.match.activePlayerId && entry.alive,
     );
     if (!activeTank) return;
 
     const screenX = activeTank.position.x - this.cameraX;
     const bubbleY = Math.max(92, activeTank.position.y - 120);
-    const power = Math.round((activeTank.tank.power / 680) * 100);
+    const power = Math.round((activeTank.power / 680) * 100);
     const angle = Math.round(
-      Math.abs((activeTank.tank.aimAngle * 180) / Math.PI),
+      Math.abs((activeTank.aimAngle * 180) / Math.PI),
     );
 
     this.drawMetricBubble(ctx, screenX - 42, bubbleY, `${power}`, "POWER");
@@ -458,7 +457,7 @@ export class CanvasGameRenderer {
 
   private drawProjectileSelector(
     ctx: CanvasRenderingContext2D,
-    snapshot: GameSnapshot,
+    snapshot: GameViewState,
   ): void {
     if (
       snapshot.match.phase !== "aiming" &&
@@ -469,15 +468,14 @@ export class CanvasGameRenderer {
 
     const activeTank = snapshot.tanks.find(
       (entry) =>
-        entry.tank.playerId === snapshot.match.activePlayerId &&
-        entry.tank.alive,
+        entry.playerId === snapshot.match.activePlayerId && entry.alive,
     );
     if (!activeTank) return;
 
     const layout = getProjectileSelectorLayout(
       this.viewport.width,
       this.viewport.height,
-      activeTank.tank.loadout.length,
+      activeTank.loadout.length,
     );
 
     ctx.save();
@@ -485,12 +483,12 @@ export class CanvasGameRenderer {
     ctx.shadowBlur = 12;
     ctx.shadowOffsetY = 4;
 
-    for (let index = 0; index < activeTank.tank.loadout.length; index += 1) {
-      const slot = activeTank.tank.loadout[index];
+    for (let index = 0; index < activeTank.loadout.length; index += 1) {
+      const slot = activeTank.loadout[index];
       if (!slot) continue;
       const definition =
         snapshot.projectileDefinitions[slot.projectileDefinitionId];
-      const selected = slot.id === activeTank.tank.selectedProjectileSlotId;
+      const selected = slot.id === activeTank.selectedProjectileSlotId;
       const x = layout.x + index * (layout.slotSize + layout.gap);
       const y = layout.y + (selected ? -8 : 0);
       const size = layout.slotSize + (selected ? 10 : 0);

@@ -10,13 +10,19 @@ import {
 } from "./rendering/CanvasGameRenderer";
 import { getLocalControllerKind } from "./modes";
 import { createDefaultMatchSetup } from "./world/createInitialWorld";
-import type { GameMode, GameSnapshot, MatchSetup, PlayerIntent } from "./types";
+import type {
+  GameAction,
+  GameMode,
+  GameViewState,
+  MatchSetup,
+  PlayerIntent,
+} from "./types";
 import { mockGameContent, type GameContent } from "./content/mockGameContent";
 import {
-  createLocalSimulationAuthority,
-  createRemoteSimulationAuthority,
-  type SimulationAuthority,
-} from "./authority/simulationAuthority";
+  createLocalGameAuthority,
+  createRemoteGameAuthority,
+  type PlayerAddressableGameAuthority,
+} from "./authority/gameAuthority";
 import {
   createWorldSizingPolicy,
   type WorldSizing,
@@ -28,6 +34,7 @@ export type GameEngineOptions = {
   matchSetup?: MatchSetup;
   content?: GameContent;
   remoteTransport?: RemoteGameTransport;
+  localPlayerId?: number;
   rendererAssets?: RendererAssets;
 };
 
@@ -35,13 +42,13 @@ export class GameEngine {
   private readonly renderer: CanvasGameRenderer;
   private readonly localInput: CanvasInputSource;
   private readonly aiInput = new AiIntentSource();
-  private readonly authority: SimulationAuthority;
+  private readonly authority: PlayerAddressableGameAuthority;
   private readonly snapshotListeners = new Set<
-    (snapshot: GameSnapshot) => void
+    (snapshot: GameViewState) => void
   >();
   private animationFrameId: number | null = null;
   private lastTimestamp = 0;
-  private latestSnapshot: GameSnapshot | null = null;
+  private latestSnapshot: GameViewState | null = null;
   private sizing: WorldSizing;
   private inputLayout: CanvasInputLayout;
   private readonly unsubscribeAuthority: () => void;
@@ -59,12 +66,15 @@ export class GameEngine {
     this.localInput = new CanvasInputSource(options.canvas, this.inputLayout);
 
     if (options.mode === "online" && options.remoteTransport) {
-      this.authority = createRemoteSimulationAuthority(options.remoteTransport);
+      this.authority = createRemoteGameAuthority({
+        transport: options.remoteTransport,
+        localPlayerId: options.localPlayerId ?? 0,
+      });
     } else {
       const setup = options.matchSetup ?? createDefaultMatchSetup(options.mode);
       const content = options.content ?? mockGameContent;
-      this.authority = createLocalSimulationAuthority({
-        mode: options.mode,
+      this.authority = createLocalGameAuthority({
+        mode: options.mode === "online" ? "localTwoPlayer" : options.mode,
         setup,
         content,
         worldSize: this.sizing.world,
@@ -103,18 +113,28 @@ export class GameEngine {
   }
 
   submitIntent(playerId: number, intent: PlayerIntent): boolean {
-    const accepted = this.authority.submitIntent(playerId, intent);
-    const snapshot = this.authority.snapshot();
+    const snapshotBeforeAction = this.authority.getViewState();
+    if (snapshotBeforeAction?.match.activePlayerId !== playerId) return false;
+
+    const accepted = this.authority.submitPlayerIntent(playerId, intent);
+    const snapshot = this.authority.getViewState();
     if (snapshot) this.publishSnapshot(snapshot);
     return accepted;
   }
 
-  getSnapshot(): GameSnapshot | null {
-    this.latestSnapshot = this.authority.snapshot();
+  submitAction(action: GameAction): boolean {
+    const accepted = this.authority.submitAction(action);
+    const snapshot = this.authority.getViewState();
+    if (snapshot) this.publishSnapshot(snapshot);
+    return accepted;
+  }
+
+  getSnapshot(): GameViewState | null {
+    this.latestSnapshot = this.authority.getViewState();
     return this.latestSnapshot;
   }
 
-  subscribe(listener: (snapshot: GameSnapshot) => void): () => void {
+  subscribe(listener: (snapshot: GameViewState) => void): () => void {
     this.snapshotListeners.add(listener);
     const snapshot = this.getSnapshot();
     if (snapshot) listener(snapshot);
@@ -136,7 +156,7 @@ export class GameEngine {
   };
 
   private update(dt: number): void {
-    const snapshotBeforeInput = this.authority.snapshot();
+    const snapshotBeforeInput = this.authority.getViewState();
     if (!snapshotBeforeInput) {
       this.authority.update(dt);
       return;
@@ -162,7 +182,7 @@ export class GameEngine {
     }
 
     this.authority.update(dt);
-    const snapshot = this.authority.snapshot();
+    const snapshot = this.authority.getViewState();
     if (snapshot) {
       this.renderer.render(snapshot);
       this.publishSnapshot(snapshot);
@@ -171,11 +191,13 @@ export class GameEngine {
 
   private submitIntents(playerId: number, intents: PlayerIntent[]): void {
     for (const intent of intents) {
-      this.authority.submitIntent(playerId, intent);
+      if (snapshotActivePlayerMatches(this.authority.getViewState(), playerId)) {
+        this.authority.submitPlayerIntent(playerId, intent);
+      }
     }
   }
 
-  private publishSnapshot(snapshot: GameSnapshot): void {
+  private publishSnapshot(snapshot: GameViewState): void {
     this.latestSnapshot = snapshot;
     for (const listener of this.snapshotListeners) {
       listener(snapshot);
@@ -210,4 +232,11 @@ export class GameEngine {
     this.options.canvas.width = this.sizing.backing.width;
     this.options.canvas.height = this.sizing.backing.height;
   }
+}
+
+function snapshotActivePlayerMatches(
+  snapshot: GameViewState | null,
+  playerId: number,
+): boolean {
+  return snapshot?.match.activePlayerId === playerId;
 }
