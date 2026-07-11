@@ -5,7 +5,6 @@ import { useAuthStore } from "../../store/useAuthStore";
 import { useWebSocketStore } from "../../store/useWebSocketStore";
 import { useEffect, useRef, useState } from "react";
 import Loader from "../../components/misc/Loader";
-import type { GameEvent } from "../../api/ws/dto/game/GameEventDto";
 import { createOnlineGameplayTransport } from "../../game/online/OnlineGameplayTransport";
 import { createOnlineGameplayAuthority } from "../../game/online/OnlineGameplayAuthority";
 import { GameEngine } from "../../game";
@@ -32,7 +31,6 @@ function GameView({ gameSessionId }: { gameSessionId: string }) {
   const [rendererAssets, setRendererAssets] = useState<RendererAssets | null>(null);
   const [isSessionReady, setIsSessionReady] = useState(false);
   const [hasViewState, setHasViewState] = useState(false);
-  const [localPlayerId, setLocalPlayerId] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -100,17 +98,10 @@ function GameView({ gameSessionId }: { gameSessionId: string }) {
     const gameplayAuthority = createOnlineGameplayAuthority({
       transport: gameplayTransport,
     });
-    const unsubscribeGameEvents = gameplayTransport.subscribeToGameEvents((event: GameEvent) => {
-      if (event.type === "GAME_STARTED" && event.payload.gameSessionId === gameSessionId) {
-        setLocalPlayerId(event.payload.localPlayerId);
-      }
-    });
     const engine = new GameEngine({
       canvas,
       mode: "online",
       authority: gameplayAuthority,
-      onlineTransport: gameplayTransport,
-      localPlayerId: localPlayerId ?? undefined,
       rendererAssets,
     });
 
@@ -129,7 +120,6 @@ function GameView({ gameSessionId }: { gameSessionId: string }) {
 
     return () => {
       resizeObserver.disconnect();
-      unsubscribeGameEvents();
       unsubscribeViewState();
       engine.stop();
       gameplayTransport.destroy();

@@ -1,16 +1,16 @@
 import assert from "node:assert/strict";
 
-import { createMockRemoteTransport } from "../src/game/authority/createMockRemoteTransport";
-import {
-  createLocalGameAuthority,
-  createRemoteGameAuthority,
-} from "../src/game/authority/gameAuthority";
+import { createLocalGameAuthority } from "../src/game/authority/gameAuthority";
 import {
   mockGameContent,
   type GameContent,
 } from "../src/game/content/mockGameContent";
 import { createDefaultMatchSetup } from "../src/game/world/createInitialWorld";
 import type { GameAuthority, GameMode, GameViewState } from "../src/game";
+import {
+  createMockSnapshotRemoteTransport,
+  createSnapshotRemoteSimulationAuthority,
+} from "./support/snapshotRemoteAuthoritySupport";
 
 function createLocalAuthority(
   mode: Exclude<GameMode, "online"> = "localTwoPlayer",
@@ -269,41 +269,30 @@ function updateUntil(
 }
 
 {
-  const transport = createMockRemoteTransport({
+  const transport = createMockSnapshotRemoteTransport({
     setup: createDefaultMatchSetup("online"),
     content: mockGameContent,
     width: 960,
     height: 560,
     latencyMs: 0,
   });
-  const authority = createRemoteGameAuthority({
-    transport,
-    localPlayerId: 0,
-  });
+  const remoteSimulation = createSnapshotRemoteSimulationAuthority(transport);
   const seen: string[] = [];
-  const unsubscribe = authority.subscribe((state) => {
-    seen.push(state.tanks[0]?.selectedProjectileSlotId ?? "");
+  const unsubscribe = remoteSimulation.subscribe((snapshot) => {
+    seen.push(snapshot.tanks[0]?.tank.selectedProjectileSlotId ?? "");
   });
 
   assert.equal(
-    authority.submitAction({
-      type: "selectProjectileSlot",
-      projectileSlotId: "mortar",
-    }),
-    false,
-  );
-
-  await new Promise((resolve) => setTimeout(resolve, 5));
-  assert.equal(
-    authority.submitAction({
+    remoteSimulation.submitPlayerAction(0, {
       type: "selectProjectileSlot",
       projectileSlotId: "mortar",
     }),
     true,
   );
+
   await new Promise((resolve) => setTimeout(resolve, 5));
 
   unsubscribe();
-  authority.destroy();
+  remoteSimulation.destroy();
   assert.ok(seen.includes("mortar"));
 }

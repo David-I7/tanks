@@ -5,12 +5,8 @@ import {
   GameEngine,
   type GameMode,
 } from "../../game";
-import { createMockRemoteTransport } from "../../game/authority/createMockRemoteTransport";
-import { mockGameContent } from "../../game/content/mockGameContent";
 import ResourceManager from "../../game/resources/ResourceManager";
 import type { RendererAssets } from "../../game/rendering/CanvasGameRenderer";
-import { createWorldSizingPolicy } from "../../game/world/worldSizing";
-import { createDefaultMatchSetup } from "../../game/world/createInitialWorld";
 
 const modes: Array<{ value: GameMode; label: string; icon: typeof Monitor }> = [
   { value: "localTwoPlayer", label: "Local Two-Player", icon: Monitor },
@@ -46,25 +42,11 @@ export default function TestPage() {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const rect = canvas.getBoundingClientRect();
-    const sizing = createWorldSizingPolicy({
-      viewport: { width: rect.width, height: rect.height },
-      devicePixelRatio: window.devicePixelRatio || 1,
-    });
     engineRef.current?.stop();
     const engine = new GameEngine({
       canvas,
       mode,
       rendererAssets,
-      remoteTransport:
-        mode === "online"
-          ? createMockRemoteTransport({
-              setup: createDefaultMatchSetup("online"),
-              content: mockGameContent,
-              width: sizing.world.width,
-              height: sizing.world.height,
-            })
-          : undefined,
     });
 
     engineRef.current = engine;

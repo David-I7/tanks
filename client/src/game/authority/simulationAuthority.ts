@@ -6,10 +6,6 @@ import {
 } from "../world/createInitialWorld";
 import { LocalSimulationAuthority } from "../simulation/LocalSimulationAuthority";
 import type { GameAction, GameMode, GameSnapshot, MatchSetup } from "../types";
-import {
-  RemoteSimulationAuthority,
-  type RemoteGameTransport,
-} from "./RemoteSimulationAuthority";
 
 export type SimulationAuthority = {
   submitPlayerAction(playerId: number, action: GameAction): boolean;
@@ -58,10 +54,4 @@ export function createLocalSimulationAuthority(options: {
       localAuthority.destroy();
     },
   };
-}
-
-export function createRemoteSimulationAuthority(
-  transport: RemoteGameTransport,
-): SimulationAuthority {
-  return new RemoteSimulationAuthority(transport);
 }

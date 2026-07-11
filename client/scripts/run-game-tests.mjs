@@ -6,6 +6,7 @@ const tests = [
   "tests\\online-gameplay-protocol-contract-tests.ts",
   "tests\\online-gameplay-transport-tests.ts",
   "tests\\online-gameplay-authority-tests.ts",
+  "tests\\contract-old-snapshot-remote-authority-tests.ts",
   "tests\\online-initial-state-tests.ts",
   "tests\\online-client-state-projection-tests.ts",
   "tests\\online-golden-simulation-tests.ts",

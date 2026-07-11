@@ -1,5 +1,3 @@
-import { type RemoteGameTransport } from "./authority/RemoteSimulationAuthority";
-import type { OnlineGameplayTransport } from "./online/OnlineGameplayTransport";
 import { AiIntentSource } from "./input/AiIntentSource";
 import {
   CanvasInputSource,
@@ -19,7 +17,6 @@ import type {
 import { mockGameContent, type GameContent } from "./content/mockGameContent";
 import {
   createLocalGameAuthority,
-  createRemoteGameAuthority,
   type GameAuthority,
 } from "./authority/gameAuthority";
 import {
@@ -33,9 +30,6 @@ export type GameEngineOptions = {
   authority?: GameAuthority;
   matchSetup?: MatchSetup;
   content?: GameContent;
-  onlineTransport?: OnlineGameplayTransport;
-  remoteTransport?: RemoteGameTransport;
-  localPlayerId?: number;
   rendererAssets?: RendererAssets;
 };
 
@@ -68,11 +62,6 @@ export class GameEngine {
 
     if (options.authority) {
       this.authority = options.authority;
-    } else if (options.mode === "online" && options.remoteTransport) {
-      this.authority = createRemoteGameAuthority({
-        transport: options.remoteTransport,
-        localPlayerId: options.localPlayerId ?? 0,
-      });
     } else {
       const setup = options.matchSetup ?? createDefaultMatchSetup(options.mode);
       const content = options.content ?? mockGameContent;

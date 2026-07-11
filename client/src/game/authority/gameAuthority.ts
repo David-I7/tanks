@@ -2,10 +2,8 @@ import type { GameContent } from "../content/mockGameContent";
 import type { WorldSize } from "../world/worldSizing";
 import {
   createLocalSimulationAuthority,
-  createRemoteSimulationAuthority,
   type SimulationAuthority,
 } from "./simulationAuthority";
-import type { RemoteGameTransport } from "./RemoteSimulationAuthority";
 import type {
   GameAction,
   ControllerKind,
@@ -78,16 +76,6 @@ export function createLocalGameAuthority(options: {
   return new SimulationGameAuthority(
     createLocalSimulationAuthority(options),
     (state, source) => resolveActiveLocalActor(state, source),
-  );
-}
-
-export function createRemoteGameAuthority(options: {
-  transport: RemoteGameTransport;
-  localPlayerId: number;
-}): GameAuthority {
-  return new SimulationGameAuthority(
-    createRemoteSimulationAuthority(options.transport),
-    () => options.localPlayerId,
   );
 }
 
