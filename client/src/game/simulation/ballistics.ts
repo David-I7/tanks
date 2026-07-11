@@ -1,4 +1,4 @@
-import type { GameSnapshot } from "../types";
+import type { GameViewState } from "../types";
 
 export const GRAVITY = 520;
 export const MUZZLE_OFFSET = 30;
@@ -17,20 +17,22 @@ export function getMuzzlePosition(tankX: number, tankY: number, angle: number): 
 }
 
 export function simulateTrajectoryPreview(
-  snapshot: GameSnapshot,
+  snapshot: GameViewState,
   playerId: number,
   maxPoints = 90,
 ): TrajectoryPoint[] {
-  const activeTank = snapshot.tanks.find((entry) => entry.tank.playerId === playerId && entry.tank.alive);
+  const activeTank = snapshot.tanks.find(
+    (entry) => entry.playerId === playerId && entry.alive,
+  );
   if (!activeTank) return [];
 
   const muzzle = getMuzzlePosition(
     activeTank.position.x,
     activeTank.position.y,
-    activeTank.tank.aimAngle,
+    activeTank.aimAngle,
   );
-  const slot = activeTank.tank.loadout.find(
-    (entry) => entry.id === activeTank.tank.selectedProjectileSlotId,
+  const slot = activeTank.loadout.find(
+    (entry) => entry.id === activeTank.selectedProjectileSlotId,
   );
   const projectileDefinition = slot
     ? snapshot.projectileDefinitions[slot.projectileDefinitionId]
@@ -43,12 +45,12 @@ export function simulateTrajectoryPreview(
   };
   const velocity = {
     x:
-      Math.cos(activeTank.tank.aimAngle) *
-      activeTank.tank.power *
+      Math.cos(activeTank.aimAngle) *
+      activeTank.power *
       physics.muzzleVelocityScale,
     y:
-      Math.sin(activeTank.tank.aimAngle) *
-      activeTank.tank.power *
+      Math.sin(activeTank.aimAngle) *
+      activeTank.power *
       physics.muzzleVelocityScale,
   };
   const points: TrajectoryPoint[] = [];

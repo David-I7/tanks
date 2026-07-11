@@ -1,7 +1,7 @@
 import { createInitialWorld } from "../world/createInitialWorld";
 import { LocalSimulationAuthority } from "../simulation/LocalSimulationAuthority";
 import type { GameContent } from "../content/mockGameContent";
-import type { GameSnapshot, MatchSetup, RemotePlayerIntent } from "../types";
+import type { GameSnapshot, MatchSetup, RemoteGameAction } from "../types";
 import type { RemoteGameTransport } from "./RemoteSimulationAuthority";
 
 export type MockRemoteTransportOptions = {
@@ -47,9 +47,9 @@ export function createMockRemoteTransport(
   };
 
   return {
-    sendIntent(remoteIntent: RemotePlayerIntent): void {
+    sendIntent(remoteIntent: RemoteGameAction): void {
       schedule(() => {
-        authority.submitIntent(remoteIntent.playerId, remoteIntent.intent);
+        authority.submitPlayerAction(remoteIntent.playerId, remoteIntent.intent);
       });
     },
     onSnapshot(listener: (snapshot: GameSnapshot) => void): () => void {

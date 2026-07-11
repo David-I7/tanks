@@ -5,6 +5,7 @@ import type {
   OnlineIntentRejectionDiff,
   OnlineMovementSegmentDiff,
   OnlineProjectileResolutionDiff,
+  PlayerId,
   OnlineResyncStateDiff,
   OnlineTankSnapshot,
   OnlineTerrainPatch,
@@ -14,6 +15,7 @@ import type {
   OnlineMoveIntent,
   ServerTick,
 } from "../../api/ws/dto/gameplay/onlineGameplayProtocol";
+import type { Vec2 } from "../types";
 
 const SERVER_TICK_RATE_HZ = 30;
 
@@ -34,8 +36,17 @@ export type ConfirmedMovementSegment = OnlineMovementSegmentDiff["payload"] & {
   durationMs: number;
 };
 
+export type OnlineImpactProjectionEvent = {
+  id: number;
+  position: Vec2;
+  animationId: string;
+  projectileDefinitionId: string;
+  createdAtMonotonicMs: number;
+};
+
 export type OnlineConfirmedState = {
   gameSessionId: string;
+  localPlayerId: PlayerId;
   state: OnlineGameStateSnapshot;
   lastConfirmedDiffSequence: DiffSequence;
   lastConfirmedDiffServerTick: ServerTick;
@@ -43,6 +54,7 @@ export type OnlineConfirmedState = {
   resyncStatus: OnlineResyncStatus;
   pendingPredictions: PendingPrediction[];
   confirmedMovementSegments: ConfirmedMovementSegment[];
+  impactEvents: OnlineImpactProjectionEvent[];
 };
 
 export type OnlineResyncStatus =
@@ -79,6 +91,7 @@ export function initializeOnlineConfirmedState(
 
   return {
     gameSessionId: diff.gameSessionId,
+    localPlayerId: payload.localPlayerId,
     state: payload.state,
     lastConfirmedDiffSequence: diff.sequence,
     lastConfirmedDiffServerTick: diff.serverTick,
@@ -86,6 +99,7 @@ export function initializeOnlineConfirmedState(
     resyncStatus: { kind: "READY", lastResyncSequence: null },
     pendingPredictions: [],
     confirmedMovementSegments: [],
+    impactEvents: [],
   };
 }
 
@@ -100,6 +114,7 @@ export function initializeOnlineConfirmedStateFromResync(
 
   return {
     gameSessionId: diff.gameSessionId,
+    localPlayerId: payload.localPlayerId,
     state: payload.state,
     lastConfirmedDiffSequence: diff.sequence,
     lastConfirmedDiffServerTick: diff.serverTick,
@@ -107,6 +122,7 @@ export function initializeOnlineConfirmedStateFromResync(
     resyncStatus: { kind: "READY", lastResyncSequence: payload.replacesSequence },
     pendingPredictions: [],
     confirmedMovementSegments: [],
+    impactEvents: [],
   };
 }
 
@@ -116,6 +132,10 @@ export function applyOnlineStateDiff(
   monotonicNowMs: () => number = () => performance.now(),
 ): OnlineConfirmedState {
   if (diff.type === "RESYNC_STATE") {
+    if (isStaleResyncDiff(confirmed, diff as OnlineDiffEnvelope<OnlineResyncStateDiff>)) {
+      return confirmed;
+    }
+
     return applyDiffPayload(
       {
         ...confirmed,
@@ -251,11 +271,13 @@ function applyDiffPayload(
       const resyncPayload = diff.payload as OnlineResyncStateDiff["payload"];
       return {
         ...confirmed,
+        localPlayerId: resyncPayload.localPlayerId,
         state: resyncPayload.state,
         expectedNextDiffSequence: resyncPayload.replacesSequence + 1,
         resyncStatus: { kind: "READY", lastResyncSequence: resyncPayload.replacesSequence },
         pendingPredictions: [],
         confirmedMovementSegments: [],
+        impactEvents: [],
       };
     case "MOVEMENT_SEGMENT":
       return applyMovementSegment(
@@ -267,6 +289,7 @@ function applyDiffPayload(
       return applyProjectileResolution(
         confirmed,
         diff.payload as OnlineProjectileResolutionDiff["payload"],
+        monotonicNowMs,
       );
     case "TERRAIN_PATCH":
       const terrainPayload = diff.payload as OnlineTerrainPatchDiff["payload"];
@@ -391,6 +414,7 @@ function interpolateTank(
 function applyProjectileResolution(
   confirmed: OnlineConfirmedState,
   resolution: OnlineProjectileResolutionDiff["payload"],
+  monotonicNowMs: () => number,
 ): OnlineConfirmedState {
   return {
     ...confirmed,
@@ -413,6 +437,15 @@ function applyProjectileResolution(
         (projectile) => projectile.entityId !== resolution.projectileEntityId,
       ),
     },
+    impactEvents: [
+      {
+        id: resolution.projectileEntityId,
+        position: { ...resolution.impact },
+        animationId: resolution.impactRenderAssetId,
+        projectileDefinitionId: resolution.projectileDefinitionId,
+        createdAtMonotonicMs: monotonicNowMs(),
+      },
+    ],
   };
 }
 
@@ -445,6 +478,21 @@ function applyTerrainPatches(
 
     return currentTerrain;
   }, terrain);
+}
+
+function isStaleResyncDiff(
+  confirmed: OnlineConfirmedState,
+  diff: OnlineDiffEnvelope<OnlineResyncStateDiff>,
+): boolean {
+  const payload = diff.payload as OnlineResyncStateDiff["payload"];
+  if (diff.sequence <= confirmed.lastConfirmedDiffSequence) {
+    return true;
+  }
+
+  return (
+    confirmed.resyncStatus.lastResyncSequence !== null &&
+    payload.replacesSequence <= confirmed.resyncStatus.lastResyncSequence
+  );
 }
 
 function getReconciledIntent(diff: OnlineDiffEnvelope): ReconciledIntent | null {

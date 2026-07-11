@@ -1,5 +1,6 @@
 import { Bot, Monitor, Radio } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
 import {
   GameEngine,
   type GameMode,
@@ -12,15 +13,18 @@ import { createWorldSizingPolicy } from "../../game/world/worldSizing";
 import { createDefaultMatchSetup } from "../../game/world/createInitialWorld";
 
 const modes: Array<{ value: GameMode; label: string; icon: typeof Monitor }> = [
-  { value: "twoPlayer", label: "2 Player", icon: Monitor },
-  { value: "ai", label: "Player vs AI", icon: Bot },
+  { value: "localTwoPlayer", label: "Local Two-Player", icon: Monitor },
+  { value: "playerVsAi", label: "Player vs AI", icon: Bot },
   { value: "online", label: "Online", icon: Radio },
 ];
 
 export default function TestPage() {
+  const location = useLocation();
+  const stateMode = (location.state as any)?.mode;
+  const initialMode = stateMode === "playerVsAi" || stateMode === "localTwoPlayer" || stateMode === "online" ? stateMode : "localTwoPlayer";
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const engineRef = useRef<GameEngine | null>(null);
-  const [mode, setMode] = useState<GameMode>("twoPlayer");
+  const [mode, setMode] = useState<GameMode>(initialMode);
   const [rendererAssets, setRendererAssets] = useState<RendererAssets>({});
 
   useEffect(() => {

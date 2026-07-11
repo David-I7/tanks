@@ -1,6 +1,6 @@
 export type EntityId = number;
 
-export type GameMode = "online" | "twoPlayer" | "ai" | "singlePlayer";
+export type GameMode = "online" | "localTwoPlayer" | "playerVsAi";
 
 export type ControllerKind = "human" | "ai" | "remote";
 
@@ -8,7 +8,7 @@ export type ProjectileSlotId = string;
 export type ProjectileDefinitionId = string;
 export type TankDefinitionId = string;
 
-export type PlayerIntent =
+export type GameAction =
   | { type: "move"; direction: -1 | 0 | 1 }
   | { type: "aim"; angle: number; power: number }
   | { type: "selectProjectileSlot"; projectileSlotId: ProjectileSlotId }
@@ -19,9 +19,9 @@ export type PlayerIntent =
       projectileSlotId: ProjectileSlotId;
     };
 
-export type RemotePlayerIntent = {
+export type RemoteGameAction = {
   playerId: number;
-  intent: PlayerIntent;
+  intent: GameAction;
 };
 
 export type TurnPhase =
@@ -201,6 +201,26 @@ export type GameSnapshot = {
     projectile: ProjectileComponent;
   }>;
   impactEvents: ImpactEvent[];
+};
+
+export type GameViewState = {
+  match: MatchState;
+  terrain: TerrainSnapshot;
+  projectileDefinitions: Record<string, ProjectileDefinition>;
+  tanks: GameViewTank[];
+  projectiles: GameViewProjectile[];
+  impactEvents: ImpactEvent[];
+};
+
+export type GameViewTank = TankComponent & {
+  entityId: EntityId;
+  position: PositionComponent;
+};
+
+export type GameViewProjectile = ProjectileComponent & {
+  entityId: EntityId;
+  position: PositionComponent;
+  velocity: VelocityComponent;
 };
 
 export type GameAssets = {

@@ -2,8 +2,10 @@ package com.tanks.server.websocket.controllers;
 
 import com.tanks.server.dto.UserDto;
 import com.tanks.server.services.AuthService;
+import com.tanks.server.utils.ProblemDetailWriter;
 import com.tanks.server.websocket.config.WebSocketConfig;
 import com.tanks.server.websocket.config.WebSocketSecurityConfig;
+import com.tanks.server.websocket.dto.chat.ChatEventType;
 import com.tanks.server.websocket.entities.gameSession.GameSession;
 import com.tanks.server.websocket.entities.gameSession.GameSessionState;
 import com.tanks.server.websocket.entities.userSession.UserSession;
@@ -26,21 +28,31 @@ import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Import;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.messaging.simp.stomp.*;
+import org.springframework.util.MimeTypeUtils;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.web.socket.client.standard.StandardWebSocketClient;
 import org.springframework.web.socket.messaging.WebSocketStompClient;
 
+import java.nio.charset.StandardCharsets;
 import java.lang.reflect.Type;
 import java.util.HashMap;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.Authentication;
+import com.tanks.server.websocket.security.entites.WebSocketPrincipal;
+import com.tanks.server.websocket.exceptions.ProblemDetailException;
+import com.tanks.server.websocket.dto.chat.ChatEventRequestDto;
+
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.mock;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, classes = WebSocketControllerTest.TestApp.class)
 public class WebSocketControllerTest {
@@ -66,8 +78,8 @@ public class WebSocketControllerTest {
     @MockitoBean
     private RedisClaimService redisClaimService;
 
-    @MockitoBean
-    private com.tanks.server.utils.ProblemDetailWriter problemDetailWriter;
+    @Autowired
+    private ChatController chatController;
 
     @EnableAutoConfiguration(exclude = {
             org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration.class,
@@ -76,6 +88,7 @@ public class WebSocketControllerTest {
             org.springframework.boot.hibernate.autoconfigure.HibernateJpaAutoConfiguration.class,
             org.springframework.boot.data.jpa.autoconfigure.DataJpaRepositoriesAutoConfiguration.class
     })
+    @EnableMethodSecurity
     @Import({
             WebSocketConfig.class,
             WebSocketSecurityConfig.class,
@@ -84,9 +97,11 @@ public class WebSocketControllerTest {
             AuthorizationInterceptor.class,
             WebSocketEventListeners.class,
             LobbyController.class,
+            ChatController.class,
             GameSessionController.class,
             LobbyAuthorizationService.class,
             GameAuthorizationService.class,
+            ProblemDetailWriter.class,
             StompErrorHandler.class,
             WebSocketExceptionHandler.class
     })
@@ -98,6 +113,57 @@ public class WebSocketControllerTest {
                     .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
                     .build();
         }
+    }
+
+    @Test
+    public void sendMessageThrowsExceptionWhenUserSessionIsNull() {
+        Authentication auth = mock(Authentication.class);
+        WebSocketPrincipal principal = mock(WebSocketPrincipal.class);
+        when(auth.getPrincipal()).thenReturn(principal);
+        when(principal.getUserSession()).thenReturn(null);
+
+        ChatEventRequestDto requestDto = ChatEventRequestDto.builder()
+                .type(ChatEventType.CHAT_MESSAGE)
+                .message("hello")
+                .build();
+
+        assertThrows(ProblemDetailException.class, () -> {
+            chatController.sendMessage("lobby-id", requestDto, auth);
+        });
+    }
+
+    @Test
+    public void lobbyChatMessageRequiresAuthorizedLobbyTopicPresence() throws Exception {
+        UUID lobbyId = UUID.randomUUID();
+        UserSession lobbySession = createLobbySession(lobbyId);
+        StompSession session = connectAs(lobbySession);
+        CompletableFuture<String> chatFrame = new CompletableFuture<>();
+
+        session.subscribe("/topic/lobby/" + lobbyId, matchingByteArrayHandler(chatFrame, "CHAT_MESSAGE"));
+        TimeUnit.MILLISECONDS.sleep(100);
+        sendChatMessage(session, lobbyId, "ready");
+
+        String payload = chatFrame.get(5, TimeUnit.SECONDS);
+        assertTrue(payload.contains("\"type\":\"" + ChatEventType.CHAT_MESSAGE + "\""), payload);
+        assertTrue(payload.contains("\"sender\":\"player1\""), payload);
+        assertTrue(payload.contains("\"message\":\"ready\""), payload);
+        session.disconnect();
+    }
+
+    @Test
+    public void lobbyChatMessageWithoutLobbyTopicPresenceIsRejected() throws Exception {
+        UUID lobbyId = UUID.randomUUID();
+        UserSession lobbySession = createLobbySession(lobbyId);
+        StompSession session = connectAs(lobbySession);
+        CompletableFuture<String> errorFrame = new CompletableFuture<>();
+
+        session.subscribe("/user/queue/errors", byteArrayHandler(errorFrame));
+        TimeUnit.MILLISECONDS.sleep(100);
+        sendChatMessage(session, lobbyId, "ready");
+
+        String payload = errorFrame.get(5, TimeUnit.SECONDS);
+        assertTrue(payload.contains("User is not connected to a lobby"), payload);
+        session.disconnect();
     }
 
     @Test
@@ -217,5 +283,95 @@ public class WebSocketControllerTest {
 
         assertTrue(subscribeFuture.get());
         session.disconnect();
+    }
+
+    private StompSession connectAs(UserSession userSession) throws Exception {
+        UserDto userDto = new UserDto(userSession.getId(), userSession.getUsername(), userSession.getUsername() + "@test.com");
+        when(authService.parseUser("valid-token")).thenReturn(userDto);
+        when(redisClaimService.claimSocket(any(Long.class), anyString())).thenReturn(true);
+        when(redisClaimService.consumeUserSessionReloadRequired(userSession.getId())).thenReturn(false);
+        when(userSessionService.findById(userSession.getId())).thenReturn(userSession);
+        when(userSessionService.save(any(UserSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(userSessionService.isInLobby(any(UserSession.class), anyString())).thenCallRealMethod();
+        when(userSessionService.isConnectedToLobby(any(UserSession.class))).thenCallRealMethod();
+
+        WebSocketStompClient stompClient = new WebSocketStompClient(new StandardWebSocketClient());
+        StompHeaders connectHeaders = new StompHeaders();
+        connectHeaders.add("Authorization", "Bearer valid-token");
+
+        CompletableFuture<StompSession> sessionFuture = new CompletableFuture<>();
+        stompClient.connectAsync("ws://localhost:" + port + "/ws", new org.springframework.web.socket.WebSocketHttpHeaders(), connectHeaders, new StompSessionHandlerAdapter() {
+            @Override
+            public void afterConnected(StompSession session, StompHeaders connectedHeaders) {
+                sessionFuture.complete(session);
+            }
+
+            @Override
+            public Type getPayloadType(StompHeaders headers) {
+                return byte[].class;
+            }
+
+            @Override
+            public void handleFrame(StompHeaders headers, Object payload) {
+                String errorPayload = payload instanceof byte[] bytes
+                        ? new String(bytes, StandardCharsets.UTF_8)
+                        : String.valueOf(payload);
+                sessionFuture.completeExceptionally(new RuntimeException(errorPayload));
+            }
+
+            @Override
+            public void handleException(StompSession session, StompCommand command, StompHeaders headers, byte[] payload, Throwable exception) {
+                sessionFuture.completeExceptionally(exception);
+            }
+
+            @Override
+            public void handleTransportError(StompSession session, Throwable exception) {
+                sessionFuture.completeExceptionally(exception);
+            }
+        });
+
+        StompSession session = sessionFuture.get(5, TimeUnit.SECONDS);
+        assertNotNull(session);
+        assertTrue(session.isConnected());
+        return session;
+    }
+
+    private static void sendChatMessage(StompSession session, UUID lobbyId, String message) {
+        StompHeaders sendHeaders = new StompHeaders();
+        sendHeaders.setDestination("/app/chat/" + lobbyId + "/send");
+        sendHeaders.setContentType(MimeTypeUtils.APPLICATION_JSON);
+        String payload = "{\"type\":\"CHAT_MESSAGE\",\"message\":\"" + message + "\"}";
+        session.send(sendHeaders, payload.getBytes(StandardCharsets.UTF_8));
+    }
+
+    private static StompFrameHandler byteArrayHandler(CompletableFuture<String> frameFuture) {
+        return matchingByteArrayHandler(frameFuture, null);
+    }
+
+    private static StompFrameHandler matchingByteArrayHandler(CompletableFuture<String> frameFuture, String requiredText) {
+        return new StompFrameHandler() {
+            @Override
+            public Type getPayloadType(StompHeaders headers) {
+                return byte[].class;
+            }
+
+            @Override
+            public void handleFrame(StompHeaders headers, Object payload) {
+                String text = new String((byte[]) payload, StandardCharsets.UTF_8);
+                if (requiredText == null || text.contains(requiredText)) {
+                    frameFuture.complete(text);
+                }
+            }
+        };
+    }
+
+    private UserSession createLobbySession(UUID lobbyId) {
+        return UserSession.builder()
+                .id(1L)
+                .username("player1")
+                .state(UserSessionState.IN_LOBBY)
+                .lobbyId(lobbyId)
+                .topicSubscriptions(new HashMap<>())
+                .build();
     }
 }

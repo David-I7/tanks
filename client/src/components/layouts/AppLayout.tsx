@@ -11,7 +11,7 @@ export default function AppLayout() {
   const location = useLocation();
 
   useEffect(() => {
-    const publicNonAuthPaths = ["/", "/test"];
+    const publicNonAuthPaths = ["/", "/test", "/game/local"];
     if (publicNonAuthPaths.includes(location.pathname)) {
       new BrowserStorage(sessionStorage).remove(REDIRECT_KEY);
     }

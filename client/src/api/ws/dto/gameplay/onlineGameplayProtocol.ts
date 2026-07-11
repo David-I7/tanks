@@ -65,6 +65,17 @@ export type OnlineStateDiff =
   | OnlineTurnTransitionDiff
   | OnlineTerminalGameDiff;
 
+const ONLINE_STATE_DIFF_TYPES = new Set([
+  "INITIAL_STATE",
+  "RESYNC_STATE",
+  "MOVEMENT_SEGMENT",
+  "PROJECTILE_RESOLUTION",
+  "TERRAIN_PATCH",
+  "INTENT_REJECTION",
+  "TURN_TRANSITION",
+  "TERMINAL_GAME",
+]);
+
 export type OnlineDiffEnvelope<TDiff extends OnlineStateDiff = OnlineStateDiff> = {
   protocolVersion: OnlineGameplayProtocolVersion;
   gameSessionId: GameSessionId;
@@ -75,10 +86,37 @@ export type OnlineDiffEnvelope<TDiff extends OnlineStateDiff = OnlineStateDiff> 
   payload: TDiff["payload"];
 };
 
+export function isOnlineDiffEnvelope(value: unknown): value is OnlineDiffEnvelope {
+  if (!value || typeof value !== "object") return false;
+
+  const candidate = value as {
+    protocolVersion?: unknown;
+    gameSessionId?: unknown;
+    sequence?: unknown;
+    serverTick?: unknown;
+    type?: unknown;
+    intentId?: unknown;
+    payload?: unknown;
+  };
+
+  return (
+    candidate.protocolVersion === "online-gameplay.v1" &&
+    typeof candidate.gameSessionId === "string" &&
+    typeof candidate.sequence === "number" &&
+    typeof candidate.serverTick === "number" &&
+    typeof candidate.type === "string" &&
+    ONLINE_STATE_DIFF_TYPES.has(candidate.type) &&
+    (typeof candidate.intentId === "string" || candidate.intentId === null) &&
+    typeof candidate.payload === "object" &&
+    candidate.payload !== null
+  );
+}
+
 export type OnlineInitialStateDiff = {
   type: "INITIAL_STATE";
   payload: {
     expectedNextDiffSequence: DiffSequence;
+    localPlayerId: PlayerId;
     state: OnlineGameStateSnapshot;
   };
 };
@@ -88,6 +126,7 @@ export type OnlineResyncStateDiff = {
   payload: {
     replacesSequence: DiffSequence;
     reason: "MISSED_DIFF" | "SERVER_CORRECTION" | "RECONNECT";
+    localPlayerId: PlayerId;
     state: OnlineGameStateSnapshot;
   };
 };
@@ -119,6 +158,7 @@ export type OnlineProjectileResolutionDiff = {
     projectileRenderAssetId: string;
     impactRenderAssetId: string;
     launch: OnlineVec2;
+    trajectory: OnlineVec2[];
     impact: OnlineVec2;
     damagedTanks: OnlineTankDamage[];
   };
@@ -328,22 +368,133 @@ export const onlineGameplayProtocolExamples = {
       intentId: null,
       payload: {
         expectedNextDiffSequence: 2,
+        localPlayerId: 1,
         state: exampleState,
       },
     },
     {
       protocolVersion: "online-gameplay.v1",
       gameSessionId: "game-123",
-      sequence: 8,
-      serverTick: 240,
-      type: "INTENT_REJECTION",
-      intentId: "intent-abc",
+      sequence: 2,
+      serverTick: 30,
+      type: "RESYNC_STATE",
+      intentId: null,
       payload: {
-        rejectedIntentId: "intent-abc",
+        replacesSequence: 1,
+        reason: "MISSED_DIFF",
+        localPlayerId: 1,
+        state: exampleState,
+      },
+    },
+    {
+      protocolVersion: "online-gameplay.v1",
+      gameSessionId: "game-123",
+      sequence: 3,
+      serverTick: 60,
+      type: "MOVEMENT_SEGMENT",
+      intentId: "intent-move",
+      payload: {
+        intentId: "intent-move",
+        playerId: 1,
+        tankEntityId: 10,
+        from: { x: 50, y: 120 },
+        to: { x: 55, y: 120 },
+        fuelBefore: 100,
+        fuelAfter: 95,
+        fuelSpent: 5,
+        startedServerTick: 60,
+        endedServerTick: 75,
+        durationTicks: 15,
+      },
+    },
+    {
+      protocolVersion: "online-gameplay.v1",
+      gameSessionId: "game-123",
+      sequence: 4,
+      serverTick: 90,
+      type: "PROJECTILE_RESOLUTION",
+      intentId: "intent-fire",
+      payload: {
+        intentId: "intent-fire",
+        projectileEntityId: 20,
+        ownerPlayerId: 1,
+        projectileDefinitionId: "basicShell",
+        projectileRenderAssetId: "projectile.basic-shell",
+        impactRenderAssetId: "impact.orange-pop",
+        launch: { x: 55, y: 110 },
+        trajectory: [
+          { x: 55, y: 110 },
+          { x: 120, y: 130 },
+        ],
+        impact: { x: 120, y: 130 },
+        damagedTanks: [
+          {
+            tankEntityId: 11,
+            playerId: 2,
+            damage: 35,
+            remainingHealth: 65,
+          },
+        ],
+      },
+    },
+    {
+      protocolVersion: "online-gameplay.v1",
+      gameSessionId: "game-123",
+      sequence: 5,
+      serverTick: 90,
+      type: "TERRAIN_PATCH",
+      intentId: null,
+      payload: {
+        patches: [
+          {
+            kind: "HEIGHTMAP_RANGE",
+            startX: 2,
+            surface: [1, 1, 2],
+          },
+        ],
+      },
+    },
+    {
+      protocolVersion: "online-gameplay.v1",
+      gameSessionId: "game-123",
+      sequence: 6,
+      serverTick: 120,
+      type: "INTENT_REJECTION",
+      intentId: "intent-stale",
+      payload: {
+        rejectedIntentId: "intent-stale",
         playerId: 1,
         reason: "STALE_BASE_STATE",
-        authoritativeSequence: 9,
-        authoritativeServerTick: 270,
+        authoritativeSequence: 6,
+        authoritativeServerTick: 120,
+      },
+    },
+    {
+      protocolVersion: "online-gameplay.v1",
+      gameSessionId: "game-123",
+      sequence: 7,
+      serverTick: 150,
+      type: "TURN_TRANSITION",
+      intentId: null,
+      payload: {
+        previousPlayerId: 1,
+        activePlayerId: 2,
+        turnNumber: 2,
+        phase: "AIMING",
+        turnEndsAtServerTick: 1050,
+      },
+    },
+    {
+      protocolVersion: "online-gameplay.v1",
+      gameSessionId: "game-123",
+      sequence: 8,
+      serverTick: 180,
+      type: "TERMINAL_GAME",
+      intentId: null,
+      payload: {
+        winnerPlayerId: 1,
+        reason: "LAST_TANK_STANDING",
+        finalState: exampleState,
       },
     },
   ],

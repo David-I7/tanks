@@ -4,7 +4,7 @@ import type {
   DamageEffect,
   EntityId,
   GameSnapshot,
-  PlayerIntent,
+  GameAction,
   ProjectileComponent,
   ProjectileDefinition,
   TankComponent,
@@ -33,7 +33,7 @@ export class LocalSimulationAuthority {
     readonly content: GameContent,
   ) {}
 
-  submitIntent(playerId: number, intent: PlayerIntent): boolean {
+  submitPlayerAction(playerId: number, action: GameAction): boolean {
     if (
       this.world.match.phase !== "aiming" &&
       this.world.match.phase !== "thinking"
@@ -49,7 +49,7 @@ export class LocalSimulationAuthority {
     const position = this.world.positions.get(tankEntityId);
     if (!tank || !position || !tank.alive) return false;
 
-    if (intent.type === "move") {
+    if (action.type === "move") {
       if (tank.fuel <= 0) return false;
       const fuelSpend = Math.min(tank.fuel, MOVE_FUEL_COST);
       const moveDistance = TANK_MOVE_STEP * (fuelSpend / MOVE_FUEL_COST);
@@ -57,7 +57,7 @@ export class LocalSimulationAuthority {
         TANK_HALF_WIDTH,
         Math.min(
           this.terrain.width - TANK_HALF_WIDTH,
-          position.x + intent.direction * moveDistance,
+          position.x + action.direction * moveDistance,
         ),
       );
       tank.fuel -= fuelSpend;
@@ -67,25 +67,25 @@ export class LocalSimulationAuthority {
       return true;
     }
 
-    if (intent.type === "selectProjectileSlot") {
-      if (!this.resolveProjectileDefinition(tank, intent.projectileSlotId)) {
+    if (action.type === "selectProjectileSlot") {
+      if (!this.resolveProjectileDefinition(tank, action.projectileSlotId)) {
         return false;
       }
-      tank.selectedProjectileSlotId = intent.projectileSlotId;
+      tank.selectedProjectileSlotId = action.projectileSlotId;
       this.publishFrame();
       return true;
     }
 
-    tank.aimAngle = intent.angle;
-    tank.power = Math.max(120, Math.min(intent.power, 680));
+    tank.aimAngle = action.angle;
+    tank.power = Math.max(120, Math.min(action.power, 680));
 
-    if (intent.type === "fire") {
+    if (action.type === "fire") {
       const projectileDefinition = this.resolveProjectileDefinition(
         tank,
-        intent.projectileSlotId,
+        action.projectileSlotId,
       );
       if (!projectileDefinition) return false;
-      tank.selectedProjectileSlotId = intent.projectileSlotId;
+      tank.selectedProjectileSlotId = action.projectileSlotId;
       this.spawnProjectile(tank, projectileDefinition, position.x, position.y);
       this.world.match.phase = "ballistics";
       this.world.match.turnTimeRemaining = 0;

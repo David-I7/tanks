@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { getPlayerMatchConfig } from "../src/game/modes";
 import {
   createDefaultMatchSetup,
   createInitialWorld,
@@ -10,9 +11,10 @@ import {
   createRemoteSimulationAuthority,
   type SimulationAuthority,
 } from "../src/game/authority/simulationAuthority";
+import { snapshotToGameViewState } from "../src/game/authority/gameAuthority";
 import { createWorldSizingPolicy } from "../src/game/world/worldSizing";
 import { createWorldStatePublisher } from "../src/game/world/worldStatePublisher";
-import { collectPlayerIntents } from "../src/game/input/CanvasInputSource";
+import { collectGameActions } from "../src/game/input/CanvasInputSource";
 import {
   findProjectileSlotAtCanvasPoint,
   getProjectileSelectorLayout,
@@ -22,9 +24,9 @@ import {
   mockGameContent,
   type GameContent,
 } from "../src/game/content/mockGameContent";
-import type { MatchSetup } from "../src/game/types";
+import type { GameViewState, MatchSetup } from "../src/game/types";
 
-function makeAuthority(setup: MatchSetup = createDefaultMatchSetup("twoPlayer")) {
+function makeAuthority(setup: MatchSetup = createDefaultMatchSetup("localTwoPlayer")) {
   const { world, terrain, content } = createInitialWorld(setup, mockGameContent, 960, 560);
   return new LocalSimulationAuthority(world, terrain, content);
 }
@@ -35,6 +37,36 @@ function firstTank(authority: LocalSimulationAuthority) {
   return tank;
 }
 
+function viewStateWithActiveSecondTank(
+  authority: LocalSimulationAuthority,
+): GameViewState {
+  const viewState = snapshotToGameViewState(authority.snapshot());
+  viewState.match.activePlayerId = 1;
+  const activeTank = viewState.tanks.find((entry) => entry.playerId === 1);
+  assert.ok(activeTank);
+  activeTank.loadout = withDistinctSecondPlayerSlotIds(activeTank.loadout);
+  activeTank.selectedProjectileSlotId = activeTank.loadout[0]!.id;
+  return viewState;
+}
+
+function withDistinctSecondPlayerSlotIds(
+  loadout: GameViewState["tanks"][number]["loadout"],
+): GameViewState["tanks"][number]["loadout"] {
+  return loadout.map((slot) => ({
+    ...slot,
+    id: `second-player-${slot.id}`,
+  }));
+}
+
+function canvasInteractionContext(gameViewState: GameViewState) {
+  return {
+    gameViewState,
+    cameraX: 0,
+    viewport: { width: 960, height: 560 },
+    canvasRect: { left: 0, top: 0, width: 960, height: 560 },
+  };
+}
+
 async function expectSharedAuthoritySelection(
   authority: SimulationAuthority,
 ): Promise<void> {
@@ -43,7 +75,7 @@ async function expectSharedAuthoritySelection(
     seen.push(snapshot.tanks[0]?.tank.selectedProjectileSlotId ?? "");
   });
   assert.equal(
-    authority.submitIntent(0, {
+    authority.submitPlayerAction(0, {
       type: "selectProjectileSlot",
       projectileSlotId: "mortar",
     }),
@@ -80,12 +112,12 @@ async function expectSharedAuthoritySelection(
   assert.deepEqual(sizing.backing, { width: 1920, height: 1120 });
 
   const first = createInitialWorld(
-    createDefaultMatchSetup("twoPlayer"),
+    createDefaultMatchSetup("localTwoPlayer"),
     mockGameContent,
     sizing.world,
   );
   const second = createInitialWorld(
-    createDefaultMatchSetup("twoPlayer"),
+    createDefaultMatchSetup("localTwoPlayer"),
     mockGameContent,
     sameViewportDifferentDpr.world,
   );
@@ -98,7 +130,7 @@ async function expectSharedAuthoritySelection(
     () =>
       createInitialWorld(
         {
-          mode: "twoPlayer",
+          mode: "localTwoPlayer",
           players: [
             {
               id: 0,
@@ -126,7 +158,7 @@ async function expectSharedAuthoritySelection(
     () =>
       createInitialWorld(
         {
-          mode: "twoPlayer",
+          mode: "localTwoPlayer",
           players: [
             {
               id: 0,
@@ -148,7 +180,7 @@ async function expectSharedAuthoritySelection(
   const authority = makeAuthority();
   const before = firstTank(authority).position.x;
   assert.equal(firstTank(authority).tank.maxFuel, 240);
-  authority.submitIntent(0, { type: "move", direction: 1 });
+  authority.submitPlayerAction(0, { type: "move", direction: 1 });
   const after = firstTank(authority).position.x;
   assert.ok(
     after - before <= 3,
@@ -160,14 +192,14 @@ async function expectSharedAuthoritySelection(
 {
   const authority = makeAuthority();
   assert.equal(
-    authority.submitIntent(1, {
+    authority.submitPlayerAction(1, {
       type: "selectProjectileSlot",
       projectileSlotId: "mortar",
     }),
     false,
   );
   assert.equal(
-    authority.submitIntent(0, {
+    authority.submitPlayerAction(0, {
       type: "selectProjectileSlot",
       projectileSlotId: "mortar",
     }),
@@ -179,7 +211,7 @@ async function expectSharedAuthoritySelection(
 {
   await expectSharedAuthoritySelection(
     createLocalSimulationAuthority({
-      setup: createDefaultMatchSetup("twoPlayer"),
+      setup: createDefaultMatchSetup("localTwoPlayer"),
       content: mockGameContent,
       worldSize: { width: 960, height: 560 },
     }),
@@ -201,7 +233,7 @@ async function expectSharedAuthoritySelection(
 {
   const authority = makeAuthority();
   assert.equal(
-    authority.submitIntent(0, {
+    authority.submitPlayerAction(0, {
       type: "fire",
       angle: -0.6,
       power: 400,
@@ -223,7 +255,7 @@ async function expectSharedAuthoritySelection(
   const slotCount = snapshot.tanks[0]?.tank.loadout.length ?? 0;
   const layout = getProjectileSelectorLayout(960, 560, slotCount);
   const selectedSlot = findProjectileSlotAtCanvasPoint(
-    snapshot,
+    snapshotToGameViewState(snapshot),
     960,
     560,
     layout.x + layout.slotSize + layout.gap + layout.slotSize / 2,
@@ -234,7 +266,7 @@ async function expectSharedAuthoritySelection(
 
 {
   const authority = makeAuthority();
-  authority.submitIntent(0, {
+  authority.submitPlayerAction(0, {
     type: "fire",
     angle: 1.35,
     power: 520,
@@ -280,7 +312,7 @@ async function expectSharedAuthoritySelection(
   const unsubscribe = authority.subscribeMessages((message) => {
     messages.push(message.type);
   });
-  authority.submitIntent(0, {
+  authority.submitPlayerAction(0, {
     type: "fire",
     angle: 1.35,
     power: 520,
@@ -311,19 +343,14 @@ async function expectSharedAuthoritySelection(
 {
   const authority = makeAuthority();
   const snapshot = authority.snapshot();
-  const intents = collectPlayerIntents({
+  const intents = collectGameActions({
     state: {
       pressedKeys: new Set(["ArrowRight"]),
       pointer: { clientX: 480, clientY: 280 },
       pendingPointerDown: null,
       pendingSlotNumber: 2,
     },
-    context: {
-      snapshot,
-      cameraX: 0,
-      viewport: { width: 960, height: 560 },
-      canvasRect: { left: 0, top: 0, width: 960, height: 560 },
-    },
+    context: canvasInteractionContext(snapshotToGameViewState(snapshot)),
   });
   assert.deepEqual(intents[0], { type: "move", direction: 1 });
   assert.deepEqual(intents[1], {
@@ -331,6 +358,49 @@ async function expectSharedAuthoritySelection(
     projectileSlotId: "mortar",
   });
   assert.equal(intents[2]?.type, "aim");
+}
+
+{
+  const authority = makeAuthority();
+  const viewState = viewStateWithActiveSecondTank(authority);
+  const activeTank = viewState.tanks.find((entry) => entry.playerId === 1);
+  assert.ok(activeTank);
+  const layout = getProjectileSelectorLayout(
+    960,
+    560,
+    activeTank.loadout.length,
+  );
+
+  const selectedSlot = findProjectileSlotAtCanvasPoint(
+    viewState,
+    960,
+    560,
+    layout.x + layout.slotSize + layout.gap + layout.slotSize / 2,
+    layout.y + layout.slotSize / 2,
+  );
+  assert.equal(selectedSlot, "second-player-mortar");
+
+  const intents = collectGameActions({
+    state: {
+      pressedKeys: new Set(),
+      pointer: {
+        clientX: activeTank.position.x + 100,
+        clientY: activeTank.position.y - 22,
+      },
+      pendingPointerDown: null,
+      pendingSlotNumber: 2,
+    },
+    context: canvasInteractionContext(viewState),
+  });
+
+  assert.deepEqual(intents[0], {
+    type: "selectProjectileSlot",
+    projectileSlotId: "second-player-mortar",
+  });
+  assert.equal(intents[1]?.type, "aim");
+  assert.ok(
+    intents[1]?.type === "aim" && Math.abs(intents[1].angle) < 0.000001,
+  );
 }
 
 {
@@ -354,3 +424,57 @@ async function expectSharedAuthoritySelection(
   transport.destroy?.();
   assert.ok(seen.includes("mortar"));
 }
+
+{
+  // Test local mode setup for Local Two-Player
+  const setup = createDefaultMatchSetup("localTwoPlayer");
+  assert.equal(setup.mode, "localTwoPlayer");
+  assert.equal(setup.players.length, 2);
+  assert.equal(setup.players[0]?.controllerKind, "human");
+  assert.equal(setup.players[1]?.controllerKind, "human");
+  assert.equal(setup.players[0]?.displayName, "Player 1");
+  assert.equal(setup.players[1]?.displayName, "Player 2");
+
+  const { world } = createInitialWorld(setup, mockGameContent, 960, 560);
+  assert.equal(world.match.mode, "localTwoPlayer");
+  assert.equal(world.match.playerCount, 2);
+}
+
+{
+  // Test local mode setup for Player vs AI
+  const setup = createDefaultMatchSetup("playerVsAi");
+  assert.equal(setup.mode, "playerVsAi");
+  assert.equal(setup.players.length, 2);
+  assert.equal(setup.players[0]?.controllerKind, "human");
+  assert.equal(setup.players[1]?.controllerKind, "ai");
+  assert.equal(setup.players[0]?.displayName, "Player 1");
+  assert.equal(setup.players[1]?.displayName, "CPU");
+
+  const { world } = createInitialWorld(setup, mockGameContent, 960, 560);
+  assert.equal(world.match.mode, "playerVsAi");
+  assert.equal(world.match.playerCount, 2);
+}
+
+{
+  // Test getPlayerMatchConfig helper
+  const aiPlayer0 = getPlayerMatchConfig("playerVsAi", 0);
+  assert.equal(aiPlayer0.displayName, "Player 1");
+  assert.equal(aiPlayer0.controllerKind, "human");
+
+  const aiPlayer1 = getPlayerMatchConfig("playerVsAi", 1);
+  assert.equal(aiPlayer1.displayName, "CPU");
+  assert.equal(aiPlayer1.controllerKind, "ai");
+
+  const localPlayer0 = getPlayerMatchConfig("localTwoPlayer", 0);
+  assert.equal(localPlayer0.displayName, "Player 1");
+  assert.equal(localPlayer0.controllerKind, "human");
+
+  const localPlayer1 = getPlayerMatchConfig("localTwoPlayer", 1);
+  assert.equal(localPlayer1.displayName, "Player 2");
+  assert.equal(localPlayer1.controllerKind, "human");
+
+  const onlinePlayer1 = getPlayerMatchConfig("online", 1);
+  assert.equal(onlinePlayer1.displayName, "Player 2");
+  assert.equal(onlinePlayer1.controllerKind, "remote");
+}
+
