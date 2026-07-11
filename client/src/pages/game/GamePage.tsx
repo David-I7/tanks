@@ -53,7 +53,7 @@ function GameView({ gameSessionId }: { gameSessionId: string }) {
       }
     })
 
-    const gameplayCleanup = gameplayAuthority.subscribe(setConfirmedState);
+    const gameplayCleanup = gameplayAuthority.subscribeToConfirmedState(setConfirmedState);
 
     void (async () => {
       const authStatus = await getAuthStatus();

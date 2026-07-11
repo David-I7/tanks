@@ -463,6 +463,49 @@ function resyncDiff(
 
 {
   const confirmed = initializeOnlineConfirmedState(initialDiff());
+  const resync = resyncDiff({
+    sequence: 5,
+    payload: {
+      replacesSequence: 5,
+      state: {
+        tanks: [
+          {
+            ...initialState().tanks[0]!,
+            position: { x: 70, y: 120 },
+            fuel: 85,
+          },
+          initialState().tanks[1]!,
+        ],
+      },
+    },
+  });
+  const staleResync = resyncDiff({
+    sequence: 4,
+    payload: {
+      replacesSequence: 4,
+      state: {
+        tanks: [
+          {
+            ...initialState().tanks[0]!,
+            position: { x: 30, y: 120 },
+            fuel: 40,
+          },
+          initialState().tanks[1]!,
+        ],
+      },
+    },
+  });
+
+  const afterResync = applyOnlineStateDiff(confirmed, resync);
+  const afterStaleResync = applyOnlineStateDiff(afterResync, staleResync);
+
+  assert.equal(afterStaleResync.expectedNextDiffSequence, 6);
+  assert.equal(afterStaleResync.state.tanks[0]?.position.x, 70);
+  assert.equal(afterStaleResync.state.tanks[0]?.fuel, 85);
+}
+
+{
+  const confirmed = initializeOnlineConfirmedState(initialDiff());
   const projectileResolution = {
     protocolVersion: "online-gameplay.v1",
     gameSessionId: "game-123",
