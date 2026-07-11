@@ -25,6 +25,7 @@ export type EndpointSubscription<Data = string> = {
 export type PublishParams = {
   destination:
   | "/app/chat/:id/send"
+  | "/app/game/:id/intent"
   | "/app/game/:id/send"
   | "/app/game/:id/resync"
   | "/app/game/create"

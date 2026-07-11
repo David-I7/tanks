@@ -1,4 +1,5 @@
 import { type RemoteGameTransport } from "./authority/RemoteSimulationAuthority";
+import type { OnlineGameplayTransport } from "./online/OnlineGameplayTransport";
 import { AiIntentSource } from "./input/AiIntentSource";
 import {
   CanvasInputSource,
@@ -29,8 +30,10 @@ import {
 export type GameEngineOptions = {
   canvas: HTMLCanvasElement;
   mode: GameMode;
+  authority?: GameAuthority;
   matchSetup?: MatchSetup;
   content?: GameContent;
+  onlineTransport?: OnlineGameplayTransport;
   remoteTransport?: RemoteGameTransport;
   localPlayerId?: number;
   rendererAssets?: RendererAssets;
@@ -63,7 +66,9 @@ export class GameEngine {
     );
     this.localInput = new CanvasInputSource(options.canvas, this.inputLayout);
 
-    if (options.mode === "online" && options.remoteTransport) {
+    if (options.authority) {
+      this.authority = options.authority;
+    } else if (options.mode === "online" && options.remoteTransport) {
       this.authority = createRemoteGameAuthority({
         transport: options.remoteTransport,
         localPlayerId: options.localPlayerId ?? 0,

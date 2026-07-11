@@ -104,7 +104,7 @@ const otherGameDiff = {
   transport.requestResyncState();
 
   assert.deepEqual(publishes[0], {
-    destination: "/app/game/:id/send",
+    destination: "/app/game/:id/intent",
     id: "game-123",
     body: intent,
   });

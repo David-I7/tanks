@@ -92,6 +92,22 @@ _Avoid_: Queued command, buffered input
 The state the client draws after combining confirmed state, pending predictions, and in-progress interpolation.
 _Avoid_: World state, server state
 
+**Game View State**:
+The client-side gameplay presentation state consumed by rendering, input targeting, and game UI across local and online modes.
+_Avoid_: Local snapshot, online snapshot, ECS state, protocol DTO
+
+**Game Action**:
+A mode-neutral player action produced by gameplay input or UI before it is handled by a local or online game authority.
+_Avoid_: Input event, player intent, command
+
+**Game Authority**:
+The client-side boundary that accepts game actions and exposes game view state for a specific mode while hiding whether the mode is locally simulated or server-authoritative online play.
+_Avoid_: Renderer, React page, transport, simulation loop
+
+**Local Player**:
+The player identity controlled by the current client in a game session, supplied by the authority for the current mode.
+_Avoid_: Username match, first player, browser user
+
 **State Diff**:
 A server-confirmed change to the official game state that clients apply to their local game state.
 _Avoid_: Full snapshot, event replay log

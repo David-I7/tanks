@@ -57,7 +57,7 @@ export function createOnlineGameplayTransport(options: {
   return {
     sendPlayerIntent(intent: OnlinePlayerIntentEnvelope): void {
       options.client.publish({
-        destination: "/app/game/:id/send",
+        destination: "/app/game/:id/intent",
         id: options.gameSessionId,
         body: intent,
       });
