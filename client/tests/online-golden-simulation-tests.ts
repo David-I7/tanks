@@ -59,6 +59,7 @@ for (const scenario of scenarios) {
     intentId: null,
     payload: {
       expectedNextDiffSequence: 2,
+      localPlayerId: 1,
       state: scenario.initialState,
     },
   };

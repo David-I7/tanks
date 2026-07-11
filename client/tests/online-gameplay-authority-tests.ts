@@ -18,6 +18,7 @@ function initialDiff(sequence = 1): OnlineDiffEnvelope {
     intentId: null,
     payload: {
       expectedNextDiffSequence: sequence + 1,
+      localPlayerId: 1,
       state: {
         gameplayDefinitionVersion: "online-gameplay-definitions.v1",
         match: {

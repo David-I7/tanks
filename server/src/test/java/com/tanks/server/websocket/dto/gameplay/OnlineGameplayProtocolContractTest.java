@@ -14,6 +14,7 @@ import com.tanks.server.websocket.dto.gameplay.OnlineDiffPayloads.TurnPhase;
 import com.tanks.server.websocket.dto.gameplay.OnlineIntentPayloads.Fire;
 import com.tanks.server.websocket.dto.gameplay.OnlineMatchSnapshotDto.MatchPhase;
 import com.tanks.server.websocket.dto.gameplay.OnlineTerrainSnapshotDto.TerrainSnapshotKind;
+import com.tanks.server.websocket.dto.game.GameStartPayload;
 
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
@@ -71,6 +72,23 @@ class OnlineGameplayProtocolContractTest {
                 assertThat(json.get("type").asText()).isEqualTo("INTENT_REJECTION");
                 assertThat(json.get("intentId").asText()).isEqualTo("intent-abc");
                 assertThat(json.at("/payload/reason").asText()).isEqualTo("STALE_BASE_STATE");
+        }
+
+        @Test
+        @DisplayName("Game Started payload exposes the recipient's authoritative Local Player identity")
+        void gameStartedPayloadIncludesLocalPlayerIdentity() {
+                var started = new GameStartPayload(
+                                java.util.UUID.fromString("00000000-0000-0000-0000-000000000123"),
+                                "host",
+                                "opponent",
+                                java.time.OffsetDateTime.parse("2026-01-01T00:00:00Z"),
+                                "online-gameplay-definitions.v1",
+                                2);
+
+                JsonNode json = objectMapper.valueToTree(started);
+
+                assertThat(json.get("gameSessionId").asText()).isEqualTo("00000000-0000-0000-0000-000000000123");
+                assertThat(json.get("localPlayerId").asLong()).isEqualTo(2);
         }
 
         @Test
@@ -147,7 +165,7 @@ class OnlineGameplayProtocolContractTest {
                                                 0,
                                                 OnlineStateDiffType.INITIAL_STATE,
                                                 null,
-                                                new OnlineDiffPayloads.InitialState(2, state)),
+                                                new OnlineDiffPayloads.InitialState(2, 1, state)),
                                 new OnlineDiffEnvelopeDto<>(
                                                 OnlineGameplayProtocolVersion.V1,
                                                 "game-123",
@@ -158,6 +176,7 @@ class OnlineGameplayProtocolContractTest {
                                                 new OnlineDiffPayloads.ResyncState(
                                                                 1,
                                                                 OnlineDiffPayloads.ResyncReason.MISSED_DIFF,
+                                                                1,
                                                                 state)),
                                 new OnlineDiffEnvelopeDto<>(
                                                 OnlineGameplayProtocolVersion.V1,
@@ -334,7 +353,7 @@ class OnlineGameplayProtocolContractTest {
                                 0,
                                 OnlineStateDiffType.INITIAL_STATE,
                                 null,
-                                new OnlineDiffPayloads.InitialState(2, stateSnapshot()));
+                                new OnlineDiffPayloads.InitialState(2, 1, stateSnapshot()));
         }
 
         private static OnlineDiffEnvelopeDto<OnlineDiffPayloads.ResyncState> resyncStateFixture() {
@@ -348,6 +367,7 @@ class OnlineGameplayProtocolContractTest {
                                 new OnlineDiffPayloads.ResyncState(
                                                 1,
                                                 OnlineDiffPayloads.ResyncReason.MISSED_DIFF,
+                                                1,
                                                 stateSnapshot()));
         }
 

@@ -95,13 +95,22 @@ export function createOnlineGameplayTransport(options: {
     },
 
     subscribeToGameEvents(listener: (event: GameEvent) => void): SubscriptionCleanup {
-      return trackCleanup(
-        subscribeToGameTopic<GameEvent>((message) => {
-          if (!isOnlineDiffEnvelope(message.body)) {
-            listener(message.body);
-          }
-        }),
-      );
+      const handleMessage = (message: Message<GameEvent | unknown>) => {
+        if (!isOnlineDiffEnvelope(message.body)) {
+          listener(message.body as GameEvent);
+        }
+      };
+
+      const replyCleanup = options.client.subscribe<unknown>({
+        destination: "/user/queue/replies",
+        onMessage: handleMessage,
+      });
+      const topicCleanup = subscribeToGameTopic<GameEvent>(handleMessage);
+
+      return trackCleanup(() => {
+        replyCleanup();
+        topicCleanup();
+      });
     },
 
     destroy(): void {

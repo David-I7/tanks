@@ -23,6 +23,7 @@
       "intentId": null,
       "payload": {
         "expectedNextDiffSequence": 2,
+        "localPlayerId": 1,
         "state": {
           "gameplayDefinitionVersion": "online-gameplay-definitions.v1",
           "match": {
@@ -82,6 +83,7 @@
       "payload": {
         "replacesSequence": 1,
         "reason": "MISSED_DIFF",
+        "localPlayerId": 1,
         "state": {
           "gameplayDefinitionVersion": "online-gameplay-definitions.v1",
           "match": {

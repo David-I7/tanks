@@ -5,6 +5,7 @@ import type {
   OnlineIntentRejectionDiff,
   OnlineMovementSegmentDiff,
   OnlineProjectileResolutionDiff,
+  PlayerId,
   OnlineResyncStateDiff,
   OnlineTankSnapshot,
   OnlineTerrainPatch,
@@ -36,6 +37,7 @@ export type ConfirmedMovementSegment = OnlineMovementSegmentDiff["payload"] & {
 
 export type OnlineConfirmedState = {
   gameSessionId: string;
+  localPlayerId: PlayerId;
   state: OnlineGameStateSnapshot;
   lastConfirmedDiffSequence: DiffSequence;
   lastConfirmedDiffServerTick: ServerTick;
@@ -79,6 +81,7 @@ export function initializeOnlineConfirmedState(
 
   return {
     gameSessionId: diff.gameSessionId,
+    localPlayerId: payload.localPlayerId,
     state: payload.state,
     lastConfirmedDiffSequence: diff.sequence,
     lastConfirmedDiffServerTick: diff.serverTick,
@@ -100,6 +103,7 @@ export function initializeOnlineConfirmedStateFromResync(
 
   return {
     gameSessionId: diff.gameSessionId,
+    localPlayerId: payload.localPlayerId,
     state: payload.state,
     lastConfirmedDiffSequence: diff.sequence,
     lastConfirmedDiffServerTick: diff.serverTick,
@@ -251,6 +255,7 @@ function applyDiffPayload(
       const resyncPayload = diff.payload as OnlineResyncStateDiff["payload"];
       return {
         ...confirmed,
+        localPlayerId: resyncPayload.localPlayerId,
         state: resyncPayload.state,
         expectedNextDiffSequence: resyncPayload.replacesSequence + 1,
         resyncStatus: { kind: "READY", lastResyncSequence: resyncPayload.replacesSequence },

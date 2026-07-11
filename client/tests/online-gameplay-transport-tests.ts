@@ -177,14 +177,28 @@ const otherGameDiff = {
     seen.push(event.type);
   });
 
-  assert.equal(subscriptions[0]?.destination, "/topic/game/:id");
-  assert.equal(subscriptions[0]?.id, "game-123");
+  assert.equal(subscriptions[0]?.destination, "/user/queue/replies");
+  assert.equal(subscriptions[1]?.destination, "/topic/game/:id");
+  assert.equal(subscriptions[1]?.id, "game-123");
 
   subscriptions[0]?.onMessage(message({ type: "GAME_CONNECT", payload: { playerName: "Ada" } }));
+  subscriptions[0]?.onMessage(message({
+    type: "GAME_STARTED",
+    payload: {
+      gameSessionId: "game-123",
+      playerA: "Ada",
+      playerB: "Grace",
+      gameStartedAt: "2026-01-01T00:00:00Z",
+      gameplayDefinitionVersion: "online-gameplay-definitions.v1",
+      localPlayerId: 1,
+    },
+  }));
   subscriptions[0]?.onMessage(message(diff));
+  subscriptions[1]?.onMessage(message({ type: "GAME_DISCONNECT", payload: { playerName: "Grace" } }));
 
   unsubscribe();
 
-  assert.deepEqual(seen, ["GAME_CONNECT"]);
+  assert.deepEqual(seen, ["GAME_CONNECT", "GAME_STARTED", "GAME_DISCONNECT"]);
   assert.equal(subscriptions[0]?.cleanupCalls, 1);
+  assert.equal(subscriptions[1]?.cleanupCalls, 1);
 }

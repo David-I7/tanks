@@ -25,6 +25,7 @@ const initialStateDiff = {
   intentId: null,
   payload: {
     expectedNextDiffSequence: 2,
+    localPlayerId: 2,
     state: {
       gameplayDefinitionVersion: "online-gameplay-definitions.v1",
       match: {
@@ -75,6 +76,7 @@ const initialStateDiff = {
 const confirmed: OnlineConfirmedState = initializeOnlineConfirmedState(initialStateDiff);
 
 assert.equal(confirmed.gameSessionId, "game-123");
+assert.equal(confirmed.localPlayerId, 2);
 assert.equal(confirmed.lastConfirmedDiffSequence, 1);
 assert.equal(confirmed.lastConfirmedDiffServerTick, 0);
 assert.equal(confirmed.expectedNextDiffSequence, 2);
@@ -93,6 +95,7 @@ const resyncStateDiff = {
   payload: {
     replacesSequence: 7,
     reason: "RECONNECT",
+    localPlayerId: 2,
     state: {
       ...initialStateDiff.payload.state,
       tanks: [
@@ -109,6 +112,7 @@ const resyncStateDiff = {
 const confirmedFromResync = initializeOnlineConfirmedStateFromResync(resyncStateDiff);
 
 assert.equal(confirmedFromResync.lastConfirmedDiffSequence, 7);
+assert.equal(confirmedFromResync.localPlayerId, 2);
 assert.equal(confirmedFromResync.expectedNextDiffSequence, 8);
 assert.equal(confirmedFromResync.resyncStatus.kind, "READY");
 assert.equal(confirmedFromResync.resyncStatus.lastResyncSequence, 7);

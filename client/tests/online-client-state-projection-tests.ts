@@ -101,6 +101,7 @@ function initialDiff() {
     intentId: null,
     payload: {
       expectedNextDiffSequence: 2,
+      localPlayerId: 1,
       state: initialState(),
     },
   } satisfies OnlineDiffEnvelope<OnlineInitialStateDiff>;
@@ -154,6 +155,7 @@ function resyncDiff(
     payload: {
       replacesSequence: 5,
       reason: "MISSED_DIFF",
+      localPlayerId: 1,
       state: initialState(),
       ...overrides.payload,
       state: {

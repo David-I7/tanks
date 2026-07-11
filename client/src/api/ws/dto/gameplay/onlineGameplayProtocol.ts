@@ -116,6 +116,7 @@ export type OnlineInitialStateDiff = {
   type: "INITIAL_STATE";
   payload: {
     expectedNextDiffSequence: DiffSequence;
+    localPlayerId: PlayerId;
     state: OnlineGameStateSnapshot;
   };
 };
@@ -125,6 +126,7 @@ export type OnlineResyncStateDiff = {
   payload: {
     replacesSequence: DiffSequence;
     reason: "MISSED_DIFF" | "SERVER_CORRECTION" | "RECONNECT";
+    localPlayerId: PlayerId;
     state: OnlineGameStateSnapshot;
   };
 };
@@ -366,6 +368,7 @@ export const onlineGameplayProtocolExamples = {
       intentId: null,
       payload: {
         expectedNextDiffSequence: 2,
+        localPlayerId: 1,
         state: exampleState,
       },
     },
@@ -379,6 +382,7 @@ export const onlineGameplayProtocolExamples = {
       payload: {
         replacesSequence: 1,
         reason: "MISSED_DIFF",
+        localPlayerId: 1,
         state: exampleState,
       },
     },

@@ -23,6 +23,9 @@ import com.tanks.server.websocket.dto.gameplay.OnlineDiffPayloads;
 import com.tanks.server.websocket.dto.gameplay.OnlineGameplayProtocolVersion;
 import com.tanks.server.websocket.dto.gameplay.OnlineMatchSnapshotDto.MatchPhase;
 import com.tanks.server.websocket.dto.gameplay.OnlineStateDiffType;
+import com.tanks.server.websocket.dto.game.GameEventResponseDto;
+import com.tanks.server.websocket.dto.game.GameStartPayload;
+import com.tanks.server.websocket.events.GameEvent;
 import com.tanks.server.websocket.entities.gameSession.GameSession;
 import com.tanks.server.websocket.entities.gameSession.GameSessionState;
 import com.tanks.server.websocket.entities.lobby.Lobby;
@@ -74,6 +77,7 @@ class GameSessionServiceInitialStateTest {
 
         OnlineDiffPayloads.InitialState payload = (OnlineDiffPayloads.InitialState) initialState.payload();
         assertThat(payload.expectedNextDiffSequence()).isEqualTo(2);
+        assertThat(payload.localPlayerId()).isEqualTo(1);
         assertThat(payload.state().gameplayDefinitionVersion()).isEqualTo(harness.gameplayRules.currentVersion());
         assertThat(payload.state().match().phase()).isEqualTo(MatchPhase.AIMING);
         assertThat(payload.state().match().activePlayerId()).isEqualTo(1);
@@ -93,6 +97,22 @@ class GameSessionServiceInitialStateTest {
                 .map(OnlineGameplayEvent.class::cast)
                 .map(OnlineGameplayEvent::getUsername))
                 .containsExactly("host", "opponent");
+        assertThat(harness.events.stream()
+                .filter(OnlineGameplayEvent.class::isInstance)
+                .map(OnlineGameplayEvent.class::cast)
+                .map(OnlineGameplayEvent::getPayload)
+                .map(OnlineDiffEnvelopeDto::payload)
+                .map(OnlineDiffPayloads.InitialState.class::cast)
+                .map(OnlineDiffPayloads.InitialState::localPlayerId))
+                .containsExactly(1L, 2L);
+
+        assertThat(harness.events.stream()
+                .filter(GameEvent.class::isInstance)
+                .map(GameEvent.class::cast)
+                .map(event -> (GameEventResponseDto) event.getPayload())
+                .map(response -> (GameStartPayload) response.getPayload())
+                .map(GameStartPayload::localPlayerId))
+                .containsExactly(1L, 2L);
     }
 
     @Test
@@ -185,6 +205,7 @@ class GameSessionServiceInitialStateTest {
         OnlineDiffPayloads.ResyncState payload = (OnlineDiffPayloads.ResyncState) resync.payload();
         assertThat(payload.replacesSequence()).isEqualTo(7);
         assertThat(payload.reason()).isEqualTo(OnlineDiffPayloads.ResyncReason.RECONNECT);
+        assertThat(payload.localPlayerId()).isEqualTo(1);
         assertThat(payload.state().match().activePlayerId()).isEqualTo(2);
         assertThat(payload.state().match().turnNumber()).isEqualTo(2);
         assertThat(payload.state().match().turnTimeRemainingTicks()).isEqualTo(810);
@@ -193,6 +214,23 @@ class GameSessionServiceInitialStateTest {
         assertThat(payload.state().tanks().get(0).fuel()).isEqualTo(75);
         assertThat(payload.state().tanks().get(1).health()).isEqualTo(94);
         assertThat(gameSession.getNextDiffSequence()).isEqualTo(8);
+
+        harness.events.clear();
+        harness.service.sendResyncStateToPlayer(
+                gameSessionId,
+                "opponent",
+                OnlineDiffPayloads.ResyncReason.RECONNECT);
+
+        OnlineGameplayEvent opponentEvent = harness.events.stream()
+                .filter(OnlineGameplayEvent.class::isInstance)
+                .map(OnlineGameplayEvent.class::cast)
+                .findFirst()
+                .orElseThrow();
+        OnlineDiffPayloads.ResyncState opponentPayload =
+                (OnlineDiffPayloads.ResyncState) opponentEvent.getPayload().payload();
+
+        assertThat(opponentEvent.getUsername()).isEqualTo("opponent");
+        assertThat(opponentPayload.localPlayerId()).isEqualTo(2);
     }
 
     @Test

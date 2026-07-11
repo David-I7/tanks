@@ -22,7 +22,6 @@ export default function GamePage() {
 function GameView({ gameSessionId }: { gameSessionId: string }) {
   const navigate = useNavigate();
   const { client, status, connect } = useWebSocketStore();
-  const user = useAuthStore(state => state.user);
   const getAuthStatus = useAuthStore(state => state.getAuthStatus);
   const [connected, setConnected] = useState<boolean>(false);
   const [confirmedState, setConfirmedState] = useState<OnlineConfirmedState | null>(null);
@@ -67,7 +66,7 @@ function GameView({ gameSessionId }: { gameSessionId: string }) {
 
       gameTopicCleanup = gameplayTransport.subscribeToGameEvents(
         (event: GameEvent) => {
-          if (event.type === "GAME_CONNECT" && event.payload.playerName === user?.username) {
+          if (event.type === "GAME_STARTED" && event.payload.gameSessionId === gameSessionId) {
             setConnected(true);
           }
 
@@ -86,7 +85,7 @@ function GameView({ gameSessionId }: { gameSessionId: string }) {
       gameplayTransport.destroy();
       gameTopicCleanup?.();
     };
-  }, [client, gameSessionId, getAuthStatus, navigate, status, user?.username])
+  }, [client, gameSessionId, getAuthStatus, navigate, status])
 
 
   return (

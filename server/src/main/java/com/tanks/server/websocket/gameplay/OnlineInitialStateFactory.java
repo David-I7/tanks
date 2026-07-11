@@ -25,7 +25,7 @@ public class OnlineInitialStateFactory {
         this.gameplayRules = gameplayRules;
     }
 
-    public OnlineDiffEnvelopeDto<OnlineDiffPayloads.InitialState> create(GameSession gameSession) {
+    public OnlineDiffEnvelopeDto<OnlineDiffPayloads.InitialState> createForPlayer(GameSession gameSession, long localPlayerId) {
         long initialSequence = 1;
         return new OnlineDiffEnvelopeDto<>(
                 OnlineGameplayProtocolVersion.V1,
@@ -34,12 +34,13 @@ public class OnlineInitialStateFactory {
                 0,
                 OnlineStateDiffType.INITIAL_STATE,
                 null,
-                new OnlineDiffPayloads.InitialState(initialSequence + 1, createSnapshot(gameSession)));
+                new OnlineDiffPayloads.InitialState(initialSequence + 1, localPlayerId, createStateSnapshot(gameSession)));
     }
 
-    public OnlineDiffEnvelopeDto<OnlineDiffPayloads.ResyncState> createResync(
+    public OnlineDiffEnvelopeDto<OnlineDiffPayloads.ResyncState> createResyncForPlayer(
             GameSession gameSession,
-            OnlineDiffPayloads.ResyncReason reason) {
+            OnlineDiffPayloads.ResyncReason reason,
+            long localPlayerId) {
         long replacesSequence = Math.max(1, gameSession.getNextDiffSequence() - 1);
         return new OnlineDiffEnvelopeDto<>(
                 OnlineGameplayProtocolVersion.V1,
@@ -48,10 +49,10 @@ public class OnlineInitialStateFactory {
                 gameSession.getLastDiffServerTick(),
                 OnlineStateDiffType.RESYNC_STATE,
                 null,
-                new OnlineDiffPayloads.ResyncState(replacesSequence, reason, createSnapshot(gameSession)));
+                new OnlineDiffPayloads.ResyncState(replacesSequence, reason, localPlayerId, createStateSnapshot(gameSession)));
     }
 
-    private OnlineGameStateSnapshotDto createSnapshot(GameSession gameSession) {
+    public OnlineGameStateSnapshotDto createStateSnapshot(GameSession gameSession) {
         return new OnlineGameStateSnapshotDto(
                 gameSession.getGameplayDefinitionVersion(),
                 new OnlineMatchSnapshotDto(

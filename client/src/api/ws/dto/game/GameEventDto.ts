@@ -1,3 +1,5 @@
+import type { PlayerId } from "../gameplay/onlineGameplayProtocol";
+
 export type GameEventPayload = { id: string, playerName: string };
 
 export type GameStartedPayload = {
@@ -6,6 +8,7 @@ export type GameStartedPayload = {
     playerB: string;
     gameStartedAt: string;
     gameplayDefinitionVersion: string;
+    localPlayerId: PlayerId;
 }
 
 export type GameEvent = {

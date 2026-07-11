@@ -49,6 +49,8 @@ import java.util.UUID;
 @RequiredArgsConstructor
 @Slf4j
 public class GameSessionService {
+    private static final long PLAYER_A_ID = 1;
+    private static final long PLAYER_B_ID = 2;
 
     private final GameSessionRepository gameRepository;
     private final UserSessionService userSessionService;
@@ -168,20 +170,16 @@ public class GameSessionService {
             freshGameSession.setState(GameSessionState.STARTED);
             gameRepository.save(freshGameSession);
 
-            GameEventResponseDto response =
-                    new GameEventResponseDto(
-                            GameEventType.GAME_STARTED,
-                            "@SERVER",
-                            new GameStartPayload(
-                                    freshGameSession.getId(),
-                                    freshGameSession.getPlayerA(),
-                                    freshGameSession.getPlayerB(),
-                                    freshGameSession.getStartedAt(),
-                                    freshGameSession.getGameplayDefinitionVersion())
-                    );
-
-            eventPublisher.publishEvent(new GameEvent(this, freshGameSession.getPlayerA(), "/queue/replies", response));
-            eventPublisher.publishEvent(new GameEvent(this, freshGameSession.getPlayerB(), "/queue/replies", response));
+            eventPublisher.publishEvent(new GameEvent(
+                    this,
+                    freshGameSession.getPlayerA(),
+                    "/queue/replies",
+                    gameStartedResponse(freshGameSession, PLAYER_A_ID)));
+            eventPublisher.publishEvent(new GameEvent(
+                    this,
+                    freshGameSession.getPlayerB(),
+                    "/queue/replies",
+                    gameStartedResponse(freshGameSession, PLAYER_B_ID)));
             sendInitialStateToPlayer(freshGameSession, freshGameSession.getPlayerA());
             sendInitialStateToPlayer(freshGameSession, freshGameSession.getPlayerB());
         } finally {
@@ -189,12 +187,25 @@ public class GameSessionService {
         }
     }
 
+    private GameEventResponseDto gameStartedResponse(GameSession gameSession, long localPlayerId) {
+        return new GameEventResponseDto(
+                GameEventType.GAME_STARTED,
+                "@SERVER",
+                new GameStartPayload(
+                        gameSession.getId(),
+                        gameSession.getPlayerA(),
+                        gameSession.getPlayerB(),
+                        gameSession.getStartedAt(),
+                        gameSession.getGameplayDefinitionVersion(),
+                        localPlayerId));
+    }
+
     public void sendInitialStateToPlayer(GameSession gameSession, String username) {
         eventPublisher.publishEvent(new OnlineGameplayEvent(
                 this,
                 username,
                 "/queue/replies",
-                initialStateFactory.create(gameSession)));
+                initialStateFactory.createForPlayer(gameSession, localPlayerId(gameSession, username))));
     }
 
     public boolean sendResyncStateToPlayer(UUID gameSessionId, String username, OnlineDiffPayloads.ResyncReason reason) {
@@ -208,8 +219,18 @@ public class GameSessionService {
                 this,
                 username,
                 "/queue/replies",
-                initialStateFactory.createResync(gameSession, reason)));
+                initialStateFactory.createResyncForPlayer(gameSession, reason, localPlayerId(gameSession, username))));
         return true;
+    }
+
+    private long localPlayerId(GameSession gameSession, String username) {
+        if (gameSession.getPlayerA().equals(username)) {
+            return PLAYER_A_ID;
+        }
+        if (gameSession.getPlayerB().equals(username)) {
+            return PLAYER_B_ID;
+        }
+        return 0;
     }
 
     public boolean acceptPlayerIntent(String username, UUID gameSessionId, OnlinePlayerIntentDto<?> intent) {
@@ -570,7 +591,7 @@ public class GameSessionService {
                     new OnlineDiffPayloads.TerminalGame(
                             firingPlayerId,
                             OnlineDiffPayloads.TerminalGameReason.LAST_TANK_STANDING,
-                            initialStateFactory.create(gameSession).payload().state()));
+                            initialStateFactory.createStateSnapshot(gameSession)));
         }
     }
 

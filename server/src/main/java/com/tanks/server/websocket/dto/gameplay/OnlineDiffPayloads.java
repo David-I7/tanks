@@ -7,10 +7,10 @@ public final class OnlineDiffPayloads {
         private OnlineDiffPayloads() {
         }
 
-        public record InitialState(long expectedNextDiffSequence, OnlineGameStateSnapshotDto state) {
+        public record InitialState(long expectedNextDiffSequence, long localPlayerId, OnlineGameStateSnapshotDto state) {
         }
 
-        public record ResyncState(long replacesSequence, ResyncReason reason, OnlineGameStateSnapshotDto state) {
+        public record ResyncState(long replacesSequence, ResyncReason reason, long localPlayerId, OnlineGameStateSnapshotDto state) {
         }
 
         public record MovementSegment(
