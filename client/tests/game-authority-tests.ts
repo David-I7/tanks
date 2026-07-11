@@ -7,10 +7,10 @@ import {
 } from "../src/game/content/mockGameContent";
 import { createDefaultMatchSetup } from "../src/game/world/createInitialWorld";
 import type { GameAuthority, GameMode, GameViewState } from "../src/game";
-import {
-  createMockSnapshotRemoteTransport,
-  createSnapshotRemoteSimulationAuthority,
-} from "./support/snapshotRemoteAuthoritySupport";
+
+// Preferred high-level gameplay seam:
+// GameAction in through GameAuthority, GameViewState out for assertions.
+// Mode-specific simulation details stay hidden behind this boundary.
 
 function createLocalAuthority(
   mode: Exclude<GameMode, "online"> = "localTwoPlayer",
@@ -266,33 +266,4 @@ function updateUntil(
     false,
   );
   authority.destroy();
-}
-
-{
-  const transport = createMockSnapshotRemoteTransport({
-    setup: createDefaultMatchSetup("online"),
-    content: mockGameContent,
-    width: 960,
-    height: 560,
-    latencyMs: 0,
-  });
-  const remoteSimulation = createSnapshotRemoteSimulationAuthority(transport);
-  const seen: string[] = [];
-  const unsubscribe = remoteSimulation.subscribe((snapshot) => {
-    seen.push(snapshot.tanks[0]?.tank.selectedProjectileSlotId ?? "");
-  });
-
-  assert.equal(
-    remoteSimulation.submitPlayerAction(0, {
-      type: "selectProjectileSlot",
-      projectileSlotId: "mortar",
-    }),
-    true,
-  );
-
-  await new Promise((resolve) => setTimeout(resolve, 5));
-
-  unsubscribe();
-  remoteSimulation.destroy();
-  assert.ok(seen.includes("mortar"));
 }

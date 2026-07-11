@@ -6,11 +6,15 @@ import type {
   OnlinePlayerIntentEnvelope,
 } from "../src/api/ws/dto/gameplay/onlineGameplayProtocol";
 import {
-  createOnlineGameplayAuthority,
+  createRemoteOnlineGameAuthority,
 } from "../src/game/online/OnlineGameplayAuthority";
+import type { GameAuthority } from "../src/game";
 import type {
   OnlineGameplayTransport,
 } from "../src/game/online/OnlineGameplayTransport";
+
+// Remote authority behavior is verified at the same high-level seam as local
+// modes: GameAction in through GameAuthority, GameViewState out.
 
 function onlineState(): OnlineGameStateSnapshot {
   return {
@@ -175,17 +179,19 @@ function createTransport(): {
 
 {
   const test = createTransport();
-  const authority = createOnlineGameplayAuthority({ transport: test.transport });
+  const authority: GameAuthority = createRemoteOnlineGameAuthority({
+    transport: test.transport,
+  });
   const seen: number[] = [];
 
-  authority.subscribeToConfirmedState((state) => {
-    seen.push(state.lastConfirmedDiffSequence);
+  authority.subscribe((state) => {
+    seen.push(state.tanks[0]?.position.x ?? Number.NaN);
   });
 
   test.emit(initialDiff());
   test.emit(movementDiff(4));
 
-  assert.deepEqual(seen, [1, 1]);
+  assert.deepEqual(seen, [50, 50]);
   assert.equal(test.resyncRequests, 1);
   test.emit({
     protocolVersion: "online-gameplay.v1",
@@ -218,7 +224,7 @@ function createTransport(): {
 {
   const test = createTransport();
   let now = 0;
-  const authority = createOnlineGameplayAuthority({
+  const authority: GameAuthority = createRemoteOnlineGameAuthority({
     transport: test.transport,
     intentIdFactory: () => "intent-move",
     monotonicNowMs: () => now,
@@ -262,7 +268,7 @@ function createTransport(): {
 
 {
   const test = createTransport();
-  const authority = createOnlineGameplayAuthority({
+  const authority: GameAuthority = createRemoteOnlineGameAuthority({
     transport: test.transport,
     monotonicNowMs: () => 1000,
   });
@@ -366,7 +372,7 @@ function createTransport(): {
 
 {
   const test = createTransport();
-  const authority = createOnlineGameplayAuthority({
+  const authority: GameAuthority = createRemoteOnlineGameAuthority({
     transport: test.transport,
     intentIdFactory: () => "intent-rejected",
     monotonicNowMs: () => 0,
@@ -398,7 +404,7 @@ function createTransport(): {
 
 {
   const test = createTransport();
-  const authority = createOnlineGameplayAuthority({
+  const authority: GameAuthority = createRemoteOnlineGameAuthority({
     transport: test.transport,
     intentIdFactory: () => "intent-fire",
   });
