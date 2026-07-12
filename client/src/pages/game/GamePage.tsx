@@ -6,8 +6,7 @@ import { useWebSocketStore } from "../../store/useWebSocketStore";
 import { useEffect, useRef, useState } from "react";
 import Loader from "../../components/misc/Loader";
 import { createOnlineGameplayTransport } from "../../game/online/OnlineGameplayTransport";
-import { createOnlineGameplayAuthority } from "../../game/online/OnlineGameplayAuthority";
-import { adaptReadyGameAuthorityToGameManager, GameEngine } from "../../game";
+import { createOnlineGameManager, GameEngine } from "../../game";
 import ResourceManager from "../../game/resources/ResourceManager";
 import type { RendererAssets } from "../../game/rendering/CanvasGameRenderer";
 import IconButton from "../../components/buttons/IconButton";
@@ -95,7 +94,7 @@ function GameView({ gameSessionId }: { gameSessionId: string }) {
       client,
       gameSessionId,
     });
-    const gameplayAuthority = createOnlineGameplayAuthority({
+    const gameManager = createOnlineGameManager({
       transport: gameplayTransport,
     });
     let engine: GameEngine | null = null;
@@ -103,11 +102,8 @@ function GameView({ gameSessionId }: { gameSessionId: string }) {
     let unsubscribeViewState: (() => void) | null = null;
     let unsubscribeInitialState: () => void = () => {};
 
-    unsubscribeInitialState = gameplayAuthority.subscribe(() => {
+    unsubscribeInitialState = gameManager.subscribe(() => {
       if (engine || !canvas) return;
-
-      const gameManager = adaptReadyGameAuthorityToGameManager(gameplayAuthority);
-      if (!gameManager) return;
 
       engineRef.current?.stop();
       engine = new GameEngine({
@@ -137,7 +133,7 @@ function GameView({ gameSessionId }: { gameSessionId: string }) {
       unsubscribeViewState?.();
       engine?.stop();
       if (!engine) {
-        gameplayAuthority.destroy();
+        gameManager.destroy();
       }
       gameplayTransport.destroy();
       if (engineRef.current === engine) {

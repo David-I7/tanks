@@ -6,15 +6,15 @@ import type {
   OnlinePlayerIntentEnvelope,
 } from "../src/api/ws/dto/gameplay/onlineGameplayProtocol";
 import {
-  createRemoteOnlineGameAuthority,
-} from "../src/game/online/OnlineGameplayAuthority";
-import type { GameAuthority } from "../src/game";
+  createOnlineGameManager,
+} from "../src/game/online/OnlineGameManager";
+import type { GameManager } from "../src/game";
 import type {
   OnlineGameplayTransport,
 } from "../src/game/online/OnlineGameplayTransport";
 
-// Remote authority behavior is verified at the same high-level seam as local
-// modes: GameAction in through GameAuthority, GameViewState out.
+// Online behavior is verified at the shared manager seam: GameAction in and
+// cached GameState out.
 
 function onlineState(): OnlineGameStateSnapshot {
   return {
@@ -179,12 +179,12 @@ function createTransport(): {
 
 {
   const test = createTransport();
-  const authority: GameAuthority = createRemoteOnlineGameAuthority({
+  const gameManager: GameManager = createOnlineGameManager({
     transport: test.transport,
   });
   const seen: number[] = [];
 
-  authority.subscribe((state) => {
+  gameManager.subscribe((state) => {
     seen.push(state.tanks[0]?.position.x ?? Number.NaN);
   });
 
@@ -217,34 +217,35 @@ function createTransport(): {
       },
     },
   });
-  assert.equal(authority.getViewState()?.tanks[0]?.position.x, 70);
-  authority.destroy();
+  assert.equal(gameManager.getState().tanks[0]?.position.x, 70);
+  gameManager.destroy();
 }
 
 {
   const test = createTransport();
   let now = 0;
-  const authority: GameAuthority = createRemoteOnlineGameAuthority({
+  const gameManager: GameManager = createOnlineGameManager({
     transport: test.transport,
     intentIdFactory: () => "intent-move",
     monotonicNowMs: () => now,
   });
   const seenTankX: number[] = [];
 
-  authority.subscribe((state) => {
+  gameManager.subscribe((state) => {
     seenTankX.push(state.tanks[0]?.position.x ?? Number.NaN);
   });
 
-  assert.equal(authority.getViewState(), null);
+  assert.throws(() => gameManager.getState(), /Initial State/);
   test.emit(initialDiff());
 
-  const initialized = authority.getViewState();
-  assert.equal(initialized?.match.mode, "online");
-  assert.equal(initialized?.match.phase, "aiming");
-  assert.equal(initialized?.tanks[0]?.controllerKind, "human");
-  assert.equal(initialized?.tanks[1]?.controllerKind, "remote");
+  const initialized = gameManager.getState();
+  assert.equal(gameManager.getState(), initialized);
+  assert.equal(initialized.match.mode, "online");
+  assert.equal(initialized.match.phase, "aiming");
+  assert.equal(initialized.tanks[0]?.controllerKind, "human");
+  assert.equal(initialized.tanks[1]?.controllerKind, "remote");
 
-  assert.equal(authority.submitAction({ type: "move", direction: 1 }), true);
+  assert.equal(gameManager.submitAction({ type: "move", direction: 1 }), true);
   assert.deepEqual(test.sentIntents[0], {
     protocolVersion: "online-gameplay.v1",
     gameSessionId: "game-123",
@@ -255,20 +256,21 @@ function createTransport(): {
     type: "MOVE",
     payload: { direction: 1 },
   });
-  assert.equal(authority.getViewState()?.tanks[0]?.position.x, 51);
+  assert.equal(gameManager.getState().tanks[0]?.position.x, 51);
   assert.ok(seenTankX.includes(51));
 
   now = 1000;
   test.emit(movementDiff());
   now = 1600;
+  gameManager.update(0);
 
-  assert.equal(authority.getViewState()?.tanks[0]?.position.x, 55);
-  authority.destroy();
+  assert.equal(gameManager.getState().tanks[0]?.position.x, 55);
+  gameManager.destroy();
 }
 
 {
   const test = createTransport();
-  const authority: GameAuthority = createRemoteOnlineGameAuthority({
+  const gameManager: GameManager = createOnlineGameManager({
     transport: test.transport,
     monotonicNowMs: () => 1000,
   });
@@ -304,10 +306,10 @@ function createTransport(): {
       ],
     },
   });
-  assert.equal(authority.getViewState()?.projectiles.length, 0);
-  assert.equal(authority.getViewState()?.impactEvents.length, 1);
-  assert.equal(authority.getViewState()?.impactEvents[0]?.position.x, 150);
-  assert.equal(authority.getViewState()?.tanks[1]?.health, 50);
+  assert.equal(gameManager.getState().projectiles.length, 0);
+  assert.equal(gameManager.getState().impactEvents.length, 1);
+  assert.equal(gameManager.getState().impactEvents[0]?.position.x, 150);
+  assert.equal(gameManager.getState().tanks[1]?.health, 50);
 
   test.emit({
     protocolVersion: "online-gameplay.v1",
@@ -321,8 +323,8 @@ function createTransport(): {
     },
   });
   assert.deepEqual(
-    authority.getViewState()?.terrain.kind === "heightmap"
-      ? authority.getViewState()?.terrain.surface
+    gameManager.getState().terrain.kind === "heightmap"
+      ? gameManager.getState().terrain.surface
       : [],
     [2, 0, 1, 2],
   );
@@ -342,8 +344,8 @@ function createTransport(): {
       turnEndsAtServerTick: 990,
     },
   });
-  assert.equal(authority.getViewState()?.match.activePlayerId, 2);
-  assert.equal(authority.getViewState()?.match.turnNumber, 2);
+  assert.equal(gameManager.getState().match.activePlayerId, 2);
+  assert.equal(gameManager.getState().match.turnNumber, 2);
 
   test.emit({
     protocolVersion: "online-gameplay.v1",
@@ -365,22 +367,22 @@ function createTransport(): {
       },
     },
   });
-  assert.equal(authority.getViewState()?.match.phase, "gameOver");
-  assert.equal(authority.getViewState()?.match.winnerPlayerId, 1);
-  authority.destroy();
+  assert.equal(gameManager.getState().match.phase, "gameOver");
+  assert.equal(gameManager.getState().match.winnerPlayerId, 1);
+  gameManager.destroy();
 }
 
 {
   const test = createTransport();
-  const authority: GameAuthority = createRemoteOnlineGameAuthority({
+  const gameManager: GameManager = createOnlineGameManager({
     transport: test.transport,
     intentIdFactory: () => "intent-rejected",
     monotonicNowMs: () => 0,
   });
 
   test.emit(initialDiff());
-  assert.equal(authority.submitAction({ type: "move", direction: 1 }), true);
-  assert.equal(authority.getViewState()?.tanks[0]?.position.x, 51);
+  assert.equal(gameManager.submitAction({ type: "move", direction: 1 }), true);
+  assert.equal(gameManager.getState().tanks[0]?.position.x, 51);
 
   test.emit({
     protocolVersion: "online-gameplay.v1",
@@ -398,20 +400,20 @@ function createTransport(): {
     },
   });
 
-  assert.equal(authority.getViewState()?.tanks[0]?.position.x, 50);
-  authority.destroy();
+  assert.equal(gameManager.getState().tanks[0]?.position.x, 50);
+  gameManager.destroy();
 }
 
 {
   const test = createTransport();
-  const authority: GameAuthority = createRemoteOnlineGameAuthority({
+  const gameManager: GameManager = createOnlineGameManager({
     transport: test.transport,
     intentIdFactory: () => "intent-fire",
   });
 
   test.emit(initialDiff());
   assert.equal(
-    authority.submitAction({
+    gameManager.submitAction({
       type: "fire",
       angle: 42,
       power: 0.75,
@@ -434,5 +436,5 @@ function createTransport(): {
       projectileSlotId: "standard",
     },
   });
-  authority.destroy();
+  gameManager.destroy();
 }

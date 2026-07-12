@@ -2,8 +2,8 @@ import type {
   OnlineDiffEnvelope,
   OnlinePlayerIntentEnvelope,
 } from "../../api/ws/dto/gameplay/onlineGameplayProtocol";
-import type { GameAuthority } from "../authority/gameAuthority";
-import type { GameAction, GameViewState } from "../types";
+import type { GameManager } from "../authority/gameAuthority";
+import type { GameAction, GameState } from "../types";
 import { mockGameContent, type GameContent } from "../content/mockGameContent";
 import type { OnlineGameplayTransport } from "./OnlineGameplayTransport";
 import { onlineConfirmedStateToGameViewState } from "./onlineGameViewState";
@@ -18,28 +18,21 @@ import {
   type OnlineConfirmedState,
 } from "./onlineConfirmedState";
 
-export type OnlineGameplayAuthority = GameAuthority & {
-  getConfirmedState(): OnlineConfirmedState | null;
-  subscribeToConfirmedState(listener: (state: OnlineConfirmedState) => void): () => void;
-};
+export type OnlineGameManager = GameManager;
 
-export function createOnlineGameplayAuthority(options: {
+export function createOnlineGameManager(options: {
   transport: OnlineGameplayTransport;
   content?: GameContent;
   intentIdFactory?: () => string;
   monotonicNowMs?: () => number;
-}): OnlineGameplayAuthority {
-  return new TransportBackedOnlineGameplayAuthority(options);
+}): OnlineGameManager {
+  return new TransportBackedOnlineGameManager(options);
 }
 
-export type RemoteOnlineGameAuthority = OnlineGameplayAuthority;
-
-export const createRemoteOnlineGameAuthority = createOnlineGameplayAuthority;
-
-class TransportBackedOnlineGameplayAuthority implements OnlineGameplayAuthority {
+class TransportBackedOnlineGameManager implements OnlineGameManager {
   private confirmedState: OnlineConfirmedState | null = null;
-  private readonly viewListeners = new Set<(state: GameViewState) => void>();
-  private readonly confirmedListeners = new Set<(state: OnlineConfirmedState) => void>();
+  private currentState: GameState | null = null;
+  private readonly listeners = new Set<(state: GameState) => void>();
   private readonly unsubscribeTransport: () => void;
   private readonly transport: OnlineGameplayTransport;
   private readonly content: GameContent;
@@ -86,46 +79,28 @@ class TransportBackedOnlineGameplayAuthority implements OnlineGameplayAuthority 
 
   update(): void {
     if (this.confirmedState) {
-      this.publishView(this.confirmedState);
+      this.publishState(this.confirmedState);
     }
   }
 
-  getViewState(): GameViewState | null {
-    if (this.confirmedState === null) return null;
-    const now = this.monotonicNowMs();
-    return onlineConfirmedStateToGameViewState(
-      this.confirmedState,
-      projectOnlineRenderState(this.confirmedState, now),
-      this.content,
-      now,
-    );
+  getState(): GameState {
+    if (this.currentState === null) {
+      throw new Error("Online Game Manager requires Initial State before reading Game State");
+    }
+    return this.currentState;
   }
 
-  getConfirmedState(): OnlineConfirmedState | null {
-    return this.confirmedState;
-  }
-
-  subscribe(listener: (state: GameViewState) => void): () => void {
-    this.viewListeners.add(listener);
-    const viewState = this.getViewState();
-    if (viewState) listener(viewState);
+  subscribe(listener: (state: GameState) => void): () => void {
+    this.listeners.add(listener);
+    if (this.currentState) listener(this.currentState);
     return () => {
-      this.viewListeners.delete(listener);
-    };
-  }
-
-  subscribeToConfirmedState(listener: (state: OnlineConfirmedState) => void): () => void {
-    this.confirmedListeners.add(listener);
-    if (this.confirmedState) listener(this.confirmedState);
-    return () => {
-      this.confirmedListeners.delete(listener);
+      this.listeners.delete(listener);
     };
   }
 
   destroy(): void {
     this.unsubscribeTransport();
-    this.viewListeners.clear();
-    this.confirmedListeners.clear();
+    this.listeners.clear();
   }
 
   private applyDiff(diff: OnlineDiffEnvelope): void {
@@ -197,22 +172,19 @@ class TransportBackedOnlineGameplayAuthority implements OnlineGameplayAuthority 
 
   private publishConfirmed(state: OnlineConfirmedState): void {
     this.confirmedState = state;
-    for (const listener of this.confirmedListeners) {
-      listener(state);
-    }
-    this.publishView(state);
+    this.publishState(state);
   }
 
-  private publishView(state: OnlineConfirmedState): void {
+  private publishState(state: OnlineConfirmedState): void {
     const now = this.monotonicNowMs();
-    const viewState = onlineConfirmedStateToGameViewState(
+    this.currentState = onlineConfirmedStateToGameViewState(
       state,
       projectOnlineRenderState(state, now),
       this.content,
       now,
     );
-    for (const listener of this.viewListeners) {
-      listener(viewState);
+    for (const listener of this.listeners) {
+      listener(this.currentState);
     }
   }
 }

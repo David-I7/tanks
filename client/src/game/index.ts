@@ -17,14 +17,8 @@ export type {
   SimulationManager,
 } from "./authority/simulationAuthority";
 export { mockGameContent } from "./content/mockGameContent";
-export { createOnlineGameplayAuthority } from "./online/OnlineGameplayAuthority";
-export {
-  createRemoteOnlineGameAuthority,
-} from "./online/OnlineGameplayAuthority";
-export type {
-  OnlineGameplayAuthority,
-  RemoteOnlineGameAuthority,
-} from "./online/OnlineGameplayAuthority";
+export { createOnlineGameManager } from "./online/OnlineGameManager";
+export type { OnlineGameManager } from "./online/OnlineGameManager";
 export { createOnlineGameplayTransport } from "./online/OnlineGameplayTransport";
 export type { OnlineGameplayTransport } from "./online/OnlineGameplayTransport";
 export { createDefaultMatchSetup } from "./world/createInitialWorld";
