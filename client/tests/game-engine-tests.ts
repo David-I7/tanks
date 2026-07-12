@@ -34,20 +34,56 @@ function installBrowserRuntime() {
   };
 }
 
-function fakeCanvas(): HTMLCanvasElement {
+function fakeCanvas(size = { width: 960, height: 560 }): HTMLCanvasElement {
   return {
     width: 0,
     height: 0,
     getBoundingClientRect: () => ({
       left: 0,
       top: 0,
-      width: 960,
-      height: 560,
+      width: size.width,
+      height: size.height,
     }),
     getContext: () => null,
     addEventListener() {},
     removeEventListener() {},
   } as unknown as HTMLCanvasElement;
+}
+
+{
+  installBrowserRuntime();
+  const canvasSize = { width: 960, height: 560 };
+  const canvas = fakeCanvas(canvasSize);
+  const manager = createCanvasSizedLocalGameManager({
+    canvas,
+    mode: "localTwoPlayer",
+  });
+  const engine = new GameEngine({ canvas, gameManager: manager });
+  const before = manager.getState();
+  const terrainSize = {
+    width: before.terrain.width,
+    height: before.terrain.height,
+  };
+  const tankPositions = before.tanks.map((tank) => tank.position);
+
+  canvasSize.width = 640;
+  canvasSize.height = 400;
+  engine.resize();
+
+  const after = manager.getState();
+  assert.equal(after, before);
+  assert.deepEqual(
+    { width: after.terrain.width, height: after.terrain.height },
+    terrainSize,
+  );
+  assert.deepEqual(
+    after.tanks.map((tank) => tank.position),
+    tankPositions,
+  );
+  assert.equal(canvas.width, 640);
+  assert.equal(canvas.height, 400);
+
+  engine.stop();
 }
 
 function gameState(turnNumber: number): GameState {

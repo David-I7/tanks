@@ -1,5 +1,5 @@
 import type { GameContent } from "../content/mockGameContent";
-import type { WorldSize } from "../world/worldSizing";
+import type { GameViewport } from "../world/worldSizing";
 import {
   createDefaultMatchSetup,
   createInitialWorld,
@@ -33,7 +33,7 @@ export function createLocalSimulationAuthority(options: {
   mode?: GameMode;
   setup?: MatchSetup;
   content: GameContent;
-  worldSize: WorldSize;
+  initialGameViewport: GameViewport;
 }): SimulationAuthority {
   const localAuthority = createLocalSimulationRuntime(options);
   return {
@@ -79,14 +79,14 @@ function createLocalSimulationRuntime(options: {
   mode?: GameMode;
   setup?: MatchSetup;
   content: GameContent;
-  worldSize: WorldSize;
+  initialGameViewport: GameViewport;
 }): LocalSimulationAuthority {
   const setup =
     options.setup ?? createDefaultMatchSetup(options.mode ?? "localTwoPlayer");
   const { world, terrain, content } = createInitialWorld(
     setup,
     options.content,
-    options.worldSize,
+    options.initialGameViewport,
   );
   return new LocalSimulationAuthority(world, terrain, content);
 }

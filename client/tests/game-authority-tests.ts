@@ -29,7 +29,7 @@ function createLocalAuthority(
     mode,
     setup: createDefaultMatchSetup(mode),
     content: mockGameContent,
-    worldSize: { width: 960, height: 560 },
+    initialGameViewport: { width: 960, height: 560 },
   });
 }
 
@@ -40,7 +40,7 @@ function createLocalManager(
     mode,
     setup: createDefaultMatchSetup(mode),
     content: mockGameContent,
-    worldSize: { width: 960, height: 560 },
+    initialGameViewport: { width: 960, height: 560 },
   });
 }
 
@@ -49,7 +49,7 @@ function createLocalSimulationManagerForTest() {
     mode: "localTwoPlayer",
     setup: createDefaultMatchSetup("localTwoPlayer"),
     content: mockGameContent,
-    worldSize: { width: 960, height: 560 },
+    initialGameViewport: { width: 960, height: 560 },
   });
 }
 
@@ -458,7 +458,7 @@ function updateUntil(
     mode: "localTwoPlayer",
     setup: createDefaultMatchSetup("localTwoPlayer"),
     content: lethalContent,
-    worldSize: { width: 960, height: 560 },
+    initialGameViewport: { width: 960, height: 560 },
   });
 
   authority.submitAction({

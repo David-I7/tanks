@@ -1,5 +1,5 @@
 import type { GameContent } from "../content/mockGameContent";
-import type { WorldSize } from "../world/worldSizing";
+import type { GameViewport } from "../world/worldSizing";
 import { AiIntentSource } from "../input/AiIntentSource";
 import {
   createLocalSimulationAuthority,
@@ -91,7 +91,7 @@ export function createLocalGameAuthority(options: {
   mode: Exclude<GameMode, "online">;
   setup?: MatchSetup;
   content: GameContent;
-  worldSize: WorldSize;
+  initialGameViewport: GameViewport;
 }): GameAuthority {
   return new SimulationGameAuthority(
     createLocalSimulationAuthority(options),

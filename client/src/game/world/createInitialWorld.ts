@@ -2,7 +2,7 @@ import { World } from "./World";
 import { TerrainModel } from "../terrain/TerrainModel";
 import { mockGameContent, type GameContent } from "../content/mockGameContent";
 import type { GameMode, MatchSetup } from "../types";
-import type { WorldSize } from "./worldSizing";
+import type { GameViewport } from "./worldSizing";
 import { MAX_TURN_SECONDS } from "../simulation/turnRules";
 import { getPlayerMatchConfig } from "../modes";
 
@@ -15,17 +15,13 @@ export type InitialWorld = {
 export function createInitialWorld(
   setup: MatchSetup,
   content: GameContent,
-  sizeOrWidth: WorldSize | number,
-  legacyHeight?: number,
+  initialGameViewport: GameViewport,
 ): InitialWorld {
   validateMatchSetup(setup, content);
-  const size =
-    typeof sizeOrWidth === "number"
-      ? { width: sizeOrWidth, height: legacyHeight ?? 560 }
-      : sizeOrWidth;
+  const terrainSize = deriveLocalTerrainSize(initialGameViewport);
   const terrain = new TerrainModel(
-    Math.max(800, Math.floor(size.width * 2.5)),
-    Math.max(420, size.height),
+    terrainSize.width,
+    terrainSize.height,
   );
   const world = new World({
     mode: setup.mode,
@@ -59,6 +55,16 @@ export function createInitialWorld(
   return { world, terrain, content };
 }
 
+export function deriveLocalTerrainSize(initialGameViewport: GameViewport): {
+  width: number;
+  height: number;
+} {
+  return {
+    width: Math.max(800, Math.floor(initialGameViewport.width * 2.5)),
+    height: Math.max(420, initialGameViewport.height),
+  };
+}
+
 export function createDefaultMatchSetup(mode: GameMode): MatchSetup {
   const p0 = getPlayerMatchConfig(mode, 0);
   const p1 = getPlayerMatchConfig(mode, 1);
@@ -83,14 +89,12 @@ export function createDefaultMatchSetup(mode: GameMode): MatchSetup {
 
 export function createDefaultInitialWorld(
   mode: GameMode,
-  width: number,
-  height: number,
+  initialGameViewport: GameViewport,
 ): InitialWorld {
   return createInitialWorld(
     createDefaultMatchSetup(mode),
     mockGameContent,
-    width,
-    height,
+    initialGameViewport,
   );
 }
 

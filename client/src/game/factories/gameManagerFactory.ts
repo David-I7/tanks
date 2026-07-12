@@ -22,7 +22,7 @@ export function createCanvasSizedLocalGameManager(options: {
     mode: options.mode,
     setup: options.setup ?? createDefaultMatchSetup(options.mode),
     content,
-    worldSize: sizing.worldSize,
+    initialGameViewport: sizing.gameViewport,
   });
 }
 

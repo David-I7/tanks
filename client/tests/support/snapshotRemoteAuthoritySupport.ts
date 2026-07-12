@@ -83,8 +83,7 @@ export function createMockSnapshotRemoteTransport(
   const { world, terrain, content } = createInitialWorld(
     options.setup,
     options.content,
-    options.width,
-    options.height,
+    { width: options.width, height: options.height },
   );
   const authority = new LocalSimulationAuthority(world, terrain, content);
   const listeners = new Set<(snapshot: GameSnapshot) => void>();

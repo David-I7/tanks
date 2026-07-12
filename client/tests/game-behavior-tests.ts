@@ -29,7 +29,10 @@ import {
 } from "./support/snapshotRemoteAuthoritySupport";
 
 function makeAuthority(setup: MatchSetup = createDefaultMatchSetup("localTwoPlayer")) {
-  const { world, terrain, content } = createInitialWorld(setup, mockGameContent, 960, 560);
+  const { world, terrain, content } = createInitialWorld(setup, mockGameContent, {
+    width: 960,
+    height: 560,
+  });
   return new LocalSimulationAuthority(world, terrain, content);
 }
 
@@ -110,21 +113,35 @@ async function expectSharedAuthoritySelection(
     domCanvasRect: { left: 10, top: 20, width: 960, height: 560 },
     devicePixelRatio: 3,
   });
-  assert.deepEqual(sizing.worldSize, sameViewportDifferentDpr.worldSize);
+  assert.deepEqual(sizing.gameViewport, sameViewportDifferentDpr.gameViewport);
   assert.deepEqual(sizing.dpiViewport, { width: 1920, height: 1120 });
 
   const first = createInitialWorld(
     createDefaultMatchSetup("localTwoPlayer"),
     mockGameContent,
-    sizing.worldSize,
+    sizing.gameViewport,
   );
   const second = createInitialWorld(
     createDefaultMatchSetup("localTwoPlayer"),
     mockGameContent,
-    sameViewportDifferentDpr.worldSize,
+    sameViewportDifferentDpr.gameViewport,
   );
   assert.equal(first.terrain.width, second.terrain.width);
   assert.equal(first.terrain.height, second.terrain.height);
+  assert.deepEqual(
+    { width: first.terrain.width, height: first.terrain.height },
+    { width: 2400, height: 560 },
+  );
+
+  const minimumTerrain = createInitialWorld(
+    createDefaultMatchSetup("localTwoPlayer"),
+    mockGameContent,
+    { width: 200, height: 100 },
+  ).terrain;
+  assert.deepEqual(
+    { width: minimumTerrain.width, height: minimumTerrain.height },
+    { width: 800, height: 420 },
+  );
 }
 
 {
@@ -143,8 +160,7 @@ async function expectSharedAuthoritySelection(
           ],
         },
         mockGameContent,
-        960,
-        560,
+        { width: 960, height: 560 },
       ),
     /Missing tank definition "missing"/,
   );
@@ -171,8 +187,7 @@ async function expectSharedAuthoritySelection(
           ],
         },
         malformed,
-        960,
-        560,
+        { width: 960, height: 560 },
       ),
     /exactly five projectile slots/,
   );
@@ -215,7 +230,7 @@ async function expectSharedAuthoritySelection(
     createLocalSimulationAuthority({
       setup: createDefaultMatchSetup("localTwoPlayer"),
       content: mockGameContent,
-      worldSize: { width: 960, height: 560 },
+      initialGameViewport: { width: 960, height: 560 },
     }),
   );
 
@@ -437,7 +452,10 @@ async function expectSharedAuthoritySelection(
   assert.equal(setup.players[0]?.displayName, "Player 1");
   assert.equal(setup.players[1]?.displayName, "Player 2");
 
-  const { world } = createInitialWorld(setup, mockGameContent, 960, 560);
+  const { world } = createInitialWorld(setup, mockGameContent, {
+    width: 960,
+    height: 560,
+  });
   assert.equal(world.match.mode, "localTwoPlayer");
   assert.equal(world.match.playerCount, 2);
 }
@@ -452,7 +470,10 @@ async function expectSharedAuthoritySelection(
   assert.equal(setup.players[0]?.displayName, "Player 1");
   assert.equal(setup.players[1]?.displayName, "CPU");
 
-  const { world } = createInitialWorld(setup, mockGameContent, 960, 560);
+  const { world } = createInitialWorld(setup, mockGameContent, {
+    width: 960,
+    height: 560,
+  });
   assert.equal(world.match.mode, "playerVsAi");
   assert.equal(world.match.playerCount, 2);
 }

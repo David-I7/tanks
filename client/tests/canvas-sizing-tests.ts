@@ -76,7 +76,7 @@ function fakeCanvas(ctx: CanvasRenderingContext2D): HTMLCanvasElement {
 
   assert.deepEqual(sizing.gameViewport, { width: 960, height: 560 });
   assert.deepEqual(sizing.dpiViewport, { width: 1920, height: 1120 });
-  assert.deepEqual(sizing.worldSize, { width: 960, height: 560 });
+  assert.equal("worldSize" in sizing, false);
   assert.deepEqual(sizing.domCanvasRect, {
     left: 12,
     top: 24,

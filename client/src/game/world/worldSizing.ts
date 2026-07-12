@@ -3,11 +3,6 @@ export type GameViewport = {
   height: number;
 };
 
-export type WorldSize = {
-  width: number;
-  height: number;
-};
-
 export type DpiViewport = {
   width: number;
   height: number;
@@ -19,7 +14,6 @@ export type CanvasSizing = {
   gameViewport: GameViewport;
   dpiViewport: DpiViewport;
   domCanvasRect: DomCanvasRect;
-  worldSize: WorldSize;
 };
 
 export function readDomCanvasRect(canvas: HTMLCanvasElement): DomCanvasRect {
@@ -49,10 +43,6 @@ export function createCanvasSizing(input: {
       height: Math.max(240, Math.floor(gameViewport.height * ratio)),
     },
     domCanvasRect: input.domCanvasRect,
-    worldSize: {
-      width: gameViewport.width,
-      height: gameViewport.height,
-    },
   };
 }
 
