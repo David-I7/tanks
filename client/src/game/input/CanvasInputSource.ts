@@ -1,6 +1,8 @@
 import type { GameAction, GameState } from "../types";
-import { calculateAimIntent } from "./aimMath";
-import { findProjectileSlotAtCanvasPoint } from "./projectileSelectorHitTest";
+import {
+  calculateAimIntent,
+  findProjectileSlotAtCanvasPoint,
+} from "./inputHelpers";
 import type { DomCanvasRect, GameViewport } from "../world/worldSizing";
 import { domPointToGameViewportPoint } from "../world/worldSizing";
 

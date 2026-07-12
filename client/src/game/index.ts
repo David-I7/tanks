@@ -2,8 +2,6 @@ export { GameEngine } from "./GameEngine";
 export type { GameEngineOptions } from "./GameEngine";
 export {
   createCanvasSizedLocalGameManager,
-} from "./factories/gameManagerFactory";
-export {
   createLocalGameManager,
 } from "./authority/gameManager";
 export type { GameManager } from "./authority/gameManager";

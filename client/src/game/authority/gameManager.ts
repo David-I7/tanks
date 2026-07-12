@@ -1,5 +1,6 @@
-import type { GameContent } from "../content/mockGameContent";
-import type { GameViewport } from "../world/worldSizing";
+import { mockGameContent, type GameContent } from "../content/mockGameContent";
+import { createCanvasSizing, readDomCanvasRect, type GameViewport } from "../world/worldSizing";
+import { createDefaultMatchSetup } from "../world/createInitialWorld";
 import { AiIntentSource } from "../input/AiIntentSource";
 import {
   createLocalSimulationManager,
@@ -20,6 +21,26 @@ export type GameManager = {
   subscribe(listener: (state: GameState) => void): () => void;
   destroy(): void;
 };
+
+export function createCanvasSizedLocalGameManager(options: {
+  canvas: HTMLCanvasElement;
+  mode: Exclude<GameMode, "online">;
+  setup?: MatchSetup;
+  content?: GameContent;
+}): GameManager {
+  const sizing = createCanvasSizing({
+    domCanvasRect: readDomCanvasRect(options.canvas),
+    devicePixelRatio: window.devicePixelRatio || 1,
+  });
+  const content = options.content ?? mockGameContent;
+
+  return createLocalGameManager({
+    mode: options.mode,
+    setup: options.setup ?? createDefaultMatchSetup(options.mode),
+    content,
+    initialGameViewport: sizing.gameViewport,
+  });
+}
 
 export function createLocalGameManager(options: {
   mode: Exclude<GameMode, "online">;

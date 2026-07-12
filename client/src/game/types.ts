@@ -4,19 +4,15 @@ export type GameMode = "online" | "localTwoPlayer" | "playerVsAi";
 
 export type ControllerKind = "human" | "ai" | "remote";
 
-export type ProjectileSlotId = string;
-export type ProjectileDefinitionId = string;
-export type TankDefinitionId = string;
-
 export type GameAction =
   | { type: "move"; direction: -1 | 0 | 1 }
   | { type: "aim"; angle: number; power: number }
-  | { type: "selectProjectileSlot"; projectileSlotId: ProjectileSlotId }
+  | { type: "selectProjectileSlot"; projectileSlotId: string }
   | {
       type: "fire";
       angle: number;
       power: number;
-      projectileSlotId: ProjectileSlotId;
+      projectileSlotId: string;
     };
 
 export type RemoteGameAction = {
@@ -60,7 +56,7 @@ export type DamageEffect =
   | { type: "focused"; radius: number; damage: number };
 
 export type ProjectileDefinition = {
-  id: ProjectileDefinitionId;
+  id: string;
   name: string;
   physics: ProjectilePhysics;
   terrainEffect: TerrainEffect;
@@ -71,13 +67,13 @@ export type ProjectileDefinition = {
 };
 
 export type ProjectileSlot = {
-  id: ProjectileSlotId;
-  projectileDefinitionId: ProjectileDefinitionId;
+  id: string;
+  projectileDefinitionId: string;
   label: string;
 };
 
 export type TankDefinition = {
-  id: TankDefinitionId;
+  id: string;
   name: string;
   maxHealth: number;
   loadout: ProjectileSlot[];
@@ -85,7 +81,7 @@ export type TankDefinition = {
 };
 
 export type TankSelection = {
-  tankDefinitionId: TankDefinitionId;
+  tankDefinitionId: string;
 };
 
 export type MatchSetupPlayer = {
@@ -108,11 +104,11 @@ export type TankComponent = {
   playerId: number;
   displayName: string;
   controllerKind: ControllerKind;
-  tankDefinitionId: TankDefinitionId;
+  tankDefinitionId: string;
   tankName: string;
   visual: VisualIdentity;
   loadout: ProjectileSlot[];
-  selectedProjectileSlotId: ProjectileSlotId;
+  selectedProjectileSlotId: string;
   maxHealth: number;
   health: number;
   facing: 1 | -1;
@@ -126,7 +122,7 @@ export type TankComponent = {
 
 export type ProjectileComponent = {
   ownerPlayerId: number;
-  projectileDefinitionId: ProjectileDefinitionId;
+  projectileDefinitionId: string;
   name: string;
   power: number;
   radius: number;
@@ -227,3 +223,7 @@ export type GameAssets = {
     tank: HTMLImageElement;
   };
 };
+
+export const MAX_TURN_SECONDS = 30;
+export const MAX_TANK_FUEL = 240;
+export const MOVE_FUEL_COST = 1;

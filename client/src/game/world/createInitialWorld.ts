@@ -1,9 +1,8 @@
 import { World } from "./World";
-import { TerrainModel } from "../terrain/TerrainModel";
+import { TerrainModel } from "../simulation/TerrainModel";
 import { mockGameContent, type GameContent } from "../content/mockGameContent";
-import type { GameMode, MatchSetup } from "../types";
+import { type GameMode, type MatchSetup, MAX_TURN_SECONDS } from "../types";
 import type { GameViewport } from "./worldSizing";
-import { MAX_TURN_SECONDS } from "../simulation/turnRules";
 import { getPlayerMatchConfig } from "../modes";
 
 export type InitialWorld = {

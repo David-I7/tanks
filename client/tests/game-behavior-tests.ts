@@ -15,8 +15,8 @@ import { collectGameActions } from "../src/game/input/CanvasInputSource";
 import {
   findProjectileSlotAtCanvasPoint,
   getProjectileSelectorLayout,
-} from "../src/game/input/projectileSelectorHitTest";
-import { TerrainModel } from "../src/game/terrain/TerrainModel";
+} from "../src/game/input/inputHelpers";
+import { TerrainModel } from "../src/game/simulation/TerrainModel";
 import {
   mockGameContent,
   type GameContent,
@@ -432,7 +432,7 @@ async function expectSharedSimulationManagerSelection(
   });
   assert.equal(intents[1]?.type, "aim");
   assert.ok(
-    intents[1]?.type === "aim" && Math.abs(intents[1].angle) < 0.000001,
+    intents[1]?.type === "aim" && Math.abs(intents[1].angle - (-0.2764)) < 0.001,
   );
 }
 

@@ -1,6 +1,6 @@
 import type { GameState } from "../types";
 import { simulateTrajectoryPreview } from "../simulation/ballistics";
-import { getProjectileSelectorLayout } from "../input/projectileSelectorHitTest";
+import { getProjectileSelectorLayout } from "../input/inputHelpers";
 import type { DpiViewport, GameViewport } from "../world/worldSizing";
 
 export type RendererAssets = {
@@ -39,7 +39,10 @@ export class CanvasGameRenderer {
       width: canvas.width,
       height: canvas.height,
     };
-    this.dpiViewport = dpiViewport ?? { width: canvas.width, height: canvas.height };
+    this.dpiViewport = dpiViewport ?? {
+      width: canvas.width,
+      height: canvas.height,
+    };
     this.worldPasses = [
       {
         name: "terrain",
@@ -174,10 +177,7 @@ export class CanvasGameRenderer {
     ctx.fill();
   }
 
-  private drawTanks(
-    ctx: CanvasRenderingContext2D,
-    gameState: GameState,
-  ): void {
+  private drawTanks(ctx: CanvasRenderingContext2D, gameState: GameState): void {
     for (const entry of gameState.tanks) {
       if (!entry.alive) continue;
 
@@ -287,10 +287,7 @@ export class CanvasGameRenderer {
     }
   }
 
-  private drawHud(
-    ctx: CanvasRenderingContext2D,
-    gameState: GameState,
-  ): void {
+  private drawHud(ctx: CanvasRenderingContext2D, gameState: GameState): void {
     const headerHeight = 74;
     ctx.fillStyle = "rgba(6, 6, 8, 0.78)";
     ctx.fillRect(0, 0, this.gameViewport.width, headerHeight);

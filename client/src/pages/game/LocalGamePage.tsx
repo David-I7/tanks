@@ -6,7 +6,7 @@ import {
   GameEngine,
   type GameMode,
 } from "../../game";
-import ResourceManager from "../../game/resources/ResourceManager";
+import ResourceManager from "../../game/rendering/ResourceManager";
 import type { RendererAssets } from "../../game/rendering/CanvasGameRenderer";
 import IconButton from "../../components/buttons/IconButton";
 
@@ -89,7 +89,7 @@ export default function LocalGamePage() {
 
       <canvas
         ref={canvasRef}
-        className="min-h-[560px] flex-1 rounded border border-border-main bg-background-high shadow-lg"
+        className="min-h-[560px] min-w-[320px] flex-1 rounded border border-border-main bg-background-high shadow-lg"
       />
     </main>
   );

@@ -1,18 +1,20 @@
 import { World } from "../world/World";
-import { TerrainModel } from "../terrain/TerrainModel";
-import type {
-  DamageEffect,
-  EntityId,
-  SimulationState,
-  GameAction,
-  ProjectileComponent,
-  ProjectileDefinition,
-  TankComponent,
+import { TerrainModel } from "./TerrainModel";
+import {
+  type DamageEffect,
+  type EntityId,
+  type SimulationState,
+  type GameAction,
+  type ProjectileComponent,
+  type ProjectileDefinition,
+  type TankComponent,
+  MAX_TANK_FUEL,
+  MAX_TURN_SECONDS,
+  MOVE_FUEL_COST,
 } from "../types";
 import type { GameContent } from "../content/mockGameContent";
 import { getLocalControllerKind } from "../modes";
 import { GRAVITY, getMuzzlePosition } from "./ballistics";
-import { MAX_TANK_FUEL, MAX_TURN_SECONDS, MOVE_FUEL_COST } from "./turnRules";
 
 const TANK_HALF_WIDTH = 22;
 const TANK_MOVE_STEP = 2;

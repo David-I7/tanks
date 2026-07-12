@@ -6,7 +6,7 @@ import {
   GameEngine,
   type GameMode,
 } from "../../game";
-import ResourceManager from "../../game/resources/ResourceManager";
+import ResourceManager from "../../game/rendering/ResourceManager";
 import type { RendererAssets } from "../../game/rendering/CanvasGameRenderer";
 
 const modes: Array<{ value: GameMode; label: string; icon: typeof Monitor }> = [

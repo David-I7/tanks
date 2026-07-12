@@ -1,17 +1,17 @@
-import type {
-  EntityId,
-  LifetimeComponent,
-  MatchState,
-  PositionComponent,
-  ProjectileDefinition,
-  ProjectileComponent,
-  TankComponent,
-  TankDefinition,
-  MatchSetupPlayer,
-  ImpactEvent,
-  VelocityComponent,
+import {
+  type EntityId,
+  type LifetimeComponent,
+  type MatchState,
+  type PositionComponent,
+  type ProjectileDefinition,
+  type ProjectileComponent,
+  type TankComponent,
+  type TankDefinition,
+  type MatchSetupPlayer,
+  type ImpactEvent,
+  type VelocityComponent,
+  MAX_TANK_FUEL,
 } from "../types";
-import { MAX_TANK_FUEL } from "../simulation/turnRules";
 
 export class World {
   private nextEntityId = 1;

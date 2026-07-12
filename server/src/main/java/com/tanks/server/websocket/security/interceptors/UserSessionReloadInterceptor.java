@@ -54,7 +54,6 @@ public class UserSessionReloadInterceptor implements ChannelInterceptor {
             principal.setUserSession(userSession);
         }
 
-
         return message;
     }
 }

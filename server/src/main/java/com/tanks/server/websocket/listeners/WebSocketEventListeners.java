@@ -105,12 +105,10 @@ public class WebSocketEventListeners {
 
         // UserSession is null if the user failed to connect on the CONNECT command
         if(userSession != null) {
-            redisClaimService.releaseSocket(user.id(), accessor.getSessionId());
-
             if (userSession.getState() == UserSessionState.IN_LOBBY) {
-                // notify lobby that the user disconnected
-                log.debug("LOBBY DISCONNECT");
-                handleLobbyDisconnect(userSession);
+                // notify lobby that the user left
+                log.debug("LOBBY LEAVE");
+                handleLobbyLeave(userSession);
             } else if (userSession.getState() == UserSessionState.IN_GAME) {
                 // handle game disconnect
                 log.debug("GAME DISCONNECT");
@@ -221,7 +219,7 @@ public class WebSocketEventListeners {
         }
     }
 
-    private void handleLobbyDisconnect(UserSession userSession){
+    private void handleLobbyLeave(UserSession userSession){
         lobbyService.removeUser(userSession);
         userSessionService.delete(userSession);
     }
@@ -233,30 +231,29 @@ public class WebSocketEventListeners {
             userSession.setSocketSessionId(null);
             userSessionService.save(userSession);
             gameSessionService.decremenentPlayerCount(userSession.getGameSessionId());
-            simpMessagingTemplate.convertAndSend(gameTopic, new GameEventResponseDto(GameEventType.GAME_DISCONNECT, "@SERVER", new LobbyEventPayload(userSession.getGameSessionId(), userSession.getUsername())));
+            simpMessagingTemplate.convertAndSend(gameTopic, new GameEventResponseDto(GameEventType.GAME_DISCONNECT, "@SERVER", new GameIdPayload(userSession.getGameSessionId(), userSession.getUsername())));
         }
     }
 
     private void handleLobbyUnsubscribe(UserSession userSession){
         if(userSessionService.isConnectedToLobby(userSession)) {
-            markLobbySocketAbsentAndNotify(userSession);
+            UUID lobbyId = userSession.getLobbyId();
+            String lobbyTopic = TOPIC_LOBBY + lobbyId;
+            Map<String, String> topics = userSession.getTopicSubscriptions();
+            topics.remove(lobbyTopic);
+            if(topics.isEmpty()) {
+                userSession.setTopicSubscriptions(null);
+            }
+            userSessionService.save(userSession);
+            simpMessagingTemplate.convertAndSend(
+                    lobbyTopic,
+                    new LobbyEventResponseDto(
+                            LobbyEventType.LOBBY_DISCONNECT,
+                            "@SERVER",
+                            new LobbyEventPayload(lobbyId, userSession.getUsername())
+                    )
+            );
         }
-    }
-
-    private void markLobbySocketAbsentAndNotify(UserSession userSession) {
-        String lobbyTopic = TOPIC_LOBBY + userSession.getLobbyId();
-        UUID lobbyId = userSession.getLobbyId();
-        userSession.setTopicSubscriptions(null);
-        userSession.setSocketSessionId(null);
-        userSessionService.save(userSession);
-        simpMessagingTemplate.convertAndSend(
-                lobbyTopic,
-                new LobbyEventResponseDto(
-                        LobbyEventType.LOBBY_DISCONNECT,
-                        "@SERVER",
-                        new LobbyEventPayload(lobbyId, userSession.getUsername())
-                )
-        );
     }
 
     private void handleUserRepliesUnsubscribe(UserSession userSession){

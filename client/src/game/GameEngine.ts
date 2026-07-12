@@ -14,6 +14,10 @@ import {
   type CanvasSizing,
 } from "./world/worldSizing";
 
+const MAX_DELTA_TIME_SECONDS = 0.033; // ~30 Hz cap
+const FALLBACK_DELTA_TIME_SECONDS = 0.016; // ~60 Hz fallback
+const MS_PER_SECOND = 1000;
+
 export type GameEngineOptions = {
   canvas: HTMLCanvasElement;
   gameManager: GameManager;
@@ -105,8 +109,8 @@ export class GameEngine {
 
   private readonly tick = (timestamp: number) => {
     const dt = Math.min(
-      0.033,
-      (timestamp - this.lastTimestamp) / 1000 || 0.016,
+      MAX_DELTA_TIME_SECONDS,
+      (timestamp - this.lastTimestamp) / MS_PER_SECOND || FALLBACK_DELTA_TIME_SECONDS,
     );
     this.lastTimestamp = timestamp;
 
