@@ -168,14 +168,6 @@ export type HeightmapTerrainSnapshot = {
   surface: number[];
 };
 
-export type HeightmapTerrainPatch = {
-  kind: "heightmap-range";
-  startX: number;
-  surface: number[];
-};
-
-export type TerrainPatch = HeightmapTerrainPatch;
-
 export type MaskTerrainSnapshot = {
   kind: "mask";
   width: number;

@@ -36,30 +36,31 @@ export function createLocalSimulationAuthority(options: {
   initialGameViewport: GameViewport;
 }): SimulationAuthority {
   const localAuthority = createLocalSimulationRuntime(options);
+  const listeners = new Set<(snapshot: GameSnapshot) => void>();
+  const publishSnapshot = () => {
+    const snapshot = localAuthority.snapshot();
+    for (const listener of listeners) listener(snapshot);
+  };
   return {
     submitPlayerAction(playerId: number, action: GameAction): boolean {
-      return localAuthority.submitPlayerAction(playerId, action);
+      const accepted = localAuthority.submitPlayerAction(playerId, action);
+      if (accepted) publishSnapshot();
+      return accepted;
     },
     update(dt: number): void {
       localAuthority.update(dt);
+      publishSnapshot();
     },
     snapshot(): GameSnapshot {
       return localAuthority.snapshot();
     },
     subscribe(listener: (snapshot: GameSnapshot) => void): () => void {
-      const unsubscribe = localAuthority.subscribeMessages((message) => {
-        if (message.type === "snapshot") listener(message.snapshot);
-        if (message.type === "frame") {
-          listener({
-            ...message.state,
-            projectileDefinitions: options.content.projectiles,
-          });
-        }
-      });
-      return unsubscribe;
+      listeners.add(listener);
+      listener(localAuthority.snapshot());
+      return () => listeners.delete(listener);
     },
     destroy(): void {
-      localAuthority.destroy();
+      listeners.clear();
     },
   };
 }
@@ -123,7 +124,6 @@ class CachedLocalSimulationManager implements SimulationManager {
   }
 
   destroy(): void {
-    this.localAuthority.destroy();
     this.listeners.clear();
   }
 

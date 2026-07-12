@@ -8,25 +8,17 @@ import type {
   ProjectileComponent,
   ProjectileDefinition,
   TankComponent,
-  TerrainPatch,
 } from "../types";
 import type { GameContent } from "../content/mockGameContent";
 import { getLocalControllerKind } from "../modes";
 import { GRAVITY, getMuzzlePosition } from "./ballistics";
 import { MAX_TANK_FUEL, MAX_TURN_SECONDS, MOVE_FUEL_COST } from "./turnRules";
-import {
-  createWorldStatePublisher,
-  type WorldStateMessage,
-} from "../world/worldStatePublisher";
 
 const TANK_HALF_WIDTH = 22;
 const TANK_MOVE_STEP = 2;
 
 export class LocalSimulationAuthority {
   private transitionTimer = 0;
-  private readonly listeners = new Set<(message: WorldStateMessage) => void>();
-  private readonly publisher = createWorldStatePublisher("mock-game-content-v1");
-
   constructor(
     readonly world: World,
     readonly terrain: TerrainModel,
@@ -63,7 +55,6 @@ export class LocalSimulationAuthority {
       tank.fuel -= fuelSpend;
       position.y = this.terrain.getSurfaceY(position.x);
       tank.bodyAngle = this.terrain.getSlopeAngle(position.x);
-      this.publishFrame();
       return true;
     }
 
@@ -72,7 +63,6 @@ export class LocalSimulationAuthority {
         return false;
       }
       tank.selectedProjectileSlotId = action.projectileSlotId;
-      this.publishFrame();
       return true;
     }
 
@@ -91,7 +81,6 @@ export class LocalSimulationAuthority {
       this.world.match.turnTimeRemaining = 0;
     }
 
-    this.publishFrame();
     return true;
   }
 
@@ -124,19 +113,6 @@ export class LocalSimulationAuthority {
 
     this.updateTankGrounding();
     this.updateWinner();
-    this.publishFrame();
-  }
-
-  subscribeMessages(listener: (message: WorldStateMessage) => void): () => void {
-    this.listeners.add(listener);
-    listener(this.publisher.publishSnapshot(this.snapshot()));
-    return () => {
-      this.listeners.delete(listener);
-    };
-  }
-
-  destroy(): void {
-    this.listeners.clear();
   }
 
   snapshot(): GameSnapshot {
@@ -258,8 +234,7 @@ export class LocalSimulationAuthority {
     y: number,
     projectile: ProjectileComponent,
   ): void {
-    const patch = this.terrain.applyTerrainEffect(x, y, projectile.terrainEffect);
-    this.publish(this.publisher.publishTerrainPatch(patch));
+    this.terrain.applyTerrainEffect(x, y, projectile.terrainEffect);
     this.world.createImpactEvent(x, y, projectile);
     this.applyDamageEffect(x, y, projectile.damageEffect);
   }
@@ -389,13 +364,4 @@ export class LocalSimulationAuthority {
     }
   }
 
-  private publishFrame(terrainPatches: TerrainPatch[] = []): void {
-    this.publish(this.publisher.publishFrame(this.snapshot(), terrainPatches));
-  }
-
-  private publish(message: WorldStateMessage): void {
-    for (const listener of this.listeners) {
-      listener(message);
-    }
-  }
 }

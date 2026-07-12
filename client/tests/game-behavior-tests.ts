@@ -7,11 +7,11 @@ import {
 import { LocalSimulationAuthority } from "../src/game/simulation/LocalSimulationAuthority";
 import {
   createLocalSimulationAuthority,
+  createLocalSimulationManager,
   type SimulationAuthority,
 } from "../src/game/authority/simulationAuthority";
 import { snapshotToGameViewState } from "../src/game/authority/gameAuthority";
 import { createCanvasSizing } from "../src/game/world/worldSizing";
-import { createWorldStatePublisher } from "../src/game/world/worldStatePublisher";
 import { collectGameActions } from "../src/game/input/CanvasInputSource";
 import {
   findProjectileSlotAtCanvasPoint,
@@ -305,11 +305,11 @@ async function expectSharedAuthoritySelection(
 
 {
   const terrain = new TerrainModel(260, 160);
-  const patch = terrain.deform(130, 88, 48);
-  assert.equal(patch.kind, "heightmap-range");
-  assert.ok(patch.surface.length > 0);
-  assert.notEqual(patch.surface, terrain.surface);
-  assert.ok(patch.startX >= 0);
+  const beforeSurface = terrain.cloneSurface();
+  terrain.deform(130, 88, 48);
+  assert.ok(
+    terrain.surface.some((height, index) => height !== beforeSurface[index]),
+  );
   let maxStep = 0;
   for (let x = 82; x <= 178; x += 1) {
     maxStep = Math.max(
@@ -324,37 +324,46 @@ async function expectSharedAuthoritySelection(
 }
 
 {
-  const authority = makeAuthority();
-  const messages: string[] = [];
-  const unsubscribe = authority.subscribeMessages((message) => {
-    messages.push(message.type);
+  const manager = createLocalSimulationManager({
+    setup: createDefaultMatchSetup("localTwoPlayer"),
+    content: mockGameContent,
+    initialGameViewport: { width: 960, height: 560 },
   });
-  authority.submitPlayerAction(0, {
-    type: "fire",
-    angle: 1.35,
-    power: 520,
-    projectileSlotId: "cluster",
-  });
-  for (let i = 0; i < 240 && !messages.includes("terrainPatch"); i += 1) {
-    authority.update(1 / 30);
-  }
-  unsubscribe();
-  assert.ok(messages.includes("terrainPatch"));
-}
+  const initialState = manager.getState();
+  assert.equal(initialState.terrain.kind, "heightmap");
+  const initialSurface = initialState.terrain.surface.slice();
 
-{
-  const publisher = createWorldStatePublisher("test-content");
-  const authority = makeAuthority();
-  const frame = authority.snapshot();
-  const messages = publisher.drain([
-    publisher.publishSnapshot(frame),
-    publisher.publishFrame(frame),
-  ]);
-  assert.equal(messages[0]?.type, "snapshot");
-  assert.ok(messages[0]?.type === "snapshot" && messages[0].snapshot.projectileDefinitions.basicShell);
-  assert.equal(messages[1]?.type, "frame");
-  assert.ok(messages[1]?.type === "frame" && !("projectileDefinitions" in messages[1].state));
-  assert.ok(messages[1]?.type === "frame" && messages[1].state.contentVersion === "test-content");
+  assert.equal(
+    manager.submitPlayerAction(0, {
+      type: "fire",
+      angle: 1.35,
+      power: 520,
+      projectileSlotId: "cluster",
+    }),
+    true,
+  );
+  for (let i = 0; i < 240; i += 1) {
+    manager.update(1 / 30);
+    const state = manager.getState();
+    if (
+      state.terrain.kind === "heightmap" &&
+      state.terrain.surface.some(
+        (height, index) => height !== initialSurface[index],
+      )
+    ) {
+      break;
+    }
+  }
+
+  const deformedState = manager.getState();
+  assert.equal(deformedState.terrain.kind, "heightmap");
+  assert.ok(
+    deformedState.terrain.kind === "heightmap" &&
+      deformedState.terrain.surface.some(
+        (height, index) => height !== initialSurface[index],
+      ),
+  );
+  manager.destroy();
 }
 
 {
