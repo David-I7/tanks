@@ -8,7 +8,11 @@ import {
 } from "./rendering/CanvasGameRenderer";
 import type { GameAction, GameViewState } from "./types";
 import { type GameManager } from "./authority/gameAuthority";
-import { createWorldSizingPolicy, type WorldSizing } from "./world/worldSizing";
+import {
+  createCanvasSizing,
+  readDomCanvasRect,
+  type CanvasSizing,
+} from "./world/worldSizing";
 
 export type GameEngineOptions = {
   canvas: HTMLCanvasElement;
@@ -26,7 +30,7 @@ export class GameEngine {
   private animationFrameId: number | null = null;
   private lastTimestamp = 0;
   private latestViewState: GameViewState;
-  private sizing: WorldSizing;
+  private sizing: CanvasSizing;
   private inputLayout: CanvasInputLayout;
   private readonly unsubscribeGameManager: () => void;
 
@@ -41,7 +45,8 @@ export class GameEngine {
     this.renderer = new CanvasGameRenderer(
       options.canvas,
       options.rendererAssets ?? {},
-      this.sizing.viewport,
+      this.sizing.gameViewport,
+      this.sizing.dpiViewport,
     );
     this.localInput = new CanvasInputSource(options.canvas, this.inputLayout);
 
@@ -66,12 +71,15 @@ export class GameEngine {
     this.gameManager.destroy();
   }
 
-  resize(): WorldSizing {
+  resize(): CanvasSizing {
     const layout = this.measureCanvasLayout();
     this.sizing = layout.sizing;
     this.inputLayout = layout.inputLayout;
     this.applyCanvasSizing();
-    this.renderer?.setViewport(this.sizing.viewport);
+    this.renderer?.setSizing(
+      this.sizing.gameViewport,
+      this.sizing.dpiViewport,
+    );
     this.localInput?.setLayout(this.inputLayout);
     return this.sizing;
   }
@@ -134,31 +142,26 @@ export class GameEngine {
   }
 
   private measureCanvasLayout(): {
-    sizing: WorldSizing;
+    sizing: CanvasSizing;
     inputLayout: CanvasInputLayout;
   } {
-    const rect = this.options.canvas.getBoundingClientRect();
-    const sizing = createWorldSizingPolicy({
-      viewport: { width: rect.width, height: rect.height },
+    const domCanvasRect = readDomCanvasRect(this.options.canvas);
+    const sizing = createCanvasSizing({
+      domCanvasRect,
       devicePixelRatio: window.devicePixelRatio || 1,
     });
 
     return {
       sizing,
       inputLayout: {
-        viewport: sizing.viewport,
-        canvasRect: {
-          left: rect.left,
-          top: rect.top,
-          width: rect.width,
-          height: rect.height,
-        },
+        gameViewport: sizing.gameViewport,
+        domCanvasRect: sizing.domCanvasRect,
       },
     };
   }
 
   private applyCanvasSizing(): void {
-    this.options.canvas.width = this.sizing.backing.width;
-    this.options.canvas.height = this.sizing.backing.height;
+    this.options.canvas.width = this.sizing.dpiViewport.width;
+    this.options.canvas.height = this.sizing.dpiViewport.height;
   }
 }

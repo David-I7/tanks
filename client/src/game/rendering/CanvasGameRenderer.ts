@@ -1,14 +1,14 @@
 import type { GameViewState } from "../types";
 import { simulateTrajectoryPreview } from "../simulation/ballistics";
 import { getProjectileSelectorLayout } from "../input/projectileSelectorHitTest";
-import type { ViewportSize } from "../world/worldSizing";
+import type { DpiViewport, GameViewport } from "../world/worldSizing";
 
 export type RendererAssets = {
   tankImage?: HTMLImageElement;
 };
 
 type RenderContext = {
-  viewport: ViewportSize;
+  gameViewport: GameViewport;
   cameraX: number;
   assets: RendererAssets;
 };
@@ -24,16 +24,22 @@ type RenderPass = {
 
 export class CanvasGameRenderer {
   private cameraX = 0;
-  private viewport: ViewportSize;
+  private gameViewport: GameViewport;
+  private dpiViewport: DpiViewport;
   private readonly worldPasses: RenderPass[];
   private readonly overlayPasses: RenderPass[];
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
     private readonly assets: RendererAssets,
-    viewport?: ViewportSize,
+    gameViewport?: GameViewport,
+    dpiViewport?: DpiViewport,
   ) {
-    this.viewport = viewport ?? { width: canvas.width, height: canvas.height };
+    this.gameViewport = gameViewport ?? {
+      width: canvas.width,
+      height: canvas.height,
+    };
+    this.dpiViewport = dpiViewport ?? { width: canvas.width, height: canvas.height };
     this.worldPasses = [
       {
         name: "terrain",
@@ -61,12 +67,13 @@ export class CanvasGameRenderer {
     ];
   }
 
-  setViewport(viewport: ViewportSize): void {
-    this.viewport = viewport;
+  setSizing(gameViewport: GameViewport, dpiViewport: DpiViewport): void {
+    this.gameViewport = gameViewport;
+    this.dpiViewport = dpiViewport;
   }
 
-  getViewport(): ViewportSize {
-    return this.viewport;
+  getGameViewport(): GameViewport {
+    return this.gameViewport;
   }
 
   getCameraX(): number {
@@ -80,18 +87,18 @@ export class CanvasGameRenderer {
     this.updateCamera(viewState);
 
     ctx.setTransform(
-      this.canvas.width / this.viewport.width,
+      this.dpiViewport.width / this.gameViewport.width,
       0,
       0,
-      this.canvas.height / this.viewport.height,
+      this.dpiViewport.height / this.gameViewport.height,
       0,
       0,
     );
-    ctx.clearRect(0, 0, this.viewport.width, this.viewport.height);
+    ctx.clearRect(0, 0, this.gameViewport.width, this.gameViewport.height);
     this.drawSky(ctx);
 
     const renderContext = {
-      viewport: this.viewport,
+      gameViewport: this.gameViewport,
       cameraX: this.cameraX,
       assets: this.assets,
     };
@@ -115,25 +122,30 @@ export class CanvasGameRenderer {
     const focusX =
       viewState.projectiles[0]?.position.x ??
       activeTank?.position.x ??
-      this.viewport.width / 2;
+      this.gameViewport.width / 2;
     const maxCameraX = Math.max(
       0,
-      viewState.terrain.width - this.viewport.width,
+      viewState.terrain.width - this.gameViewport.width,
     );
     const targetCameraX = Math.max(
       0,
-      Math.min(maxCameraX, focusX - this.viewport.width * 0.5),
+      Math.min(maxCameraX, focusX - this.gameViewport.width * 0.5),
     );
     this.cameraX += (targetCameraX - this.cameraX) * 0.12;
   }
 
   private drawSky(ctx: CanvasRenderingContext2D): void {
-    const gradient = ctx.createLinearGradient(0, 0, 0, this.viewport.height);
+    const gradient = ctx.createLinearGradient(
+      0,
+      0,
+      0,
+      this.gameViewport.height,
+    );
     gradient.addColorStop(0, "#101827");
     gradient.addColorStop(0.58, "#26374a");
     gradient.addColorStop(1, "#0b0c10");
     ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, this.viewport.width, this.viewport.height);
+    ctx.fillRect(0, 0, this.gameViewport.width, this.gameViewport.height);
   }
 
   private drawTerrain(
@@ -143,18 +155,18 @@ export class CanvasGameRenderer {
     if (viewState.terrain.kind !== "heightmap") return;
 
     ctx.beginPath();
-    ctx.moveTo(0, this.viewport.height + 80);
+    ctx.moveTo(0, this.gameViewport.height + 80);
     for (let x = 0; x < viewState.terrain.width; x += 1) {
-      ctx.lineTo(x, viewState.terrain.surface[x] ?? this.viewport.height);
+      ctx.lineTo(x, viewState.terrain.surface[x] ?? this.gameViewport.height);
     }
-    ctx.lineTo(viewState.terrain.width, this.viewport.height + 80);
+    ctx.lineTo(viewState.terrain.width, this.gameViewport.height + 80);
     ctx.closePath();
 
     const gradient = ctx.createLinearGradient(
       0,
-      this.viewport.height * 0.5,
+      this.gameViewport.height * 0.5,
       0,
-      this.viewport.height,
+      this.gameViewport.height,
     );
     gradient.addColorStop(0, "#47724a");
     gradient.addColorStop(1, "#1d3221");
@@ -281,11 +293,11 @@ export class CanvasGameRenderer {
   ): void {
     const headerHeight = 74;
     ctx.fillStyle = "rgba(6, 6, 8, 0.78)";
-    ctx.fillRect(0, 0, this.viewport.width, headerHeight);
+    ctx.fillRect(0, 0, this.gameViewport.width, headerHeight);
     ctx.strokeStyle = "rgba(0, 240, 255, 0.28)";
     ctx.beginPath();
     ctx.moveTo(0, headerHeight);
-    ctx.lineTo(this.viewport.width, headerHeight);
+    ctx.lineTo(this.gameViewport.width, headerHeight);
     ctx.stroke();
 
     this.drawHeaderTankStatus(ctx, viewState);
@@ -301,21 +313,21 @@ export class CanvasGameRenderer {
     const seconds = Math.ceil(viewState.match.turnTimeRemaining);
     ctx.fillText(
       `${viewState.match.mode} | Player ${viewState.match.activePlayerId + 1} | ${viewState.match.phase} | ${seconds}s | Fuel ${Math.ceil(activeTank?.fuel ?? 0)}`,
-      this.viewport.width / 2,
+      this.gameViewport.width / 2,
       47,
     );
     ctx.textAlign = "start";
 
     if (viewState.match.phase === "gameOver") {
       ctx.fillStyle = "rgba(0, 0, 0, 0.62)";
-      ctx.fillRect(0, 0, this.viewport.width, this.viewport.height);
+      ctx.fillRect(0, 0, this.gameViewport.width, this.gameViewport.height);
       ctx.fillStyle = "#ebc80e";
       ctx.font = "700 36px Orbitron, sans-serif";
       ctx.textAlign = "center";
       ctx.fillText(
         `PLAYER ${(viewState.match.winnerPlayerId ?? 0) + 1} WINS`,
-        this.viewport.width / 2,
-        this.viewport.height / 2,
+        this.gameViewport.width / 2,
+        this.gameViewport.height / 2,
       );
       ctx.textAlign = "start";
     }
@@ -337,7 +349,7 @@ export class CanvasGameRenderer {
       this.drawHeaderHealthCard(
         ctx,
         rightTank,
-        this.viewport.width - 284,
+        this.gameViewport.width - 284,
         14,
         "right",
         viewState,
@@ -471,8 +483,8 @@ export class CanvasGameRenderer {
     if (!activeTank) return;
 
     const layout = getProjectileSelectorLayout(
-      this.viewport.width,
-      this.viewport.height,
+      this.gameViewport.width,
+      this.gameViewport.height,
       activeTank.loadout.length,
     );
 

@@ -10,7 +10,7 @@ import {
   type SimulationAuthority,
 } from "../src/game/authority/simulationAuthority";
 import { snapshotToGameViewState } from "../src/game/authority/gameAuthority";
-import { createWorldSizingPolicy } from "../src/game/world/worldSizing";
+import { createCanvasSizing } from "../src/game/world/worldSizing";
 import { createWorldStatePublisher } from "../src/game/world/worldStatePublisher";
 import { collectGameActions } from "../src/game/input/CanvasInputSource";
 import {
@@ -64,8 +64,8 @@ function canvasInteractionContext(gameViewState: GameViewState) {
   return {
     gameViewState,
     cameraX: 0,
-    viewport: { width: 960, height: 560 },
-    canvasRect: { left: 0, top: 0, width: 960, height: 560 },
+    gameViewport: { width: 960, height: 560 },
+    domCanvasRect: { left: 0, top: 0, width: 960, height: 560 },
   };
 }
 
@@ -102,26 +102,26 @@ async function expectSharedAuthoritySelection(
 }
 
 {
-  const sizing = createWorldSizingPolicy({
-    viewport: { width: 960, height: 560 },
+  const sizing = createCanvasSizing({
+    domCanvasRect: { left: 0, top: 0, width: 960, height: 560 },
     devicePixelRatio: 2,
   });
-  const sameViewportDifferentDpr = createWorldSizingPolicy({
-    viewport: { width: 960, height: 560 },
+  const sameViewportDifferentDpr = createCanvasSizing({
+    domCanvasRect: { left: 10, top: 20, width: 960, height: 560 },
     devicePixelRatio: 3,
   });
-  assert.deepEqual(sizing.world, sameViewportDifferentDpr.world);
-  assert.deepEqual(sizing.backing, { width: 1920, height: 1120 });
+  assert.deepEqual(sizing.worldSize, sameViewportDifferentDpr.worldSize);
+  assert.deepEqual(sizing.dpiViewport, { width: 1920, height: 1120 });
 
   const first = createInitialWorld(
     createDefaultMatchSetup("localTwoPlayer"),
     mockGameContent,
-    sizing.world,
+    sizing.worldSize,
   );
   const second = createInitialWorld(
     createDefaultMatchSetup("localTwoPlayer"),
     mockGameContent,
-    sameViewportDifferentDpr.world,
+    sameViewportDifferentDpr.worldSize,
   );
   assert.equal(first.terrain.width, second.terrain.width);
   assert.equal(first.terrain.height, second.terrain.height);

@@ -1,14 +1,12 @@
 import type { GameAction, GameViewState } from "../types";
-import type { ViewportSize } from "../world/worldSizing";
-import { canvasPointToViewportPoint } from "../world/worldSizing";
+import type { DomCanvasRect, GameViewport } from "../world/worldSizing";
+import { domPointToGameViewportPoint } from "../world/worldSizing";
 
 export type CanvasAimInput = {
   clientX: number;
   clientY: number;
-  rect: Pick<DOMRect, "left" | "top" | "width" | "height">;
-  canvasWidth?: number;
-  canvasHeight?: number;
-  viewport?: ViewportSize;
+  domCanvasRect: DomCanvasRect;
+  gameViewport: GameViewport;
   cameraX: number;
   gameViewState: GameViewState;
 };
@@ -23,17 +21,11 @@ export function calculateAimIntent(
   );
   if (!activeTank) return null;
 
-  const viewport =
-    input.viewport ??
-    {
-      width: input.canvasWidth ?? input.rect.width,
-      height: input.canvasHeight ?? input.rect.height,
-    };
-  const point = canvasPointToViewportPoint({
+  const point = domPointToGameViewportPoint({
     clientX: input.clientX,
     clientY: input.clientY,
-    rect: input.rect,
-    viewport,
+    domCanvasRect: input.domCanvasRect,
+    gameViewport: input.gameViewport,
   });
   const worldX = point.x + input.cameraX;
   const worldY = point.y;

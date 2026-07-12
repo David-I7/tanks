@@ -2,7 +2,7 @@ import type { GameContent } from "../content/mockGameContent";
 import { mockGameContent } from "../content/mockGameContent";
 import { createLocalGameManager, type GameManager } from "../authority/gameAuthority";
 import { createDefaultMatchSetup } from "../world/createInitialWorld";
-import { createWorldSizingPolicy } from "../world/worldSizing";
+import { createCanvasSizing, readDomCanvasRect } from "../world/worldSizing";
 import type { GameAuthority } from "../authority/gameAuthority";
 import type { GameMode, GameState, GameViewState, MatchSetup } from "../types";
 
@@ -12,9 +12,8 @@ export function createCanvasSizedLocalGameManager(options: {
   setup?: MatchSetup;
   content?: GameContent;
 }): GameManager {
-  const rect = options.canvas.getBoundingClientRect();
-  const sizing = createWorldSizingPolicy({
-    viewport: { width: rect.width, height: rect.height },
+  const sizing = createCanvasSizing({
+    domCanvasRect: readDomCanvasRect(options.canvas),
     devicePixelRatio: window.devicePixelRatio || 1,
   });
   const content = options.content ?? mockGameContent;
@@ -23,7 +22,7 @@ export function createCanvasSizedLocalGameManager(options: {
     mode: options.mode,
     setup: options.setup ?? createDefaultMatchSetup(options.mode),
     content,
-    worldSize: sizing.world,
+    worldSize: sizing.worldSize,
   });
 }
 

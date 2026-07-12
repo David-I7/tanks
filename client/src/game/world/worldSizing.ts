@@ -1,4 +1,4 @@
-export type ViewportSize = {
+export type GameViewport = {
   width: number;
   height: number;
 };
@@ -8,52 +8,68 @@ export type WorldSize = {
   height: number;
 };
 
-export type CanvasBackingSize = {
+export type DpiViewport = {
   width: number;
   height: number;
 };
 
-export type WorldSizing = {
-  viewport: ViewportSize;
-  world: WorldSize;
-  backing: CanvasBackingSize;
+export type DomCanvasRect = Pick<DOMRect, "left" | "top" | "width" | "height">;
+
+export type CanvasSizing = {
+  gameViewport: GameViewport;
+  dpiViewport: DpiViewport;
+  domCanvasRect: DomCanvasRect;
+  worldSize: WorldSize;
 };
 
-export function createWorldSizingPolicy(input: {
-  viewport: ViewportSize;
+export function readDomCanvasRect(canvas: HTMLCanvasElement): DomCanvasRect {
+  const rect = canvas.getBoundingClientRect();
+  return {
+    left: rect.left,
+    top: rect.top,
+    width: rect.width,
+    height: rect.height,
+  };
+}
+
+export function createCanvasSizing(input: {
+  domCanvasRect: DomCanvasRect;
   devicePixelRatio: number;
-}): WorldSizing {
-  const viewport = {
-    width: Math.max(320, Math.floor(input.viewport.width)),
-    height: Math.max(240, Math.floor(input.viewport.height)),
+}): CanvasSizing {
+  const gameViewport = {
+    width: Math.max(320, Math.floor(input.domCanvasRect.width)),
+    height: Math.max(240, Math.floor(input.domCanvasRect.height)),
   };
   const ratio = Math.max(1, input.devicePixelRatio || 1);
 
   return {
-    viewport,
-    world: {
-      width: viewport.width,
-      height: viewport.height,
+    gameViewport,
+    dpiViewport: {
+      width: Math.max(320, Math.floor(gameViewport.width * ratio)),
+      height: Math.max(240, Math.floor(gameViewport.height * ratio)),
     },
-    backing: {
-      width: Math.max(320, Math.floor(viewport.width * ratio)),
-      height: Math.max(240, Math.floor(viewport.height * ratio)),
+    domCanvasRect: input.domCanvasRect,
+    worldSize: {
+      width: gameViewport.width,
+      height: gameViewport.height,
     },
   };
 }
 
-export function canvasPointToViewportPoint(input: {
+export function domPointToGameViewportPoint(input: {
   clientX: number;
   clientY: number;
-  rect: Pick<DOMRect, "left" | "top" | "width" | "height">;
-  viewport: ViewportSize;
+  domCanvasRect: DomCanvasRect;
+  gameViewport: GameViewport;
 }): { x: number; y: number } {
   return {
     x:
-      ((input.clientX - input.rect.left) / Math.max(1, input.rect.width)) *
-      input.viewport.width,
+      ((input.clientX - input.domCanvasRect.left) /
+        Math.max(1, input.domCanvasRect.width)) *
+      input.gameViewport.width,
     y:
-      ((input.clientY - input.rect.top) / Math.max(1, input.rect.height)) *
-      input.viewport.height,
+      ((input.clientY - input.domCanvasRect.top) /
+        Math.max(1, input.domCanvasRect.height)) *
+      input.gameViewport.height,
   };
 }
