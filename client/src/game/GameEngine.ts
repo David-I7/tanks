@@ -6,8 +6,8 @@ import {
   CanvasGameRenderer,
   type RendererAssets,
 } from "./rendering/CanvasGameRenderer";
-import type { GameAction, GameViewState } from "./types";
-import { type GameManager } from "./authority/gameAuthority";
+import type { GameAction, GameState } from "./types";
+import { type GameManager } from "./authority/gameManager";
 import {
   createCanvasSizing,
   readDomCanvasRect,
@@ -24,19 +24,19 @@ export class GameEngine {
   private readonly renderer: CanvasGameRenderer;
   private readonly localInput: CanvasInputSource;
   private readonly gameManager: GameManager;
-  private readonly viewStateListeners = new Set<
-    (viewState: GameViewState) => void
+  private readonly stateListeners = new Set<
+    (state: GameState) => void
   >();
   private animationFrameId: number | null = null;
   private lastTimestamp = 0;
-  private latestViewState: GameViewState;
+  private latestState: GameState;
   private sizing: CanvasSizing;
   private inputLayout: CanvasInputLayout;
   private readonly unsubscribeGameManager: () => void;
 
   constructor(private readonly options: GameEngineOptions) {
     this.gameManager = options.gameManager;
-    this.latestViewState = this.gameManager.getState() as GameViewState;
+    this.latestState = this.gameManager.getState();
 
     const initialLayout = this.measureCanvasLayout();
     this.sizing = initialLayout.sizing;
@@ -51,7 +51,7 @@ export class GameEngine {
     this.localInput = new CanvasInputSource(options.canvas, this.inputLayout);
 
     this.unsubscribeGameManager = this.gameManager.subscribe((state) => {
-      this.publishViewState(state as GameViewState);
+      this.publishState(state);
     });
   }
 
@@ -86,20 +86,20 @@ export class GameEngine {
 
   submitAction(action: GameAction): boolean {
     const accepted = this.gameManager.submitAction(action);
-    this.publishViewState(this.gameManager.getState() as GameViewState);
+    this.publishState(this.gameManager.getState());
     return accepted;
   }
 
-  getViewState(): GameViewState {
-    this.latestViewState = this.gameManager.getState() as GameViewState;
-    return this.latestViewState;
+  getState(): GameState {
+    this.latestState = this.gameManager.getState();
+    return this.latestState;
   }
 
-  subscribe(listener: (viewState: GameViewState) => void): () => void {
-    this.viewStateListeners.add(listener);
-    listener(this.getViewState());
+  subscribe(listener: (state: GameState) => void): () => void {
+    this.stateListeners.add(listener);
+    listener(this.getState());
     return () => {
-      this.viewStateListeners.delete(listener);
+      this.stateListeners.delete(listener);
     };
   }
 
@@ -116,16 +116,16 @@ export class GameEngine {
   };
 
   private update(dt: number): void {
-    const viewStateBeforeInput = this.gameManager.getState() as GameViewState;
+    const stateBeforeInput = this.gameManager.getState();
 
     this.submitActions(
-      this.localInput.poll(this.renderer.getCameraX(), viewStateBeforeInput),
+      this.localInput.poll(this.renderer.getCameraX(), stateBeforeInput),
     );
 
     this.gameManager.update(dt);
-    const viewState = this.gameManager.getState() as GameViewState;
-    this.renderer.render(viewState);
-    this.publishViewState(viewState);
+    const state = this.gameManager.getState();
+    this.renderer.render(state);
+    this.publishState(state);
   }
 
   private submitActions(actions: GameAction[]): void {
@@ -134,10 +134,10 @@ export class GameEngine {
     }
   }
 
-  private publishViewState(viewState: GameViewState): void {
-    this.latestViewState = viewState;
-    for (const listener of this.viewStateListeners) {
-      listener(viewState);
+  private publishState(state: GameState): void {
+    this.latestState = state;
+    for (const listener of this.stateListeners) {
+      listener(state);
     }
   }
 

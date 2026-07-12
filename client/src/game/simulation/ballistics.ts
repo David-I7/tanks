@@ -1,4 +1,4 @@
-import type { GameViewState } from "../types";
+import type { GameState } from "../types";
 
 export const GRAVITY = 520;
 export const MUZZLE_OFFSET = 30;
@@ -17,7 +17,7 @@ export function getMuzzlePosition(tankX: number, tankY: number, angle: number): 
 }
 
 export function simulateTrajectoryPreview(
-  snapshot: GameViewState,
+  snapshot: GameState,
   playerId: number,
   maxPoints = 90,
 ): TrajectoryPoint[] {

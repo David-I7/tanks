@@ -3,7 +3,7 @@ import { TerrainModel } from "../terrain/TerrainModel";
 import type {
   DamageEffect,
   EntityId,
-  GameSnapshot,
+  SimulationState,
   GameAction,
   ProjectileComponent,
   ProjectileDefinition,
@@ -17,7 +17,7 @@ import { MAX_TANK_FUEL, MAX_TURN_SECONDS, MOVE_FUEL_COST } from "./turnRules";
 const TANK_HALF_WIDTH = 22;
 const TANK_MOVE_STEP = 2;
 
-export class LocalSimulationAuthority {
+export class LocalSimulation {
   private transitionTimer = 0;
   constructor(
     readonly world: World,
@@ -115,22 +115,10 @@ export class LocalSimulationAuthority {
     this.updateWinner();
   }
 
-  snapshot(): GameSnapshot {
+  getState(): SimulationState {
     return {
       match: { ...this.world.match },
       terrain: this.terrain.snapshot(),
-      projectileDefinitions: Object.fromEntries(
-        Object.entries(this.content.projectiles).map(([id, definition]) => [
-          id,
-          {
-            ...definition,
-            physics: { ...definition.physics },
-            terrainEffect: { ...definition.terrainEffect },
-            damageEffect: { ...definition.damageEffect },
-            visual: { ...definition.visual },
-          },
-        ]),
-      ),
       tanks: [...this.world.tanks].map(([entityId, tank]) => ({
         entityId,
         position: { ...this.world.positions.get(entityId)! },
@@ -363,5 +351,4 @@ export class LocalSimulationAuthority {
       }
     }
   }
-
 }

@@ -1,10 +1,9 @@
 import type { GameContent } from "../content/mockGameContent";
 import { mockGameContent } from "../content/mockGameContent";
-import { createLocalGameManager, type GameManager } from "../authority/gameAuthority";
+import { createLocalGameManager, type GameManager } from "../authority/gameManager";
 import { createDefaultMatchSetup } from "../world/createInitialWorld";
 import { createCanvasSizing, readDomCanvasRect } from "../world/worldSizing";
-import type { GameAuthority } from "../authority/gameAuthority";
-import type { GameMode, GameState, GameViewState, MatchSetup } from "../types";
+import type { GameMode, MatchSetup } from "../types";
 
 export function createCanvasSizedLocalGameManager(options: {
   canvas: HTMLCanvasElement;
@@ -24,31 +23,4 @@ export function createCanvasSizedLocalGameManager(options: {
     content,
     initialGameViewport: sizing.gameViewport,
   });
-}
-
-export function adaptReadyGameAuthorityToGameManager(
-  authority: GameAuthority,
-): GameManager | null {
-  const initialState = authority.getViewState();
-  if (!initialState) return null;
-
-  return {
-    submitAction(action): boolean {
-      return authority.submitAction(action);
-    },
-    update(dt): void {
-      authority.update(dt);
-    },
-    getState(): GameState {
-      return authority.getViewState() as GameViewState;
-    },
-    subscribe(listener): () => void {
-      return authority.subscribe((state) => {
-        listener(state);
-      });
-    },
-    destroy(): void {
-      authority.destroy();
-    },
-  };
 }

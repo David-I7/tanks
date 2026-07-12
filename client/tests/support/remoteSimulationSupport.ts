@@ -1,39 +1,39 @@
 import { createInitialWorld } from "../../src/game/world/createInitialWorld";
-import { LocalSimulationAuthority } from "../../src/game/simulation/LocalSimulationAuthority";
+import { LocalSimulation } from "../../src/game/simulation/LocalSimulation";
 import type { GameContent } from "../../src/game/content/mockGameContent";
 import type {
   GameAction,
-  GameSnapshot,
   MatchSetup,
   RemoteGameAction,
+  SimulationState,
 } from "../../src/game/types";
 
-export type SnapshotRemoteTransport = {
+export type RemoteSimulationTransport = {
   sendIntent(action: RemoteGameAction): void;
-  onSnapshot(listener: (snapshot: GameSnapshot) => void): () => void;
+  onSimulationState(listener: (state: SimulationState) => void): () => void;
   destroy?(): void;
 };
 
-export type SnapshotSimulationAuthority = {
+export type RemoteSimulationManager = {
   submitPlayerAction(playerId: number, action: GameAction): boolean;
   update(dt: number): void;
-  snapshot(): GameSnapshot | null;
-  subscribe(listener: (snapshot: GameSnapshot) => void): () => void;
+  getState(): SimulationState | null;
+  subscribe(listener: (state: SimulationState) => void): () => void;
   destroy(): void;
 };
 
-export class SnapshotRemoteSimulationAuthority
-  implements SnapshotSimulationAuthority
+export class TestRemoteSimulationManager
+  implements RemoteSimulationManager
 {
-  private currentSnapshot: GameSnapshot | null = null;
-  private readonly listeners = new Set<(snapshot: GameSnapshot) => void>();
+  private currentState: SimulationState | null = null;
+  private readonly listeners = new Set<(state: SimulationState) => void>();
   private unsubscribe: (() => void) | null = null;
 
-  constructor(private readonly transport: SnapshotRemoteTransport) {
-    this.unsubscribe = this.transport.onSnapshot((snapshot) => {
-      this.currentSnapshot = snapshot;
+  constructor(private readonly transport: RemoteSimulationTransport) {
+    this.unsubscribe = this.transport.onSimulationState((state) => {
+      this.currentState = state;
       for (const listener of this.listeners) {
-        listener(snapshot);
+        listener(state);
       }
     });
   }
@@ -45,13 +45,13 @@ export class SnapshotRemoteSimulationAuthority
 
   update(_dt: number): void {}
 
-  snapshot(): GameSnapshot | null {
-    return this.currentSnapshot;
+  getState(): SimulationState | null {
+    return this.currentState;
   }
 
-  subscribe(listener: (snapshot: GameSnapshot) => void): () => void {
+  subscribe(listener: (state: SimulationState) => void): () => void {
     this.listeners.add(listener);
-    if (this.currentSnapshot) listener(this.currentSnapshot);
+    if (this.currentState) listener(this.currentState);
     return () => {
       this.listeners.delete(listener);
     };
@@ -65,7 +65,7 @@ export class SnapshotRemoteSimulationAuthority
   }
 }
 
-export type MockSnapshotRemoteTransportOptions = {
+export type MockRemoteSimulationTransportOptions = {
   setup: MatchSetup;
   content: GameContent;
   width: number;
@@ -73,27 +73,27 @@ export type MockSnapshotRemoteTransportOptions = {
   latencyMs?: number;
 };
 
-export type MockSnapshotRemoteTransport = SnapshotRemoteTransport & {
+export type MockRemoteSimulationTransport = RemoteSimulationTransport & {
   update(dt: number): void;
 };
 
-export function createMockSnapshotRemoteTransport(
-  options: MockSnapshotRemoteTransportOptions,
-): MockSnapshotRemoteTransport {
+export function createMockRemoteSimulationTransport(
+  options: MockRemoteSimulationTransportOptions,
+): MockRemoteSimulationTransport {
   const { world, terrain, content } = createInitialWorld(
     options.setup,
     options.content,
     { width: options.width, height: options.height },
   );
-  const authority = new LocalSimulationAuthority(world, terrain, content);
-  const listeners = new Set<(snapshot: GameSnapshot) => void>();
+  const simulation = new LocalSimulation(world, terrain, content);
+  const listeners = new Set<(state: SimulationState) => void>();
   const latencyMs = options.latencyMs ?? 45;
   const timeouts = new Set<ReturnType<typeof setTimeout>>();
 
   const emit = () => {
-    const snapshot = authority.snapshot();
+    const state = simulation.getState();
     for (const listener of listeners) {
-      listener(snapshot);
+      listener(state);
     }
   };
 
@@ -109,10 +109,10 @@ export function createMockSnapshotRemoteTransport(
   return {
     sendIntent(remoteIntent: RemoteGameAction): void {
       schedule(() => {
-        authority.submitPlayerAction(remoteIntent.playerId, remoteIntent.intent);
+        simulation.submitPlayerAction(remoteIntent.playerId, remoteIntent.intent);
       });
     },
-    onSnapshot(listener: (snapshot: GameSnapshot) => void): () => void {
+    onSimulationState(listener: (state: SimulationState) => void): () => void {
       listeners.add(listener);
       schedule(() => {});
       return () => {
@@ -120,7 +120,7 @@ export function createMockSnapshotRemoteTransport(
       };
     },
     update(dt: number): void {
-      authority.update(dt);
+      simulation.update(dt);
       emit();
     },
     destroy(): void {
@@ -131,8 +131,8 @@ export function createMockSnapshotRemoteTransport(
   };
 }
 
-export function createSnapshotRemoteSimulationAuthority(
-  transport: SnapshotRemoteTransport,
-): SnapshotSimulationAuthority {
-  return new SnapshotRemoteSimulationAuthority(transport);
+export function createRemoteSimulationManager(
+  transport: RemoteSimulationTransport,
+): RemoteSimulationManager {
+  return new TestRemoteSimulationManager(transport);
 }

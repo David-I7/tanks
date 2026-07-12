@@ -1,4 +1,4 @@
-import type { GameAction, GameViewState } from "../types";
+import type { GameAction, GameState } from "../types";
 import { calculateAimIntent } from "./aimMath";
 import { findProjectileSlotAtCanvasPoint } from "./projectileSelectorHitTest";
 import type { DomCanvasRect, GameViewport } from "../world/worldSizing";
@@ -12,7 +12,7 @@ export type CanvasInteractionState = {
 };
 
 export type CanvasInteractionContext = {
-  gameViewState: GameViewState;
+  gameState: GameState;
   cameraX: number;
   gameViewport: GameViewport;
   domCanvasRect: DomCanvasRect;
@@ -55,7 +55,7 @@ const keyboardProjectileSlotIntentProducer: IntentProducer = ({
   state,
   context,
 }) => {
-  const activeTank = getActiveTank(context.gameViewState);
+  const activeTank = getActiveTank(context.gameState);
   if (state.pendingSlotNumber === null || !activeTank) return [];
   const slot = activeTank.loadout[state.pendingSlotNumber - 1];
   return slot
@@ -65,7 +65,7 @@ const keyboardProjectileSlotIntentProducer: IntentProducer = ({
 
 const pointerIntentProducer: IntentProducer = ({ state, context }) => {
   const intents: GameAction[] = [];
-  const activeTank = getActiveTank(context.gameViewState);
+  const activeTank = getActiveTank(context.gameState);
   const pointerDown = state.pendingPointerDown;
   const pointerPoint = pointerDown
     ? domPointToGameViewportPoint({
@@ -78,7 +78,7 @@ const pointerIntentProducer: IntentProducer = ({ state, context }) => {
 
   if (pointerPoint) {
     const selectedSlotId = findProjectileSlotAtCanvasPoint(
-      context.gameViewState,
+      context.gameState,
       context.gameViewport.width,
       context.gameViewport.height,
       pointerPoint.x,
@@ -97,7 +97,7 @@ const pointerIntentProducer: IntentProducer = ({ state, context }) => {
     domCanvasRect: context.domCanvasRect,
     gameViewport: context.gameViewport,
     cameraX: context.cameraX,
-    gameViewState: context.gameViewState,
+    gameState: context.gameState,
   });
 
   if (!aim) return intents;
@@ -105,7 +105,7 @@ const pointerIntentProducer: IntentProducer = ({ state, context }) => {
 
   if (pointerPoint) {
     const clickedSlotId = findProjectileSlotAtCanvasPoint(
-      context.gameViewState,
+      context.gameState,
       context.gameViewport.width,
       context.gameViewport.height,
       pointerPoint.x,
@@ -133,11 +133,11 @@ const defaultIntentProducers: IntentProducer[] = [
 ];
 
 function getActiveTank(
-  gameViewState: GameViewState,
-): GameViewState["tanks"][number] | null {
+  gameState: GameState,
+): GameState["tanks"][number] | null {
   return (
-    gameViewState.tanks.find(
-      (entry) => entry.playerId === gameViewState.match.activePlayerId,
+    gameState.tanks.find(
+      (entry) => entry.playerId === gameState.match.activePlayerId,
     ) ?? null
   );
 }
@@ -195,7 +195,7 @@ export class CanvasInputSource {
     canvas.addEventListener("pointerdown", this.onPointerDown);
   }
 
-  poll(cameraX: number, gameViewState: GameViewState): GameAction[] {
+  poll(cameraX: number, gameState: GameState): GameAction[] {
     if (!this.active) return [];
 
     const actions = collectGameActions({
@@ -206,7 +206,7 @@ export class CanvasInputSource {
         pendingSlotNumber: this.pendingSlotNumber,
       },
       context: {
-        gameViewState,
+        gameState,
         cameraX,
         gameViewport: this.layout.gameViewport,
         domCanvasRect: this.layout.domCanvasRect,

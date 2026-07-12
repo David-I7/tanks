@@ -177,10 +177,17 @@ export type MaskTerrainSnapshot = {
 
 export type TerrainSnapshot = HeightmapTerrainSnapshot | MaskTerrainSnapshot;
 
-export type GameSnapshot = {
+type DeepReadonly<T> = T extends (...args: never[]) => unknown
+  ? T
+  : T extends readonly (infer U)[]
+    ? readonly DeepReadonly<U>[]
+    : T extends object
+      ? { readonly [K in keyof T]: DeepReadonly<T[K]> }
+      : T;
+
+export type SimulationState = DeepReadonly<{
   match: MatchState;
   terrain: TerrainSnapshot;
-  projectileDefinitions: Record<string, ProjectileDefinition>;
   tanks: Array<{
     entityId: EntityId;
     position: PositionComponent;
@@ -193,41 +200,27 @@ export type GameSnapshot = {
     projectile: ProjectileComponent;
   }>;
   impactEvents: ImpactEvent[];
-};
+}>;
 
-type DeepReadonly<T> = T extends (...args: never[]) => unknown
-  ? T
-  : T extends readonly (infer U)[]
-    ? readonly DeepReadonly<U>[]
-    : T extends object
-      ? { readonly [K in keyof T]: DeepReadonly<T[K]> }
-      : T;
-
-export type SimulationState = DeepReadonly<
-  Omit<GameSnapshot, "projectileDefinitions">
->;
-
-export type GameViewState = {
+export type GameState = DeepReadonly<{
   match: MatchState;
   terrain: TerrainSnapshot;
   projectileDefinitions: Record<string, ProjectileDefinition>;
-  tanks: GameViewTank[];
-  projectiles: GameViewProjectile[];
+  tanks: Array<
+    TankComponent & {
+      entityId: EntityId;
+      position: PositionComponent;
+    }
+  >;
+  projectiles: Array<
+    ProjectileComponent & {
+      entityId: EntityId;
+      position: PositionComponent;
+      velocity: VelocityComponent;
+    }
+  >;
   impactEvents: ImpactEvent[];
-};
-
-export type GameState = DeepReadonly<GameViewState>;
-
-export type GameViewTank = TankComponent & {
-  entityId: EntityId;
-  position: PositionComponent;
-};
-
-export type GameViewProjectile = ProjectileComponent & {
-  entityId: EntityId;
-  position: PositionComponent;
-  velocity: VelocityComponent;
-};
+}>;
 
 export type GameAssets = {
   images: {

@@ -176,7 +176,7 @@ function fakeGameManager(initialState = gameState(1)): GameManager & {
     gameManager: manager,
   });
 
-  assert.equal(engine.getViewState().match.turnNumber, 1);
+  assert.equal(engine.getState().match.turnNumber, 1);
 
   let immediateTurnNumber: number | null = null;
   engine.subscribe((state) => {
@@ -199,7 +199,7 @@ function fakeGameManager(initialState = gameState(1)): GameManager & {
   runtime.runNextFrame();
 
   assert.equal(manager.updateCount, 1);
-  assert.equal(engine.getViewState().match.turnNumber, 2);
+  assert.equal(engine.getState().match.turnNumber, 2);
 
   engine.stop();
 }

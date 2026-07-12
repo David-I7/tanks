@@ -5,9 +5,9 @@ import {
   createCanvasSizing,
   domPointToGameViewportPoint,
 } from "../src/game/world/worldSizing";
-import type { GameViewState } from "../src/game/types";
+import type { GameState } from "../src/game/types";
 
-function viewState(): GameViewState {
+function viewState(): GameState {
   return {
     match: {
       mode: "localTwoPlayer",

@@ -2,11 +2,11 @@ import type {
   OnlineDiffEnvelope,
   OnlinePlayerIntentEnvelope,
 } from "../../api/ws/dto/gameplay/onlineGameplayProtocol";
-import type { GameManager } from "../authority/gameAuthority";
+import type { GameManager } from "../authority/gameManager";
 import type { GameAction, GameState } from "../types";
 import { mockGameContent, type GameContent } from "../content/mockGameContent";
 import type { OnlineGameplayTransport } from "./OnlineGameplayTransport";
-import { onlineConfirmedStateToGameViewState } from "./onlineGameViewState";
+import { onlineConfirmedStateToGameState } from "./onlineGameState";
 import {
   OnlineDiffSequenceError,
   applyOnlineStateDiff,
@@ -177,7 +177,7 @@ class TransportBackedOnlineGameManager implements OnlineGameManager {
 
   private publishState(state: OnlineConfirmedState): void {
     const now = this.monotonicNowMs();
-    this.currentState = onlineConfirmedStateToGameViewState(
+    this.currentState = onlineConfirmedStateToGameState(
       state,
       projectOnlineRenderState(state, now),
       this.content,

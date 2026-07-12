@@ -4,7 +4,7 @@ import type {
 } from "../../api/ws/dto/gameplay/onlineGameplayProtocol";
 import { mockGameContent, type GameContent } from "../content/mockGameContent";
 import type {
-  GameViewState,
+  GameState,
   ImpactEvent,
   TerrainSnapshot,
   TurnPhase,
@@ -29,13 +29,13 @@ const fallbackVisual: VisualIdentity = {
   label: "?",
 };
 
-export function onlineConfirmedStateToGameViewState(
+export function onlineConfirmedStateToGameState(
   confirmed: OnlineConfirmedState,
   renderState: OnlineGameStateSnapshot,
   content: GameContent = mockGameContent,
   monotonicNowMs: number = performance.now(),
-): GameViewState {
-  return onlineSnapshotToGameViewState(
+): GameState {
+  return onlineSnapshotToGameState(
     renderState,
     content,
     confirmed.localPlayerId,
@@ -44,13 +44,13 @@ export function onlineConfirmedStateToGameViewState(
   );
 }
 
-export function onlineSnapshotToGameViewState(
+export function onlineSnapshotToGameState(
   snapshot: OnlineGameStateSnapshot,
   content: GameContent = mockGameContent,
   localPlayerId: number | null = null,
   impactEvents: OnlineImpactProjectionEvent[] = [],
   monotonicNowMs: number = performance.now(),
-): GameViewState {
+): GameState {
   return {
     match: {
       mode: "online",

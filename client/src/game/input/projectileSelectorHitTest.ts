@@ -1,4 +1,4 @@
-import type { GameViewState, ProjectileSlotId } from "../types";
+import type { GameState, ProjectileSlotId } from "../types";
 
 export type ProjectileSelectorLayout = {
   x: number;
@@ -24,22 +24,22 @@ export function getProjectileSelectorLayout(
 }
 
 export function findProjectileSlotAtCanvasPoint(
-  gameViewState: GameViewState,
+  gameState: GameState,
   canvasWidth: number,
   canvasHeight: number,
   canvasX: number,
   canvasY: number,
 ): ProjectileSlotId | null {
   if (
-    gameViewState.match.phase !== "aiming" &&
-    gameViewState.match.phase !== "thinking"
+    gameState.match.phase !== "aiming" &&
+    gameState.match.phase !== "thinking"
   ) {
     return null;
   }
 
-  const activeTank = gameViewState.tanks.find(
+  const activeTank = gameState.tanks.find(
     (entry) =>
-      entry.playerId === gameViewState.match.activePlayerId && entry.alive,
+      entry.playerId === gameState.match.activePlayerId && entry.alive,
   );
   if (!activeTank) return null;
 

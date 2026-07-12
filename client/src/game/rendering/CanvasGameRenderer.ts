@@ -1,4 +1,4 @@
-import type { GameViewState } from "../types";
+import type { GameState } from "../types";
 import { simulateTrajectoryPreview } from "../simulation/ballistics";
 import { getProjectileSelectorLayout } from "../input/projectileSelectorHitTest";
 import type { DpiViewport, GameViewport } from "../world/worldSizing";
@@ -17,7 +17,7 @@ type RenderPass = {
   name: string;
   draw(
     ctx: CanvasRenderingContext2D,
-    viewState: GameViewState,
+    viewState: GameState,
     context: RenderContext,
   ): void;
 };
@@ -80,7 +80,7 @@ export class CanvasGameRenderer {
     return this.cameraX;
   }
 
-  render(viewState: GameViewState): void {
+  render(viewState: GameState): void {
     const ctx = this.canvas.getContext("2d");
     if (!ctx) return;
 
@@ -115,7 +115,7 @@ export class CanvasGameRenderer {
     }
   }
 
-  private updateCamera(viewState: GameViewState): void {
+  private updateCamera(viewState: GameState): void {
     const activeTank = viewState.tanks.find(
       (entry) => entry.playerId === viewState.match.activePlayerId,
     );
@@ -150,7 +150,7 @@ export class CanvasGameRenderer {
 
   private drawTerrain(
     ctx: CanvasRenderingContext2D,
-    viewState: GameViewState,
+    viewState: GameState,
   ): void {
     if (viewState.terrain.kind !== "heightmap") return;
 
@@ -176,7 +176,7 @@ export class CanvasGameRenderer {
 
   private drawTanks(
     ctx: CanvasRenderingContext2D,
-    viewState: GameViewState,
+    viewState: GameState,
   ): void {
     for (const entry of viewState.tanks) {
       if (!entry.alive) continue;
@@ -224,7 +224,7 @@ export class CanvasGameRenderer {
 
   private drawProjectiles(
     ctx: CanvasRenderingContext2D,
-    viewState: GameViewState,
+    viewState: GameState,
   ): void {
     for (const entry of viewState.projectiles) {
       ctx.fillStyle = entry.visual.fill;
@@ -239,7 +239,7 @@ export class CanvasGameRenderer {
 
   private drawImpactEvents(
     ctx: CanvasRenderingContext2D,
-    viewState: GameViewState,
+    viewState: GameState,
   ): void {
     for (const event of viewState.impactEvents) {
       const ratio = Math.min(1, event.age / event.duration);
@@ -263,7 +263,7 @@ export class CanvasGameRenderer {
 
   private drawTrajectoryPreview(
     ctx: CanvasRenderingContext2D,
-    viewState: GameViewState,
+    viewState: GameState,
   ): void {
     if (
       viewState.match.phase !== "aiming" &&
@@ -289,7 +289,7 @@ export class CanvasGameRenderer {
 
   private drawHud(
     ctx: CanvasRenderingContext2D,
-    viewState: GameViewState,
+    viewState: GameState,
   ): void {
     const headerHeight = 74;
     ctx.fillStyle = "rgba(6, 6, 8, 0.78)";
@@ -335,7 +335,7 @@ export class CanvasGameRenderer {
 
   private drawHeaderTankStatus(
     ctx: CanvasRenderingContext2D,
-    viewState: GameViewState,
+    viewState: GameState,
   ): void {
     const aliveTanks = viewState.tanks.filter((entry) => entry.alive);
     if (aliveTanks.length === 0) return;
@@ -359,11 +359,11 @@ export class CanvasGameRenderer {
 
   private drawHeaderHealthCard(
     ctx: CanvasRenderingContext2D,
-    entry: GameViewState["tanks"][number],
+    entry: GameState["tanks"][number],
     x: number,
     y: number,
     align: "left" | "right",
-    viewState: GameViewState,
+    viewState: GameState,
   ): void {
     const width = 260;
     const ratio = Math.max(0, entry.health / entry.maxHealth);
@@ -419,7 +419,7 @@ export class CanvasGameRenderer {
 
   private drawPowerAngleReadout(
     ctx: CanvasRenderingContext2D,
-    viewState: GameViewState,
+    viewState: GameState,
   ): void {
     if (
       viewState.match.phase !== "aiming" &&
@@ -467,7 +467,7 @@ export class CanvasGameRenderer {
 
   private drawProjectileSelector(
     ctx: CanvasRenderingContext2D,
-    viewState: GameViewState,
+    viewState: GameState,
   ): void {
     if (
       viewState.match.phase !== "aiming" &&

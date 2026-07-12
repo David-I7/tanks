@@ -1,21 +1,16 @@
 export { GameEngine } from "./GameEngine";
 export type { GameEngineOptions } from "./GameEngine";
 export {
-  adaptReadyGameAuthorityToGameManager,
   createCanvasSizedLocalGameManager,
 } from "./factories/gameManagerFactory";
 export {
   createLocalGameManager,
-  createLocalGameAuthority,
-  snapshotToGameState,
-  snapshotToGameViewState,
-} from "./authority/gameAuthority";
-export type { GameAuthority, GameManager } from "./authority/gameAuthority";
-export { createLocalSimulationManager } from "./authority/simulationAuthority";
+} from "./authority/gameManager";
+export type { GameManager } from "./authority/gameManager";
+export { createLocalSimulationManager } from "./authority/simulationManager";
 export type {
-  SimulationAuthority,
   SimulationManager,
-} from "./authority/simulationAuthority";
+} from "./authority/simulationManager";
 export { mockGameContent } from "./content/mockGameContent";
 export { createOnlineGameManager } from "./online/OnlineGameManager";
 export type { OnlineGameManager } from "./online/OnlineGameManager";
@@ -26,8 +21,6 @@ export type {
   GameAction,
   GameMode,
   GameState,
-  GameSnapshot,
-  GameViewState,
   MatchSetup,
   SimulationState,
 } from "./types";

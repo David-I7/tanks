@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
 
 const tests = [
-  "tests\\game-authority-tests.ts",
+  "tests\\local-game-manager-tests.ts",
   "tests\\game-engine-tests.ts",
   "tests\\canvas-sizing-tests.ts",
   "tests\\game-behavior-tests.ts",

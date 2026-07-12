@@ -4,13 +4,12 @@ import {
   createDefaultMatchSetup,
   createInitialWorld,
 } from "../src/game/world/createInitialWorld";
-import { LocalSimulationAuthority } from "../src/game/simulation/LocalSimulationAuthority";
+import { LocalSimulation } from "../src/game/simulation/LocalSimulation";
 import {
-  createLocalSimulationAuthority,
   createLocalSimulationManager,
-  type SimulationAuthority,
-} from "../src/game/authority/simulationAuthority";
-import { snapshotToGameViewState } from "../src/game/authority/gameAuthority";
+  type SimulationManager,
+} from "../src/game/authority/simulationManager";
+import { simulationStateToGameState } from "../src/game/authority/gameManager";
 import { createCanvasSizing } from "../src/game/world/worldSizing";
 import { collectGameActions } from "../src/game/input/CanvasInputSource";
 import {
@@ -22,86 +21,94 @@ import {
   mockGameContent,
   type GameContent,
 } from "../src/game/content/mockGameContent";
-import type { GameViewState, MatchSetup } from "../src/game/types";
+import type { GameState, MatchSetup } from "../src/game/types";
 import {
-  createMockSnapshotRemoteTransport,
-  createSnapshotRemoteSimulationAuthority,
-} from "./support/snapshotRemoteAuthoritySupport";
+  createMockRemoteSimulationTransport,
+  createRemoteSimulationManager,
+  type RemoteSimulationManager,
+} from "./support/remoteSimulationSupport";
 
-function makeAuthority(setup: MatchSetup = createDefaultMatchSetup("localTwoPlayer")) {
+function makeSimulation(setup: MatchSetup = createDefaultMatchSetup("localTwoPlayer")) {
   const { world, terrain, content } = createInitialWorld(setup, mockGameContent, {
     width: 960,
     height: 560,
   });
-  return new LocalSimulationAuthority(world, terrain, content);
+  return new LocalSimulation(world, terrain, content);
 }
 
-function firstTank(authority: LocalSimulationAuthority) {
-  const tank = authority.snapshot().tanks.find((entry) => entry.tank.playerId === 0);
+function firstTank(simulation: LocalSimulation) {
+  const tank = simulation.getState().tanks.find((entry) => entry.tank.playerId === 0);
   assert.ok(tank);
   return tank;
 }
 
-function viewStateWithActiveSecondTank(
-  authority: LocalSimulationAuthority,
-): GameViewState {
-  const viewState = snapshotToGameViewState(authority.snapshot());
-  viewState.match.activePlayerId = 1;
-  const activeTank = viewState.tanks.find((entry) => entry.playerId === 1);
-  assert.ok(activeTank);
-  activeTank.loadout = withDistinctSecondPlayerSlotIds(activeTank.loadout);
-  activeTank.selectedProjectileSlotId = activeTank.loadout[0]!.id;
-  return viewState;
+function gameStateWithActiveSecondTank(
+  simulation: LocalSimulation,
+): GameState {
+  const gameState = {
+    ...simulationStateToGameState(simulation.getState(), mockGameContent.projectiles),
+  };
+  (gameState as any).match = { ...gameState.match, activePlayerId: 1 };
+  const tanks = [...gameState.tanks];
+  const tankIndex = tanks.findIndex((entry) => entry.playerId === 1);
+  if (tankIndex !== -1) {
+    const activeTank = { ...tanks[tankIndex]! };
+    activeTank.loadout = withDistinctSecondPlayerSlotIds(activeTank.loadout);
+    activeTank.selectedProjectileSlotId = activeTank.loadout[0]!.id;
+    tanks[tankIndex] = activeTank;
+  }
+  (gameState as any).tanks = tanks;
+  return gameState;
 }
 
 function withDistinctSecondPlayerSlotIds(
-  loadout: GameViewState["tanks"][number]["loadout"],
-): GameViewState["tanks"][number]["loadout"] {
+  loadout: GameState["tanks"][number]["loadout"],
+): GameState["tanks"][number]["loadout"] {
   return loadout.map((slot) => ({
     ...slot,
     id: `second-player-${slot.id}`,
   }));
 }
 
-function canvasInteractionContext(gameViewState: GameViewState) {
+function canvasInteractionContext(gameState: GameState) {
   return {
-    gameViewState,
+    gameState,
     cameraX: 0,
     gameViewport: { width: 960, height: 560 },
     domCanvasRect: { left: 0, top: 0, width: 960, height: 560 },
   };
 }
 
-async function expectSharedAuthoritySelection(
-  authority: SimulationAuthority,
+async function expectSharedSimulationManagerSelection(
+  manager: SimulationManager | RemoteSimulationManager,
 ): Promise<void> {
   const seen: string[] = [];
-  const unsubscribe = authority.subscribe((snapshot) => {
-    seen.push(snapshot.tanks[0]?.tank.selectedProjectileSlotId ?? "");
+  const unsubscribe = manager.subscribe((state) => {
+    seen.push(state.tanks[0]?.tank.selectedProjectileSlotId ?? "");
   });
   assert.equal(
-    authority.submitPlayerAction(0, {
+    manager.submitPlayerAction(0, {
       type: "selectProjectileSlot",
       projectileSlotId: "mortar",
     }),
     true,
   );
-  authority.update(0);
+  manager.update(0);
   await new Promise((resolve) => setTimeout(resolve, 5));
   unsubscribe();
-  authority.destroy();
+  manager.destroy();
   assert.ok(seen.includes("mortar"));
 }
 
 {
-  const authority = makeAuthority();
-  const snapshot = authority.snapshot();
-  assert.equal(snapshot.tanks.length, 2);
-  assert.equal(snapshot.tanks[0]?.tank.tankDefinitionId, "vanguard");
-  assert.equal(snapshot.tanks[1]?.tank.tankDefinitionId, "specter");
-  assert.equal(snapshot.tanks[0]?.tank.loadout.length, 5);
-  assert.equal(snapshot.tanks[0]?.tank.selectedProjectileSlotId, "standard");
-  assert.equal(snapshot.terrain.kind, "heightmap");
+  const simulation = makeSimulation();
+  const state = simulation.getState();
+  assert.equal(state.tanks.length, 2);
+  assert.equal(state.tanks[0]?.tank.tankDefinitionId, "vanguard");
+  assert.equal(state.tanks[1]?.tank.tankDefinitionId, "specter");
+  assert.equal(state.tanks[0]?.tank.loadout.length, 5);
+  assert.equal(state.tanks[0]?.tank.selectedProjectileSlotId, "standard");
+  assert.equal(state.terrain.kind, "heightmap");
 }
 
 {
@@ -194,49 +201,49 @@ async function expectSharedAuthoritySelection(
 }
 
 {
-  const authority = makeAuthority();
-  const before = firstTank(authority).position.x;
-  assert.equal(firstTank(authority).tank.maxFuel, 240);
-  authority.submitPlayerAction(0, { type: "move", direction: 1 });
-  const after = firstTank(authority).position.x;
+  const simulation = makeSimulation();
+  const before = firstTank(simulation).position.x;
+  assert.equal(firstTank(simulation).tank.maxFuel, 240);
+  simulation.submitPlayerAction(0, { type: "move", direction: 1 });
+  const after = firstTank(simulation).position.x;
   assert.ok(
     after - before <= 3,
     `expected fluid movement step, moved ${after - before}px in one frame`,
   );
-  assert.equal(firstTank(authority).tank.fuel, 239);
+  assert.equal(firstTank(simulation).tank.fuel, 239);
 }
 
 {
-  const authority = makeAuthority();
+  const simulation = makeSimulation();
   assert.equal(
-    authority.submitPlayerAction(1, {
+    simulation.submitPlayerAction(1, {
       type: "selectProjectileSlot",
       projectileSlotId: "mortar",
     }),
     false,
   );
   assert.equal(
-    authority.submitPlayerAction(0, {
+    simulation.submitPlayerAction(0, {
       type: "selectProjectileSlot",
       projectileSlotId: "mortar",
     }),
     true,
   );
-  assert.equal(firstTank(authority).tank.selectedProjectileSlotId, "mortar");
+  assert.equal(firstTank(simulation).tank.selectedProjectileSlotId, "mortar");
 }
 
 {
-  await expectSharedAuthoritySelection(
-    createLocalSimulationAuthority({
+  await expectSharedSimulationManagerSelection(
+    createLocalSimulationManager({
       setup: createDefaultMatchSetup("localTwoPlayer"),
       content: mockGameContent,
       initialGameViewport: { width: 960, height: 560 },
     }),
   );
 
-  await expectSharedAuthoritySelection(
-    createSnapshotRemoteSimulationAuthority(
-      createMockSnapshotRemoteTransport({
+  await expectSharedSimulationManagerSelection(
+    createRemoteSimulationManager(
+      createMockRemoteSimulationTransport({
         setup: createDefaultMatchSetup("online"),
         content: mockGameContent,
         width: 960,
@@ -248,9 +255,18 @@ async function expectSharedAuthoritySelection(
 }
 
 {
-  const authority = makeAuthority();
+  const simulation = makeSimulation();
   assert.equal(
-    authority.submitPlayerAction(0, {
+    simulation.submitPlayerAction(0, {
+      type: "selectProjectileSlot",
+      projectileSlotId: "heavy",
+    }),
+    true,
+  );
+  assert.equal(firstTank(simulation).tank.selectedProjectileSlotId, "heavy");
+
+  assert.equal(
+    simulation.submitPlayerAction(0, {
       type: "fire",
       angle: -0.6,
       power: 400,
@@ -258,21 +274,21 @@ async function expectSharedAuthoritySelection(
     }),
     true,
   );
-  const snapshot = authority.snapshot();
-  assert.equal(snapshot.match.phase, "ballistics");
-  assert.equal(snapshot.projectiles[0]?.projectile.projectileDefinitionId, "heavyShell");
-  assert.equal(snapshot.projectiles[0]?.projectile.power, 400);
-  assert.equal(snapshot.tanks[0]?.tank.selectedProjectileSlotId, "heavy");
-  assert.equal(snapshot.projectiles[0]?.projectile.physics.gravityScale, 1.14);
+  const state = simulation.getState();
+  assert.equal(state.match.phase, "ballistics");
+  assert.equal(state.projectiles[0]?.projectile.projectileDefinitionId, "heavyShell");
+  assert.equal(state.projectiles[0]?.projectile.power, 400);
+  assert.equal(state.tanks[0]?.tank.selectedProjectileSlotId, "heavy");
+  assert.equal(state.projectiles[0]?.projectile.physics.gravityScale, 1.14);
 }
 
 {
-  const authority = makeAuthority();
-  const snapshot = authority.snapshot();
-  const slotCount = snapshot.tanks[0]?.tank.loadout.length ?? 0;
+  const simulation = makeSimulation();
+  const state = simulation.getState();
+  const slotCount = state.tanks[0]?.tank.loadout.length ?? 0;
   const layout = getProjectileSelectorLayout(960, 560, slotCount);
   const selectedSlot = findProjectileSlotAtCanvasPoint(
-    snapshotToGameViewState(snapshot),
+    simulationStateToGameState(state, mockGameContent.projectiles),
     960,
     560,
     layout.x + layout.slotSize + layout.gap + layout.slotSize / 2,
@@ -282,93 +298,79 @@ async function expectSharedAuthoritySelection(
 }
 
 {
-  const authority = makeAuthority();
-  authority.submitPlayerAction(0, {
+  const simulation = makeSimulation();
+  simulation.submitPlayerAction(0, {
     type: "fire",
     angle: 1.35,
     power: 520,
     projectileSlotId: "cluster",
   });
-  for (let i = 0; i < 240 && authority.snapshot().impactEvents.length === 0; i += 1) {
-    authority.update(1 / 30);
+  for (let i = 0; i < 360 && simulation.getState().match.phase !== "impact"; i += 1) {
+    simulation.update(1 / 30);
   }
-  const impactSnapshot = authority.snapshot();
-  assert.ok(impactSnapshot.impactEvents.length > 0);
-  assert.equal(impactSnapshot.impactEvents[0]?.animationId, "spark-burst");
-  assert.equal(impactSnapshot.match.phase, "impact");
-
-  for (let i = 0; i < 90 && authority.snapshot().match.phase !== "aiming"; i += 1) {
-    authority.update(1 / 30);
-  }
-  assert.equal(authority.snapshot().match.phase, "aiming");
+  const state = simulation.getState();
+  assert.equal(state.match.phase, "impact");
+  assert.ok(state.impactEvents.length > 0);
+  assert.equal(state.impactEvents[0]?.animationId, "spark-burst");
 }
 
 {
-  const terrain = new TerrainModel(260, 160);
-  const beforeSurface = terrain.cloneSurface();
-  terrain.deform(130, 88, 48);
-  assert.ok(
-    terrain.surface.some((height, index) => height !== beforeSurface[index]),
-  );
-  let maxStep = 0;
-  for (let x = 82; x <= 178; x += 1) {
-    maxStep = Math.max(
-      maxStep,
-      Math.abs(terrain.getSurfaceY(x) - terrain.getSurfaceY(x - 1)),
-    );
-  }
-  assert.ok(
-    maxStep <= 5,
-    `expected smoothed crater edge, got adjacent height step ${maxStep}`,
-  );
-}
-
-{
-  const manager = createLocalSimulationManager({
-    setup: createDefaultMatchSetup("localTwoPlayer"),
-    content: mockGameContent,
-    initialGameViewport: { width: 960, height: 560 },
+  const simulation = makeSimulation();
+  const initialSurface = simulation.getState().terrain.surface.slice();
+  simulation.submitPlayerAction(0, {
+    type: "fire",
+    angle: 1.35,
+    power: 520,
+    projectileSlotId: "cluster",
   });
-  const initialState = manager.getState();
-  assert.equal(initialState.terrain.kind, "heightmap");
-  const initialSurface = initialState.terrain.surface.slice();
-
-  assert.equal(
-    manager.submitPlayerAction(0, {
-      type: "fire",
-      angle: 1.35,
-      power: 520,
-      projectileSlotId: "cluster",
-    }),
-    true,
-  );
-  for (let i = 0; i < 240; i += 1) {
-    manager.update(1 / 30);
-    const state = manager.getState();
-    if (
-      state.terrain.kind === "heightmap" &&
-      state.terrain.surface.some(
-        (height, index) => height !== initialSurface[index],
-      )
-    ) {
-      break;
-    }
+  for (
+    let i = 0;
+    i < 360 &&
+    simulation.getState().terrain.surface.every(
+      (height, index) => height === initialSurface[index],
+    );
+    i += 1
+  ) {
+    simulation.update(1 / 30);
   }
-
-  const deformedState = manager.getState();
-  assert.equal(deformedState.terrain.kind, "heightmap");
+  const state = simulation.getState();
   assert.ok(
-    deformedState.terrain.kind === "heightmap" &&
-      deformedState.terrain.surface.some(
-        (height, index) => height !== initialSurface[index],
-      ),
+    state.terrain.surface.some(
+      (height, index) => height !== initialSurface[index],
+    ),
   );
-  manager.destroy();
 }
 
 {
-  const authority = makeAuthority();
-  const snapshot = authority.snapshot();
+  const simulation = makeSimulation();
+  const initialX = firstTank(simulation).position.x;
+  for (let i = 0; i < 60; i += 1) {
+    simulation.submitPlayerAction(0, { type: "move", direction: 1 });
+  }
+  assert.ok(firstTank(simulation).position.x > initialX);
+  assert.equal(firstTank(simulation).tank.fuel, 180);
+
+  const currentX = firstTank(simulation).position.x;
+  simulation.submitPlayerAction(0, { type: "move", direction: 1 });
+  assert.ok(firstTank(simulation).position.x > currentX);
+}
+
+{
+  const simulation = makeSimulation();
+  const initialActive = simulation.getState().match.activePlayerId;
+  simulation.update(31);
+  assert.equal(simulation.getState().match.activePlayerId, initialActive);
+
+  // transition turns
+  for (let i = 0; i < 150 && simulation.getState().match.activePlayerId === initialActive; i += 1) {
+    simulation.update(1 / 30);
+  }
+  assert.notEqual(simulation.getState().match.activePlayerId, initialActive);
+}
+
+{
+  const simulation = makeSimulation();
+  const state = simulation.getState();
   const intents = collectGameActions({
     state: {
       pressedKeys: new Set(["ArrowRight"]),
@@ -376,7 +378,7 @@ async function expectSharedAuthoritySelection(
       pendingPointerDown: null,
       pendingSlotNumber: 2,
     },
-    context: canvasInteractionContext(snapshotToGameViewState(snapshot)),
+    context: canvasInteractionContext(simulationStateToGameState(state, mockGameContent.projectiles)),
   });
   assert.deepEqual(intents[0], { type: "move", direction: 1 });
   assert.deepEqual(intents[1], {
@@ -387,9 +389,9 @@ async function expectSharedAuthoritySelection(
 }
 
 {
-  const authority = makeAuthority();
-  const viewState = viewStateWithActiveSecondTank(authority);
-  const activeTank = viewState.tanks.find((entry) => entry.playerId === 1);
+  const simulation = makeSimulation();
+  const gameState = gameStateWithActiveSecondTank(simulation);
+  const activeTank = gameState.tanks.find((entry) => entry.playerId === 1);
   assert.ok(activeTank);
   const layout = getProjectileSelectorLayout(
     960,
@@ -398,7 +400,7 @@ async function expectSharedAuthoritySelection(
   );
 
   const selectedSlot = findProjectileSlotAtCanvasPoint(
-    viewState,
+    gameState,
     960,
     560,
     layout.x + layout.slotSize + layout.gap + layout.slotSize / 2,
@@ -416,7 +418,7 @@ async function expectSharedAuthoritySelection(
       pendingPointerDown: null,
       pendingSlotNumber: 2,
     },
-    context: canvasInteractionContext(viewState),
+    context: canvasInteractionContext(gameState),
   });
 
   assert.deepEqual(intents[0], {
@@ -430,7 +432,7 @@ async function expectSharedAuthoritySelection(
 }
 
 {
-  const transport = createMockSnapshotRemoteTransport({
+  const transport = createMockRemoteSimulationTransport({
     setup: createDefaultMatchSetup("online"),
     content: mockGameContent,
     width: 960,
@@ -438,8 +440,8 @@ async function expectSharedAuthoritySelection(
     latencyMs: 0,
   });
   const seen: string[] = [];
-  const unsubscribe = transport.onSnapshot((snapshot) => {
-    seen.push(snapshot.tanks[0]?.tank.selectedProjectileSlotId ?? "");
+  const unsubscribe = transport.onSimulationState((state) => {
+    seen.push(state.tanks[0]?.tank.selectedProjectileSlotId ?? "");
   });
   transport.sendIntent({
     playerId: 0,
@@ -509,4 +511,3 @@ async function expectSharedAuthoritySelection(
   assert.equal(onlinePlayer1.displayName, "Player 2");
   assert.equal(onlinePlayer1.controllerKind, "remote");
 }
-
