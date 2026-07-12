@@ -2,7 +2,9 @@ import type { GameContent } from "../content/mockGameContent";
 import type { WorldSize } from "../world/worldSizing";
 import {
   createLocalSimulationAuthority,
+  createLocalSimulationManager,
   type SimulationAuthority,
+  type SimulationManager,
 } from "./simulationAuthority";
 import type {
   GameAction,
@@ -12,6 +14,7 @@ import type {
   GameState,
   GameViewState,
   MatchSetup,
+  SimulationState,
 } from "../types";
 
 export type GameManager = {
@@ -91,7 +94,6 @@ export function createLocalGameAuthority(options: {
 }): GameAuthority {
   return new SimulationGameAuthority(
     createLocalSimulationAuthority(options),
-    options.content.projectiles,
     (state, source) => resolveActiveLocalActor(state, source),
   );
 }
@@ -99,13 +101,15 @@ export function createLocalGameAuthority(options: {
 export function createLocalGameManager(
   options: Parameters<typeof createLocalGameAuthority>[0],
 ): GameManager {
-  return createLocalGameAuthority(options) as SimulationGameAuthority;
+  return new CachedLocalGameManager(
+    createLocalSimulationManager(options),
+    options.content.projectiles,
+  );
 }
 
-class SimulationGameAuthority implements GameAuthority, GameManager {
+class SimulationGameAuthority implements GameAuthority {
   constructor(
     private readonly simulationAuthority: SimulationAuthority,
-    private readonly projectileDefinitions: GameState["projectileDefinitions"],
     private readonly resolveActor: (
       state: GameViewState,
       source: LocalActionSource,
@@ -134,22 +138,8 @@ class SimulationGameAuthority implements GameAuthority, GameManager {
     return snapshot ? snapshotToGameViewState(snapshot) : null;
   }
 
-  getState(): GameState {
-    const snapshot = this.simulationAuthority.snapshot();
-    if (!snapshot) {
-      throw new Error("Local game manager must have an initial game state");
-    }
-    return {
-      ...snapshotToGameState(snapshot),
-      projectileDefinitions: this.projectileDefinitions,
-    };
-  }
-
-  subscribe(listener: (state: GameState) => void): () => void;
   subscribe(listener: (state: GameViewState) => void): () => void;
-  subscribe(
-    listener: ((state: GameState) => void) | ((state: GameViewState) => void),
-  ): () => void {
+  subscribe(listener: (state: GameViewState) => void): () => void {
     return this.simulationAuthority.subscribe((snapshot) => {
       listener(snapshotToGameViewState(snapshot));
     });
@@ -160,8 +150,90 @@ class SimulationGameAuthority implements GameAuthority, GameManager {
   }
 }
 
+class CachedLocalGameManager implements GameManager {
+  private currentState: GameState;
+  private readonly listeners = new Set<(state: GameState) => void>();
+  private readonly unsubscribeSimulation: () => void;
+
+  constructor(
+    private readonly simulationManager: SimulationManager,
+    private readonly projectileDefinitions: GameState["projectileDefinitions"],
+  ) {
+    this.currentState = simulationStateToGameState(
+      simulationManager.getState(),
+      projectileDefinitions,
+    );
+    this.unsubscribeSimulation = simulationManager.subscribe(
+      (simulationState) => {
+        this.currentState = simulationStateToGameState(
+          simulationState,
+          this.projectileDefinitions,
+        );
+        this.publishCurrentState();
+      },
+    );
+  }
+
+  submitAction(action: GameAction): boolean {
+    const playerId = resolveActiveLocalActor(this.currentState, "human");
+    if (playerId === null) return false;
+    return this.simulationManager.submitPlayerAction(playerId, action);
+  }
+
+  update(dt: number): void {
+    this.simulationManager.update(dt);
+  }
+
+  getState(): GameState {
+    return this.currentState;
+  }
+
+  subscribe(listener: (state: GameState) => void): () => void {
+    this.listeners.add(listener);
+    listener(this.currentState);
+    return () => {
+      this.listeners.delete(listener);
+    };
+  }
+
+  destroy(): void {
+    this.unsubscribeSimulation();
+    this.simulationManager.destroy();
+    this.listeners.clear();
+  }
+
+  private publishCurrentState(): void {
+    for (const listener of this.listeners) {
+      listener(this.currentState);
+    }
+  }
+}
+
+function simulationStateToGameState(
+  state: SimulationState,
+  projectileDefinitions: GameState["projectileDefinitions"],
+): GameState {
+  return {
+    match: state.match,
+    terrain: state.terrain,
+    projectileDefinitions,
+    tanks: state.tanks.map((entry) => ({
+      ...entry.tank,
+      entityId: entry.entityId,
+      position: entry.position,
+    })),
+    projectiles: state.projectiles.map((entry) => ({
+      ...entry.projectile,
+      entityId: entry.entityId,
+      position: entry.position,
+      velocity: entry.velocity,
+    })),
+    impactEvents: state.impactEvents,
+  };
+}
+
 function resolveActiveLocalActor(
-  state: GameViewState,
+  state: GameViewState | GameState,
   source: LocalActionSource,
 ): number | null {
   const activeTank = state.tanks.find(

@@ -33,6 +33,26 @@ function createLocalAuthority(
   });
 }
 
+function createLocalManager(
+  mode: Exclude<GameMode, "online"> = "localTwoPlayer",
+): GameManager {
+  return createLocalGameManager({
+    mode,
+    setup: createDefaultMatchSetup(mode),
+    content: mockGameContent,
+    worldSize: { width: 960, height: 560 },
+  });
+}
+
+function createLocalSimulationManagerForTest() {
+  return createLocalSimulationManager({
+    mode: "localTwoPlayer",
+    setup: createDefaultMatchSetup("localTwoPlayer"),
+    content: mockGameContent,
+    worldSize: { width: 960, height: 560 },
+  });
+}
+
 function requireViewState(authority: GameAuthority): GameViewState {
   const state = authority.getViewState();
   assert.ok(state);
@@ -82,16 +102,19 @@ function updateUntil(
 }
 
 {
-  const manager: GameManager = createLocalGameManager({
-    mode: "localTwoPlayer",
-    setup: createDefaultMatchSetup("localTwoPlayer"),
-    content: mockGameContent,
-    worldSize: { width: 960, height: 560 },
-  });
+  const manager = createLocalManager();
   const state = requireGameState(manager);
 
   assert.equal(state.match.activePlayerId, 0);
   assert.equal(state.projectileDefinitions, mockGameContent.projectiles);
+  assert.equal(manager.getState(), state);
+
+  let subscribedState: GameState | null = null;
+  const unsubscribe = manager.subscribe((nextState) => {
+    subscribedState = nextState;
+  });
+
+  assert.equal(subscribedState, state);
   assert.equal(
     manager.submitAction({
       type: "selectProjectileSlot",
@@ -99,35 +122,85 @@ function updateUntil(
     }),
     true,
   );
-  assert.equal(manager.getState()?.tanks[0]?.selectedProjectileSlotId, "mortar");
+  const afterAction = manager.getState();
+  assert.notEqual(afterAction, state);
+  assert.equal(subscribedState, afterAction);
+  assert.equal(afterAction.tanks[0]?.selectedProjectileSlotId, "mortar");
+  assert.equal(manager.getState(), afterAction);
+  unsubscribe();
   manager.destroy();
 }
 
 {
-  const simulationManager = createLocalSimulationManager({
-    mode: "localTwoPlayer",
-    setup: createDefaultMatchSetup("localTwoPlayer"),
-    content: mockGameContent,
-    worldSize: { width: 960, height: 560 },
-  });
+  const simulationManager = createLocalSimulationManagerForTest();
   const state = simulationManager.getState();
   assert.ok(state);
+  assert.equal(simulationManager.getState(), state);
   assert.equal(
     Object.prototype.hasOwnProperty.call(state, "projectileDefinitions"),
     false,
   );
 
-  let emittedHasDefinitions = true;
+  let emittedState = null as typeof state | null;
   const unsubscribe = simulationManager.subscribe((emitted) => {
-    emittedHasDefinitions = Object.prototype.hasOwnProperty.call(
-      emitted,
-      "projectileDefinitions",
-    );
+    emittedState = emitted;
   });
 
-  assert.equal(emittedHasDefinitions, false);
+  assert.equal(emittedState, state);
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(emittedState, "projectileDefinitions"),
+    false,
+  );
+  assert.equal(
+    simulationManager.submitPlayerAction(0, {
+      type: "selectProjectileSlot",
+      projectileSlotId: "mortar",
+    }),
+    true,
+  );
+  const afterAction = simulationManager.getState();
+  assert.ok(afterAction);
+  assert.notEqual(afterAction, state);
+  assert.equal(emittedState, afterAction);
+  assert.equal(afterAction.tanks[0]?.tank.selectedProjectileSlotId, "mortar");
+  assert.equal(simulationManager.getState(), afterAction);
   unsubscribe();
   simulationManager.destroy();
+}
+
+{
+  const manager = createLocalManager();
+  const before = requireGameState(manager);
+  const beforeX = before.tanks[0]!.position.x;
+  const beforeFuel = before.tanks[0]!.fuel;
+
+  assert.equal(manager.submitAction({ type: "move", direction: 1 }), true);
+  const afterMove = manager.getState();
+  assert.ok(afterMove.tanks[0]!.position.x > beforeX);
+  assert.equal(afterMove.tanks[0]!.fuel, beforeFuel - 1);
+
+  assert.equal(
+    manager.submitAction({ type: "aim", angle: -0.72, power: 740 }),
+    true,
+  );
+  const afterAim = manager.getState();
+  assert.equal(afterAim.tanks[0]!.aimAngle, -0.72);
+  assert.equal(afterAim.tanks[0]!.power, 680);
+
+  assert.equal(
+    manager.submitAction({
+      type: "fire",
+      angle: -0.6,
+      power: 400,
+      projectileSlotId: "heavy",
+    }),
+    true,
+  );
+  const afterFire = manager.getState();
+  assert.equal(afterFire.match.phase, "ballistics");
+  assert.equal(afterFire.projectiles[0]?.projectileDefinitionId, "heavyShell");
+  assert.equal(afterFire.projectiles[0]?.power, 400);
+  manager.destroy();
 }
 
 {
