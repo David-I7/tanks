@@ -203,6 +203,18 @@ export type GameSnapshot = {
   impactEvents: ImpactEvent[];
 };
 
+type DeepReadonly<T> = T extends (...args: never[]) => unknown
+  ? T
+  : T extends readonly (infer U)[]
+    ? readonly DeepReadonly<U>[]
+    : T extends object
+      ? { readonly [K in keyof T]: DeepReadonly<T[K]> }
+      : T;
+
+export type SimulationState = DeepReadonly<
+  Omit<GameSnapshot, "projectileDefinitions">
+>;
+
 export type GameViewState = {
   match: MatchState;
   terrain: TerrainSnapshot;
@@ -211,6 +223,8 @@ export type GameViewState = {
   projectiles: GameViewProjectile[];
   impactEvents: ImpactEvent[];
 };
+
+export type GameState = DeepReadonly<GameViewState>;
 
 export type GameViewTank = TankComponent & {
   entityId: EntityId;

@@ -1,16 +1,26 @@
 import assert from "node:assert/strict";
 
-import { createMockRemoteTransport } from "../src/game/authority/createMockRemoteTransport";
-import {
-  createLocalGameAuthority,
-  createRemoteGameAuthority,
-} from "../src/game/authority/gameAuthority";
+import { createLocalGameAuthority } from "../src/game/authority/gameAuthority";
 import {
   mockGameContent,
   type GameContent,
 } from "../src/game/content/mockGameContent";
 import { createDefaultMatchSetup } from "../src/game/world/createInitialWorld";
-import type { GameAuthority, GameMode, GameViewState } from "../src/game";
+import {
+  createLocalGameManager,
+  createLocalSimulationManager,
+} from "../src/game";
+import type {
+  GameAuthority,
+  GameManager,
+  GameMode,
+  GameState,
+  GameViewState,
+} from "../src/game";
+
+// Preferred high-level gameplay seam:
+// GameAction in through GameAuthority, GameViewState out for assertions.
+// Mode-specific simulation details stay hidden behind this boundary.
 
 function createLocalAuthority(
   mode: Exclude<GameMode, "online"> = "localTwoPlayer",
@@ -23,9 +33,50 @@ function createLocalAuthority(
   });
 }
 
+function createLocalManager(
+  mode: Exclude<GameMode, "online"> = "localTwoPlayer",
+): GameManager {
+  return createLocalGameManager({
+    mode,
+    setup: createDefaultMatchSetup(mode),
+    content: mockGameContent,
+    worldSize: { width: 960, height: 560 },
+  });
+}
+
+function createLocalSimulationManagerForTest() {
+  return createLocalSimulationManager({
+    mode: "localTwoPlayer",
+    setup: createDefaultMatchSetup("localTwoPlayer"),
+    content: mockGameContent,
+    worldSize: { width: 960, height: 560 },
+  });
+}
+
 function requireViewState(authority: GameAuthority): GameViewState {
   const state = authority.getViewState();
   assert.ok(state);
+  return state;
+}
+
+function requireGameState(manager: GameManager): GameState {
+  const state = manager.getState();
+  assert.ok(state);
+  return state;
+}
+
+function updateManagerUntil(
+  manager: GameManager,
+  predicate: (state: GameState) => boolean,
+  frames = 360,
+): GameState {
+  for (let i = 0; i < frames; i += 1) {
+    const state = manager.getState();
+    if (predicate(state)) return state;
+    manager.update(1 / 30);
+  }
+  const state = manager.getState();
+  assert.ok(predicate(state), "expected condition before frame limit");
   return state;
 }
 
@@ -63,6 +114,138 @@ function updateUntil(
   const after = authority.getViewState();
   assert.equal(after?.tanks[0]?.selectedProjectileSlotId, "mortar");
   authority.destroy();
+}
+
+{
+  const manager = createLocalManager();
+  const state = requireGameState(manager);
+
+  assert.equal(state.match.activePlayerId, 0);
+  assert.equal(state.projectileDefinitions, mockGameContent.projectiles);
+  assert.equal(manager.getState(), state);
+
+  let subscribedState: GameState | null = null;
+  const unsubscribe = manager.subscribe((nextState) => {
+    subscribedState = nextState;
+  });
+
+  assert.equal(subscribedState, state);
+  assert.equal(
+    manager.submitAction({
+      type: "selectProjectileSlot",
+      projectileSlotId: "mortar",
+    }),
+    true,
+  );
+  const afterAction = manager.getState();
+  assert.notEqual(afterAction, state);
+  assert.equal(subscribedState, afterAction);
+  assert.equal(afterAction.tanks[0]?.selectedProjectileSlotId, "mortar");
+  assert.equal(manager.getState(), afterAction);
+  unsubscribe();
+  manager.destroy();
+}
+
+{
+  const simulationManager = createLocalSimulationManagerForTest();
+  const state = simulationManager.getState();
+  assert.ok(state);
+  assert.equal(simulationManager.getState(), state);
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(state, "projectileDefinitions"),
+    false,
+  );
+
+  let emittedState = null as typeof state | null;
+  const unsubscribe = simulationManager.subscribe((emitted) => {
+    emittedState = emitted;
+  });
+
+  assert.equal(emittedState, state);
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(emittedState, "projectileDefinitions"),
+    false,
+  );
+  assert.equal(
+    simulationManager.submitPlayerAction(0, {
+      type: "selectProjectileSlot",
+      projectileSlotId: "mortar",
+    }),
+    true,
+  );
+  const afterAction = simulationManager.getState();
+  assert.ok(afterAction);
+  assert.notEqual(afterAction, state);
+  assert.equal(emittedState, afterAction);
+  assert.equal(afterAction.tanks[0]?.tank.selectedProjectileSlotId, "mortar");
+  assert.equal(simulationManager.getState(), afterAction);
+  unsubscribe();
+  simulationManager.destroy();
+}
+
+{
+  const manager = createLocalManager();
+  const before = requireGameState(manager);
+  const beforeX = before.tanks[0]!.position.x;
+  const beforeFuel = before.tanks[0]!.fuel;
+
+  assert.equal(manager.submitAction({ type: "move", direction: 1 }), true);
+  const afterMove = manager.getState();
+  assert.ok(afterMove.tanks[0]!.position.x > beforeX);
+  assert.equal(afterMove.tanks[0]!.fuel, beforeFuel - 1);
+
+  assert.equal(
+    manager.submitAction({ type: "aim", angle: -0.72, power: 740 }),
+    true,
+  );
+  const afterAim = manager.getState();
+  assert.equal(afterAim.tanks[0]!.aimAngle, -0.72);
+  assert.equal(afterAim.tanks[0]!.power, 680);
+
+  assert.equal(
+    manager.submitAction({
+      type: "fire",
+      angle: -0.6,
+      power: 400,
+      projectileSlotId: "heavy",
+    }),
+    true,
+  );
+  const afterFire = manager.getState();
+  assert.equal(afterFire.match.phase, "ballistics");
+  assert.equal(afterFire.projectiles[0]?.projectileDefinitionId, "heavyShell");
+  assert.equal(afterFire.projectiles[0]?.power, 400);
+  manager.destroy();
+}
+
+{
+  const manager = createLocalManager();
+
+  assert.equal(
+    manager.submitAction({
+      type: "fire",
+      angle: 1.35,
+      power: 520,
+      projectileSlotId: "cluster",
+    }),
+    true,
+  );
+
+  const secondHumanTurn = updateManagerUntil(
+    manager,
+    (state) =>
+      state.match.activePlayerId === 1 && state.match.phase === "aiming",
+    360,
+  );
+  const beforeX = secondHumanTurn.tanks.find((tank) => tank.playerId === 1)!
+    .position.x;
+
+  assert.equal(manager.submitAction({ type: "move", direction: -1 }), true);
+  const afterMove = manager.getState();
+  assert.ok(
+    afterMove.tanks.find((tank) => tank.playerId === 1)!.position.x < beforeX,
+  );
+  manager.destroy();
 }
 
 {
@@ -112,6 +295,37 @@ function updateUntil(
     true,
   );
   authority.destroy();
+}
+
+{
+  const manager = createLocalManager("playerVsAi");
+
+  assert.equal(
+    manager.submitAction({
+      type: "fire",
+      angle: -0.6,
+      power: 400,
+      projectileSlotId: "standard",
+    }),
+    true,
+  );
+
+  updateManagerUntil(
+    manager,
+    (state) =>
+      state.match.activePlayerId === 1 && state.match.phase === "thinking",
+  );
+
+  assert.equal(manager.submitAction({ type: "move", direction: 1 }), false);
+
+  const afterAiShot = updateManagerUntil(
+    manager,
+    (state) => state.match.phase === "ballistics",
+    150,
+  );
+  assert.equal(afterAiShot.match.activePlayerId, 1);
+  assert.ok(afterAiShot.projectiles.length > 0);
+  manager.destroy();
 }
 
 {
@@ -266,44 +480,4 @@ function updateUntil(
     false,
   );
   authority.destroy();
-}
-
-{
-  const transport = createMockRemoteTransport({
-    setup: createDefaultMatchSetup("online"),
-    content: mockGameContent,
-    width: 960,
-    height: 560,
-    latencyMs: 0,
-  });
-  const authority = createRemoteGameAuthority({
-    transport,
-    localPlayerId: 0,
-  });
-  const seen: string[] = [];
-  const unsubscribe = authority.subscribe((state) => {
-    seen.push(state.tanks[0]?.selectedProjectileSlotId ?? "");
-  });
-
-  assert.equal(
-    authority.submitAction({
-      type: "selectProjectileSlot",
-      projectileSlotId: "mortar",
-    }),
-    false,
-  );
-
-  await new Promise((resolve) => setTimeout(resolve, 5));
-  assert.equal(
-    authority.submitAction({
-      type: "selectProjectileSlot",
-      projectileSlotId: "mortar",
-    }),
-    true,
-  );
-  await new Promise((resolve) => setTimeout(resolve, 5));
-
-  unsubscribe();
-  authority.destroy();
-  assert.ok(seen.includes("mortar"));
 }

@@ -55,18 +55,12 @@ public class AuthorizationInterceptor implements ChannelInterceptor {
             String sessionId = accessor.getSessionId();
             Long userId = principal.getUserDto().id();
 
-            if (!redisClaimService.claimSocket(userId, sessionId)) {
-                throw new ProblemDetailException(HttpStatus.BAD_REQUEST,"User is already connected", null);
-            }
-
             try {
-                UserSession userSession = userSessionService.findById(userId);
-
-                if(userSession.getSocketSessionId() != null && !sessionId.equals(userSession.getSocketSessionId())){
-                    redisClaimService.releaseSocket(userId, sessionId);
+                if (!redisClaimService.claimSocket(userId, sessionId)) {
                     throw new ProblemDetailException(HttpStatus.BAD_REQUEST,"User is already connected", null);
                 }
 
+                UserSession userSession = userSessionService.findById(userId);
                 userSession.setSocketSessionId(sessionId);
                 userSessionService.save(userSession);
                 principal.setUserSession(userSession);
@@ -81,12 +75,7 @@ public class AuthorizationInterceptor implements ChannelInterceptor {
                             .build();
 
                     principal.setUserSession(userSession);
-                    try {
-                        userSessionService.save(userSession);
-                    } catch (RuntimeException saveEx) {
-                        redisClaimService.releaseSocket(userId, sessionId);
-                        throw saveEx;
-                    }
+                    saveUserSession(userSession);
                 }else {
                     redisClaimService.releaseSocket(userId, sessionId);
                     throw ex;
@@ -126,9 +115,19 @@ public class AuthorizationInterceptor implements ChannelInterceptor {
 
             topicSubscriptions.put(accessor.getDestination(),accessor.getSubscriptionId());
             userSession.setTopicSubscriptions(topicSubscriptions);
-            userSessionService.save(userSession);
+            saveUserSession(userSession);
         }
 
         return message;
+    }
+
+    void saveUserSession(UserSession userSession){
+        try {
+            userSessionService.save(userSession);
+        }catch (RuntimeException ex){
+            userSessionService.delete(userSession);
+            redisClaimService.releaseSocket(userSession.getId(), userSession.getSocketSessionId());
+            throw ex;
+        }
     }
 }

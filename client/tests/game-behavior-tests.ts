@@ -5,10 +5,8 @@ import {
   createInitialWorld,
 } from "../src/game/world/createInitialWorld";
 import { LocalSimulationAuthority } from "../src/game/simulation/LocalSimulationAuthority";
-import { createMockRemoteTransport } from "../src/game/authority/createMockRemoteTransport";
 import {
   createLocalSimulationAuthority,
-  createRemoteSimulationAuthority,
   type SimulationAuthority,
 } from "../src/game/authority/simulationAuthority";
 import { snapshotToGameViewState } from "../src/game/authority/gameAuthority";
@@ -25,6 +23,10 @@ import {
   type GameContent,
 } from "../src/game/content/mockGameContent";
 import type { GameViewState, MatchSetup } from "../src/game/types";
+import {
+  createMockSnapshotRemoteTransport,
+  createSnapshotRemoteSimulationAuthority,
+} from "./support/snapshotRemoteAuthoritySupport";
 
 function makeAuthority(setup: MatchSetup = createDefaultMatchSetup("localTwoPlayer")) {
   const { world, terrain, content } = createInitialWorld(setup, mockGameContent, 960, 560);
@@ -218,8 +220,8 @@ async function expectSharedAuthoritySelection(
   );
 
   await expectSharedAuthoritySelection(
-    createRemoteSimulationAuthority(
-      createMockRemoteTransport({
+    createSnapshotRemoteSimulationAuthority(
+      createMockSnapshotRemoteTransport({
         setup: createDefaultMatchSetup("online"),
         content: mockGameContent,
         width: 960,
@@ -404,7 +406,7 @@ async function expectSharedAuthoritySelection(
 }
 
 {
-  const transport = createMockRemoteTransport({
+  const transport = createMockSnapshotRemoteTransport({
     setup: createDefaultMatchSetup("online"),
     content: mockGameContent,
     width: 960,

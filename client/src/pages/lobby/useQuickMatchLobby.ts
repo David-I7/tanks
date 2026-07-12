@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type ProblemDetailDto from "../../api/http/dto/ProblemDetailDto";
 import { ApiError } from "../../errors/ApiError";
 import type { EndpointSubscription, } from "../../api/ws/TanksWebSocketClient";
@@ -16,6 +16,7 @@ export default function useQuickMatchLobby() {
   const [playerCount, setPlayerCount] = useState<number>(0);
   const [error, setError] = useState<Error | null>(null);
   const { popScreen } = useScreenStack();
+  const hasObservedActiveConnection = useRef(false);
 
   useEffect(() => {
     if (!client) {
@@ -78,7 +79,11 @@ export default function useQuickMatchLobby() {
   }, [client, status]);
 
   useEffect(() => {
-    if (status === "disconnecting" || status === "disconnected") {
+    if (status === "connecting" || status === "connected" || status === "disconnecting") {
+      hasObservedActiveConnection.current = true;
+    }
+
+    if (hasObservedActiveConnection.current && (status === "disconnecting" || status === "disconnected")) {
       popScreen();
     }
   }, [status]);

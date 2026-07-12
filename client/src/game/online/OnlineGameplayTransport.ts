@@ -23,7 +23,9 @@ export type OnlineGameplayTransport = {
   subscribeToStateDiffs(
     listener: (diff: OnlineDiffEnvelope) => void,
   ): SubscriptionCleanup;
-  subscribeToGameEvents(listener: (event: GameEvent) => void): SubscriptionCleanup;
+  subscribeToGameEvents(
+    listener: (event: GameEvent) => void,
+  ): SubscriptionCleanup;
   destroy(): void;
 };
 
@@ -94,7 +96,9 @@ export function createOnlineGameplayTransport(options: {
       });
     },
 
-    subscribeToGameEvents(listener: (event: GameEvent) => void): SubscriptionCleanup {
+    subscribeToGameEvents(
+      listener: (event: GameEvent) => void,
+    ): SubscriptionCleanup {
       const handleMessage = (message: Message<GameEvent | unknown>) => {
         if (!isOnlineDiffEnvelope(message.body)) {
           listener(message.body as GameEvent);

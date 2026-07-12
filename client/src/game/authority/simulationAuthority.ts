@@ -5,11 +5,21 @@ import {
   createInitialWorld,
 } from "../world/createInitialWorld";
 import { LocalSimulationAuthority } from "../simulation/LocalSimulationAuthority";
-import type { GameAction, GameMode, GameSnapshot, MatchSetup } from "../types";
-import {
-  RemoteSimulationAuthority,
-  type RemoteGameTransport,
-} from "./RemoteSimulationAuthority";
+import type {
+  GameAction,
+  GameMode,
+  GameSnapshot,
+  MatchSetup,
+  SimulationState,
+} from "../types";
+
+export type SimulationManager = {
+  submitPlayerAction(playerId: number, action: GameAction): boolean;
+  update(dt: number): void;
+  getState(): SimulationState;
+  subscribe(listener: (state: SimulationState) => void): () => void;
+  destroy(): void;
+};
 
 export type SimulationAuthority = {
   submitPlayerAction(playerId: number, action: GameAction): boolean;
@@ -25,13 +35,7 @@ export function createLocalSimulationAuthority(options: {
   content: GameContent;
   worldSize: WorldSize;
 }): SimulationAuthority {
-  const setup = options.setup ?? createDefaultMatchSetup(options.mode ?? "localTwoPlayer");
-  const { world, terrain, content } = createInitialWorld(
-    setup,
-    options.content,
-    options.worldSize,
-  );
-  const localAuthority = new LocalSimulationAuthority(world, terrain, content);
+  const localAuthority = createLocalSimulationRuntime(options);
   return {
     submitPlayerAction(playerId: number, action: GameAction): boolean {
       return localAuthority.submitPlayerAction(playerId, action);
@@ -60,8 +64,73 @@ export function createLocalSimulationAuthority(options: {
   };
 }
 
-export function createRemoteSimulationAuthority(
-  transport: RemoteGameTransport,
-): SimulationAuthority {
-  return new RemoteSimulationAuthority(transport);
+export function createLocalSimulationManager(
+  options: Parameters<typeof createLocalSimulationAuthority>[0],
+): SimulationManager {
+  return new CachedLocalSimulationManager(createLocalSimulationRuntime(options));
+}
+
+function snapshotToSimulationState(snapshot: GameSnapshot): SimulationState {
+  const { projectileDefinitions: _projectileDefinitions, ...state } = snapshot;
+  return state;
+}
+
+function createLocalSimulationRuntime(options: {
+  mode?: GameMode;
+  setup?: MatchSetup;
+  content: GameContent;
+  worldSize: WorldSize;
+}): LocalSimulationAuthority {
+  const setup =
+    options.setup ?? createDefaultMatchSetup(options.mode ?? "localTwoPlayer");
+  const { world, terrain, content } = createInitialWorld(
+    setup,
+    options.content,
+    options.worldSize,
+  );
+  return new LocalSimulationAuthority(world, terrain, content);
+}
+
+class CachedLocalSimulationManager implements SimulationManager {
+  private currentState: SimulationState;
+  private readonly listeners = new Set<(state: SimulationState) => void>();
+
+  constructor(private readonly localAuthority: LocalSimulationAuthority) {
+    this.currentState = snapshotToSimulationState(localAuthority.snapshot());
+  }
+
+  submitPlayerAction(playerId: number, action: GameAction): boolean {
+    const accepted = this.localAuthority.submitPlayerAction(playerId, action);
+    if (accepted) this.publishCurrentState();
+    return accepted;
+  }
+
+  update(dt: number): void {
+    this.localAuthority.update(dt);
+    this.publishCurrentState();
+  }
+
+  getState(): SimulationState {
+    return this.currentState;
+  }
+
+  subscribe(listener: (state: SimulationState) => void): () => void {
+    this.listeners.add(listener);
+    listener(this.currentState);
+    return () => {
+      this.listeners.delete(listener);
+    };
+  }
+
+  destroy(): void {
+    this.localAuthority.destroy();
+    this.listeners.clear();
+  }
+
+  private publishCurrentState(): void {
+    this.currentState = snapshotToSimulationState(this.localAuthority.snapshot());
+    for (const listener of this.listeners) {
+      listener(this.currentState);
+    }
+  }
 }
