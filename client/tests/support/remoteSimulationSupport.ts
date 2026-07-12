@@ -14,7 +14,7 @@ export type RemoteSimulationTransport = {
   destroy?(): void;
 };
 
-export type SimulationStateSource = {
+export type RemoteSimulationManager = {
   submitPlayerAction(playerId: number, action: GameAction): boolean;
   update(dt: number): void;
   getState(): SimulationState | null;
@@ -22,8 +22,8 @@ export type SimulationStateSource = {
   destroy(): void;
 };
 
-export class TestRemoteSimulationStateSource
-  implements SimulationStateSource
+export class TestRemoteSimulationManager
+  implements RemoteSimulationManager
 {
   private currentState: SimulationState | null = null;
   private readonly listeners = new Set<(state: SimulationState) => void>();
@@ -133,6 +133,6 @@ export function createMockRemoteSimulationTransport(
 
 export function createRemoteSimulationManager(
   transport: RemoteSimulationTransport,
-): SimulationStateSource {
-  return new TestRemoteSimulationStateSource(transport);
+): RemoteSimulationManager {
+  return new TestRemoteSimulationManager(transport);
 }

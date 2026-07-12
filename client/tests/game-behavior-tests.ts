@@ -25,7 +25,7 @@ import type { GameState, MatchSetup } from "../src/game/types";
 import {
   createMockRemoteSimulationTransport,
   createRemoteSimulationManager,
-  type SimulationStateSource,
+  type RemoteSimulationManager,
 } from "./support/remoteSimulationSupport";
 
 function makeSimulation(setup: MatchSetup = createDefaultMatchSetup("localTwoPlayer")) {
@@ -84,8 +84,8 @@ function canvasInteractionContext(gameState: GameState) {
   };
 }
 
-async function expectSharedSimulationStateSelection(
-  manager: SimulationManager | SimulationStateSource,
+async function expectSharedSimulationManagerSelection(
+  manager: SimulationManager | RemoteSimulationManager,
 ): Promise<void> {
   const seen: string[] = [];
   const unsubscribe = manager.subscribe((state) => {
@@ -238,7 +238,7 @@ async function expectSharedSimulationStateSelection(
 }
 
 {
-  await expectSharedSimulationStateSelection(
+  await expectSharedSimulationManagerSelection(
     createLocalSimulationManager({
       setup: createDefaultMatchSetup("localTwoPlayer"),
       content: mockGameContent,
@@ -246,7 +246,7 @@ async function expectSharedSimulationStateSelection(
     }),
   );
 
-  await expectSharedSimulationStateSelection(
+  await expectSharedSimulationManagerSelection(
     createRemoteSimulationManager(
       createMockRemoteSimulationTransport({
         setup: createDefaultMatchSetup("online"),

@@ -7,7 +7,7 @@ import {
 } from "../src/game/world/worldSizing";
 import type { GameState } from "../src/game/types";
 
-function viewState(): GameState {
+function createMockGameState(): GameState {
   return {
     match: {
       mode: "localTwoPlayer",
@@ -117,7 +117,7 @@ function fakeCanvas(ctx: CanvasRenderingContext2D): HTMLCanvasElement {
     { width: 1000, height: 500 },
   );
 
-  renderer.render(viewState());
+  renderer.render(createMockGameState());
   assert.deepEqual(
     calls.find((call) => call.name === "setTransform")?.args,
     [2, 0, 0, 2, 0, 0],
@@ -132,7 +132,7 @@ function fakeCanvas(ctx: CanvasRenderingContext2D): HTMLCanvasElement {
     { width: 400, height: 200 },
     { width: 1200, height: 600 },
   );
-  renderer.render(viewState());
+  renderer.render(createMockGameState());
 
   assert.deepEqual(
     calls.find((call) => call.name === "setTransform")?.args,
