@@ -1,6 +1,10 @@
 export { GameEngine } from "./GameEngine";
 export type { GameEngineOptions } from "./GameEngine";
 export {
+  adaptReadyGameAuthorityToGameManager,
+  createCanvasSizedLocalGameManager,
+} from "./factories/gameManagerFactory";
+export {
   createLocalGameManager,
   createLocalGameAuthority,
   snapshotToGameState,

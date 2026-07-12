@@ -1,7 +1,11 @@
 import { ArrowLeft } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { GameEngine, type GameMode } from "../../game";
+import {
+  createCanvasSizedLocalGameManager,
+  GameEngine,
+  type GameMode,
+} from "../../game";
 import ResourceManager from "../../game/resources/ResourceManager";
 import type { RendererAssets } from "../../game/rendering/CanvasGameRenderer";
 import IconButton from "../../components/buttons/IconButton";
@@ -37,9 +41,13 @@ export default function LocalGamePage() {
     if (!canvas) return;
 
     engineRef.current?.stop();
-    const engine = new GameEngine({
+    const gameManager = createCanvasSizedLocalGameManager({
       canvas,
       mode,
+    });
+    const engine = new GameEngine({
+      canvas,
+      gameManager,
       rendererAssets,
     });
 

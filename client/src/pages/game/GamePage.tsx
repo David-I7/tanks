@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import Loader from "../../components/misc/Loader";
 import { createOnlineGameplayTransport } from "../../game/online/OnlineGameplayTransport";
 import { createOnlineGameplayAuthority } from "../../game/online/OnlineGameplayAuthority";
-import { GameEngine } from "../../game";
+import { adaptReadyGameAuthorityToGameManager, GameEngine } from "../../game";
 import ResourceManager from "../../game/resources/ResourceManager";
 import type { RendererAssets } from "../../game/rendering/CanvasGameRenderer";
 import IconButton from "../../components/buttons/IconButton";
@@ -98,30 +98,47 @@ function GameView({ gameSessionId }: { gameSessionId: string }) {
     const gameplayAuthority = createOnlineGameplayAuthority({
       transport: gameplayTransport,
     });
-    const engine = new GameEngine({
-      canvas,
-      mode: "online",
-      authority: gameplayAuthority,
-      rendererAssets,
-    });
+    let engine: GameEngine | null = null;
+    let resizeObserver: ResizeObserver | null = null;
+    let unsubscribeViewState: (() => void) | null = null;
+    let unsubscribeInitialState: () => void = () => {};
 
-    engineRef.current?.stop();
-    engineRef.current = engine;
-    setHasViewState(Boolean(engine.getViewState()));
-    const unsubscribeViewState = engine.subscribe(() => {
+    unsubscribeInitialState = gameplayAuthority.subscribe(() => {
+      if (engine || !canvas) return;
+
+      const gameManager = adaptReadyGameAuthorityToGameManager(gameplayAuthority);
+      if (!gameManager) return;
+
+      engineRef.current?.stop();
+      engine = new GameEngine({
+        canvas,
+        gameManager,
+        rendererAssets,
+      });
+      engineRef.current = engine;
       setHasViewState(true);
-    });
-    engine.start();
+      unsubscribeViewState = engine.subscribe(() => {
+        setHasViewState(true);
+      });
+      engine.start();
 
-    const resizeObserver = new ResizeObserver(() => {
-      engine.resize();
+      resizeObserver = new ResizeObserver(() => {
+        engine?.resize();
+      });
+      resizeObserver.observe(canvas);
+
+      unsubscribeInitialState();
+      unsubscribeInitialState = () => {};
     });
-    resizeObserver.observe(canvas);
 
     return () => {
-      resizeObserver.disconnect();
-      unsubscribeViewState();
-      engine.stop();
+      unsubscribeInitialState();
+      resizeObserver?.disconnect();
+      unsubscribeViewState?.();
+      engine?.stop();
+      if (!engine) {
+        gameplayAuthority.destroy();
+      }
       gameplayTransport.destroy();
       if (engineRef.current === engine) {
         engineRef.current = null;
