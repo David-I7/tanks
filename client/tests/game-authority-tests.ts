@@ -6,7 +6,17 @@ import {
   type GameContent,
 } from "../src/game/content/mockGameContent";
 import { createDefaultMatchSetup } from "../src/game/world/createInitialWorld";
-import type { GameAuthority, GameMode, GameViewState } from "../src/game";
+import {
+  createLocalGameManager,
+  createLocalSimulationManager,
+} from "../src/game";
+import type {
+  GameAuthority,
+  GameManager,
+  GameMode,
+  GameState,
+  GameViewState,
+} from "../src/game";
 
 // Preferred high-level gameplay seam:
 // GameAction in through GameAuthority, GameViewState out for assertions.
@@ -25,6 +35,12 @@ function createLocalAuthority(
 
 function requireViewState(authority: GameAuthority): GameViewState {
   const state = authority.getViewState();
+  assert.ok(state);
+  return state;
+}
+
+function requireGameState(manager: GameManager): GameState {
+  const state = manager.getState();
   assert.ok(state);
   return state;
 }
@@ -63,6 +79,55 @@ function updateUntil(
   const after = authority.getViewState();
   assert.equal(after?.tanks[0]?.selectedProjectileSlotId, "mortar");
   authority.destroy();
+}
+
+{
+  const manager: GameManager = createLocalGameManager({
+    mode: "localTwoPlayer",
+    setup: createDefaultMatchSetup("localTwoPlayer"),
+    content: mockGameContent,
+    worldSize: { width: 960, height: 560 },
+  });
+  const state = requireGameState(manager);
+
+  assert.equal(state.match.activePlayerId, 0);
+  assert.equal(state.projectileDefinitions, mockGameContent.projectiles);
+  assert.equal(
+    manager.submitAction({
+      type: "selectProjectileSlot",
+      projectileSlotId: "mortar",
+    }),
+    true,
+  );
+  assert.equal(manager.getState()?.tanks[0]?.selectedProjectileSlotId, "mortar");
+  manager.destroy();
+}
+
+{
+  const simulationManager = createLocalSimulationManager({
+    mode: "localTwoPlayer",
+    setup: createDefaultMatchSetup("localTwoPlayer"),
+    content: mockGameContent,
+    worldSize: { width: 960, height: 560 },
+  });
+  const state = simulationManager.getState();
+  assert.ok(state);
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(state, "projectileDefinitions"),
+    false,
+  );
+
+  let emittedHasDefinitions = true;
+  const unsubscribe = simulationManager.subscribe((emitted) => {
+    emittedHasDefinitions = Object.prototype.hasOwnProperty.call(
+      emitted,
+      "projectileDefinitions",
+    );
+  });
+
+  assert.equal(emittedHasDefinitions, false);
+  unsubscribe();
+  simulationManager.destroy();
 }
 
 {

@@ -9,9 +9,18 @@ import type {
   ControllerKind,
   GameMode,
   GameSnapshot,
+  GameState,
   GameViewState,
   MatchSetup,
 } from "../types";
+
+export type GameManager = {
+  submitAction(action: GameAction): boolean;
+  update(dt: number): void;
+  getState(): GameState;
+  subscribe(listener: (state: GameState) => void): () => void;
+  destroy(): void;
+};
 
 export type GameAuthority = {
   submitAction(action: GameAction, source?: LocalActionSource): boolean;
@@ -67,6 +76,13 @@ export function snapshotToGameViewState(snapshot: GameSnapshot): GameViewState {
   };
 }
 
+export function snapshotToGameState(snapshot: GameSnapshot): GameState {
+  return {
+    ...snapshotToGameViewState(snapshot),
+    projectileDefinitions: snapshot.projectileDefinitions,
+  };
+}
+
 export function createLocalGameAuthority(options: {
   mode: Exclude<GameMode, "online">;
   setup?: MatchSetup;
@@ -75,13 +91,21 @@ export function createLocalGameAuthority(options: {
 }): GameAuthority {
   return new SimulationGameAuthority(
     createLocalSimulationAuthority(options),
+    options.content.projectiles,
     (state, source) => resolveActiveLocalActor(state, source),
   );
 }
 
-class SimulationGameAuthority implements GameAuthority {
+export function createLocalGameManager(
+  options: Parameters<typeof createLocalGameAuthority>[0],
+): GameManager {
+  return createLocalGameAuthority(options) as SimulationGameAuthority;
+}
+
+class SimulationGameAuthority implements GameAuthority, GameManager {
   constructor(
     private readonly simulationAuthority: SimulationAuthority,
+    private readonly projectileDefinitions: GameState["projectileDefinitions"],
     private readonly resolveActor: (
       state: GameViewState,
       source: LocalActionSource,
@@ -110,7 +134,22 @@ class SimulationGameAuthority implements GameAuthority {
     return snapshot ? snapshotToGameViewState(snapshot) : null;
   }
 
-  subscribe(listener: (state: GameViewState) => void): () => void {
+  getState(): GameState {
+    const snapshot = this.simulationAuthority.snapshot();
+    if (!snapshot) {
+      throw new Error("Local game manager must have an initial game state");
+    }
+    return {
+      ...snapshotToGameState(snapshot),
+      projectileDefinitions: this.projectileDefinitions,
+    };
+  }
+
+  subscribe(listener: (state: GameState) => void): () => void;
+  subscribe(listener: (state: GameViewState) => void): () => void;
+  subscribe(
+    listener: ((state: GameState) => void) | ((state: GameViewState) => void),
+  ): () => void {
     return this.simulationAuthority.subscribe((snapshot) => {
       listener(snapshotToGameViewState(snapshot));
     });

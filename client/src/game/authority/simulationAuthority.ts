@@ -5,7 +5,21 @@ import {
   createInitialWorld,
 } from "../world/createInitialWorld";
 import { LocalSimulationAuthority } from "../simulation/LocalSimulationAuthority";
-import type { GameAction, GameMode, GameSnapshot, MatchSetup } from "../types";
+import type {
+  GameAction,
+  GameMode,
+  GameSnapshot,
+  MatchSetup,
+  SimulationState,
+} from "../types";
+
+export type SimulationManager = {
+  submitPlayerAction(playerId: number, action: GameAction): boolean;
+  update(dt: number): void;
+  getState(): SimulationState | null;
+  subscribe(listener: (state: SimulationState) => void): () => void;
+  destroy(): void;
+};
 
 export type SimulationAuthority = {
   submitPlayerAction(playerId: number, action: GameAction): boolean;
@@ -54,4 +68,35 @@ export function createLocalSimulationAuthority(options: {
       localAuthority.destroy();
     },
   };
+}
+
+export function createLocalSimulationManager(
+  options: Parameters<typeof createLocalSimulationAuthority>[0],
+): SimulationManager {
+  const authority = createLocalSimulationAuthority(options);
+  return {
+    submitPlayerAction(playerId: number, action: GameAction): boolean {
+      return authority.submitPlayerAction(playerId, action);
+    },
+    update(dt: number): void {
+      authority.update(dt);
+    },
+    getState(): SimulationState | null {
+      const snapshot = authority.snapshot();
+      return snapshot ? snapshotToSimulationState(snapshot) : null;
+    },
+    subscribe(listener: (state: SimulationState) => void): () => void {
+      return authority.subscribe((snapshot) => {
+        listener(snapshotToSimulationState(snapshot));
+      });
+    },
+    destroy(): void {
+      authority.destroy();
+    },
+  };
+}
+
+function snapshotToSimulationState(snapshot: GameSnapshot): SimulationState {
+  const { projectileDefinitions: _projectileDefinitions, ...state } = snapshot;
+  return state;
 }
