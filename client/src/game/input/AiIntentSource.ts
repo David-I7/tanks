@@ -1,4 +1,4 @@
-import type { GameAction, GameViewState } from "../types";
+import type { GameAction, GameState } from "../types";
 
 export class AiIntentSource {
   private hasQueuedShotForTurn = false;
@@ -6,16 +6,16 @@ export class AiIntentSource {
   private thinkingElapsed = 0;
   private plannedThinkingSeconds = 1.2;
 
-  poll(viewState: GameViewState, dt: number): GameAction[] {
-    const playerId = viewState.match.activePlayerId;
+  poll(gameState: GameState, dt: number): GameAction[] {
+    const playerId = gameState.match.activePlayerId;
 
-    if (viewState.match.phase !== "thinking") {
+    if (gameState.match.phase !== "thinking") {
       return [];
     }
 
-    if (this.lastTurnNumber !== viewState.match.turnNumber) {
+    if (this.lastTurnNumber !== gameState.match.turnNumber) {
       this.hasQueuedShotForTurn = false;
-      this.lastTurnNumber = viewState.match.turnNumber;
+      this.lastTurnNumber = gameState.match.turnNumber;
       this.thinkingElapsed = 0;
       this.plannedThinkingSeconds = 1.15 + Math.random() * 1.35;
     }
@@ -24,10 +24,10 @@ export class AiIntentSource {
     this.thinkingElapsed += dt;
     if (this.thinkingElapsed < this.plannedThinkingSeconds) return [];
 
-    const self = viewState.tanks.find(
+    const self = gameState.tanks.find(
       (entry) => entry.playerId === playerId && entry.alive,
     );
-    const target = viewState.tanks.find(
+    const target = gameState.tanks.find(
       (entry) => entry.playerId !== playerId && entry.alive,
     );
     if (!self || !target) return [];
@@ -40,7 +40,7 @@ export class AiIntentSource {
     const power = Math.max(260, Math.min(distance * 0.72, 620));
     const projectileSlotId =
       self.loadout[
-        Math.min(self.loadout.length - 1, viewState.match.turnNumber % 3)
+        Math.min(self.loadout.length - 1, gameState.match.turnNumber % 3)
       ]?.id ?? self.selectedProjectileSlotId;
 
     return [

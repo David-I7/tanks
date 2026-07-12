@@ -1,5 +1,6 @@
 import type { GameContent } from "../content/mockGameContent";
 import type { WorldSize } from "../world/worldSizing";
+import { AiIntentSource } from "../input/AiIntentSource";
 import {
   createLocalSimulationAuthority,
   createLocalSimulationManager,
@@ -152,6 +153,7 @@ class SimulationGameAuthority implements GameAuthority {
 
 class CachedLocalGameManager implements GameManager {
   private currentState: GameState;
+  private readonly aiInput = new AiIntentSource();
   private readonly listeners = new Set<(state: GameState) => void>();
   private readonly unsubscribeSimulation: () => void;
 
@@ -181,6 +183,17 @@ class CachedLocalGameManager implements GameManager {
   }
 
   update(dt: number): void {
+    const activePlayerId = this.currentState.match.activePlayerId;
+    const activeControllerKind = this.currentState.tanks.find(
+      (entry) => entry.playerId === activePlayerId,
+    )?.controllerKind;
+
+    if (activeControllerKind === "ai") {
+      for (const action of this.aiInput.poll(this.currentState, dt)) {
+        this.simulationManager.submitPlayerAction(activePlayerId, action);
+      }
+    }
+
     this.simulationManager.update(dt);
   }
 

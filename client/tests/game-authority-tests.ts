@@ -65,6 +65,21 @@ function requireGameState(manager: GameManager): GameState {
   return state;
 }
 
+function updateManagerUntil(
+  manager: GameManager,
+  predicate: (state: GameState) => boolean,
+  frames = 360,
+): GameState {
+  for (let i = 0; i < frames; i += 1) {
+    const state = manager.getState();
+    if (predicate(state)) return state;
+    manager.update(1 / 30);
+  }
+  const state = manager.getState();
+  assert.ok(predicate(state), "expected condition before frame limit");
+  return state;
+}
+
 function updateUntil(
   authority: GameAuthority,
   predicate: (state: GameViewState) => boolean,
@@ -204,6 +219,36 @@ function updateUntil(
 }
 
 {
+  const manager = createLocalManager();
+
+  assert.equal(
+    manager.submitAction({
+      type: "fire",
+      angle: 1.35,
+      power: 520,
+      projectileSlotId: "cluster",
+    }),
+    true,
+  );
+
+  const secondHumanTurn = updateManagerUntil(
+    manager,
+    (state) =>
+      state.match.activePlayerId === 1 && state.match.phase === "aiming",
+    360,
+  );
+  const beforeX = secondHumanTurn.tanks.find((tank) => tank.playerId === 1)!
+    .position.x;
+
+  assert.equal(manager.submitAction({ type: "move", direction: -1 }), true);
+  const afterMove = manager.getState();
+  assert.ok(
+    afterMove.tanks.find((tank) => tank.playerId === 1)!.position.x < beforeX,
+  );
+  manager.destroy();
+}
+
+{
   const authority = createLocalAuthority();
 
   const view = authority.getViewState();
@@ -250,6 +295,37 @@ function updateUntil(
     true,
   );
   authority.destroy();
+}
+
+{
+  const manager = createLocalManager("playerVsAi");
+
+  assert.equal(
+    manager.submitAction({
+      type: "fire",
+      angle: -0.6,
+      power: 400,
+      projectileSlotId: "standard",
+    }),
+    true,
+  );
+
+  updateManagerUntil(
+    manager,
+    (state) =>
+      state.match.activePlayerId === 1 && state.match.phase === "thinking",
+  );
+
+  assert.equal(manager.submitAction({ type: "move", direction: 1 }), false);
+
+  const afterAiShot = updateManagerUntil(
+    manager,
+    (state) => state.match.phase === "ballistics",
+    150,
+  );
+  assert.equal(afterAiShot.match.activePlayerId, 1);
+  assert.ok(afterAiShot.projectiles.length > 0);
+  manager.destroy();
 }
 
 {

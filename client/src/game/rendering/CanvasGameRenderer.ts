@@ -219,13 +219,7 @@ export class CanvasGameRenderer {
       ctx.strokeStyle = entry.visual.stroke;
       ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.arc(
-        entry.position.x,
-        entry.position.y,
-        entry.radius,
-        0,
-        Math.PI * 2,
-      );
+      ctx.arc(entry.position.x, entry.position.y, entry.radius, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
     }
@@ -281,7 +275,10 @@ export class CanvasGameRenderer {
     }
   }
 
-  private drawHud(ctx: CanvasRenderingContext2D, viewState: GameViewState): void {
+  private drawHud(
+    ctx: CanvasRenderingContext2D,
+    viewState: GameViewState,
+  ): void {
     const headerHeight = 74;
     ctx.fillStyle = "rgba(6, 6, 8, 0.78)";
     ctx.fillRect(0, 0, this.viewport.width, headerHeight);
@@ -428,9 +425,7 @@ export class CanvasGameRenderer {
     const screenX = activeTank.position.x - this.cameraX;
     const bubbleY = Math.max(92, activeTank.position.y - 120);
     const power = Math.round((activeTank.power / 680) * 100);
-    const angle = Math.round(
-      Math.abs((activeTank.aimAngle * 180) / Math.PI),
-    );
+    const angle = Math.round(Math.abs((activeTank.aimAngle * 180) / Math.PI));
 
     this.drawMetricBubble(ctx, screenX - 42, bubbleY, `${power}`, "POWER");
     this.drawMetricBubble(ctx, screenX + 42, bubbleY, `${angle}`, "ANGLE");

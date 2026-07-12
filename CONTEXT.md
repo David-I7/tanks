@@ -60,9 +60,13 @@ _Avoid_: Aim diff, aim command
 A client-generated identifier for a submitted player intent that lets server responses confirm or reject the matching pending prediction.
 _Avoid_: Request timestamp, action index
 
-**Simulation Authority**:
-The part of the system that decides the official game state from accepted player intents.
-_Avoid_: Renderer, controller
+**Simulation Manager**:
+The part of the game that advances simulation rules and decides simulation state from accepted player intents.
+_Avoid_: Renderer, controller, simulation authority
+
+**Simulation Manager Factory**:
+A construction boundary that creates a simulation manager variant from an explicit simulation type and setup options.
+_Avoid_: Manager class, renderer factory, world helper, authority factory
 
 **Server Simulation Loop**:
 The server-owned online gameplay loop that advances authoritative time, applies accepted intents, expires turn timers, and emits sequenced state diffs.
@@ -92,17 +96,33 @@ _Avoid_: Queued command, buffered input
 The state the client draws after combining confirmed state, pending predictions, and in-progress interpolation.
 _Avoid_: World state, server state
 
-**Game View State**:
-The client-side gameplay presentation state consumed by rendering, input targeting, and game UI across local and online modes.
-_Avoid_: Local snapshot, online snapshot, ECS state, protocol DTO
+**Game Viewport**:
+The logical visible gameplay area used by rendering, input targeting, and camera calculations.
+_Avoid_: World size, canvas buffer, DOM rect
+
+**DPI Viewport**:
+The physical canvas drawing buffer size derived from the game viewport and device pixel ratio.
+_Avoid_: Backing size, world size, CSS size
+
+**World**:
+The mutable gameplay entity store for match state, tanks, projectiles, positions, velocities, and impact events.
+_Avoid_: Viewport, terrain size, canvas size, render state
+
+**Game State**:
+The client-side gameplay state consumed by rendering, input targeting, and game UI across local and online modes.
+_Avoid_: Local snapshot, online snapshot, ECS state, protocol DTO, game view state
+
+**Simulation State**:
+A read-only export of simulation-owned gameplay state used to publish or adapt simulation state without exposing mutable world internals.
+_Avoid_: View state, render state, world state, ECS state, simulation snapshot
 
 **Game Action**:
 A mode-neutral player action produced by gameplay input or UI before it is handled by a local or online game authority.
 _Avoid_: Input event, player intent, command
 
-**Game Authority**:
-The client-side boundary that accepts game actions and exposes game view state for a specific mode while hiding whether the mode is locally simulated or server-authoritative online play.
-_Avoid_: Renderer, React page, transport, simulation loop
+**Game Manager**:
+The client-side boundary that accepts game actions and exposes game state for a specific mode while hiding whether the mode is locally simulated or server-authoritative online play.
+_Avoid_: Renderer, React page, transport, simulation loop, game authority
 
 **Local Player**:
 The player identity controlled by the current client in a game session, supplied by the authority for the current mode.

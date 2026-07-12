@@ -1,4 +1,3 @@
-import { AiIntentSource } from "./input/AiIntentSource";
 import {
   CanvasInputSource,
   type CanvasInputLayout,
@@ -11,18 +10,17 @@ import { createDefaultMatchSetup } from "./world/createInitialWorld";
 import type {
   GameAction,
   GameMode,
+  GameState,
   GameViewState,
   MatchSetup,
 } from "./types";
 import { mockGameContent, type GameContent } from "./content/mockGameContent";
 import {
-  createLocalGameAuthority,
+  createLocalGameManager,
   type GameAuthority,
+  type GameManager,
 } from "./authority/gameAuthority";
-import {
-  createWorldSizingPolicy,
-  type WorldSizing,
-} from "./world/worldSizing";
+import { createWorldSizingPolicy, type WorldSizing } from "./world/worldSizing";
 
 export type GameEngineOptions = {
   canvas: HTMLCanvasElement;
@@ -36,7 +34,6 @@ export type GameEngineOptions = {
 export class GameEngine {
   private readonly renderer: CanvasGameRenderer;
   private readonly localInput: CanvasInputSource;
-  private readonly aiInput = new AiIntentSource();
   private readonly authority: GameAuthority;
   private readonly viewStateListeners = new Set<
     (viewState: GameViewState) => void
@@ -65,12 +62,13 @@ export class GameEngine {
     } else {
       const setup = options.matchSetup ?? createDefaultMatchSetup(options.mode);
       const content = options.content ?? mockGameContent;
-      this.authority = createLocalGameAuthority({
+      const localManager = createLocalGameManager({
         mode: options.mode === "online" ? "localTwoPlayer" : options.mode,
         setup,
         content,
         worldSize: this.sizing.world,
       });
+      this.authority = adaptGameManagerToAuthority(localManager);
     }
 
     this.unsubscribeAuthority = this.authority.subscribe((viewState) => {
@@ -138,25 +136,16 @@ export class GameEngine {
   };
 
   private update(dt: number): void {
+    console.log("Before", this);
     const viewStateBeforeInput = this.authority.getViewState();
     if (!viewStateBeforeInput) {
       this.authority.update(dt);
       return;
     }
-    const activePlayerId = viewStateBeforeInput.match.activePlayerId;
-    const activeControllerKind = viewStateBeforeInput.tanks.find(
-      (entry) => entry.playerId === activePlayerId,
-    )?.controllerKind;
 
-    if (activeControllerKind === "human") {
-      this.submitActions(
-        this.localInput.poll(this.renderer.getCameraX(), viewStateBeforeInput),
-      );
-    }
-
-    if (activeControllerKind === "ai") {
-      this.submitActions(this.aiInput.poll(viewStateBeforeInput, dt), "ai");
-    }
+    this.submitActions(
+      this.localInput.poll(this.renderer.getCameraX(), viewStateBeforeInput),
+    );
 
     this.authority.update(dt);
     const viewState = this.authority.getViewState();
@@ -164,14 +153,12 @@ export class GameEngine {
       this.renderer.render(viewState);
       this.publishViewState(viewState);
     }
+    console.log("After", this);
   }
 
-  private submitActions(
-    actions: GameAction[],
-    source: "human" | "ai" = "human",
-  ): void {
+  private submitActions(actions: GameAction[]): void {
     for (const action of actions) {
-      this.authority.submitAction(action, source);
+      this.authority.submitAction(action);
     }
   }
 
@@ -210,4 +197,26 @@ export class GameEngine {
     this.options.canvas.width = this.sizing.backing.width;
     this.options.canvas.height = this.sizing.backing.height;
   }
+}
+
+function adaptGameManagerToAuthority(manager: GameManager): GameAuthority {
+  return {
+    submitAction(action: GameAction): boolean {
+      return manager.submitAction(action);
+    },
+    update(dt: number): void {
+      manager.update(dt);
+    },
+    getViewState(): GameViewState {
+      return manager.getState() as GameViewState;
+    },
+    subscribe(listener: (state: GameViewState) => void): () => void {
+      return manager.subscribe((state: GameState) => {
+        listener(state as GameViewState);
+      });
+    },
+    destroy(): void {
+      manager.destroy();
+    },
+  };
 }

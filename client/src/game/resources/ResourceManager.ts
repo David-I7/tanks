@@ -10,7 +10,7 @@ type LoadedResources = {
 
 const RESOURCE_URLS = {
   images: {
-    tank: tankImageUrl,
+    tank: "/graphics/tank.png",
   },
 };
 
@@ -31,7 +31,6 @@ export default class ResourceManager {
   async loadResources(): Promise<boolean> {
     try {
       this.resources.images = await this.loadImages();
-
       return true;
     } catch (error) {
       return false;
@@ -84,4 +83,3 @@ export default class ResourceManager {
     return this.resources.images[name];
   }
 }
-import tankImageUrl from "../../assets/graphics/tank.png";

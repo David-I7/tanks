@@ -14,7 +14,8 @@ export default function LocalGamePage() {
   const [rendererAssets, setRendererAssets] = useState<RendererAssets>({});
 
   const modeParam = searchParams.get("mode");
-  const mode: GameMode = modeParam === "playerVsAi" ? "playerVsAi" : "localTwoPlayer";
+  const mode: GameMode =
+    modeParam === "playerVsAi" ? "playerVsAi" : "localTwoPlayer";
 
   useEffect(() => {
     let cancelled = false;
@@ -65,7 +66,10 @@ export default function LocalGamePage() {
     <main className="relative z-10 flex min-h-screen flex-col bg-background p-4 text-text-body-high">
       <header className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <IconButton onClick={() => navigate("/")} icon={<ArrowLeft size={16} />} />
+          <IconButton
+            onClick={() => navigate("/")}
+            icon={<ArrowLeft size={16} />}
+          />
           <h1 className="font-heading text-xl font-bold tracking-wide text-primary">
             {modeLabel}
           </h1>

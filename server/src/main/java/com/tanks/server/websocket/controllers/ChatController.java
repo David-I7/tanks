@@ -12,30 +12,22 @@ import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.handler.annotation.SendTo;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 
 import java.net.URI;
 
 @Controller
-@RequiredArgsConstructor
 public class ChatController {
-
-    private final LobbyAuthorizationService lobbyAuthorizationService;
 
     @MessageMapping("/chat/{id}/send")
     @SendTo("/topic/lobby/{id}")
+    @PreAuthorize("@lobbyAuthorizationService.canSendMessageToTopic(authentication, '/topic/lobby/' + #id)")
     public ChatEventResponseDto sendMessage(
             @DestinationVariable String id,
             @Valid @Payload ChatEventRequestDto chatMessage,
             Authentication authentication){
-        if (!lobbyAuthorizationService.canSendMessageToTopic(authentication, "/topic/lobby/" + id)) {
-            throw new ProblemDetailException(
-                    HttpStatus.UNAUTHORIZED,
-                    "User is not connected to a lobby.",
-                    URI.create("/topic/lobby/" + id)
-            );
-        }
 
         ChatEventResponseDto responseDto = ChatEventResponseDto.builder()
                 .type(chatMessage.getType())

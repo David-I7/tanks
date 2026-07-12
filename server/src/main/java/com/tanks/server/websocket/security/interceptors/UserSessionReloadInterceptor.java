@@ -48,10 +48,12 @@ public class UserSessionReloadInterceptor implements ChannelInterceptor {
         WebSocketPrincipal principal = (WebSocketPrincipal) authentication.getPrincipal();
         Long userId = principal.getUserDto().id();
 
+
         if (redisClaimService.consumeUserSessionReloadRequired(userId)) {
             UserSession userSession = userSessionService.findById(userId);
             principal.setUserSession(userSession);
         }
+
 
         return message;
     }
