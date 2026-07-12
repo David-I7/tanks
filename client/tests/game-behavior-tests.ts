@@ -25,7 +25,7 @@ import type { GameState, MatchSetup } from "../src/game/types";
 import {
   createMockRemoteSimulationTransport,
   createRemoteSimulationManager,
-  type RemoteSimulationManager,
+  type SimulationStateSource,
 } from "./support/remoteSimulationSupport";
 
 function makeSimulation(setup: MatchSetup = createDefaultMatchSetup("localTwoPlayer")) {
@@ -45,20 +45,25 @@ function firstTank(simulation: LocalSimulation) {
 function gameStateWithActiveSecondTank(
   simulation: LocalSimulation,
 ): GameState {
-  const gameState = {
-    ...simulationStateToGameState(simulation.getState(), mockGameContent.projectiles),
+  const state = simulationStateToGameState(simulation.getState(), mockGameContent.projectiles);
+  const tanks = state.tanks.map((entry) => {
+    if (entry.playerId === 1) {
+      return {
+        ...entry,
+        loadout: withDistinctSecondPlayerSlotIds(entry.loadout),
+        selectedProjectileSlotId: `second-player-${entry.selectedProjectileSlotId}`,
+      };
+    }
+    return entry;
+  });
+  return {
+    ...state,
+    match: {
+      ...state.match,
+      activePlayerId: 1,
+    },
+    tanks,
   };
-  (gameState as any).match = { ...gameState.match, activePlayerId: 1 };
-  const tanks = [...gameState.tanks];
-  const tankIndex = tanks.findIndex((entry) => entry.playerId === 1);
-  if (tankIndex !== -1) {
-    const activeTank = { ...tanks[tankIndex]! };
-    activeTank.loadout = withDistinctSecondPlayerSlotIds(activeTank.loadout);
-    activeTank.selectedProjectileSlotId = activeTank.loadout[0]!.id;
-    tanks[tankIndex] = activeTank;
-  }
-  (gameState as any).tanks = tanks;
-  return gameState;
 }
 
 function withDistinctSecondPlayerSlotIds(
@@ -79,8 +84,8 @@ function canvasInteractionContext(gameState: GameState) {
   };
 }
 
-async function expectSharedSimulationManagerSelection(
-  manager: SimulationManager | RemoteSimulationManager,
+async function expectSharedSimulationStateSelection(
+  manager: SimulationManager | SimulationStateSource,
 ): Promise<void> {
   const seen: string[] = [];
   const unsubscribe = manager.subscribe((state) => {
@@ -233,7 +238,7 @@ async function expectSharedSimulationManagerSelection(
 }
 
 {
-  await expectSharedSimulationManagerSelection(
+  await expectSharedSimulationStateSelection(
     createLocalSimulationManager({
       setup: createDefaultMatchSetup("localTwoPlayer"),
       content: mockGameContent,
@@ -241,7 +246,7 @@ async function expectSharedSimulationManagerSelection(
     }),
   );
 
-  await expectSharedSimulationManagerSelection(
+  await expectSharedSimulationStateSelection(
     createRemoteSimulationManager(
       createMockRemoteSimulationTransport({
         setup: createDefaultMatchSetup("online"),

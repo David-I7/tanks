@@ -14,7 +14,7 @@ export type RemoteSimulationTransport = {
   destroy?(): void;
 };
 
-export type RemoteSimulationManager = {
+export type SimulationStateSource = {
   submitPlayerAction(playerId: number, action: GameAction): boolean;
   update(dt: number): void;
   getState(): SimulationState | null;
@@ -22,8 +22,8 @@ export type RemoteSimulationManager = {
   destroy(): void;
 };
 
-export class TestRemoteSimulationManager
-  implements RemoteSimulationManager
+export class TestRemoteSimulationStateSource
+  implements SimulationStateSource
 {
   private currentState: SimulationState | null = null;
   private readonly listeners = new Set<(state: SimulationState) => void>();
@@ -97,7 +97,7 @@ export function createMockRemoteSimulationTransport(
     }
   };
 
-  const schedule = (work: () => void) => {
+  const scheduleWithLatency = (work: () => void) => {
     const timeout = setTimeout(() => {
       timeouts.delete(timeout);
       work();
@@ -108,13 +108,13 @@ export function createMockRemoteSimulationTransport(
 
   return {
     sendIntent(remoteIntent: RemoteGameAction): void {
-      schedule(() => {
+      scheduleWithLatency(() => {
         simulation.submitPlayerAction(remoteIntent.playerId, remoteIntent.intent);
       });
     },
     onSimulationState(listener: (state: SimulationState) => void): () => void {
       listeners.add(listener);
-      schedule(() => {});
+      scheduleWithLatency(() => {});
       return () => {
         listeners.delete(listener);
       };
@@ -133,6 +133,6 @@ export function createMockRemoteSimulationTransport(
 
 export function createRemoteSimulationManager(
   transport: RemoteSimulationTransport,
-): RemoteSimulationManager {
-  return new TestRemoteSimulationManager(transport);
+): SimulationStateSource {
+  return new TestRemoteSimulationStateSource(transport);
 }
