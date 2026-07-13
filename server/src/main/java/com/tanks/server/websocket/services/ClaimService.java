@@ -19,9 +19,7 @@ public class ClaimService {
         return existing == null || existing.equals(socketSessionId);
     }
 
-    public void refreshSocketClaim(Long userId) {
-        // No-op: in-memory maps do not require TTL refreshing.
-    }
+
 
     public void releaseSocket(Long userId, String socketSessionId) {
         if (socketSessionId == null) {

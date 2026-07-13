@@ -16,6 +16,7 @@ import com.tanks.server.websocket.security.entites.WebSocketPrincipal;
 import com.tanks.server.websocket.services.GameSessionService;
 import com.tanks.server.websocket.services.LobbyService;
 import com.tanks.server.websocket.services.UserSessionService;
+import com.tanks.server.websocket.services.ClaimService;
 import com.tanks.server.websocket.events.GameEvent;
 import com.tanks.server.websocket.events.LobbyEvent;
 import com.tanks.server.websocket.events.OnlineGameplayEvent;
@@ -44,16 +45,19 @@ public class WebSocketEventListeners {
 
     private final SimpMessagingTemplate simpMessagingTemplate;
 
-    private LobbyService lobbyService;
+    private final LobbyService lobbyService;
 
-    private GameSessionService gameSessionService;
+    private final GameSessionService gameSessionService;
 
-    private UserSessionService userSessionService;
+    private final UserSessionService userSessionService;
 
-    public WebSocketEventListeners(GameSessionService gameSessionService, LobbyService lobbyService, UserSessionService userSessionService, SimpMessagingTemplate simpMessagingTemplate){
+    private final ClaimService claimService;
+
+    public WebSocketEventListeners(GameSessionService gameSessionService, LobbyService lobbyService, UserSessionService userSessionService, ClaimService claimService, SimpMessagingTemplate simpMessagingTemplate){
         this.lobbyService = lobbyService;
         this.gameSessionService = gameSessionService;
         this.userSessionService = userSessionService;
+        this.claimService = claimService;
         this.simpMessagingTemplate = simpMessagingTemplate;
     }
 
@@ -91,6 +95,9 @@ public class WebSocketEventListeners {
         WebSocketPrincipal principal = (WebSocketPrincipal) ((WebSocketAuthentication)accessor.getUser()).getPrincipal();
 
         UserDto user = principal.getUserDto();
+        
+        claimService.releaseSocket(user.id(), event.getSessionId());
+        
         UserSession userSession = null;
         try {
             userSession = userSessionService.findById(user.id());

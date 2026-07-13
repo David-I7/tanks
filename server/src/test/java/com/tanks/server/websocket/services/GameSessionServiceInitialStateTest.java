@@ -298,6 +298,7 @@ class GameSessionServiceInitialStateTest {
                 gameplayRules,
                 initialStateFactory,
                 gameResultRepository,
-                userRepository);
+                userRepository,
+                new KeyLockManager());
     }
 }

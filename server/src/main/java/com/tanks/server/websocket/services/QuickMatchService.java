@@ -22,10 +22,10 @@ public class QuickMatchService {
     private final ConcurrentSkipListSet<QueueEntry> queue = new ConcurrentSkipListSet<>();
     private final ConcurrentHashMap<UUID, QueueEntry> map = new ConcurrentHashMap<>();
 
-    private record QueueEntry(UUID lobbyId, double score) implements Comparable<QueueEntry> {
+    private record QueueEntry(UUID lobbyId, Instant createdAt) implements Comparable<QueueEntry> {
         @Override
         public int compareTo(QueueEntry other) {
-            int cmp = Double.compare(this.score, other.score);
+            int cmp = this.createdAt.compareTo(other.createdAt);
             if (cmp != 0) {
                 return cmp;
             }
@@ -69,15 +69,11 @@ public class QuickMatchService {
 
     public Lobby create(Lobby lobby) {
         if (lobby != null && lobby.getId() != null) {
-            QueueEntry entry = new QueueEntry(lobby.getId(), computeScore());
+            QueueEntry entry = new QueueEntry(lobby.getId(), Instant.now());
             map.put(lobby.getId(), entry);
             queue.add(entry);
         }
         return lobby;
-    }
-
-    private double computeScore() {
-        return Instant.now().toEpochMilli() / 1000.0 / 60 / 60;
     }
 
     private boolean isValidWaitingQuickMatchLobby(Lobby lobby) {

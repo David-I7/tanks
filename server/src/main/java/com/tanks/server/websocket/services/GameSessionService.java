@@ -61,9 +61,10 @@ public class GameSessionService {
     private final OnlineInitialStateFactory initialStateFactory;
     private final GameResultRepository gameResultRepository;
     private final UserRepository userRepository;
+    private final KeyLockManager keyLockManager;
 
     public GameSession create(Lobby lobby) {
-        synchronized (lobby.getId().toString().intern()) {
+        synchronized (keyLockManager.getLock(lobby.getId().toString())) {
             Lobby freshLobby = lobbyRepository.findById(lobby.getId())
                     .orElseThrow(() -> new ProblemDetailException(HttpStatus.NOT_FOUND, "The lobby with the provided id does not exist.", URI.create("about:blank")));
 
@@ -137,7 +138,7 @@ public class GameSessionService {
     }
 
     public void startGame(GameSession gameSession) {
-        synchronized (gameSession.getId().toString().intern()) {
+        synchronized (keyLockManager.getLock(gameSession.getId().toString())) {
             GameSession freshGameSession = findById(gameSession.getId());
             if (!GameSessionState.CREATED.equals(freshGameSession.getState())) {
                 return;
@@ -269,7 +270,7 @@ public class GameSessionService {
     }
 
     public GameSession getAndIncrementPlayerCount(UUID gameSessionId){
-        synchronized (gameSessionId.toString().intern()) {
+        synchronized (keyLockManager.getLock(gameSessionId.toString())) {
             GameSession gameSession = findById(gameSessionId);
             gameSession.setConnectedPlayerCount(gameSession.getConnectedPlayerCount() + 1);
             return gameRepository.save(gameSession);
@@ -277,7 +278,7 @@ public class GameSessionService {
     }
 
     public void decremenentPlayerCount(UUID gameSessionId){
-        synchronized (gameSessionId.toString().intern()) {
+        synchronized (keyLockManager.getLock(gameSessionId.toString())) {
             try {
                 GameSession gameSession = findById(gameSessionId);
                 gameSession.setConnectedPlayerCount(gameSession.getConnectedPlayerCount() - 1);

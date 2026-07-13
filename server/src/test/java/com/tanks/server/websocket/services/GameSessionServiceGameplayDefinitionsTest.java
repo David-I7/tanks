@@ -52,7 +52,8 @@ class GameSessionServiceGameplayDefinitionsTest {
                 gameplayRules,
                 new OnlineInitialStateFactory(gameplayRules),
                 gameResultRepository,
-                userRepository);
+                userRepository,
+                new KeyLockManager());
 
         UUID lobbyId = UUID.randomUUID();
         Lobby lobby = Lobby.builder()

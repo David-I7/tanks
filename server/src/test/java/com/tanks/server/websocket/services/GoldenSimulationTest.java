@@ -275,7 +275,8 @@ class GoldenSimulationTest {
                 gameplayRules,
                 initialStateFactory,
                 gameResultRepository,
-                userRepository);
+                userRepository,
+                new KeyLockManager());
         private final ServerSimulationLoopService loopService = new ServerSimulationLoopService(
                 gameRepository,
                 eventPublisher);

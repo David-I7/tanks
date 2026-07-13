@@ -55,21 +55,6 @@ class OnlinePresenceLobbyLifecycleTest {
         verify(userSessionService, never()).save(any(UserSession.class));
     }
 
-    @Test
-    @DisplayName("Active Socket claim is refreshed on authenticated socket traffic")
-    void activeSocketClaimIsRefreshedOnAuthenticatedSocketTraffic() {
-        UserSessionService userSessionService = mock(UserSessionService.class);
-        ClaimService claimService = mock(ClaimService.class);
-        AuthorizationInterceptor interceptor = new AuthorizationInterceptor(
-                userSessionService,
-                mock(LobbyAuthorizationService.class),
-                mock(GameAuthorizationService.class),
-                claimService);
-
-        interceptor.preSend(sendMessage(1L, "player", "socket-a"), mock(org.springframework.messaging.MessageChannel.class));
-
-        verify(claimService).refreshSocketClaim(1L);
-    }
 
     @Test
     @DisplayName("Lobby and Game actions require Topic Presence")
@@ -268,6 +253,7 @@ class OnlinePresenceLobbyLifecycleTest {
                 lobbyRepository,
                 quickMatchService,
                 userSessionService,
-                eventPublisher);
+                eventPublisher,
+                new KeyLockManager());
     }
 }
