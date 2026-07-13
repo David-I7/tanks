@@ -9,6 +9,8 @@ import org.springframework.data.annotation.Id;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
+import com.tanks.server.websocket.gameplay.world.TerrainModel;
+import com.tanks.server.websocket.gameplay.world.World;
 
 @Builder
 @AllArgsConstructor
@@ -30,41 +32,25 @@ public class GameSession {
 
     private OffsetDateTime createdAt;
 
-    private long playerTurnExpiresAt;
-
-    private String playerTurn;
-
     private long serverTick;
 
     private long nextDiffSequence;
 
     private long lastDiffServerTick;
 
-    private int turnNumber;
-
     private String playerAUnresolvedIntentId;
 
     private String playerBUnresolvedIntentId;
 
-    private Double playerATankX;
-
-    private Double playerATankY;
-
-    private Double playerATankFuel;
-
-    private Double playerATankHealth;
-
-    private Double playerBTankX;
-
-    private Double playerBTankY;
-
-    private Double playerBTankFuel;
-
-    private Double playerBTankHealth;
-
     private GameSessionState state;
 
-    private String gameplayDefinitionVersion;
+    private String gameContentVersion;
+
+    private long generationSeed;
+
+    private World world;
+
+    private TerrainModel terrainModel;
 
     private int connectedPlayerCount = 0;
 
@@ -76,24 +62,16 @@ public class GameSession {
             this.startedAt = other.startedAt;
             this.endedAt = other.endedAt;
             this.createdAt = other.createdAt;
-            this.playerTurnExpiresAt = other.playerTurnExpiresAt;
-            this.playerTurn = other.playerTurn;
             this.serverTick = other.serverTick;
             this.nextDiffSequence = other.nextDiffSequence;
             this.lastDiffServerTick = other.lastDiffServerTick;
-            this.turnNumber = other.turnNumber;
             this.playerAUnresolvedIntentId = other.playerAUnresolvedIntentId;
             this.playerBUnresolvedIntentId = other.playerBUnresolvedIntentId;
-            this.playerATankX = other.playerATankX;
-            this.playerATankY = other.playerATankY;
-            this.playerATankFuel = other.playerATankFuel;
-            this.playerATankHealth = other.playerATankHealth;
-            this.playerBTankX = other.playerBTankX;
-            this.playerBTankY = other.playerBTankY;
-            this.playerBTankFuel = other.playerBTankFuel;
-            this.playerBTankHealth = other.playerBTankHealth;
             this.state = other.state;
-            this.gameplayDefinitionVersion = other.gameplayDefinitionVersion;
+            this.gameContentVersion = other.gameContentVersion;
+            this.generationSeed = other.generationSeed;
+            this.world = other.world == null ? null : new World(other.world);
+            this.terrainModel = other.terrainModel == null ? null : new TerrainModel(other.terrainModel);
             this.connectedPlayerCount = other.connectedPlayerCount;
         }
     }

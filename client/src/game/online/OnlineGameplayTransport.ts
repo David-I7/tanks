@@ -1,9 +1,9 @@
 import type {
   GameSessionId,
-  OnlineDiffEnvelope,
-  OnlinePlayerIntentEnvelope,
+  OnlineDiffResponseDto,
+  OnlinePlayerIntentRequestDto,
 } from "../../api/ws/dto/gameplay/onlineGameplayProtocol";
-import { isOnlineDiffEnvelope } from "../../api/ws/dto/gameplay/onlineGameplayProtocol";
+import { isOnlineDiffResponseDto } from "../../api/ws/dto/gameplay/onlineGameplayProtocol";
 import type {
   EndpointSubscription,
   Message,
@@ -18,10 +18,10 @@ type OnlineGameplayClient = {
 };
 
 export type OnlineGameplayTransport = {
-  sendPlayerIntent(intent: OnlinePlayerIntentEnvelope): void;
+  sendPlayerIntent(intent: OnlinePlayerIntentRequestDto): void;
   requestResyncState(): void;
   subscribeToStateDiffs(
-    listener: (diff: OnlineDiffEnvelope) => void,
+    listener: (diff: OnlineDiffResponseDto) => void,
   ): SubscriptionCleanup;
   subscribeToGameEvents(
     listener: (event: GameEvent) => void,
@@ -57,7 +57,7 @@ export function createOnlineGameplayTransport(options: {
     });
 
   return {
-    sendPlayerIntent(intent: OnlinePlayerIntentEnvelope): void {
+    sendPlayerIntent(intent: OnlinePlayerIntentRequestDto): void {
       options.client.publish({
         destination: "/app/game/:id/intent",
         id: options.gameSessionId,
@@ -73,11 +73,11 @@ export function createOnlineGameplayTransport(options: {
     },
 
     subscribeToStateDiffs(
-      listener: (diff: OnlineDiffEnvelope) => void,
+      listener: (diff: OnlineDiffResponseDto) => void,
     ): SubscriptionCleanup {
       const handleMessage = (message: Message<unknown>) => {
         if (
-          isOnlineDiffEnvelope(message.body) &&
+          isOnlineDiffResponseDto(message.body) &&
           message.body.gameSessionId === options.gameSessionId
         ) {
           listener(message.body);
@@ -100,7 +100,7 @@ export function createOnlineGameplayTransport(options: {
       listener: (event: GameEvent) => void,
     ): SubscriptionCleanup {
       const handleMessage = (message: Message<GameEvent | unknown>) => {
-        if (!isOnlineDiffEnvelope(message.body)) {
+        if (!isOnlineDiffResponseDto(message.body)) {
           listener(message.body as GameEvent);
         }
       };

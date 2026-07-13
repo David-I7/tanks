@@ -1,9 +1,10 @@
+import { onlineGameContentResponseFixture } from "./support/onlineGameContentResponseFixture";
 import assert from "node:assert/strict";
 
 import type {
-  OnlineDiffEnvelope,
-  OnlineGameStateSnapshot,
-  OnlinePlayerIntentEnvelope,
+  OnlineDiffResponseDto,
+  OnlineGameStateSnapshotResponse,
+  OnlinePlayerIntentRequestDto,
 } from "../src/api/ws/dto/gameplay/onlineGameplayProtocol";
 import {
   createOnlineGameManager,
@@ -16,9 +17,10 @@ import type {
 // Online behavior is verified at the shared manager seam: GameAction in and
 // cached GameState out.
 
-function onlineState(): OnlineGameStateSnapshot {
+function onlineState(): OnlineGameStateSnapshotResponse {
   return {
-    gameplayDefinitionVersion: "online-gameplay-definitions.v1",
+    gameContentVersion: "game-content.v1",
+      gameContent: onlineGameContentResponseFixture,
     match: {
       phase: "AIMING",
       activePlayerId: 1,
@@ -96,7 +98,7 @@ function onlineState(): OnlineGameStateSnapshot {
   };
 }
 
-function initialDiff(sequence = 1): OnlineDiffEnvelope {
+function initialDiff(sequence = 1): OnlineDiffResponseDto {
   return {
     protocolVersion: "online-gameplay.v1",
     gameSessionId: "game-123",
@@ -112,7 +114,7 @@ function initialDiff(sequence = 1): OnlineDiffEnvelope {
   };
 }
 
-function movementDiff(sequence = 2): OnlineDiffEnvelope {
+function movementDiff(sequence = 2): OnlineDiffResponseDto {
   return {
     protocolVersion: "online-gameplay.v1",
     gameSessionId: "game-123",
@@ -137,17 +139,17 @@ function movementDiff(sequence = 2): OnlineDiffEnvelope {
 }
 
 function createTransport(): {
-  emit(diff: OnlineDiffEnvelope): void;
+  emit(diff: OnlineDiffResponseDto): void;
   resyncRequests: number;
-  sentIntents: OnlinePlayerIntentEnvelope[];
+  sentIntents: OnlinePlayerIntentRequestDto[];
   transport: OnlineGameplayTransport;
 } {
-  let listener: ((diff: OnlineDiffEnvelope) => void) | null = null;
+  let listener: ((diff: OnlineDiffResponseDto) => void) | null = null;
   let resyncRequests = 0;
-  const sentIntents: OnlinePlayerIntentEnvelope[] = [];
+  const sentIntents: OnlinePlayerIntentRequestDto[] = [];
 
   return {
-    emit(diff: OnlineDiffEnvelope): void {
+    emit(diff: OnlineDiffResponseDto): void {
       listener?.(diff);
     },
     get resyncRequests(): number {

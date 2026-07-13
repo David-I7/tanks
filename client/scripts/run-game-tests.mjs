@@ -11,7 +11,7 @@ const tests = [
   "tests\\contract-old-snapshot-remote-authority-tests.ts",
   "tests\\online-initial-state-tests.ts",
   "tests\\online-client-state-projection-tests.ts",
-  "tests\\online-golden-simulation-tests.ts",
+  "tests\\authoritative-online-gameplay-tests.ts",
 ];
 
 for (const test of tests) {

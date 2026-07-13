@@ -1,37 +1,35 @@
 import type {
   DiffSequence,
-  OnlineDiffEnvelope,
-  OnlineGameStateSnapshot,
-  OnlineIntentRejectionDiff,
-  OnlineMovementSegmentDiff,
-  OnlineProjectileResolutionDiff,
+  OnlineDiffResponseDto,
+  OnlineGameStateSnapshotResponse,
+  OnlineIntentRejectionResponse,
+  OnlineMovementSegmentResponse,
+  OnlineProjectileResolutionResponse,
   PlayerId,
-  OnlineResyncStateDiff,
-  OnlineTankSnapshot,
-  OnlineTerrainPatch,
-  OnlineTerrainPatchDiff,
-  OnlineTerminalGameDiff,
-  OnlineTurnTransitionDiff,
-  OnlineMoveIntent,
+  OnlineResyncStateResponse,
+  OnlineTankSnapshotResponse,
+  OnlineTerrainPatchResponse,
+  OnlineTerrainPatchResponseDto,
+  OnlineTerminalGameResponse,
+  OnlineTurnTransitionResponse,
+  OnlineMoveRequest,
   ServerTick,
 } from "../../api/ws/dto/gameplay/onlineGameplayProtocol";
 import type { Vec2 } from "../types";
-
-const SERVER_TICK_RATE_HZ = 30;
 
 export type PendingPrediction = {
   intentId: string;
   baseDiffSequence: DiffSequence;
   baseDiffServerTick: ServerTick;
-  predictedMovement?: OnlineMovementSegmentDiff["payload"];
+  predictedMovement?: OnlineMovementSegmentResponse["payload"];
 };
 
 type ReconciledIntent = {
-  intentId: string;
+  intentId: string | null;
   playerId: number | null;
 };
 
-export type ConfirmedMovementSegment = OnlineMovementSegmentDiff["payload"] & {
+export type ConfirmedMovementSegment = OnlineMovementSegmentResponse["payload"] & {
   receivedAtMonotonicMs: number;
   durationMs: number;
 };
@@ -47,7 +45,7 @@ export type OnlineImpactProjectionEvent = {
 export type OnlineConfirmedState = {
   gameSessionId: string;
   localPlayerId: PlayerId;
-  state: OnlineGameStateSnapshot;
+  state: OnlineGameStateSnapshotResponse;
   lastConfirmedDiffSequence: DiffSequence;
   lastConfirmedDiffServerTick: ServerTick;
   expectedNextDiffSequence: DiffSequence;
@@ -78,14 +76,14 @@ export class OnlineDiffSequenceError extends Error {
 }
 
 export function initializeOnlineConfirmedState(
-  diff: OnlineDiffEnvelope,
+  diff: OnlineDiffResponseDto,
 ): OnlineConfirmedState {
   if (diff.type !== "INITIAL_STATE") {
     throw new Error(`Expected INITIAL_STATE diff, received ${diff.type}`);
   }
 
   const payload = diff.payload as Extract<
-    OnlineDiffEnvelope["payload"],
+    OnlineDiffResponseDto["payload"],
     { expectedNextDiffSequence: DiffSequence }
   >;
 
@@ -104,13 +102,13 @@ export function initializeOnlineConfirmedState(
 }
 
 export function initializeOnlineConfirmedStateFromResync(
-  diff: OnlineDiffEnvelope,
+  diff: OnlineDiffResponseDto,
 ): OnlineConfirmedState {
   if (diff.type !== "RESYNC_STATE") {
     throw new Error(`Expected RESYNC_STATE diff, received ${diff.type}`);
   }
 
-  const payload = diff.payload as OnlineResyncStateDiff["payload"];
+  const payload = diff.payload as OnlineResyncStateResponse["payload"];
 
   return {
     gameSessionId: diff.gameSessionId,
@@ -126,13 +124,13 @@ export function initializeOnlineConfirmedStateFromResync(
   };
 }
 
-export function applyOnlineStateDiff(
+export function applyOnlineStateDiffResponse(
   confirmed: OnlineConfirmedState,
-  diff: OnlineDiffEnvelope,
+  diff: OnlineDiffResponseDto,
   monotonicNowMs: () => number = () => performance.now(),
 ): OnlineConfirmedState {
   if (diff.type === "RESYNC_STATE") {
-    if (isStaleResyncDiff(confirmed, diff as OnlineDiffEnvelope<OnlineResyncStateDiff>)) {
+    if (isStaleResyncDiff(confirmed, diff as OnlineDiffResponseDto<OnlineResyncStateResponse>)) {
       return confirmed;
     }
 
@@ -199,26 +197,50 @@ export function predictOnlineMovement(
   confirmed: OnlineConfirmedState,
   intentId: string,
   playerId: number,
-  move: OnlineMoveIntent["payload"],
+  move: OnlineMoveRequest["payload"],
 ): OnlineConfirmedState {
   const tank = confirmed.state.tanks.find((candidate) => candidate.playerId === playerId);
   if (!tank) {
     return confirmed;
   }
 
-  const distance = Math.abs(move.direction);
-  const predictedMovement: OnlineMovementSegmentDiff["payload"] = {
+  const definition = confirmed.state.gameContent.tanks[tank.tankDefinitionId];
+  if (!definition) return confirmed;
+  const path: Vec2[] = [{ ...tank.position }];
+  let fuel = tank.fuel;
+  let x = tank.position.x;
+  let y = tank.position.y;
+  let completedColumns = 0;
+  const movementQuantum = definition.movementQuantum;
+  for (let step = 0; step < movementQuantum; step += 1) {
+    const nextX = Math.round(x) + move.direction;
+    if (nextX - definition.halfWidth < 0 || nextX + definition.halfWidth >= confirmed.state.gameContent.world.width) break;
+    const surfaceY = confirmed.state.terrain.surface[Math.max(0, Math.min(confirmed.state.terrain.surface.length - 1, nextX))];
+    const nextY = (surfaceY ?? y) - definition.trackGroundOffset;
+    if (y - nextY > definition.climbCapability) break;
+    const ledge = nextY - y > definition.climbCapability;
+    const cost = Math.ceil(definition.fuelRate * (ledge ? Math.abs(nextX - x) : Math.hypot(nextX - x, nextY - y)));
+    if (cost > fuel) break;
+    fuel -= cost;
+    if (ledge) path.push({ x: nextX, y });
+    x = nextX;
+    y = nextY;
+    path.push({ x, y });
+    completedColumns += 1;
+    if (ledge) break;
+  }
+  if (path.length === 1) return confirmed;
+  const predictedMovement: OnlineMovementSegmentResponse["payload"] = {
     intentId,
     playerId,
     tankEntityId: tank.entityId,
     from: tank.position,
-    to: {
-      x: tank.position.x + move.direction,
-      y: tank.position.y,
-    },
+    to: path[path.length - 1]!,
+    movementPath: path,
     fuelBefore: tank.fuel,
-    fuelAfter: tank.fuel - distance,
-    fuelSpent: distance,
+    fuelAfter: fuel,
+    fuelSpent: tank.fuel - fuel,
+    partial: completedColumns < movementQuantum,
     startedServerTick: confirmed.lastConfirmedDiffServerTick,
     endedServerTick: confirmed.lastConfirmedDiffServerTick,
     durationTicks: 0,
@@ -243,7 +265,7 @@ export function predictOnlineMovement(
 export function projectOnlineRenderState(
   confirmed: OnlineConfirmedState,
   monotonicNowMs: number = performance.now(),
-): OnlineGameStateSnapshot {
+): OnlineGameStateSnapshotResponse {
   const interpolatedState = applyMovementInterpolation(
     confirmed.state,
     confirmed.confirmedMovementSegments,
@@ -261,14 +283,14 @@ export function projectOnlineRenderState(
 
 function applyDiffPayload(
   confirmed: OnlineConfirmedState,
-  diff: OnlineDiffEnvelope,
+  diff: OnlineDiffResponseDto,
   monotonicNowMs: () => number,
 ): OnlineConfirmedState {
   switch (diff.type) {
     case "INITIAL_STATE":
       return initializeOnlineConfirmedState(diff);
     case "RESYNC_STATE":
-      const resyncPayload = diff.payload as OnlineResyncStateDiff["payload"];
+      const resyncPayload = diff.payload as OnlineResyncStateResponse["payload"];
       return {
         ...confirmed,
         localPlayerId: resyncPayload.localPlayerId,
@@ -282,17 +304,17 @@ function applyDiffPayload(
     case "MOVEMENT_SEGMENT":
       return applyMovementSegment(
         confirmed,
-        diff.payload as OnlineMovementSegmentDiff["payload"],
+        diff.payload as OnlineMovementSegmentResponse["payload"],
         monotonicNowMs,
       );
     case "PROJECTILE_RESOLUTION":
       return applyProjectileResolution(
         confirmed,
-        diff.payload as OnlineProjectileResolutionDiff["payload"],
+        diff.payload as OnlineProjectileResolutionResponse["payload"],
         monotonicNowMs,
       );
     case "TERRAIN_PATCH":
-      const terrainPayload = diff.payload as OnlineTerrainPatchDiff["payload"];
+      const terrainPayload = diff.payload as OnlineTerrainPatchResponse["payload"];
       return {
         ...confirmed,
         state: {
@@ -301,7 +323,7 @@ function applyDiffPayload(
         },
       };
     case "TURN_TRANSITION":
-      const turnPayload = diff.payload as OnlineTurnTransitionDiff["payload"];
+      const turnPayload = diff.payload as OnlineTurnTransitionResponse["payload"];
       return {
         ...confirmed,
         state: {
@@ -317,7 +339,7 @@ function applyDiffPayload(
         },
       };
     case "TERMINAL_GAME":
-      const terminalPayload = diff.payload as OnlineTerminalGameDiff["payload"];
+      const terminalPayload = diff.payload as OnlineTerminalGameResponse["payload"];
       return {
         ...confirmed,
         state: terminalPayload.finalState,
@@ -329,7 +351,7 @@ function applyDiffPayload(
 
 function applyMovementSegment(
   confirmed: OnlineConfirmedState,
-  segment: OnlineMovementSegmentDiff["payload"],
+  segment: OnlineMovementSegmentResponse["payload"],
   monotonicNowMs: () => number,
 ): OnlineConfirmedState {
   return {
@@ -340,16 +362,16 @@ function applyMovementSegment(
       {
         ...segment,
         receivedAtMonotonicMs: monotonicNowMs(),
-        durationMs: ticksToMs(segment.durationTicks),
+        durationMs: (segment.durationTicks / confirmed.state.gameContent.world.tickRateHz) * 1000,
       },
     ],
   };
 }
 
 function applyMovementToSnapshot(
-  state: OnlineGameStateSnapshot,
-  movement: OnlineMovementSegmentDiff["payload"],
-): OnlineGameStateSnapshot {
+  state: OnlineGameStateSnapshotResponse,
+  movement: OnlineMovementSegmentResponse["payload"],
+): OnlineGameStateSnapshotResponse {
   return {
     ...state,
     tanks: state.tanks.map((tank) =>
@@ -365,10 +387,10 @@ function applyMovementToSnapshot(
 }
 
 function applyMovementInterpolation(
-  state: OnlineGameStateSnapshot,
+  state: OnlineGameStateSnapshotResponse,
   segments: ConfirmedMovementSegment[],
   monotonicNowMs: number,
-): OnlineGameStateSnapshot {
+): OnlineGameStateSnapshotResponse {
   const activeSegments = segments.filter(
     (segment) =>
       segment.durationMs > 0 &&
@@ -387,10 +409,10 @@ function applyMovementInterpolation(
 }
 
 function interpolateTank(
-  tank: OnlineTankSnapshot,
+  tank: OnlineTankSnapshotResponse,
   segments: ConfirmedMovementSegment[],
   monotonicNowMs: number,
-): OnlineTankSnapshot {
+): OnlineTankSnapshotResponse {
   const segment = segments.find((candidate) => candidate.tankEntityId === tank.entityId);
   if (!segment) {
     return tank;
@@ -400,20 +422,26 @@ function interpolateTank(
     1,
     Math.max(0, (monotonicNowMs - segment.receivedAtMonotonicMs) / segment.durationMs),
   );
+  const path = segment.movementPath?.length ? segment.movementPath : [segment.from, segment.to];
+  const scaled = progress * Math.max(1, path.length - 1);
+  const pathIndex = Math.min(path.length - 2, Math.floor(scaled));
+  const from = path[Math.max(0, pathIndex)] ?? segment.from;
+  const to = path[Math.min(path.length - 1, pathIndex + 1)] ?? segment.to;
+  const pointProgress = scaled - Math.floor(scaled);
 
   return {
     ...tank,
     position: {
-      x: lerp(segment.from.x, segment.to.x, progress),
-      y: lerp(segment.from.y, segment.to.y, progress),
+      x: lerp(from.x, to.x, pointProgress),
+      y: lerp(from.y, to.y, pointProgress),
     },
-    fuel: lerp(segment.fuelBefore, segment.fuelAfter, progress),
+    fuel: Math.round(lerp(segment.fuelBefore, segment.fuelAfter, progress)),
   };
 }
 
 function applyProjectileResolution(
   confirmed: OnlineConfirmedState,
-  resolution: OnlineProjectileResolutionDiff["payload"],
+  resolution: OnlineProjectileResolutionResponse["payload"],
   monotonicNowMs: () => number,
 ): OnlineConfirmedState {
   return {
@@ -450,11 +478,11 @@ function applyProjectileResolution(
 }
 
 function applyTerrainPatches(
-  terrain: OnlineGameStateSnapshot["terrain"],
-  patches: OnlineTerrainPatch[],
-): OnlineGameStateSnapshot["terrain"] {
+  terrain: OnlineGameStateSnapshotResponse["terrain"],
+  patches: OnlineTerrainPatchResponseDto[],
+): OnlineGameStateSnapshotResponse["terrain"] {
   return patches.reduce((currentTerrain, patch) => {
-    if (currentTerrain.kind === "HEIGHTMAP" && patch.kind === "HEIGHTMAP_RANGE") {
+    if (patch.kind === "HEIGHTMAP_RANGE") {
       const surface = [...currentTerrain.surface];
       for (let index = 0; index < patch.surface.length; index += 1) {
         const targetIndex = patch.startX + index;
@@ -469,22 +497,15 @@ function applyTerrainPatches(
       };
     }
 
-    if (currentTerrain.kind === "MASK" && patch.kind === "MASK_RECT") {
-      return {
-        ...currentTerrain,
-        solidBase64: patch.solidBase64,
-      };
-    }
-
     return currentTerrain;
   }, terrain);
 }
 
 function isStaleResyncDiff(
   confirmed: OnlineConfirmedState,
-  diff: OnlineDiffEnvelope<OnlineResyncStateDiff>,
+  diff: OnlineDiffResponseDto<OnlineResyncStateResponse>,
 ): boolean {
-  const payload = diff.payload as OnlineResyncStateDiff["payload"];
+  const payload = diff.payload as OnlineResyncStateResponse["payload"];
   if (diff.sequence <= confirmed.lastConfirmedDiffSequence) {
     return true;
   }
@@ -495,7 +516,7 @@ function isStaleResyncDiff(
   );
 }
 
-function getReconciledIntent(diff: OnlineDiffEnvelope): ReconciledIntent | null {
+function getReconciledIntent(diff: OnlineDiffResponseDto): ReconciledIntent | null {
   if (diff.intentId !== null) {
     return {
       intentId: diff.intentId,
@@ -505,8 +526,8 @@ function getReconciledIntent(diff: OnlineDiffEnvelope): ReconciledIntent | null 
 
   if (diff.type === "MOVEMENT_SEGMENT" || diff.type === "PROJECTILE_RESOLUTION") {
     const payload = diff.payload as
-      | OnlineMovementSegmentDiff["payload"]
-      | OnlineProjectileResolutionDiff["payload"];
+      | OnlineMovementSegmentResponse["payload"]
+      | OnlineProjectileResolutionResponse["payload"];
 
     return {
       intentId: payload.intentId,
@@ -515,7 +536,7 @@ function getReconciledIntent(diff: OnlineDiffEnvelope): ReconciledIntent | null 
   }
 
   if (diff.type === "INTENT_REJECTION") {
-    const payload = diff.payload as OnlineIntentRejectionDiff["payload"];
+    const payload = diff.payload as OnlineIntentRejectionResponse["payload"];
     return {
       intentId: payload.rejectedIntentId,
       playerId: payload.playerId,
@@ -525,17 +546,17 @@ function getReconciledIntent(diff: OnlineDiffEnvelope): ReconciledIntent | null 
   return null;
 }
 
-function getDiffPlayerId(diff: OnlineDiffEnvelope): number | null {
+function getDiffPlayerId(diff: OnlineDiffResponseDto): number | null {
   if (diff.type === "MOVEMENT_SEGMENT") {
-    return (diff.payload as OnlineMovementSegmentDiff["payload"]).playerId;
+    return (diff.payload as OnlineMovementSegmentResponse["payload"]).playerId;
   }
 
   if (diff.type === "PROJECTILE_RESOLUTION") {
-    return (diff.payload as OnlineProjectileResolutionDiff["payload"]).ownerPlayerId;
+    return (diff.payload as OnlineProjectileResolutionResponse["payload"]).ownerPlayerId;
   }
 
   if (diff.type === "INTENT_REJECTION") {
-    return (diff.payload as OnlineIntentRejectionDiff["payload"]).playerId;
+    return (diff.payload as OnlineIntentRejectionResponse["payload"]).playerId;
   }
 
   return null;
@@ -559,8 +580,4 @@ function isMatchingPendingPrediction(
 
 function lerp(from: number, to: number, progress: number): number {
   return from + (to - from) * progress;
-}
-
-function ticksToMs(ticks: ServerTick): number {
-  return (ticks / SERVER_TICK_RATE_HZ) * 1000;
 }

@@ -10,7 +10,6 @@ import {
   type MatchSetupPlayer,
   type ImpactEvent,
   type VelocityComponent,
-  MAX_TANK_FUEL,
 } from "../types";
 
 export class World {
@@ -69,8 +68,8 @@ export class World {
       bodyAngle: 0,
       aimAngle: player.id === 0 ? -Math.PI / 4 : -Math.PI * 0.75,
       power: 360,
-      maxFuel: MAX_TANK_FUEL,
-      fuel: MAX_TANK_FUEL,
+      maxFuel: tankDefinition.maxFuel,
+      fuel: tankDefinition.maxFuel,
       alive: true,
     });
     this.tankEntitiesByPlayer.set(player.id, entityId);

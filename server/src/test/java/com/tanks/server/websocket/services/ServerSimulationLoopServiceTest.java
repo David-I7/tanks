@@ -17,12 +17,13 @@ import org.junit.jupiter.api.Test;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.scheduling.annotation.Scheduled;
 
-import com.tanks.server.websocket.dto.gameplay.OnlineDiffEnvelopeDto;
-import com.tanks.server.websocket.dto.gameplay.OnlineDiffPayloads;
-import com.tanks.server.websocket.dto.gameplay.OnlineStateDiffType;
+import com.tanks.server.websocket.dto.gameplay.OnlineDiffResponseDto;
+import com.tanks.server.websocket.dto.gameplay.OnlineDiffResponsePayloads;
+import com.tanks.server.websocket.dto.gameplay.OnlineStateDiffResponseType;
 import com.tanks.server.websocket.entities.gameSession.GameSession;
 import com.tanks.server.websocket.entities.gameSession.GameSessionState;
 import com.tanks.server.websocket.events.OnlineGameplayEvent;
+import com.tanks.server.websocket.gameplay.world.World;
 import com.tanks.server.websocket.repositories.GameSessionRepository;
 
 class ServerSimulationLoopServiceTest {
@@ -45,7 +46,7 @@ class ServerSimulationLoopServiceTest {
         TestHarness harness = new TestHarness();
         GameSession gameSession = startedGameSession();
         gameSession.setServerTick(41);
-        gameSession.setPlayerTurnExpiresAt(100);
+        gameSession.getWorld().match().turnEndsAtServerTick(100);
 
         when(harness.gameRepository.findByState(GameSessionState.STARTED)).thenReturn(List.of(gameSession));
 
@@ -61,28 +62,28 @@ class ServerSimulationLoopServiceTest {
         TestHarness harness = new TestHarness();
         GameSession gameSession = startedGameSession();
         gameSession.setServerTick(899);
-        gameSession.setPlayerTurnExpiresAt(900);
-        gameSession.setPlayerTurn("host");
-        gameSession.setTurnNumber(1);
+        gameSession.getWorld().match().turnEndsAtServerTick(900);
+        gameSession.getWorld().match().activePlayerId(1);
+        gameSession.getWorld().match().turnNumber(1);
         gameSession.setNextDiffSequence(2);
 
         harness.service.advance(gameSession);
 
         assertThat(gameSession.getServerTick()).isEqualTo(900);
-        assertThat(gameSession.getPlayerTurn()).isEqualTo("opponent");
-        assertThat(gameSession.getTurnNumber()).isEqualTo(2);
-        assertThat(gameSession.getPlayerTurnExpiresAt()).isEqualTo(1800);
+        assertThat(gameSession.getWorld().match().activePlayerId()).isEqualTo(2);
+        assertThat(gameSession.getWorld().match().turnNumber()).isEqualTo(2);
+        assertThat(gameSession.getWorld().match().turnEndsAtServerTick()).isEqualTo(1800);
         assertThat(gameSession.getNextDiffSequence()).isEqualTo(3);
 
-        List<OnlineDiffEnvelopeDto<?>> diffs = gameplayDiffs(harness);
+        List<OnlineDiffResponseDto<?>> diffs = gameplayDiffs(harness);
         assertThat(diffs).hasSize(1);
-        assertThat(diffs).extracting(OnlineDiffEnvelopeDto::type)
-                .containsExactly(OnlineStateDiffType.TURN_TRANSITION);
-        assertThat(diffs).extracting(OnlineDiffEnvelopeDto::sequence).containsExactly(2L);
-        assertThat(diffs).extracting(OnlineDiffEnvelopeDto::serverTick).containsExactly(900L);
+        assertThat(diffs).extracting(OnlineDiffResponseDto::type)
+                .containsExactly(OnlineStateDiffResponseType.TURN_TRANSITION);
+        assertThat(diffs).extracting(OnlineDiffResponseDto::sequence).containsExactly(2L);
+        assertThat(diffs).extracting(OnlineDiffResponseDto::serverTick).containsExactly(900L);
         assertThat(gameSession.getLastDiffServerTick()).isEqualTo(900);
 
-        OnlineDiffPayloads.TurnTransition payload = (OnlineDiffPayloads.TurnTransition) diffs.getFirst().payload();
+        OnlineDiffResponsePayloads.TurnTransition payload = (OnlineDiffResponsePayloads.TurnTransition) diffs.getFirst().payload();
         assertThat(payload.previousPlayerId()).isEqualTo(1);
         assertThat(payload.activePlayerId()).isEqualTo(2);
         assertThat(payload.turnNumber()).isEqualTo(2);
@@ -96,7 +97,7 @@ class ServerSimulationLoopServiceTest {
         GameSession gameSession = startedGameSession();
         gameSession.setConnectedPlayerCount(0);
         gameSession.setServerTick(7);
-        gameSession.setPlayerTurnExpiresAt(100);
+        gameSession.getWorld().match().turnEndsAtServerTick(100);
 
         when(harness.gameRepository.findByState(GameSessionState.STARTED)).thenReturn(List.of(gameSession));
 
@@ -112,7 +113,7 @@ class ServerSimulationLoopServiceTest {
         TestHarness harness = new TestHarness();
         GameSession started = startedGameSession();
         started.setServerTick(5);
-        started.setPlayerTurnExpiresAt(100);
+        started.getWorld().match().turnEndsAtServerTick(100);
         when(harness.gameRepository.findByState(GameSessionState.STARTED)).thenReturn(List.of(started));
 
         harness.service.runFrame();
@@ -156,17 +157,23 @@ class ServerSimulationLoopServiceTest {
                 .id(UUID.randomUUID())
                 .playerA("host")
                 .playerB("opponent")
-                .playerTurn("host")
-                .playerTurnExpiresAt(ServerSimulationLoopService.TURN_TIMER_TICKS)
                 .serverTick(0)
-                .turnNumber(1)
                 .nextDiffSequence(2)
                 .lastDiffServerTick(0)
                 .state(GameSessionState.STARTED)
+                .world(initialWorld())
                 .build();
     }
 
-    private static List<OnlineDiffEnvelopeDto<?>> gameplayDiffs(TestHarness harness) {
+    private static World initialWorld() {
+        World world = new World();
+        world.match().activePlayerId(1);
+        world.match().turnNumber(1);
+        world.match().turnEndsAtServerTick(ServerSimulationLoopService.TURN_TIMER_TICKS);
+        return world;
+    }
+
+    private static List<OnlineDiffResponseDto<?>> gameplayDiffs(TestHarness harness) {
         return harness.events.stream()
                 .filter(OnlineGameplayEvent.class::isInstance)
                 .map(OnlineGameplayEvent.class::cast)

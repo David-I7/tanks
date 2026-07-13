@@ -1,15 +1,15 @@
 import type {
-  OnlineDiffEnvelope,
-  OnlinePlayerIntentEnvelope,
+  OnlineDiffResponseDto,
+  OnlinePlayerIntentRequestDto,
 } from "../../api/ws/dto/gameplay/onlineGameplayProtocol";
 import type { GameManager } from "../authority/gameManager";
 import type { GameAction, GameState } from "../types";
-import { mockGameContent, type GameContent } from "../content/mockGameContent";
 import type { OnlineGameplayTransport } from "./OnlineGameplayTransport";
 import { onlineConfirmedStateToGameState } from "./onlineGameState";
+import { onlineGameContentFromResponse } from "./onlineGameContent";
 import {
   OnlineDiffSequenceError,
-  applyOnlineStateDiff,
+  applyOnlineStateDiffResponse,
   initializeOnlineConfirmedState,
   initializeOnlineConfirmedStateFromResync,
   predictOnlineMovement,
@@ -22,7 +22,6 @@ export type OnlineGameManager = GameManager;
 
 export function createOnlineGameManager(options: {
   transport: OnlineGameplayTransport;
-  content?: GameContent;
   intentIdFactory?: () => string;
   monotonicNowMs?: () => number;
 }): OnlineGameManager {
@@ -35,18 +34,15 @@ class TransportBackedOnlineGameManager implements OnlineGameManager {
   private readonly listeners = new Set<(state: GameState) => void>();
   private readonly unsubscribeTransport: () => void;
   private readonly transport: OnlineGameplayTransport;
-  private readonly content: GameContent;
   private readonly intentIdFactory: () => string;
   private readonly monotonicNowMs: () => number;
 
   constructor(options: {
     transport: OnlineGameplayTransport;
-    content?: GameContent;
     intentIdFactory?: () => string;
     monotonicNowMs?: () => number;
   }) {
     this.transport = options.transport;
-    this.content = options.content ?? mockGameContent;
     this.intentIdFactory = options.intentIdFactory ?? createIntentId;
     this.monotonicNowMs = options.monotonicNowMs ?? (() => performance.now());
     this.unsubscribeTransport = this.transport.subscribeToStateDiffs((diff) => {
@@ -103,7 +99,7 @@ class TransportBackedOnlineGameManager implements OnlineGameManager {
     this.listeners.clear();
   }
 
-  private applyDiff(diff: OnlineDiffEnvelope): void {
+  private applyDiff(diff: OnlineDiffResponseDto): void {
     if (diff.type === "INITIAL_STATE") {
       this.publishConfirmed(initializeOnlineConfirmedState(diff));
       return;
@@ -118,7 +114,7 @@ class TransportBackedOnlineGameManager implements OnlineGameManager {
 
     try {
       this.publishConfirmed(
-        applyOnlineStateDiff(this.confirmedState, diff, this.monotonicNowMs),
+        applyOnlineStateDiffResponse(this.confirmedState, diff, this.monotonicNowMs),
       );
     } catch (error) {
       if (error instanceof OnlineDiffSequenceError && error.kind === "MISSING_DIFF") {
@@ -131,7 +127,7 @@ class TransportBackedOnlineGameManager implements OnlineGameManager {
     }
   }
 
-  private createIntentEnvelope(action: GameAction): OnlinePlayerIntentEnvelope {
+  private createIntentEnvelope(action: GameAction): OnlinePlayerIntentRequestDto {
     if (this.confirmedState === null) {
       throw new Error("Cannot create online intent before confirmed state is initialized");
     }
@@ -180,7 +176,7 @@ class TransportBackedOnlineGameManager implements OnlineGameManager {
     this.currentState = onlineConfirmedStateToGameState(
       state,
       projectOnlineRenderState(state, now),
-      this.content,
+      onlineGameContentFromResponse(state.state.gameContent),
       now,
     );
     for (const listener of this.listeners) {

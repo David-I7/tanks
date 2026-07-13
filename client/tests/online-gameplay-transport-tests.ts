@@ -1,3 +1,4 @@
+import { onlineGameContentResponseFixture } from "./support/onlineGameContentResponseFixture";
 import assert from "node:assert/strict";
 
 import type {
@@ -7,8 +8,8 @@ import type {
   SubscriptionCleanup,
 } from "../src/api/ws/TanksWebSocketClient";
 import type {
-  OnlineDiffEnvelope,
-  OnlinePlayerIntentEnvelope,
+  OnlineDiffResponseDto,
+  OnlinePlayerIntentRequestDto,
 } from "../src/api/ws/dto/gameplay/onlineGameplayProtocol";
 import { createOnlineGameplayTransport } from "../src/game/online/OnlineGameplayTransport";
 
@@ -64,7 +65,7 @@ const intent = {
   lastConfirmedDiffServerTick: 210,
   type: "MOVE",
   payload: { direction: 1 },
-} satisfies OnlinePlayerIntentEnvelope;
+} satisfies OnlinePlayerIntentRequestDto;
 
 const diff = {
   protocolVersion: "online-gameplay.v1",
@@ -86,12 +87,12 @@ const diff = {
     endedServerTick: 255,
     durationTicks: 15,
   },
-} satisfies OnlineDiffEnvelope;
+} satisfies OnlineDiffResponseDto;
 
 const otherGameDiff = {
   ...diff,
   gameSessionId: "other-game",
-} satisfies OnlineDiffEnvelope;
+} satisfies OnlineDiffResponseDto;
 
 {
   const { client, publishes } = createClient();
@@ -120,7 +121,7 @@ const otherGameDiff = {
     client,
     gameSessionId: "game-123",
   });
-  const seen: OnlineDiffEnvelope[] = [];
+  const seen: OnlineDiffResponseDto[] = [];
 
   const unsubscribe = transport.subscribeToStateDiffs((stateDiff) => {
     seen.push(stateDiff);
@@ -189,7 +190,8 @@ const otherGameDiff = {
       playerA: "Ada",
       playerB: "Grace",
       gameStartedAt: "2026-01-01T00:00:00Z",
-      gameplayDefinitionVersion: "online-gameplay-definitions.v1",
+      gameContentVersion: "game-content.v1",
+      gameContent: onlineGameContentResponseFixture,
       localPlayerId: 1,
     },
   }));

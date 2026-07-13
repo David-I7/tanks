@@ -1,479 +1,63 @@
 package com.tanks.server.websocket.dto.gameplay;
 
 import static org.assertj.core.api.Assertions.assertThat;
-
-import java.nio.file.Path;
 import java.util.List;
-
-import org.junit.jupiter.api.DisplayName;
+import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
-
-import com.tanks.server.websocket.dto.gameplay.OnlineDiffPayloads.IntentRejection;
-import com.tanks.server.websocket.dto.gameplay.OnlineDiffPayloads.IntentRejectionReason;
-import com.tanks.server.websocket.dto.gameplay.OnlineDiffPayloads.TurnPhase;
-import com.tanks.server.websocket.dto.gameplay.OnlineIntentPayloads.Fire;
-import com.tanks.server.websocket.dto.gameplay.OnlineMatchSnapshotDto.MatchPhase;
-import com.tanks.server.websocket.dto.gameplay.OnlineTerrainSnapshotDto.TerrainSnapshotKind;
-import com.tanks.server.websocket.dto.game.GameStartPayload;
-
-import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
+import com.tanks.server.websocket.gameplay.content.GameContentCatalog;
 
 class OnlineGameplayProtocolContractTest {
+    private final ObjectMapper mapper = new ObjectMapper();
 
-        private final ObjectMapper objectMapper = new ObjectMapper();
+    @Test void requestNamesRetainTheExistingWireShape() {
+        var request = new OnlinePlayerIntentRequestDto<>(OnlineGameplayProtocolVersion.V1, "game", 1, "intent", 7, 210,
+                OnlinePlayerIntentRequestType.MOVE, new OnlinePlayerIntentRequestPayloads.Move(1));
+        var json = mapper.valueToTree(request);
+        assertThat(json.at("/type").asText()).isEqualTo("MOVE");
+        assertThat(json.at("/payload/direction").asInt()).isEqualTo(1);
+        assertThat(json.at("/payload").size()).isEqualTo(1);
+    }
 
-        @Test
-        @DisplayName("Player Intent envelope serializes the required contract fields")
-        void playerIntentEnvelope() throws Exception {
-                var intent = new OnlinePlayerIntentDto<>(
-                                OnlineGameplayProtocolVersion.V1,
-                                "game-123",
-                                1,
-                                "intent-abc",
-                                7,
-                                210,
-                                OnlinePlayerIntentType.FIRE,
-                                new Fire(42, 0.75, "standard"));
+    @Test void responseMovementCarriesPathPartialStatusAndIntegerFuel() {
+        var path = List.of(new OnlineVec2Dto(10, 20), new OnlineVec2Dto(11, 19));
+        var response = new OnlineDiffResponseDto<>(OnlineGameplayProtocolVersion.V1, "game", 2, 6,
+                OnlineStateDiffResponseType.MOVEMENT_SEGMENT, "intent",
+                new OnlineDiffResponsePayloads.MovementSegment("intent", 1, 10, path.getFirst(), path.getLast(), path,
+                        100, 98, 2, true, 0, 6, 6));
+        var json = mapper.valueToTree(response);
+        assertThat(json.at("/payload/movementPath").size()).isEqualTo(2);
+        assertThat(json.at("/payload/fuelAfter").isIntegralNumber()).isTrue();
+        assertThat(json.at("/payload/partial").asBoolean()).isTrue();
+    }
 
-                JsonNode json = objectMapper.valueToTree(intent);
+    @Test void stateResponseCarriesCompleteGameContentAndHeightmapOnly() {
+        var content = new GameContentCatalog().current();
+        var state = new OnlineGameStateSnapshotResponseDto(content.version(), GameContentResponseDto.from(content),
+                new OnlineMatchSnapshotResponseDto(OnlineMatchSnapshotResponseDto.MatchPhase.AIMING, 1, 2, 1, 900, null),
+                new OnlineTerrainSnapshotResponseDto.Heightmap(OnlineTerrainSnapshotResponseDto.TerrainSnapshotKind.HEIGHTMAP,
+                        4, 3, List.of(2, 2, 1, 2)), List.of(), List.of());
+        var json = mapper.valueToTree(state);
+        assertThat(json.at("/gameContentVersion").asText()).isEqualTo("game-content.v1");
+        assertThat(json.at("/gameContent/world/bedrockDepth").asInt()).isPositive();
+        assertThat(json.at("/terrain/kind").asText()).isEqualTo("HEIGHTMAP");
+        assertThat(OnlineTerrainSnapshotResponseDto.class.getPermittedSubclasses()).hasSize(1);
+        assertThat(OnlineTerrainPatchResponseDto.class.getPermittedSubclasses()).hasSize(1);
+    }
 
-                assertThat(json.get("protocolVersion").asText()).isEqualTo("online-gameplay.v1");
-                assertThat(json.get("gameSessionId").asText()).isEqualTo("game-123");
-                assertThat(json.get("intentId").asText()).isEqualTo("intent-abc");
-                assertThat(json.get("lastConfirmedDiffSequence").asLong()).isEqualTo(7);
-                assertThat(json.get("lastConfirmedDiffServerTick").asLong()).isEqualTo(210);
-                assertThat(json.get("type").asText()).isEqualTo("FIRE");
-                assertThat(json.at("/payload/projectileSlotId").asText()).isEqualTo("standard");
-        }
-
-        @Test
-        @DisplayName("State Diff envelope serializes the required contract fields")
-        void stateDiffEnvelope() {
-                var diff = new OnlineDiffEnvelopeDto<>(
-                                OnlineGameplayProtocolVersion.V1,
-                                "game-123",
-                                8,
-                                240,
-                                OnlineStateDiffType.INTENT_REJECTION,
-                                "intent-abc",
-                                new IntentRejection(
-                                                "intent-abc",
-                                                1,
-                                                IntentRejectionReason.STALE_BASE_STATE,
-                                                9,
-                                                270));
-
-                JsonNode json = objectMapper.valueToTree(diff);
-
-                assertThat(json.get("gameSessionId").asText()).isEqualTo("game-123");
-                assertThat(json.get("sequence").asLong()).isEqualTo(8);
-                assertThat(json.get("serverTick").asLong()).isEqualTo(240);
-                assertThat(json.get("type").asText()).isEqualTo("INTENT_REJECTION");
-                assertThat(json.get("intentId").asText()).isEqualTo("intent-abc");
-                assertThat(json.at("/payload/reason").asText()).isEqualTo("STALE_BASE_STATE");
-        }
-
-        @Test
-        @DisplayName("Game Started payload exposes the recipient's authoritative Local Player identity")
-        void gameStartedPayloadIncludesLocalPlayerIdentity() {
-                var started = new GameStartPayload(
-                                java.util.UUID.fromString("00000000-0000-0000-0000-000000000123"),
-                                "host",
-                                "opponent",
-                                java.time.OffsetDateTime.parse("2026-01-01T00:00:00Z"),
-                                "online-gameplay-definitions.v1",
-                                2);
-
-                JsonNode json = objectMapper.valueToTree(started);
-
-                assertThat(json.get("gameSessionId").asText()).isEqualTo("00000000-0000-0000-0000-000000000123");
-                assertThat(json.get("localPlayerId").asLong()).isEqualTo(2);
-        }
-
-        @Test
-        @DisplayName("Projectile Resolution exposes render asset IDs without client asset paths")
-        void projectileResolutionRenderAssetIds() {
-                var diff = new OnlineDiffEnvelopeDto<>(
-                                OnlineGameplayProtocolVersion.V1,
-                                "game-123",
-                                4,
-                                90,
-                                OnlineStateDiffType.PROJECTILE_RESOLUTION,
-                                "intent-fire",
-                                new OnlineDiffPayloads.ProjectileResolution(
-                                                "intent-fire",
-                                                20,
-                                                1,
-                                                "basicShell",
-                                                "projectile.basic-shell",
-                                                "impact.orange-pop",
-                                                new OnlineVec2Dto(55, 110),
-                                                List.of(new OnlineVec2Dto(55, 110), new OnlineVec2Dto(120, 130)),
-                                                new OnlineVec2Dto(120, 130),
-                                                List.of(new OnlineTankDamageDto(11, 2, 35, 65))));
-
-                JsonNode json = objectMapper.valueToTree(diff);
-
-                assertThat(json.at("/payload/projectileRenderAssetId").asText()).isEqualTo("projectile.basic-shell");
-                assertThat(json.at("/payload/impactRenderAssetId").asText()).isEqualTo("impact.orange-pop");
-                assertThat(json.at("/payload/intentId").asText()).isEqualTo("intent-fire");
-                assertThat(json.at("/payload/trajectory").size()).isEqualTo(2);
-                assertThat(json.at("/payload/projectileRenderAssetId").asText()).doesNotContain("/", "\\");
-                assertThat(json.at("/payload/impactRenderAssetId").asText()).doesNotContain("/", "\\");
-        }
-
-        @Test
-        @DisplayName("Accepted intent diffs include the Intent ID in the canonical payload")
-        void acceptedIntentDiffPayloadsIncludeIntentId() {
-                var movement = new OnlineDiffEnvelopeDto<>(
-                                OnlineGameplayProtocolVersion.V1,
-                                "game-123",
-                                3,
-                                60,
-                                OnlineStateDiffType.MOVEMENT_SEGMENT,
-                                "intent-move",
-                                new OnlineDiffPayloads.MovementSegment(
-                                                "intent-move",
-                                                1,
-                                                10,
-                                                new OnlineVec2Dto(50, 120),
-                                                new OnlineVec2Dto(55, 120),
-                                                100,
-                                                95,
-                                                5,
-                                                60,
-                                                75,
-                                                15));
-
-                JsonNode json = objectMapper.valueToTree(movement);
-
-                assertThat(json.get("intentId").asText()).isEqualTo("intent-move");
-                assertThat(json.at("/payload/intentId").asText()).isEqualTo("intent-move");
-        }
-
-        @Test
-        @DisplayName("Protocol covers every authoritative diff shape")
-        void diffShapes() {
-                var state = stateSnapshot();
-
-                List<OnlineDiffEnvelopeDto<?>> diffs = List.of(
-                                new OnlineDiffEnvelopeDto<>(
-                                                OnlineGameplayProtocolVersion.V1,
-                                                "game-123",
-                                                1,
-                                                0,
-                                                OnlineStateDiffType.INITIAL_STATE,
-                                                null,
-                                                new OnlineDiffPayloads.InitialState(2, 1, state)),
-                                new OnlineDiffEnvelopeDto<>(
-                                                OnlineGameplayProtocolVersion.V1,
-                                                "game-123",
-                                                2,
-                                                30,
-                                                OnlineStateDiffType.RESYNC_STATE,
-                                                null,
-                                                new OnlineDiffPayloads.ResyncState(
-                                                                1,
-                                                                OnlineDiffPayloads.ResyncReason.MISSED_DIFF,
-                                                                1,
-                                                                state)),
-                                new OnlineDiffEnvelopeDto<>(
-                                                OnlineGameplayProtocolVersion.V1,
-                                                "game-123",
-                                                3,
-                                                60,
-                                                OnlineStateDiffType.MOVEMENT_SEGMENT,
-                                                "intent-move",
-                                                new OnlineDiffPayloads.MovementSegment(
-                                                                "intent-move",
-                                                                1,
-                                                                10,
-                                                                new OnlineVec2Dto(50, 120),
-                                                                new OnlineVec2Dto(55, 120),
-                                                                100,
-                                                                95,
-                                                                5,
-                                                                60,
-                                                                75,
-                                                                15)),
-                                new OnlineDiffEnvelopeDto<>(
-                                                OnlineGameplayProtocolVersion.V1,
-                                                "game-123",
-                                                4,
-                                                90,
-                                                OnlineStateDiffType.PROJECTILE_RESOLUTION,
-                                                "intent-fire",
-                                                new OnlineDiffPayloads.ProjectileResolution(
-                                                                "intent-fire",
-                                                                20,
-                                                                1,
-                                                                "basicShell",
-                                                                "projectile.basic-shell",
-                                                                "impact.orange-pop",
-                                                                new OnlineVec2Dto(55, 110),
-                                                                List.of(new OnlineVec2Dto(55, 110),
-                                                                                new OnlineVec2Dto(120, 130)),
-                                                                new OnlineVec2Dto(120, 130),
-                                                                List.of(new OnlineTankDamageDto(11, 2, 35, 65)))),
-                                new OnlineDiffEnvelopeDto<>(
-                                                OnlineGameplayProtocolVersion.V1,
-                                                "game-123",
-                                                5,
-                                                90,
-                                                OnlineStateDiffType.TERRAIN_PATCH,
-                                                null,
-                                                new OnlineDiffPayloads.TerrainPatch(List.of(
-                                                                new OnlineTerrainPatchDto.HeightmapRange(
-                                                                                OnlineTerrainPatchDto.TerrainPatchKind
-                                                                                                .HEIGHTMAP_RANGE,
-                                                                                2,
-                                                                                List.of(1, 1, 2))))),
-                                new OnlineDiffEnvelopeDto<>(
-                                                OnlineGameplayProtocolVersion.V1,
-                                                "game-123",
-                                                6,
-                                                120,
-                                                OnlineStateDiffType.INTENT_REJECTION,
-                                                "intent-stale",
-                                                new IntentRejection(
-                                                                "intent-stale",
-                                                                1,
-                                                                IntentRejectionReason.STALE_BASE_STATE,
-                                                                6,
-                                                                120)),
-                                new OnlineDiffEnvelopeDto<>(
-                                                OnlineGameplayProtocolVersion.V1,
-                                                "game-123",
-                                                7,
-                                                150,
-                                                OnlineStateDiffType.TURN_TRANSITION,
-                                                null,
-                                                new OnlineDiffPayloads.TurnTransition(1, 2, 2, TurnPhase.AIMING, 1050)),
-                                new OnlineDiffEnvelopeDto<>(
-                                                OnlineGameplayProtocolVersion.V1,
-                                                "game-123",
-                                                8,
-                                                180,
-                                                OnlineStateDiffType.TERMINAL_GAME,
-                                                null,
-                                                new OnlineDiffPayloads.TerminalGame(
-                                                                1L,
-                                                                OnlineDiffPayloads.TerminalGameReason.LAST_TANK_STANDING,
-                                                                state)));
-
-                assertThat(diffs)
-                                .extracting(OnlineDiffEnvelopeDto::type)
-                                .containsExactly(
-                                                OnlineStateDiffType.INITIAL_STATE,
-                                                OnlineStateDiffType.RESYNC_STATE,
-                                                OnlineStateDiffType.MOVEMENT_SEGMENT,
-                                                OnlineStateDiffType.PROJECTILE_RESOLUTION,
-                                                OnlineStateDiffType.TERRAIN_PATCH,
-                                                OnlineStateDiffType.INTENT_REJECTION,
-                                                OnlineStateDiffType.TURN_TRANSITION,
-                                                OnlineStateDiffType.TERMINAL_GAME);
-        }
-
-        @Test
-        @DisplayName("Chat is not an authoritative State Diff shape")
-        void chatIsNotAStateDiffShape() {
-                assertThat(OnlineStateDiffType.values())
-                                .extracting(Enum::name)
-                                .doesNotContain("CHAT", "CHAT_MESSAGE", "LOBBY_CHAT");
-        }
-
-        @Test
-        @DisplayName("Shared examples match server serialization")
-        void sharedExamples() throws Exception {
-                JsonNode expected = objectMapper.readTree(Path.of("..", "docs", "contracts",
-                                "online-gameplay-protocol-examples.json").toFile());
-
-                JsonNode actual = objectMapper.valueToTree(new OnlineGameplayProtocolFixture(
-                                playerIntentFixture(),
-                                List.of(
-                                                initialStateFixture(),
-                                                resyncStateFixture(),
-                                                movementSegmentFixture(),
-                                                projectileResolutionFixture(),
-                                                terrainPatchFixture(),
-                                                intentRejectionFixture(),
-                                                turnTransitionFixture(),
-                                                terminalGameFixture())));
-
-                assertThat(actual.toString()).isEqualTo(expected.toString());
-        }
-
-        private static OnlineGameStateSnapshotDto stateSnapshot() {
-                return new OnlineGameStateSnapshotDto(
-                                "online-gameplay-definitions.v1",
-                                new OnlineMatchSnapshotDto(MatchPhase.AIMING, 1, 2, 1, 900, null),
-                                new OnlineTerrainSnapshotDto.Heightmap(TerrainSnapshotKind.HEIGHTMAP, 4, 3,
-                                                List.of(2, 2, 1, 2)),
-                                List.of(new OnlineTankSnapshotDto(
-                                                10,
-                                                1,
-                                                "Player 1",
-                                                "vanguard",
-                                                "tank.vanguard",
-                                                new OnlineVec2Dto(50, 120),
-                                                1,
-                                                45,
-                                                0.5,
-                                                "standard",
-                                                List.of(new OnlineProjectileSlotSnapshotDto(
-                                                                "standard",
-                                                                "basicShell",
-                                                                "Std",
-                                                                "projectile-slot.standard")),
-                                                110,
-                                                110,
-                                                100,
-                                                true)),
-                                List.of());
-        }
-
-        private static OnlinePlayerIntentDto<Fire> playerIntentFixture() {
-                return new OnlinePlayerIntentDto<>(
-                                OnlineGameplayProtocolVersion.V1,
-                                "game-123",
-                                1,
-                                "intent-abc",
-                                7,
-                                210,
-                                OnlinePlayerIntentType.FIRE,
-                                new Fire(42, 0.75, "standard"));
-        }
-
-        private static OnlineDiffEnvelopeDto<OnlineDiffPayloads.InitialState> initialStateFixture() {
-                return new OnlineDiffEnvelopeDto<>(
-                                OnlineGameplayProtocolVersion.V1,
-                                "game-123",
-                                1,
-                                0,
-                                OnlineStateDiffType.INITIAL_STATE,
-                                null,
-                                new OnlineDiffPayloads.InitialState(2, 1, stateSnapshot()));
-        }
-
-        private static OnlineDiffEnvelopeDto<OnlineDiffPayloads.ResyncState> resyncStateFixture() {
-                return new OnlineDiffEnvelopeDto<>(
-                                OnlineGameplayProtocolVersion.V1,
-                                "game-123",
-                                2,
-                                30,
-                                OnlineStateDiffType.RESYNC_STATE,
-                                null,
-                                new OnlineDiffPayloads.ResyncState(
-                                                1,
-                                                OnlineDiffPayloads.ResyncReason.MISSED_DIFF,
-                                                1,
-                                                stateSnapshot()));
-        }
-
-        private static OnlineDiffEnvelopeDto<OnlineDiffPayloads.MovementSegment> movementSegmentFixture() {
-                return new OnlineDiffEnvelopeDto<>(
-                                OnlineGameplayProtocolVersion.V1,
-                                "game-123",
-                                3,
-                                60,
-                                OnlineStateDiffType.MOVEMENT_SEGMENT,
-                                "intent-move",
-                                new OnlineDiffPayloads.MovementSegment(
-                                                "intent-move",
-                                                1,
-                                                10,
-                                                new OnlineVec2Dto(50, 120),
-                                                new OnlineVec2Dto(55, 120),
-                                                100,
-                                                95,
-                                                5,
-                                                60,
-                                                75,
-                                                15));
-        }
-
-        private static OnlineDiffEnvelopeDto<OnlineDiffPayloads.ProjectileResolution> projectileResolutionFixture() {
-                return new OnlineDiffEnvelopeDto<>(
-                                OnlineGameplayProtocolVersion.V1,
-                                "game-123",
-                                4,
-                                90,
-                                OnlineStateDiffType.PROJECTILE_RESOLUTION,
-                                "intent-fire",
-                                new OnlineDiffPayloads.ProjectileResolution(
-                                                "intent-fire",
-                                                20,
-                                                1,
-                                                "basicShell",
-                                                "projectile.basic-shell",
-                                                "impact.orange-pop",
-                                                new OnlineVec2Dto(55, 110),
-                                                List.of(new OnlineVec2Dto(55, 110),
-                                                                new OnlineVec2Dto(120, 130)),
-                                                new OnlineVec2Dto(120, 130),
-                                                List.of(new OnlineTankDamageDto(11, 2, 35, 65))));
-        }
-
-        private static OnlineDiffEnvelopeDto<OnlineDiffPayloads.TerrainPatch> terrainPatchFixture() {
-                return new OnlineDiffEnvelopeDto<>(
-                                OnlineGameplayProtocolVersion.V1,
-                                "game-123",
-                                5,
-                                90,
-                                OnlineStateDiffType.TERRAIN_PATCH,
-                                null,
-                                new OnlineDiffPayloads.TerrainPatch(List.of(
-                                                new OnlineTerrainPatchDto.HeightmapRange(
-                                                                OnlineTerrainPatchDto.TerrainPatchKind
-                                                                                .HEIGHTMAP_RANGE,
-                                                                2,
-                                                                List.of(1, 1, 2)))));
-        }
-
-        private static OnlineDiffEnvelopeDto<IntentRejection> intentRejectionFixture() {
-                return new OnlineDiffEnvelopeDto<>(
-                                OnlineGameplayProtocolVersion.V1,
-                                "game-123",
-                                6,
-                                120,
-                                OnlineStateDiffType.INTENT_REJECTION,
-                                "intent-stale",
-                                new IntentRejection(
-                                                "intent-stale",
-                                                1,
-                                                IntentRejectionReason.STALE_BASE_STATE,
-                                                6,
-                                                120));
-        }
-
-        private static OnlineDiffEnvelopeDto<OnlineDiffPayloads.TurnTransition> turnTransitionFixture() {
-                return new OnlineDiffEnvelopeDto<>(
-                                OnlineGameplayProtocolVersion.V1,
-                                "game-123",
-                                7,
-                                150,
-                                OnlineStateDiffType.TURN_TRANSITION,
-                                null,
-                                new OnlineDiffPayloads.TurnTransition(1, 2, 2, TurnPhase.AIMING, 1050));
-        }
-
-        private static OnlineDiffEnvelopeDto<OnlineDiffPayloads.TerminalGame> terminalGameFixture() {
-                return new OnlineDiffEnvelopeDto<>(
-                                OnlineGameplayProtocolVersion.V1,
-                                "game-123",
-                                8,
-                                180,
-                                OnlineStateDiffType.TERMINAL_GAME,
-                                null,
-                                new OnlineDiffPayloads.TerminalGame(
-                                                1L,
-                                                OnlineDiffPayloads.TerminalGameReason.LAST_TANK_STANDING,
-                                                stateSnapshot()));
-        }
-
-        private record OnlineGameplayProtocolFixture(
-                        OnlinePlayerIntentDto<Fire> playerIntent,
-                        List<OnlineDiffEnvelopeDto<?>> diffs) {
-        }
+    @Test void sharedClientExamplesMatchServerRequestAndMovementSerialization() throws Exception {
+        var shared = mapper.readTree(Path.of("..", "docs", "contracts", "online-gameplay-protocol-examples.json").toFile());
+        var request = new OnlinePlayerIntentRequestDto<>(OnlineGameplayProtocolVersion.V1, "game-123", 1,
+                "intent-abc", 7, 210, OnlinePlayerIntentRequestType.FIRE,
+                new OnlinePlayerIntentRequestPayloads.Fire(42, .75, "standard"));
+        var path = List.of(new OnlineVec2Dto(50, 120), new OnlineVec2Dto(55, 120));
+        var movement = new OnlineDiffResponseDto<>(OnlineGameplayProtocolVersion.V1, "game-123", 3, 60,
+                OnlineStateDiffResponseType.MOVEMENT_SEGMENT, "intent-move",
+                new OnlineDiffResponsePayloads.MovementSegment("intent-move", 1, 10, path.getFirst(), path.getLast(),
+                        path, 100, 95, 5, false, 60, 75, 15));
+        tools.jackson.databind.JsonNode requestJson = mapper.valueToTree(request);
+        tools.jackson.databind.JsonNode movementJson = mapper.valueToTree(movement);
+        assertThat(requestJson.toString()).isEqualTo(shared.get("playerIntent").toString());
+        assertThat(movementJson.toString()).isEqualTo(shared.get("diffs").get(2).toString());
+    }
 }

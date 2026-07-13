@@ -1,11 +1,33 @@
 import type { ProjectileDefinition, TankDefinition } from "../types";
 
 export type GameContent = {
+  version: string;
+  world: {
+    width: number;
+    height: number;
+    bedrockDepth: number;
+    tickRateHz: number;
+    gravity: number;
+    projectileTimeStepSeconds: number;
+    maxProjectileSteps: number;
+    movementSegmentDurationTicks: number;
+  };
   tanks: Record<string, TankDefinition>;
   projectiles: Record<string, ProjectileDefinition>;
 };
 
 export const mockGameContent: GameContent = {
+  version: "game-content.v1",
+  world: {
+    width: 1280,
+    height: 720,
+    bedrockDepth: 40,
+    tickRateHz: 30,
+    gravity: 500,
+    projectileTimeStepSeconds: 1 / 30,
+    maxProjectileSteps: 180,
+    movementSegmentDurationTicks: 6,
+  },
   projectiles: {
     basicShell: {
       id: "basicShell",
@@ -113,6 +135,15 @@ export const mockGameContent: GameContent = {
       id: "vanguard",
       name: "Vanguard",
       maxHealth: 110,
+      maxFuel: 240,
+      movementQuantum: 8,
+      fuelRate: 1,
+      climbCapability: 5,
+      collisionRadius: 32,
+      halfWidth: 16,
+      trackGroundOffset: 0,
+      muzzleForwardOffset: 18,
+      muzzleVerticalOffset: 24,
       visual: {
         fill: "#22c55e",
         stroke: "#14532d",
@@ -131,6 +162,15 @@ export const mockGameContent: GameContent = {
       id: "specter",
       name: "Specter",
       maxHealth: 94,
+      maxFuel: 240,
+      movementQuantum: 8,
+      fuelRate: 1,
+      climbCapability: 5,
+      collisionRadius: 32,
+      halfWidth: 16,
+      trackGroundOffset: 0,
+      muzzleForwardOffset: 18,
+      muzzleVerticalOffset: 24,
       visual: {
         fill: "#60a5fa",
         stroke: "#1e3a8a",

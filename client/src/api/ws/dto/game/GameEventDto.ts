@@ -7,7 +7,7 @@ export type GameStartedPayload = {
     playerA: string;
     playerB: string;
     gameStartedAt: string;
-    gameplayDefinitionVersion: string;
+    gameContentVersion: string;
     localPlayerId: PlayerId;
 }
 

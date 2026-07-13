@@ -5,7 +5,7 @@ export type GameMode = "online" | "localTwoPlayer" | "playerVsAi";
 export type ControllerKind = "human" | "ai" | "remote";
 
 export type GameAction =
-  | { type: "move"; direction: -1 | 0 | 1 }
+  | { type: "move"; direction: -1 | 1 }
   | { type: "aim"; angle: number; power: number }
   | { type: "selectProjectileSlot"; projectileSlotId: string }
   | {
@@ -70,12 +70,22 @@ export type ProjectileSlot = {
   id: string;
   projectileDefinitionId: string;
   label: string;
+  renderAssetId?: string;
 };
 
 export type TankDefinition = {
   id: string;
   name: string;
   maxHealth: number;
+  maxFuel: number;
+  movementQuantum: number;
+  fuelRate: number;
+  climbCapability: number;
+  collisionRadius: number;
+  halfWidth: number;
+  trackGroundOffset: number;
+  muzzleForwardOffset: number;
+  muzzleVerticalOffset: number;
   loadout: ProjectileSlot[];
   visual: VisualIdentity;
 };
