@@ -64,6 +64,24 @@ public class GameAuthorizationService {
             );
         }
 
+        Lobby lobby = lobbyService.findById(userSession.getLobbyId());
+
+        if(lobby.getStatus() != LobbyStatus.READY){
+            throw new ProblemDetailException(
+                    HttpStatus.UNAUTHORIZED,
+                    "Lobby only has one player.",
+                    URI.create(uri)
+            );
+        }
+
+        if(!lobby.getHostId().equals(userSession.getId())){
+            throw new ProblemDetailException(
+                    HttpStatus.UNAUTHORIZED,
+                    "Player is not the host of the lobby.",
+                    URI.create(uri)
+            );
+        }
+
         return true;
     }
 

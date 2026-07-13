@@ -61,10 +61,9 @@ public class GameSessionService {
     private final OnlineInitialStateFactory initialStateFactory;
     private final GameResultRepository gameResultRepository;
     private final UserRepository userRepository;
-    private final KeyLockManager keyLockManager;
 
     public GameSession create(Lobby lobby) {
-        synchronized (keyLockManager.getLock(lobby.getId().toString())) {
+        synchronized (lobby.getId().toString().intern()) {
             Lobby freshLobby = lobbyRepository.findById(lobby.getId())
                     .orElseThrow(() -> new ProblemDetailException(HttpStatus.NOT_FOUND, "The lobby with the provided id does not exist.", URI.create("about:blank")));
 
@@ -138,7 +137,7 @@ public class GameSessionService {
     }
 
     public void startGame(GameSession gameSession) {
-        synchronized (keyLockManager.getLock(gameSession.getId().toString())) {
+        synchronized (gameSession.getId().toString().intern()) {
             GameSession freshGameSession = findById(gameSession.getId());
             if (!GameSessionState.CREATED.equals(freshGameSession.getState())) {
                 return;
@@ -270,17 +269,21 @@ public class GameSessionService {
     }
 
     public GameSession getAndIncrementPlayerCount(UUID gameSessionId){
-        synchronized (keyLockManager.getLock(gameSessionId.toString())) {
+        synchronized (gameSessionId.toString().intern()) {
             GameSession gameSession = findById(gameSessionId);
+            if (gameSession.getConnectedPlayerCount() >= 2)
+                throw new ProblemDetailException(HttpStatus.BAD_REQUEST, "Game session already has 2 players", URI.create("about:blank"));
             gameSession.setConnectedPlayerCount(gameSession.getConnectedPlayerCount() + 1);
             return gameRepository.save(gameSession);
         }
     }
 
     public void decremenentPlayerCount(UUID gameSessionId){
-        synchronized (keyLockManager.getLock(gameSessionId.toString())) {
+        synchronized (gameSessionId.toString().intern()) {
             try {
                 GameSession gameSession = findById(gameSessionId);
+                if (gameSession.getConnectedPlayerCount() <= 0)
+                    throw new ProblemDetailException(HttpStatus.BAD_REQUEST, "Game session is already empty", URI.create("about:blank"));
                 gameSession.setConnectedPlayerCount(gameSession.getConnectedPlayerCount() - 1);
                 gameRepository.save(gameSession);
             } catch (RuntimeException ex) {

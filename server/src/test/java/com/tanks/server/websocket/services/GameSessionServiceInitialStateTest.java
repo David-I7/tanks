@@ -54,7 +54,6 @@ class GameSessionServiceInitialStateTest {
                 .gameplayDefinitionVersion(harness.gameplayRules.currentVersion())
                 .build();
 
-        when(harness.claimService.claimGameStart(gameSessionId)).thenReturn(true);
         when(harness.gameRepository.findById(gameSessionId)).thenReturn(Optional.of(gameSession));
         when(harness.gameRepository.save(any(GameSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -129,7 +128,6 @@ class GameSessionServiceInitialStateTest {
         UserSession host = UserSession.builder().id(1L).username("host").build();
         UserSession opponent = UserSession.builder().id(2L).username("opponent").build();
 
-        when(harness.claimService.claimGameCreation(lobbyId, 1L)).thenReturn(true);
         when(harness.lobbyRepository.findById(lobbyId)).thenReturn(Optional.of(lobby));
         when(harness.userSessionService.findById(1L)).thenReturn(host);
         when(harness.userSessionService.findById(2L)).thenReturn(opponent);
@@ -138,7 +136,6 @@ class GameSessionServiceInitialStateTest {
         GameSession created = harness.service.create(lobby);
         harness.events.clear();
 
-        when(harness.claimService.claimGameStart(created.getId())).thenReturn(true);
         when(harness.gameRepository.findById(created.getId())).thenReturn(Optional.of(created));
 
         harness.service.startGame(created);
@@ -268,7 +265,6 @@ class GameSessionServiceInitialStateTest {
                 .status(LobbyStatus.WAITING_FOR_OPPONENT)
                 .build();
 
-        when(harness.claimService.claimGameCreation(lobbyId, 1L)).thenReturn(true);
         when(harness.lobbyRepository.findById(lobbyId)).thenReturn(Optional.of(staleLobby));
 
         assertThatThrownBy(() -> harness.service.create(staleLobby))
@@ -298,7 +294,6 @@ class GameSessionServiceInitialStateTest {
                 gameplayRules,
                 initialStateFactory,
                 gameResultRepository,
-                userRepository,
-                new KeyLockManager());
+                userRepository);
     }
 }

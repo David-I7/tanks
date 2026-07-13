@@ -36,18 +36,9 @@ public class UserSessionReloadInterceptor implements ChannelInterceptor {
             return message;
         }
 
-        // Only reload user session if it is a subscribe, unsubscribe or disconnect command
-        if(!StompCommand.SUBSCRIBE.equals(accessor.getCommand()) &&
-                !StompCommand.UNSUBSCRIBE.equals(accessor.getCommand()) &&
-                !StompCommand.DISCONNECT.equals(accessor.getCommand())
-        ) {
-            return message;
-        }
-
         WebSocketAuthentication authentication = (WebSocketAuthentication) accessor.getUser();
         WebSocketPrincipal principal = (WebSocketPrincipal) authentication.getPrincipal();
         Long userId = principal.getUserDto().id();
-
 
         if (claimService.consumeUserSessionReloadRequired(userId)) {
             UserSession userSession = userSessionService.findById(userId);

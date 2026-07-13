@@ -31,14 +31,6 @@ public class GameSessionController {
 
     private final LobbyService lobbyService;
 
-    // TODO: Implement game start logic
-    @MessageMapping("/game/{id}/send")
-    @SendTo("/topic/game/{id}")
-    @PreAuthorize("@gameAuthorizationService.canSendMessageToTopic(authentication, '/topic/game/' + #id)")
-    public GameSession startGame(@DestinationVariable UUID id, Authentication authentication){
-        return null;
-    }
-
     @MessageMapping("/game/{id}/intent")
     @PreAuthorize("@gameAuthorizationService.canSendMessageToTopic(authentication, '/topic/game/' + #id)")
     public void acceptPlayerIntent(
@@ -63,24 +55,6 @@ public class GameSessionController {
         UserSession host = wsPrincipal.getUserSession();
 
         Lobby lobby = lobbyService.findById(host.getLobbyId());
-
-        // Authorization logic is here to avoid making 2 requests for the lobby
-        if(lobby.getStatus() != LobbyStatus.READY){
-            throw new ProblemDetailException(
-                    HttpStatus.UNAUTHORIZED,
-                    "Lobby only has one player.",
-                    URI.create("/game/create")
-            );
-        }
-
-        if(!lobby.getHostId().equals(host.getId())){
-            throw new ProblemDetailException(
-                    HttpStatus.UNAUTHORIZED,
-                    "Player is not the host of the lobby.",
-                    URI.create("/game/create")
-            );
-        }
-
         gameSessionService.create(lobby);
     }
 

@@ -30,7 +30,6 @@ public class LobbyService {
     private final QuickMatchService quickMatchService;
     private final UserSessionService userSessionService;
     private final ApplicationEventPublisher eventPublisher;
-    private final KeyLockManager keyLockManager;
 
     public Lobby create(UserSession userSession, LobbyType type) {
         UserSession originalUserSession = new UserSession(userSession);
@@ -63,7 +62,7 @@ public class LobbyService {
     }
 
     public void join(UUID lobbyId, UserSession userSession) {
-        synchronized (keyLockManager.getLock(lobbyId.toString())) {
+        synchronized (lobbyId.toString().intern()) {
             Lobby lobby = findById(lobbyId);
             Long originalOpponentId = lobby.getOpponentId();
             LobbyStatus originalStatus = lobby.getStatus();

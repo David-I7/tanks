@@ -109,7 +109,6 @@ public class ServerSimulationLoopService implements ApplicationListener<ContextC
     }
 
 
-
     private void advanceTurnWithoutShot(GameSession gameSession) {
         String previousPlayer = gameSession.getPlayerTurn();
         String nextPlayer = nextPlayer(gameSession, previousPlayer);

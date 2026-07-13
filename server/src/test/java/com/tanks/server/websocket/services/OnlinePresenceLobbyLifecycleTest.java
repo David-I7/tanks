@@ -253,7 +253,6 @@ class OnlinePresenceLobbyLifecycleTest {
                 lobbyRepository,
                 quickMatchService,
                 userSessionService,
-                eventPublisher,
-                new KeyLockManager());
+                eventPublisher);
     }
 }

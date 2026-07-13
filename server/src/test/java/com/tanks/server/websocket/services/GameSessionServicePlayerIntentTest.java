@@ -619,7 +619,6 @@ class GameSessionServicePlayerIntentTest {
                 gameplayRules,
                 initialStateFactory,
                 gameResultRepository,
-                userRepository,
-                new KeyLockManager());
+                userRepository);
     }
 }
