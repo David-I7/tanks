@@ -40,13 +40,13 @@ class OnlinePresenceLobbyLifecycleTest {
     @DisplayName("One authenticated user can claim only one Active Socket")
     void oneAuthenticatedUserCanClaimOnlyOneActiveSocket() {
         UserSessionService userSessionService = mock(UserSessionService.class);
-        RedisClaimService redisClaimService = mock(RedisClaimService.class);
+        ClaimService claimService = mock(ClaimService.class);
         AuthorizationInterceptor interceptor = new AuthorizationInterceptor(
                 userSessionService,
                 mock(LobbyAuthorizationService.class),
                 mock(GameAuthorizationService.class),
-                redisClaimService);
-        when(redisClaimService.claimSocket(1L, "socket-b")).thenReturn(false);
+                claimService);
+        when(claimService.claimSocket(1L, "socket-b")).thenReturn(false);
 
         assertThatThrownBy(() -> interceptor.preSend(connectMessage(1L, "player", "socket-b"), mock(org.springframework.messaging.MessageChannel.class)))
                 .isInstanceOf(ProblemDetailException.class)
@@ -59,16 +59,16 @@ class OnlinePresenceLobbyLifecycleTest {
     @DisplayName("Active Socket claim is refreshed on authenticated socket traffic")
     void activeSocketClaimIsRefreshedOnAuthenticatedSocketTraffic() {
         UserSessionService userSessionService = mock(UserSessionService.class);
-        RedisClaimService redisClaimService = mock(RedisClaimService.class);
+        ClaimService claimService = mock(ClaimService.class);
         AuthorizationInterceptor interceptor = new AuthorizationInterceptor(
                 userSessionService,
                 mock(LobbyAuthorizationService.class),
                 mock(GameAuthorizationService.class),
-                redisClaimService);
+                claimService);
 
         interceptor.preSend(sendMessage(1L, "player", "socket-a"), mock(org.springframework.messaging.MessageChannel.class));
 
-        verify(redisClaimService).refreshSocketClaim(1L);
+        verify(claimService).refreshSocketClaim(1L);
     }
 
     @Test

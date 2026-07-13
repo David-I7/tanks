@@ -54,7 +54,7 @@ class GameSessionServiceInitialStateTest {
                 .gameplayDefinitionVersion(harness.gameplayRules.currentVersion())
                 .build();
 
-        when(harness.redisClaimService.claimGameStart(gameSessionId)).thenReturn(true);
+        when(harness.claimService.claimGameStart(gameSessionId)).thenReturn(true);
         when(harness.gameRepository.findById(gameSessionId)).thenReturn(Optional.of(gameSession));
         when(harness.gameRepository.save(any(GameSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -129,7 +129,7 @@ class GameSessionServiceInitialStateTest {
         UserSession host = UserSession.builder().id(1L).username("host").build();
         UserSession opponent = UserSession.builder().id(2L).username("opponent").build();
 
-        when(harness.redisClaimService.claimGameCreation(lobbyId, 1L)).thenReturn(true);
+        when(harness.claimService.claimGameCreation(lobbyId, 1L)).thenReturn(true);
         when(harness.lobbyRepository.findById(lobbyId)).thenReturn(Optional.of(lobby));
         when(harness.userSessionService.findById(1L)).thenReturn(host);
         when(harness.userSessionService.findById(2L)).thenReturn(opponent);
@@ -138,7 +138,7 @@ class GameSessionServiceInitialStateTest {
         GameSession created = harness.service.create(lobby);
         harness.events.clear();
 
-        when(harness.redisClaimService.claimGameStart(created.getId())).thenReturn(true);
+        when(harness.claimService.claimGameStart(created.getId())).thenReturn(true);
         when(harness.gameRepository.findById(created.getId())).thenReturn(Optional.of(created));
 
         harness.service.startGame(created);
@@ -268,7 +268,7 @@ class GameSessionServiceInitialStateTest {
                 .status(LobbyStatus.WAITING_FOR_OPPONENT)
                 .build();
 
-        when(harness.redisClaimService.claimGameCreation(lobbyId, 1L)).thenReturn(true);
+        when(harness.claimService.claimGameCreation(lobbyId, 1L)).thenReturn(true);
         when(harness.lobbyRepository.findById(lobbyId)).thenReturn(Optional.of(staleLobby));
 
         assertThatThrownBy(() -> harness.service.create(staleLobby))
@@ -283,7 +283,7 @@ class GameSessionServiceInitialStateTest {
         private final QuickMatchService quickMatchService = mock(QuickMatchService.class);
         private final List<Object> events = new ArrayList<>();
         private final ApplicationEventPublisher eventPublisher = events::add;
-        private final RedisClaimService redisClaimService = mock(RedisClaimService.class);
+        private final ClaimService claimService = mock(ClaimService.class);
         private final GameResultRepository gameResultRepository = mock(GameResultRepository.class);
         private final UserRepository userRepository = mock(UserRepository.class);
         private final OnlineGameplayRules gameplayRules = new OnlineGameplayRules(new OnlineGameplayDefinitionCatalog());
@@ -294,7 +294,7 @@ class GameSessionServiceInitialStateTest {
                 lobbyRepository,
                 quickMatchService,
                 eventPublisher,
-                redisClaimService,
+                claimService,
                 gameplayRules,
                 initialStateFactory,
                 gameResultRepository,

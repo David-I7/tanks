@@ -36,7 +36,7 @@ class GameSessionServiceGameplayDefinitionsTest {
         LobbyRepository lobbyRepository = mock(LobbyRepository.class);
         QuickMatchService quickMatchService = mock(QuickMatchService.class);
         ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
-        RedisClaimService redisClaimService = mock(RedisClaimService.class);
+        ClaimService claimService = mock(ClaimService.class);
         GameResultRepository gameResultRepository = mock(GameResultRepository.class);
         UserRepository userRepository = mock(UserRepository.class);
         OnlineGameplayDefinitionCatalog gameplayDefinitionCatalog = new OnlineGameplayDefinitionCatalog();
@@ -48,7 +48,7 @@ class GameSessionServiceGameplayDefinitionsTest {
                 lobbyRepository,
                 quickMatchService,
                 eventPublisher,
-                redisClaimService,
+                claimService,
                 gameplayRules,
                 new OnlineInitialStateFactory(gameplayRules),
                 gameResultRepository,
@@ -65,7 +65,7 @@ class GameSessionServiceGameplayDefinitionsTest {
         UserSession host = UserSession.builder().id(1L).username("host").build();
         UserSession opponent = UserSession.builder().id(2L).username("opponent").build();
 
-        when(redisClaimService.claimGameCreation(lobbyId, 1L)).thenReturn(true);
+        when(claimService.claimGameCreation(lobbyId, 1L)).thenReturn(true);
         when(lobbyRepository.findById(lobbyId)).thenReturn(Optional.of(lobby));
         when(userSessionService.findById(1L)).thenReturn(host);
         when(userSessionService.findById(2L)).thenReturn(opponent);

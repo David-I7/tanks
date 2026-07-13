@@ -19,7 +19,7 @@ import com.tanks.server.websocket.security.services.LobbyAuthorizationService;
 import com.tanks.server.websocket.services.GameSessionService;
 import com.tanks.server.websocket.services.LobbyService;
 import com.tanks.server.websocket.services.QuickMatchService;
-import com.tanks.server.websocket.services.RedisClaimService;
+import com.tanks.server.websocket.services.ClaimService;
 import com.tanks.server.websocket.services.UserSessionService;
 import com.tanks.server.websocket.exceptions.StompErrorHandler;
 import com.tanks.server.websocket.exceptions.WebSocketExceptionHandler;
@@ -76,7 +76,7 @@ public class WebSocketControllerTest {
     private QuickMatchService quickMatchService;
 
     @MockitoBean
-    private RedisClaimService redisClaimService;
+    private ClaimService claimService;
 
     @Autowired
     private ChatController chatController;
@@ -188,8 +188,8 @@ public class WebSocketControllerTest {
         // 1. Mock Authentication
         UserDto userDto = new UserDto(1L, "player1", "player1@test.com");
         when(authService.parseUser("valid-token")).thenReturn(userDto);
-        when(redisClaimService.claimSocket(any(Long.class), anyString())).thenReturn(true);
-        when(redisClaimService.consumeUserSessionReloadRequired(1L)).thenReturn(true);
+        when(claimService.claimSocket(any(Long.class), anyString())).thenReturn(true);
+        when(claimService.consumeUserSessionReloadRequired(1L)).thenReturn(true);
 
         // 2. Mock UserSession behavior
         // Initially, user is in LOBBY in the database (Redis)
@@ -302,8 +302,8 @@ public class WebSocketControllerTest {
     private StompSession connectAs(UserSession userSession) throws Exception {
         UserDto userDto = new UserDto(userSession.getId(), userSession.getUsername(), userSession.getUsername() + "@test.com");
         when(authService.parseUser("valid-token")).thenReturn(userDto);
-        when(redisClaimService.claimSocket(any(Long.class), anyString())).thenReturn(true);
-        when(redisClaimService.consumeUserSessionReloadRequired(userSession.getId())).thenReturn(false);
+        when(claimService.claimSocket(any(Long.class), anyString())).thenReturn(true);
+        when(claimService.consumeUserSessionReloadRequired(userSession.getId())).thenReturn(false);
         when(userSessionService.findById(userSession.getId())).thenReturn(userSession);
         when(userSessionService.save(any(UserSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(userSessionService.isInLobby(any(UserSession.class), anyString())).thenCallRealMethod();

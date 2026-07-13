@@ -8,7 +8,7 @@ import com.tanks.server.websocket.security.entites.WebSocketAuthentication;
 import com.tanks.server.websocket.security.entites.WebSocketPrincipal;
 import com.tanks.server.websocket.security.services.GameAuthorizationService;
 import com.tanks.server.websocket.security.services.LobbyAuthorizationService;
-import com.tanks.server.websocket.services.RedisClaimService;
+import com.tanks.server.websocket.services.ClaimService;
 import com.tanks.server.websocket.services.UserSessionService;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.Nullable;
@@ -39,7 +39,7 @@ public class AuthorizationInterceptor implements ChannelInterceptor {
 
     private final GameAuthorizationService gameAuthorizationService;
 
-    private final RedisClaimService redisClaimService;
+    private final ClaimService claimService;
 
     @Override
     public @Nullable Message<?> preSend(Message<?> message, MessageChannel channel) {
@@ -56,7 +56,7 @@ public class AuthorizationInterceptor implements ChannelInterceptor {
             Long userId = principal.getUserDto().id();
 
             try {
-                if (!redisClaimService.claimSocket(userId, sessionId)) {
+                if (!claimService.claimSocket(userId, sessionId)) {
                     throw new ProblemDetailException(HttpStatus.BAD_REQUEST,"User is already connected", null);
                 }
 
@@ -77,12 +77,12 @@ public class AuthorizationInterceptor implements ChannelInterceptor {
                     principal.setUserSession(userSession);
                     saveUserSession(userSession);
                 }else {
-                    redisClaimService.releaseSocket(userId, sessionId);
+                    claimService.releaseSocket(userId, sessionId);
                     throw ex;
                 }
-            } catch (RuntimeException ex) {
-                redisClaimService.releaseSocket(userId, sessionId);
-                throw ex;
+            } catch (Exception e) {
+                claimService.releaseSocket(userId, sessionId);
+                throw e;
             }
         }
 
@@ -90,7 +90,7 @@ public class AuthorizationInterceptor implements ChannelInterceptor {
                 && !StompCommand.CONNECT.equals(accessor.getCommand())
                 && !StompCommand.DISCONNECT.equals(accessor.getCommand())) {
             WebSocketPrincipal principal = (WebSocketPrincipal) authentication.getPrincipal();
-            redisClaimService.refreshSocketClaim(principal.getUserDto().id());
+            claimService.refreshSocketClaim(principal.getUserDto().id());
         }
 
         if(StompCommand.SUBSCRIBE.equals(accessor.getCommand())) {
@@ -126,7 +126,7 @@ public class AuthorizationInterceptor implements ChannelInterceptor {
             userSessionService.save(userSession);
         }catch (RuntimeException ex){
             userSessionService.delete(userSession);
-            redisClaimService.releaseSocket(userSession.getId(), userSession.getSocketSessionId());
+            claimService.releaseSocket(userSession.getId(), userSession.getSocketSessionId());
             throw ex;
         }
     }

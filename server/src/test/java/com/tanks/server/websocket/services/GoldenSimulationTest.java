@@ -260,7 +260,7 @@ class GoldenSimulationTest {
         private final QuickMatchService quickMatchService = mock(QuickMatchService.class);
         private final List<Object> events = new ArrayList<>();
         private final ApplicationEventPublisher eventPublisher = events::add;
-        private final RedisClaimService redisClaimService = mock(RedisClaimService.class);
+        private final ClaimService claimService = mock(ClaimService.class);
         private final GameResultRepository gameResultRepository = mock(GameResultRepository.class);
         private final UserRepository userRepository = mock(UserRepository.class);
         private final OnlineGameplayRules gameplayRules = new OnlineGameplayRules(new OnlineGameplayDefinitionCatalog());
@@ -271,7 +271,7 @@ class GoldenSimulationTest {
                 lobbyRepository,
                 quickMatchService,
                 eventPublisher,
-                redisClaimService,
+                claimService,
                 gameplayRules,
                 initialStateFactory,
                 gameResultRepository,

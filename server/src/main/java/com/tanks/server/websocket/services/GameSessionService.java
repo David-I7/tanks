@@ -56,7 +56,7 @@ public class GameSessionService {
     private final LobbyRepository lobbyRepository;
     private final QuickMatchService quickMatchService;
     private final ApplicationEventPublisher eventPublisher;
-    private final RedisClaimService redisClaimService;
+    private final ClaimService claimService;
     private final OnlineGameplayRules gameplayRules;
     private final OnlineInitialStateFactory initialStateFactory;
     private final GameResultRepository gameResultRepository;
@@ -101,8 +101,8 @@ public class GameSessionService {
 
                 userSessionService.save(host);
                 userSessionService.save(opponent);
-                redisClaimService.markUserSessionReloadRequired(host.getId());
-                redisClaimService.markUserSessionReloadRequired(opponent.getId());
+                claimService.markUserSessionReloadRequired(host.getId());
+                claimService.markUserSessionReloadRequired(opponent.getId());
 
                 lobbyRepository.delete(freshLobby);
                 if (freshLobby.getType() == LobbyType.QUICK_MATCH) {
@@ -115,10 +115,10 @@ public class GameSessionService {
                 return savedGameSession;
             } catch (RuntimeException ex) {
                 if (host != null) {
-                    redisClaimService.deleteUserSessionReloadRequired(host.getId());
+                    claimService.deleteUserSessionReloadRequired(host.getId());
                 }
                 if (opponent != null) {
-                    redisClaimService.deleteUserSessionReloadRequired(opponent.getId());
+                    claimService.deleteUserSessionReloadRequired(opponent.getId());
                 }
                 if (host != null && originalHost != null) {
                     restoreUserSession(host, originalHost);

@@ -6,7 +6,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Service
-public class RedisClaimService {
+public class ClaimService {
 
     private final ConcurrentHashMap<Long, String> activeSockets = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<UUID, Long> lobbyJoins = new ConcurrentHashMap<>();
