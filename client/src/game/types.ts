@@ -4,19 +4,15 @@ export type GameMode = "online" | "localTwoPlayer" | "playerVsAi";
 
 export type ControllerKind = "human" | "ai" | "remote";
 
-export type ProjectileSlotId = string;
-export type ProjectileDefinitionId = string;
-export type TankDefinitionId = string;
-
 export type GameAction =
-  | { type: "move"; direction: -1 | 0 | 1 }
+  | { type: "move"; direction: -1 | 1 }
   | { type: "aim"; angle: number; power: number }
-  | { type: "selectProjectileSlot"; projectileSlotId: ProjectileSlotId }
+  | { type: "selectProjectileSlot"; projectileSlotId: string }
   | {
       type: "fire";
       angle: number;
       power: number;
-      projectileSlotId: ProjectileSlotId;
+      projectileSlotId: string;
     };
 
 export type RemoteGameAction = {
@@ -60,7 +56,7 @@ export type DamageEffect =
   | { type: "focused"; radius: number; damage: number };
 
 export type ProjectileDefinition = {
-  id: ProjectileDefinitionId;
+  id: string;
   name: string;
   physics: ProjectilePhysics;
   terrainEffect: TerrainEffect;
@@ -71,21 +67,31 @@ export type ProjectileDefinition = {
 };
 
 export type ProjectileSlot = {
-  id: ProjectileSlotId;
-  projectileDefinitionId: ProjectileDefinitionId;
+  id: string;
+  projectileDefinitionId: string;
   label: string;
+  renderAssetId?: string;
 };
 
 export type TankDefinition = {
-  id: TankDefinitionId;
+  id: string;
   name: string;
   maxHealth: number;
+  maxFuel: number;
+  movementQuantum: number;
+  fuelRate: number;
+  climbCapability: number;
+  collisionRadius: number;
+  halfWidth: number;
+  trackGroundOffset: number;
+  muzzleForwardOffset: number;
+  muzzleVerticalOffset: number;
   loadout: ProjectileSlot[];
   visual: VisualIdentity;
 };
 
 export type TankSelection = {
-  tankDefinitionId: TankDefinitionId;
+  tankDefinitionId: string;
 };
 
 export type MatchSetupPlayer = {
@@ -108,11 +114,11 @@ export type TankComponent = {
   playerId: number;
   displayName: string;
   controllerKind: ControllerKind;
-  tankDefinitionId: TankDefinitionId;
+  tankDefinitionId: string;
   tankName: string;
   visual: VisualIdentity;
   loadout: ProjectileSlot[];
-  selectedProjectileSlotId: ProjectileSlotId;
+  selectedProjectileSlotId: string;
   maxHealth: number;
   health: number;
   facing: 1 | -1;
@@ -126,7 +132,7 @@ export type TankComponent = {
 
 export type ProjectileComponent = {
   ownerPlayerId: number;
-  projectileDefinitionId: ProjectileDefinitionId;
+  projectileDefinitionId: string;
   name: string;
   power: number;
   radius: number;
@@ -168,14 +174,6 @@ export type HeightmapTerrainSnapshot = {
   surface: number[];
 };
 
-export type HeightmapTerrainPatch = {
-  kind: "heightmap-range";
-  startX: number;
-  surface: number[];
-};
-
-export type TerrainPatch = HeightmapTerrainPatch;
-
 export type MaskTerrainSnapshot = {
   kind: "mask";
   width: number;
@@ -185,10 +183,17 @@ export type MaskTerrainSnapshot = {
 
 export type TerrainSnapshot = HeightmapTerrainSnapshot | MaskTerrainSnapshot;
 
-export type GameSnapshot = {
+type DeepReadonly<T> = T extends (...args: never[]) => unknown
+  ? T
+  : T extends readonly (infer U)[]
+    ? readonly DeepReadonly<U>[]
+    : T extends object
+      ? { readonly [K in keyof T]: DeepReadonly<T[K]> }
+      : T;
+
+export type SimulationState = DeepReadonly<{
   match: MatchState;
   terrain: TerrainSnapshot;
-  projectileDefinitions: Record<string, ProjectileDefinition>;
   tanks: Array<{
     entityId: EntityId;
     position: PositionComponent;
@@ -201,44 +206,34 @@ export type GameSnapshot = {
     projectile: ProjectileComponent;
   }>;
   impactEvents: ImpactEvent[];
-};
+}>;
 
-type DeepReadonly<T> = T extends (...args: never[]) => unknown
-  ? T
-  : T extends readonly (infer U)[]
-    ? readonly DeepReadonly<U>[]
-    : T extends object
-      ? { readonly [K in keyof T]: DeepReadonly<T[K]> }
-      : T;
-
-export type SimulationState = DeepReadonly<
-  Omit<GameSnapshot, "projectileDefinitions">
->;
-
-export type GameViewState = {
+export type GameState = DeepReadonly<{
   match: MatchState;
   terrain: TerrainSnapshot;
   projectileDefinitions: Record<string, ProjectileDefinition>;
-  tanks: GameViewTank[];
-  projectiles: GameViewProjectile[];
+  tanks: Array<
+    TankComponent & {
+      entityId: EntityId;
+      position: PositionComponent;
+    }
+  >;
+  projectiles: Array<
+    ProjectileComponent & {
+      entityId: EntityId;
+      position: PositionComponent;
+      velocity: VelocityComponent;
+    }
+  >;
   impactEvents: ImpactEvent[];
-};
-
-export type GameState = DeepReadonly<GameViewState>;
-
-export type GameViewTank = TankComponent & {
-  entityId: EntityId;
-  position: PositionComponent;
-};
-
-export type GameViewProjectile = ProjectileComponent & {
-  entityId: EntityId;
-  position: PositionComponent;
-  velocity: VelocityComponent;
-};
+}>;
 
 export type GameAssets = {
   images: {
     tank: HTMLImageElement;
   };
 };
+
+export const MAX_TURN_SECONDS = 30;
+export const MAX_TANK_FUEL = 240;
+export const MOVE_FUEL_COST = 1;

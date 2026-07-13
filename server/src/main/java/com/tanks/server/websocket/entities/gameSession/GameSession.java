@@ -6,18 +6,17 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.springframework.data.annotation.Id;
-import org.springframework.data.redis.core.RedisHash;
-import org.springframework.data.redis.core.index.Indexed;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
+import com.tanks.server.websocket.gameplay.world.TerrainModel;
+import com.tanks.server.websocket.gameplay.world.World;
 
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
 @Getter
 @Setter
-@RedisHash(value = "gameSession")
 public class GameSession {
 
     @Id
@@ -33,42 +32,47 @@ public class GameSession {
 
     private OffsetDateTime createdAt;
 
-    private long playerTurnExpiresAt;
-
-    private String playerTurn;
-
     private long serverTick;
 
     private long nextDiffSequence;
 
     private long lastDiffServerTick;
 
-    private int turnNumber;
-
     private String playerAUnresolvedIntentId;
 
     private String playerBUnresolvedIntentId;
 
-    private Double playerATankX;
-
-    private Double playerATankY;
-
-    private Double playerATankFuel;
-
-    private Double playerATankHealth;
-
-    private Double playerBTankX;
-
-    private Double playerBTankY;
-
-    private Double playerBTankFuel;
-
-    private Double playerBTankHealth;
-
-    @Indexed
     private GameSessionState state;
 
-    private String gameplayDefinitionVersion;
+    private String gameContentVersion;
+
+    private long generationSeed;
+
+    private World world;
+
+    private TerrainModel terrainModel;
 
     private int connectedPlayerCount = 0;
+
+    public GameSession(GameSession other) {
+        if (other != null) {
+            this.id = other.id;
+            this.playerA = other.playerA;
+            this.playerB = other.playerB;
+            this.startedAt = other.startedAt;
+            this.endedAt = other.endedAt;
+            this.createdAt = other.createdAt;
+            this.serverTick = other.serverTick;
+            this.nextDiffSequence = other.nextDiffSequence;
+            this.lastDiffServerTick = other.lastDiffServerTick;
+            this.playerAUnresolvedIntentId = other.playerAUnresolvedIntentId;
+            this.playerBUnresolvedIntentId = other.playerBUnresolvedIntentId;
+            this.state = other.state;
+            this.gameContentVersion = other.gameContentVersion;
+            this.generationSeed = other.generationSeed;
+            this.world = other.world == null ? null : new World(other.world);
+            this.terrainModel = other.terrainModel == null ? null : new TerrainModel(other.terrainModel);
+            this.connectedPlayerCount = other.connectedPlayerCount;
+        }
+    }
 }

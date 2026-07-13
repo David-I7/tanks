@@ -6,46 +6,42 @@ import {
   CanvasGameRenderer,
   type RendererAssets,
 } from "./rendering/CanvasGameRenderer";
-import { createDefaultMatchSetup } from "./world/createInitialWorld";
-import type {
-  GameAction,
-  GameMode,
-  GameState,
-  GameViewState,
-  MatchSetup,
-} from "./types";
-import { mockGameContent, type GameContent } from "./content/mockGameContent";
+import type { GameAction, GameState } from "./types";
+import { type GameManager } from "./authority/gameManager";
 import {
-  createLocalGameManager,
-  type GameAuthority,
-  type GameManager,
-} from "./authority/gameAuthority";
-import { createWorldSizingPolicy, type WorldSizing } from "./world/worldSizing";
+  createCanvasSizing,
+  readDomCanvasRect,
+  type CanvasSizing,
+} from "./world/worldSizing";
+
+const MAX_DELTA_TIME_SECONDS = 0.033; // ~30 Hz cap
+const FALLBACK_DELTA_TIME_SECONDS = 0.016; // ~60 Hz fallback
+const MS_PER_SECOND = 1000;
 
 export type GameEngineOptions = {
   canvas: HTMLCanvasElement;
-  mode: GameMode;
-  authority?: GameAuthority;
-  matchSetup?: MatchSetup;
-  content?: GameContent;
+  gameManager: GameManager;
   rendererAssets?: RendererAssets;
 };
 
 export class GameEngine {
   private readonly renderer: CanvasGameRenderer;
   private readonly localInput: CanvasInputSource;
-  private readonly authority: GameAuthority;
-  private readonly viewStateListeners = new Set<
-    (viewState: GameViewState) => void
+  private readonly gameManager: GameManager;
+  private readonly stateListeners = new Set<
+    (state: GameState) => void
   >();
   private animationFrameId: number | null = null;
   private lastTimestamp = 0;
-  private latestViewState: GameViewState | null = null;
-  private sizing: WorldSizing;
+  private latestState: GameState;
+  private sizing: CanvasSizing;
   private inputLayout: CanvasInputLayout;
-  private readonly unsubscribeAuthority: () => void;
+  private readonly unsubscribeGameManager: () => void;
 
   constructor(private readonly options: GameEngineOptions) {
+    this.gameManager = options.gameManager;
+    this.latestState = this.gameManager.getState();
+
     const initialLayout = this.measureCanvasLayout();
     this.sizing = initialLayout.sizing;
     this.inputLayout = initialLayout.inputLayout;
@@ -53,26 +49,13 @@ export class GameEngine {
     this.renderer = new CanvasGameRenderer(
       options.canvas,
       options.rendererAssets ?? {},
-      this.sizing.viewport,
+      this.sizing.gameViewport,
+      this.sizing.dpiViewport,
     );
     this.localInput = new CanvasInputSource(options.canvas, this.inputLayout);
 
-    if (options.authority) {
-      this.authority = options.authority;
-    } else {
-      const setup = options.matchSetup ?? createDefaultMatchSetup(options.mode);
-      const content = options.content ?? mockGameContent;
-      const localManager = createLocalGameManager({
-        mode: options.mode === "online" ? "localTwoPlayer" : options.mode,
-        setup,
-        content,
-        worldSize: this.sizing.world,
-      });
-      this.authority = adaptGameManagerToAuthority(localManager);
-    }
-
-    this.unsubscribeAuthority = this.authority.subscribe((viewState) => {
-      this.publishViewState(viewState);
+    this.unsubscribeGameManager = this.gameManager.subscribe((state) => {
+      this.publishState(state);
     });
   }
 
@@ -88,45 +71,46 @@ export class GameEngine {
       this.animationFrameId = null;
     }
     this.localInput.destroy();
-    this.unsubscribeAuthority();
-    this.authority.destroy();
+    this.unsubscribeGameManager();
+    this.gameManager.destroy();
   }
 
-  resize(): WorldSizing {
+  resize(): CanvasSizing {
     const layout = this.measureCanvasLayout();
     this.sizing = layout.sizing;
     this.inputLayout = layout.inputLayout;
     this.applyCanvasSizing();
-    this.renderer?.setViewport(this.sizing.viewport);
+    this.renderer?.setSizing(
+      this.sizing.gameViewport,
+      this.sizing.dpiViewport,
+    );
     this.localInput?.setLayout(this.inputLayout);
     return this.sizing;
   }
 
   submitAction(action: GameAction): boolean {
-    const accepted = this.authority.submitAction(action);
-    const viewState = this.authority.getViewState();
-    if (viewState) this.publishViewState(viewState);
+    const accepted = this.gameManager.submitAction(action);
+    this.publishState(this.gameManager.getState());
     return accepted;
   }
 
-  getViewState(): GameViewState | null {
-    this.latestViewState = this.authority.getViewState();
-    return this.latestViewState;
+  getState(): GameState {
+    this.latestState = this.gameManager.getState();
+    return this.latestState;
   }
 
-  subscribe(listener: (viewState: GameViewState) => void): () => void {
-    this.viewStateListeners.add(listener);
-    const viewState = this.getViewState();
-    if (viewState) listener(viewState);
+  subscribe(listener: (state: GameState) => void): () => void {
+    this.stateListeners.add(listener);
+    listener(this.getState());
     return () => {
-      this.viewStateListeners.delete(listener);
+      this.stateListeners.delete(listener);
     };
   }
 
   private readonly tick = (timestamp: number) => {
     const dt = Math.min(
-      0.033,
-      (timestamp - this.lastTimestamp) / 1000 || 0.016,
+      MAX_DELTA_TIME_SECONDS,
+      (timestamp - this.lastTimestamp) / MS_PER_SECOND || FALLBACK_DELTA_TIME_SECONDS,
     );
     this.lastTimestamp = timestamp;
 
@@ -136,87 +120,52 @@ export class GameEngine {
   };
 
   private update(dt: number): void {
-    console.log("Before", this);
-    const viewStateBeforeInput = this.authority.getViewState();
-    if (!viewStateBeforeInput) {
-      this.authority.update(dt);
-      return;
-    }
+    const stateBeforeInput = this.gameManager.getState();
 
     this.submitActions(
-      this.localInput.poll(this.renderer.getCameraX(), viewStateBeforeInput),
+      this.localInput.poll(this.renderer.getCameraX(), stateBeforeInput),
     );
 
-    this.authority.update(dt);
-    const viewState = this.authority.getViewState();
-    if (viewState) {
-      this.renderer.render(viewState);
-      this.publishViewState(viewState);
-    }
-    console.log("After", this);
+    this.gameManager.update(dt);
+    const state = this.gameManager.getState();
+    this.renderer.render(state);
+    this.publishState(state);
   }
 
   private submitActions(actions: GameAction[]): void {
     for (const action of actions) {
-      this.authority.submitAction(action);
+      this.gameManager.submitAction(action);
     }
   }
 
-  private publishViewState(viewState: GameViewState): void {
-    this.latestViewState = viewState;
-    for (const listener of this.viewStateListeners) {
-      listener(viewState);
+  private publishState(state: GameState): void {
+    this.latestState = state;
+    for (const listener of this.stateListeners) {
+      listener(state);
     }
   }
 
   private measureCanvasLayout(): {
-    sizing: WorldSizing;
+    sizing: CanvasSizing;
     inputLayout: CanvasInputLayout;
   } {
-    const rect = this.options.canvas.getBoundingClientRect();
-    const sizing = createWorldSizingPolicy({
-      viewport: { width: rect.width, height: rect.height },
+    const domCanvasRect = readDomCanvasRect(this.options.canvas);
+    const sizing = createCanvasSizing({
+      domCanvasRect,
       devicePixelRatio: window.devicePixelRatio || 1,
     });
 
     return {
       sizing,
       inputLayout: {
-        viewport: sizing.viewport,
-        canvasRect: {
-          left: rect.left,
-          top: rect.top,
-          width: rect.width,
-          height: rect.height,
-        },
+        gameViewport: sizing.gameViewport,
+        domCanvasRect: sizing.domCanvasRect,
       },
     };
   }
 
   private applyCanvasSizing(): void {
-    this.options.canvas.width = this.sizing.backing.width;
-    this.options.canvas.height = this.sizing.backing.height;
+    this.options.canvas.width = this.sizing.dpiViewport.width;
+    this.options.canvas.height = this.sizing.dpiViewport.height;
   }
-}
-
-function adaptGameManagerToAuthority(manager: GameManager): GameAuthority {
-  return {
-    submitAction(action: GameAction): boolean {
-      return manager.submitAction(action);
-    },
-    update(dt: number): void {
-      manager.update(dt);
-    },
-    getViewState(): GameViewState {
-      return manager.getState() as GameViewState;
-    },
-    subscribe(listener: (state: GameViewState) => void): () => void {
-      return manager.subscribe((state: GameState) => {
-        listener(state as GameViewState);
-      });
-    },
-    destroy(): void {
-      manager.destroy();
-    },
-  };
 }

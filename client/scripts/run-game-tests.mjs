@@ -1,15 +1,17 @@
 import { spawnSync } from "node:child_process";
 
 const tests = [
-  "tests\\game-authority-tests.ts",
+  "tests\\local-game-manager-tests.ts",
+  "tests\\game-engine-tests.ts",
+  "tests\\canvas-sizing-tests.ts",
   "tests\\game-behavior-tests.ts",
   "tests\\online-gameplay-protocol-contract-tests.ts",
   "tests\\online-gameplay-transport-tests.ts",
-  "tests\\online-gameplay-authority-tests.ts",
+  "tests\\online-game-manager-tests.ts",
   "tests\\contract-old-snapshot-remote-authority-tests.ts",
   "tests\\online-initial-state-tests.ts",
   "tests\\online-client-state-projection-tests.ts",
-  "tests\\online-golden-simulation-tests.ts",
+  "tests\\authoritative-online-gameplay-tests.ts",
 ];
 
 for (const test of tests) {

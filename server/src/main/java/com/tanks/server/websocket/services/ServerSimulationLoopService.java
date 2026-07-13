@@ -9,14 +9,13 @@ import org.springframework.context.ApplicationListener;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.ContextClosedEvent;
 import org.springframework.dao.DataAccessException;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
-import com.tanks.server.websocket.dto.gameplay.OnlineDiffEnvelopeDto;
-import com.tanks.server.websocket.dto.gameplay.OnlineDiffPayloads;
+import com.tanks.server.websocket.dto.gameplay.OnlineDiffResponseDto;
+import com.tanks.server.websocket.dto.gameplay.OnlineDiffResponsePayloads;
 import com.tanks.server.websocket.dto.gameplay.OnlineGameplayProtocolVersion;
-import com.tanks.server.websocket.dto.gameplay.OnlineStateDiffType;
+import com.tanks.server.websocket.dto.gameplay.OnlineStateDiffResponseType;
 import com.tanks.server.websocket.entities.gameSession.GameSession;
 import com.tanks.server.websocket.entities.gameSession.GameSessionState;
 import com.tanks.server.websocket.events.OnlineGameplayEvent;
@@ -37,7 +36,6 @@ public class ServerSimulationLoopService implements ApplicationListener<ContextC
 
     private final GameSessionRepository gameRepository;
     private final ApplicationEventPublisher eventPublisher;
-    private final RedisTemplate<String, Object> redisTemplate;
     private volatile boolean acceptingFrames = true;
 
     @Scheduled(fixedRate = TICK_RATE_NANOS, timeUnit = TimeUnit.NANOSECONDS)
@@ -70,7 +68,6 @@ public class ServerSimulationLoopService implements ApplicationListener<ContextC
             for (GameSession gameSession : terminalSessions()) {
                 if (isReadyForCleanup(gameSession, now)) {
                     gameRepository.delete(gameSession);
-                    redisTemplate.delete(member(gameSession.getId()));
                 }
             }
         } catch (DataAccessException ex) {
@@ -91,7 +88,7 @@ public class ServerSimulationLoopService implements ApplicationListener<ContextC
         long nextServerTick = gameSession.getServerTick() + 1;
         gameSession.setServerTick(nextServerTick);
 
-        if (gameSession.getPlayerTurnExpiresAt() <= nextServerTick) {
+        if (gameSession.getWorld().match().turnEndsAtServerTick() <= nextServerTick) {
             advanceTurnWithoutShot(gameSession);
         }
 
@@ -111,42 +108,31 @@ public class ServerSimulationLoopService implements ApplicationListener<ContextC
                 && !gameSession.getEndedAt().plusSeconds(TERMINAL_DELIVERY_GRACE_SECONDS).isAfter(now);
     }
 
-    private String member(UUID gameSessionId) {
-        return "gameSession:" + gameSessionId;
-    }
 
     private void advanceTurnWithoutShot(GameSession gameSession) {
-        String previousPlayer = gameSession.getPlayerTurn();
-        String nextPlayer = nextPlayer(gameSession, previousPlayer);
+        long previousPlayerId = gameSession.getWorld().match().activePlayerId();
+        long activePlayerId = previousPlayerId == 1 ? 2 : 1;
+        gameSession.getWorld().match().activePlayerId(activePlayerId);
+        gameSession.getWorld().match().turnNumber(gameSession.getWorld().match().turnNumber() + 1);
+        gameSession.getWorld().match().turnEndsAtServerTick(gameSession.getServerTick() + TURN_TIMER_TICKS);
 
-        gameSession.setPlayerTurn(nextPlayer);
-        gameSession.setTurnNumber(gameSession.getTurnNumber() + 1);
-        gameSession.setPlayerTurnExpiresAt(gameSession.getServerTick() + TURN_TIMER_TICKS);
-
-        publishTurnTransition(gameSession, playerId(gameSession, previousPlayer), playerId(gameSession, nextPlayer));
-    }
-
-    private String nextPlayer(GameSession gameSession, String previousPlayer) {
-        if (gameSession.getPlayerA().equals(previousPlayer)) {
-            return gameSession.getPlayerB();
-        }
-        return gameSession.getPlayerA();
+        publishTurnTransition(gameSession, previousPlayerId, activePlayerId);
     }
 
     private void publishTurnTransition(GameSession gameSession, long previousPlayerId, long activePlayerId) {
-        OnlineDiffEnvelopeDto<OnlineDiffPayloads.TurnTransition> diff = new OnlineDiffEnvelopeDto<>(
+        OnlineDiffResponseDto<OnlineDiffResponsePayloads.TurnTransition> diff = new OnlineDiffResponseDto<>(
                 OnlineGameplayProtocolVersion.V1,
                 gameSession.getId().toString(),
                 gameSession.getNextDiffSequence(),
                 gameSession.getServerTick(),
-                OnlineStateDiffType.TURN_TRANSITION,
+                OnlineStateDiffResponseType.TURN_TRANSITION,
                 null,
-                new OnlineDiffPayloads.TurnTransition(
+                new OnlineDiffResponsePayloads.TurnTransition(
                         previousPlayerId,
                         activePlayerId,
-                        gameSession.getTurnNumber(),
-                        OnlineDiffPayloads.TurnPhase.AIMING,
-                        gameSession.getPlayerTurnExpiresAt()));
+                        gameSession.getWorld().match().turnNumber(),
+                        OnlineDiffResponsePayloads.TurnPhase.AIMING,
+                        gameSession.getWorld().match().turnEndsAtServerTick()));
 
         gameSession.setNextDiffSequence(gameSession.getNextDiffSequence() + 1);
         gameSession.setLastDiffServerTick(gameSession.getServerTick());
@@ -157,10 +143,4 @@ public class ServerSimulationLoopService implements ApplicationListener<ContextC
                 diff));
     }
 
-    private long playerId(GameSession gameSession, String player) {
-        if (gameSession.getPlayerA().equals(player)) {
-            return 1;
-        }
-        return 2;
-    }
 }

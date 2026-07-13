@@ -1,19 +1,20 @@
+import { onlineGameContentResponseFixture } from "./support/onlineGameContentResponseFixture";
 import assert from "node:assert/strict";
 
 import {
   OnlineDiffSequenceError,
-  applyOnlineStateDiff,
+  applyOnlineStateDiffResponse,
   initializeOnlineConfirmedState,
   initializeOnlineConfirmedStateFromResync,
   predictOnlineMovement,
   type OnlineConfirmedState,
 } from "../src/game/online/onlineConfirmedState";
 import type {
-  OnlineDiffEnvelope,
-  OnlineInitialStateDiff,
-  OnlineIntentRejectionDiff,
-  OnlineMovementSegmentDiff,
-  OnlineResyncStateDiff,
+  OnlineDiffResponseDto,
+  OnlineInitialStateResponse,
+  OnlineIntentRejectionResponse,
+  OnlineMovementSegmentResponse,
+  OnlineResyncStateResponse,
 } from "../src/api/ws/dto/gameplay/onlineGameplayProtocol";
 
 const initialStateDiff = {
@@ -27,7 +28,8 @@ const initialStateDiff = {
     expectedNextDiffSequence: 2,
     localPlayerId: 2,
     state: {
-      gameplayDefinitionVersion: "online-gameplay-definitions.v1",
+      gameContentVersion: "game-content.v1",
+      gameContent: onlineGameContentResponseFixture,
       match: {
         phase: "AIMING",
         activePlayerId: 1,
@@ -71,7 +73,7 @@ const initialStateDiff = {
       projectiles: [],
     },
   },
-} satisfies OnlineDiffEnvelope<OnlineInitialStateDiff>;
+} satisfies OnlineDiffResponseDto<OnlineInitialStateResponse>;
 
 const confirmed: OnlineConfirmedState = initializeOnlineConfirmedState(initialStateDiff);
 
@@ -81,7 +83,7 @@ assert.equal(confirmed.lastConfirmedDiffSequence, 1);
 assert.equal(confirmed.lastConfirmedDiffServerTick, 0);
 assert.equal(confirmed.expectedNextDiffSequence, 2);
 assert.equal(confirmed.pendingPredictions.length, 0);
-assert.equal(confirmed.state.gameplayDefinitionVersion, "online-gameplay-definitions.v1");
+assert.equal(confirmed.state.gameContentVersion, "game-content.v1");
 assert.equal(confirmed.state.match.activePlayerId, 1);
 assert.equal(confirmed.state.tanks[0]?.loadout[0]?.projectileDefinitionId, "basicShell");
 
@@ -107,7 +109,7 @@ const resyncStateDiff = {
       ],
     },
   },
-} satisfies OnlineDiffEnvelope<OnlineResyncStateDiff>;
+} satisfies OnlineDiffResponseDto<OnlineResyncStateResponse>;
 
 const confirmedFromResync = initializeOnlineConfirmedStateFromResync(resyncStateDiff);
 
@@ -145,9 +147,9 @@ const rejectionDiff = {
     authoritativeSequence: 3,
     authoritativeServerTick: 30,
   },
-} satisfies OnlineDiffEnvelope<OnlineIntentRejectionDiff>;
+} satisfies OnlineDiffResponseDto<OnlineIntentRejectionResponse>;
 
-const afterRejection = applyOnlineStateDiff(confirmedWithPrediction, rejectionDiff);
+const afterRejection = applyOnlineStateDiffResponse(confirmedWithPrediction, rejectionDiff);
 
 assert.equal(afterRejection.lastConfirmedDiffSequence, 2);
 assert.equal(afterRejection.lastConfirmedDiffServerTick, 30);
@@ -182,9 +184,9 @@ const movementDiff = {
     endedServerTick: 75,
     durationTicks: 15,
   },
-} satisfies OnlineDiffEnvelope<OnlineMovementSegmentDiff>;
+} satisfies OnlineDiffResponseDto<OnlineMovementSegmentResponse>;
 
-const afterMovement = applyOnlineStateDiff(confirmedWithMovePrediction, movementDiff, () => 1234);
+const afterMovement = applyOnlineStateDiffResponse(confirmedWithMovePrediction, movementDiff, () => 1234);
 
 assert.equal(afterMovement.pendingPredictions.length, 0);
 assert.equal(afterMovement.state.tanks[0]?.position.x, 55);
@@ -196,10 +198,10 @@ assert.equal(afterMovement.confirmedMovementSegments[0]?.durationMs, 500);
 const skippedDiff = {
   ...rejectionDiff,
   sequence: 4,
-} satisfies OnlineDiffEnvelope<OnlineIntentRejectionDiff>;
+} satisfies OnlineDiffResponseDto<OnlineIntentRejectionResponse>;
 
 assert.throws(
-  () => applyOnlineStateDiff(confirmed, skippedDiff),
+  () => applyOnlineStateDiffResponse(confirmed, skippedDiff),
   (error) =>
     error instanceof OnlineDiffSequenceError &&
     error.kind === "MISSING_DIFF" &&
@@ -210,10 +212,10 @@ assert.throws(
 const staleDiff = {
   ...rejectionDiff,
   sequence: 1,
-} satisfies OnlineDiffEnvelope<OnlineIntentRejectionDiff>;
+} satisfies OnlineDiffResponseDto<OnlineIntentRejectionResponse>;
 
 assert.throws(
-  () => applyOnlineStateDiff(confirmed, staleDiff),
+  () => applyOnlineStateDiffResponse(confirmed, staleDiff),
   (error) =>
     error instanceof OnlineDiffSequenceError &&
     error.kind === "OUT_OF_ORDER_DIFF" &&

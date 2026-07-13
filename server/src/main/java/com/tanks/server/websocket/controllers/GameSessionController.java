@@ -1,7 +1,7 @@
 package com.tanks.server.websocket.controllers;
 
-import com.tanks.server.websocket.dto.gameplay.OnlineDiffPayloads;
-import com.tanks.server.websocket.dto.gameplay.OnlinePlayerIntentDto;
+import com.tanks.server.websocket.dto.gameplay.OnlineDiffResponsePayloads;
+import com.tanks.server.websocket.dto.gameplay.OnlinePlayerIntentRequestDto;
 import com.tanks.server.websocket.entities.gameSession.GameSession;
 import com.tanks.server.websocket.entities.lobby.Lobby;
 import com.tanks.server.websocket.entities.lobby.LobbyStatus;
@@ -31,19 +31,11 @@ public class GameSessionController {
 
     private final LobbyService lobbyService;
 
-    // TODO: Implement game start logic
-    @MessageMapping("/game/{id}/send")
-    @SendTo("/topic/game/{id}")
-    @PreAuthorize("@gameAuthorizationService.canSendMessageToTopic(authentication, '/topic/game/' + #id)")
-    public GameSession startGame(@DestinationVariable UUID id, Authentication authentication){
-        return null;
-    }
-
     @MessageMapping("/game/{id}/intent")
     @PreAuthorize("@gameAuthorizationService.canSendMessageToTopic(authentication, '/topic/game/' + #id)")
     public void acceptPlayerIntent(
             @DestinationVariable UUID id,
-            @Payload OnlinePlayerIntentDto<?> intent,
+            @Payload OnlinePlayerIntentRequestDto<?> intent,
             Authentication authentication) {
         gameSessionService.acceptPlayerIntent(authentication.getName(), id, intent);
     }
@@ -53,7 +45,7 @@ public class GameSessionController {
     public void requestResyncState(
             @DestinationVariable UUID id,
             Authentication authentication) {
-        gameSessionService.sendResyncStateToPlayer(id, authentication.getName(), OnlineDiffPayloads.ResyncReason.MISSED_DIFF);
+        gameSessionService.sendResyncStateToPlayer(id, authentication.getName(), OnlineDiffResponsePayloads.ResyncReason.MISSED_DIFF);
     }
 
     @MessageMapping("/game/create")
@@ -63,24 +55,6 @@ public class GameSessionController {
         UserSession host = wsPrincipal.getUserSession();
 
         Lobby lobby = lobbyService.findById(host.getLobbyId());
-
-        // Authorization logic is here to avoid making 2 requests for the lobby
-        if(lobby.getStatus() != LobbyStatus.READY){
-            throw new ProblemDetailException(
-                    HttpStatus.UNAUTHORIZED,
-                    "Lobby only has one player.",
-                    URI.create("/game/create")
-            );
-        }
-
-        if(!lobby.getHostId().equals(host.getId())){
-            throw new ProblemDetailException(
-                    HttpStatus.UNAUTHORIZED,
-                    "Player is not the host of the lobby.",
-                    URI.create("/game/create")
-            );
-        }
-
         gameSessionService.create(lobby);
     }
 

@@ -8,7 +8,7 @@ public record GameStartPayload(
     String playerA,
     String playerB,
     OffsetDateTime gameStartedAt,
-    String gameplayDefinitionVersion,
+    String gameContentVersion,
     long localPlayerId
 ) {
 }

@@ -3,7 +3,7 @@ package com.tanks.server.websocket.security.interceptors;
 import com.tanks.server.websocket.entities.userSession.UserSession;
 import com.tanks.server.websocket.security.entites.WebSocketAuthentication;
 import com.tanks.server.websocket.security.entites.WebSocketPrincipal;
-import com.tanks.server.websocket.services.RedisClaimService;
+import com.tanks.server.websocket.services.ClaimService;
 import com.tanks.server.websocket.services.UserSessionService;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.Nullable;
@@ -19,7 +19,7 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class UserSessionReloadInterceptor implements ChannelInterceptor {
 
-    private final RedisClaimService redisClaimService;
+    private final ClaimService claimService;
 
     private final UserSessionService userSessionService;
 
@@ -36,24 +36,14 @@ public class UserSessionReloadInterceptor implements ChannelInterceptor {
             return message;
         }
 
-        // Only reload user session if it is a subscribe, unsubscribe or disconnect command
-        if(!StompCommand.SUBSCRIBE.equals(accessor.getCommand()) &&
-                !StompCommand.UNSUBSCRIBE.equals(accessor.getCommand()) &&
-                !StompCommand.DISCONNECT.equals(accessor.getCommand())
-        ) {
-            return message;
-        }
-
         WebSocketAuthentication authentication = (WebSocketAuthentication) accessor.getUser();
         WebSocketPrincipal principal = (WebSocketPrincipal) authentication.getPrincipal();
         Long userId = principal.getUserDto().id();
 
-
-        if (redisClaimService.consumeUserSessionReloadRequired(userId)) {
+        if (claimService.consumeUserSessionReloadRequired(userId)) {
             UserSession userSession = userSessionService.findById(userId);
             principal.setUserSession(userSession);
         }
-
 
         return message;
     }

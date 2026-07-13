@@ -1,28 +1,30 @@
+import { onlineGameContentResponseFixture } from "./support/onlineGameContentResponseFixture";
 import assert from "node:assert/strict";
 
 import type {
-  OnlineDiffEnvelope,
-  OnlineGameStateSnapshot,
-  OnlineInitialStateDiff,
-  OnlineIntentRejectionDiff,
-  OnlineMovementSegmentDiff,
-  OnlineProjectileResolutionDiff,
-  OnlineResyncStateDiff,
-  OnlineTerrainPatchDiff,
-  OnlineTurnTransitionDiff,
+  OnlineDiffResponseDto,
+  OnlineGameStateSnapshotResponse,
+  OnlineInitialStateResponse,
+  OnlineIntentRejectionResponse,
+  OnlineMovementSegmentResponse,
+  OnlineProjectileResolutionResponse,
+  OnlineResyncStateResponse,
+  OnlineTerrainPatchResponse,
+  OnlineTurnTransitionResponse,
 } from "../src/api/ws/dto/gameplay/onlineGameplayProtocol";
 import {
   OnlineDiffSequenceError,
-  applyOnlineStateDiff,
+  applyOnlineStateDiffResponse,
   initializeOnlineConfirmedState,
   predictOnlineMovement,
   projectOnlineRenderState,
   requestOnlineResyncState,
 } from "../src/game/online/onlineConfirmedState";
 
-function initialState(): OnlineGameStateSnapshot {
+function initialState(): OnlineGameStateSnapshotResponse {
   return {
-    gameplayDefinitionVersion: "online-gameplay-definitions.v1",
+    gameContentVersion: "game-content.v1",
+      gameContent: onlineGameContentResponseFixture,
     match: {
       phase: "AIMING",
       activePlayerId: 1,
@@ -104,14 +106,14 @@ function initialDiff() {
       localPlayerId: 1,
       state: initialState(),
     },
-  } satisfies OnlineDiffEnvelope<OnlineInitialStateDiff>;
+  } satisfies OnlineDiffResponseDto<OnlineInitialStateResponse>;
 }
 
 function movementDiff(
-  overrides: Partial<OnlineDiffEnvelope<OnlineMovementSegmentDiff>> & {
-    payload?: Partial<OnlineMovementSegmentDiff["payload"]>;
+  overrides: Partial<OnlineDiffResponseDto<OnlineMovementSegmentResponse>> & {
+    payload?: Partial<OnlineMovementSegmentResponse["payload"]>;
   } = {},
-): OnlineDiffEnvelope<OnlineMovementSegmentDiff> {
+): OnlineDiffResponseDto<OnlineMovementSegmentResponse> {
   return {
     protocolVersion: "online-gameplay.v1",
     gameSessionId: "game-123",
@@ -138,12 +140,12 @@ function movementDiff(
 }
 
 function resyncDiff(
-  overrides: Partial<OnlineDiffEnvelope<OnlineResyncStateDiff>> & {
-    payload?: Partial<OnlineResyncStateDiff["payload"]> & {
-      state?: Partial<OnlineGameStateSnapshot>;
+  overrides: Partial<OnlineDiffResponseDto<OnlineResyncStateResponse>> & {
+    payload?: Partial<OnlineResyncStateResponse["payload"]> & {
+      state?: Partial<OnlineGameStateSnapshotResponse>;
     };
   } = {},
-): OnlineDiffEnvelope<OnlineResyncStateDiff> {
+): OnlineDiffResponseDto<OnlineResyncStateResponse> {
   return {
     protocolVersion: "online-gameplay.v1",
     gameSessionId: "game-123",
@@ -191,7 +193,7 @@ function resyncDiff(
     },
   });
 
-  const afterMovement = applyOnlineStateDiff(confirmed, movement, () => 1000);
+  const afterMovement = applyOnlineStateDiffResponse(confirmed, movement, () => 1000);
 
   assert.equal(afterMovement.expectedNextDiffSequence, 3);
   assert.equal(afterMovement.state.tanks[1]?.position.x, 145);
@@ -203,7 +205,7 @@ function resyncDiff(
 
   assert.throws(
     () =>
-      applyOnlineStateDiff(confirmed, {
+      applyOnlineStateDiffResponse(confirmed, {
         ...initialDiff(),
         sequence: 4,
       }),
@@ -235,7 +237,7 @@ function resyncDiff(
     },
   });
 
-  const afterAccepted = applyOnlineStateDiff(predicted, acceptedMovement, () => 2000);
+  const afterAccepted = applyOnlineStateDiffResponse(predicted, acceptedMovement, () => 2000);
 
   assert.equal(afterAccepted.pendingPredictions.length, 0);
   assert.equal(afterAccepted.state.tanks[0]?.position.x, 53);
@@ -259,9 +261,9 @@ function resyncDiff(
       authoritativeSequence: 2,
       authoritativeServerTick: 30,
     },
-  } satisfies OnlineDiffEnvelope<OnlineIntentRejectionDiff>;
+  } satisfies OnlineDiffResponseDto<OnlineIntentRejectionResponse>;
 
-  const afterRejected = applyOnlineStateDiff(predicted, rejection);
+  const afterRejected = applyOnlineStateDiffResponse(predicted, rejection);
   const renderState = projectOnlineRenderState(afterRejected, 0);
 
   assert.equal(afterRejected.pendingPredictions.length, 0);
@@ -289,7 +291,7 @@ function resyncDiff(
     },
   });
 
-  const afterOpponentAccepted = applyOnlineStateDiff(predicted, opponentAccepted);
+  const afterOpponentAccepted = applyOnlineStateDiffResponse(predicted, opponentAccepted);
 
   assert.equal(afterOpponentAccepted.pendingPredictions.length, 1);
   assert.equal(afterOpponentAccepted.pendingPredictions[0]?.intentId, "intent-local");
@@ -323,7 +325,7 @@ function resyncDiff(
     },
   });
 
-  const afterMovement = applyOnlineStateDiff(confirmed, movement, () => 1000);
+  const afterMovement = applyOnlineStateDiffResponse(confirmed, movement, () => 1000);
   const interpolated = projectOnlineRenderState(afterMovement, 1500);
 
   assert.equal(interpolated.tanks[0]?.position.x, 65);
@@ -360,7 +362,7 @@ function resyncDiff(
     },
   });
 
-  const afterResync = applyOnlineStateDiff(predicted, resync);
+  const afterResync = applyOnlineStateDiffResponse(predicted, resync);
 
   assert.equal(afterResync.pendingPredictions.length, 0);
   assert.equal(afterResync.expectedNextDiffSequence, 10);
@@ -380,7 +382,7 @@ function resyncDiff(
     },
   });
 
-  const afterStaleLiveDiff = applyOnlineStateDiff(waitingForResync, staleLiveDiff);
+  const afterStaleLiveDiff = applyOnlineStateDiffResponse(waitingForResync, staleLiveDiff);
 
   assert.equal(afterStaleLiveDiff.resyncStatus.kind, "REQUESTED");
   assert.equal(afterStaleLiveDiff.expectedNextDiffSequence, 2);
@@ -420,8 +422,8 @@ function resyncDiff(
     },
   });
 
-  const afterResync = applyOnlineStateDiff(waitingForResync, resync);
-  const afterLiveDiff = applyOnlineStateDiff(afterResync, liveAfterResync);
+  const afterResync = applyOnlineStateDiffResponse(waitingForResync, resync);
+  const afterLiveDiff = applyOnlineStateDiffResponse(afterResync, liveAfterResync);
 
   assert.equal(afterResync.expectedNextDiffSequence, 6);
   assert.equal(afterLiveDiff.expectedNextDiffSequence, 7);
@@ -453,8 +455,8 @@ function resyncDiff(
     },
   });
 
-  const afterResync = applyOnlineStateDiff(waitingForResync, resync);
-  const afterLatePreResyncDiff = applyOnlineStateDiff(afterResync, latePreResyncDiff);
+  const afterResync = applyOnlineStateDiffResponse(waitingForResync, resync);
+  const afterLatePreResyncDiff = applyOnlineStateDiffResponse(afterResync, latePreResyncDiff);
 
   assert.equal(afterLatePreResyncDiff.expectedNextDiffSequence, 6);
   assert.equal(afterLatePreResyncDiff.state.tanks[0]?.position.x, 70);
@@ -496,8 +498,8 @@ function resyncDiff(
     },
   });
 
-  const afterResync = applyOnlineStateDiff(confirmed, resync);
-  const afterStaleResync = applyOnlineStateDiff(afterResync, staleResync);
+  const afterResync = applyOnlineStateDiffResponse(confirmed, resync);
+  const afterStaleResync = applyOnlineStateDiffResponse(afterResync, staleResync);
 
   assert.equal(afterStaleResync.expectedNextDiffSequence, 6);
   assert.equal(afterStaleResync.state.tanks[0]?.position.x, 70);
@@ -531,9 +533,9 @@ function resyncDiff(
         },
       ],
     },
-  } satisfies OnlineDiffEnvelope<OnlineProjectileResolutionDiff>;
+  } satisfies OnlineDiffResponseDto<OnlineProjectileResolutionResponse>;
 
-  const afterProjectile = applyOnlineStateDiff(confirmed, projectileResolution);
+  const afterProjectile = applyOnlineStateDiffResponse(confirmed, projectileResolution);
 
   assert.equal(afterProjectile.state.tanks[1]?.health, 55);
   assert.equal(afterProjectile.state.tanks[1]?.alive, true);
@@ -557,7 +559,7 @@ function resyncDiff(
         },
       ],
     },
-  } satisfies OnlineDiffEnvelope<OnlineTerrainPatchDiff>;
+  } satisfies OnlineDiffResponseDto<OnlineTerrainPatchResponse>;
   const turn = {
     protocolVersion: "online-gameplay.v1",
     gameSessionId: "game-123",
@@ -572,10 +574,10 @@ function resyncDiff(
       phase: "AIMING",
       turnEndsAtServerTick: 960,
     },
-  } satisfies OnlineDiffEnvelope<OnlineTurnTransitionDiff>;
+  } satisfies OnlineDiffResponseDto<OnlineTurnTransitionResponse>;
 
-  const afterPatch = applyOnlineStateDiff(confirmed, patch);
-  const afterTurn = applyOnlineStateDiff(afterPatch, turn);
+  const afterPatch = applyOnlineStateDiffResponse(confirmed, patch);
+  const afterTurn = applyOnlineStateDiffResponse(afterPatch, turn);
 
   assert.deepEqual(
     afterTurn.state.terrain.kind === "HEIGHTMAP" ? afterTurn.state.terrain.surface : [],

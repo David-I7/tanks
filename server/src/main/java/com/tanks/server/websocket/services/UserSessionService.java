@@ -63,14 +63,19 @@ public class UserSessionService {
         return topics != null && topics.containsKey("/topic/game/" + userSession.getGameSessionId());
     }
 
-    public void transitionToLobby(UserSession userSession, UUID uuid) {
+    public void transitionToLobby(UserSession userSession, UUID lobbyId) {
         userSession.setState(UserSessionState.IN_LOBBY);
-        userSession.setLobbyId(uuid);
+        userSession.setLobbyId(lobbyId);
     }
 
     public void transitionToGame(UserSession userSession, UUID uuid) {
         userSession.setState(UserSessionState.IN_GAME);
         userSession.setGameSessionId(uuid);
+        var subscriptions =  userSession.getTopicSubscriptions();
+        subscriptions.remove("/topic/lobby/" + userSession.getLobbyId());
+        if (subscriptions.isEmpty()){
+            userSession.setTopicSubscriptions(null);
+        }
         userSession.setLobbyId(null);
     }
 

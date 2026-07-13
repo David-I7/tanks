@@ -4,43 +4,53 @@ import com.tanks.server.websocket.entities.lobby.Lobby;
 import com.tanks.server.websocket.entities.lobby.LobbyStatus;
 import com.tanks.server.websocket.entities.lobby.LobbyType;
 import com.tanks.server.websocket.repositories.LobbyRepository;
-import lombok.AllArgsConstructor;
-import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.core.ZSetOperations;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentSkipListSet;
 
 @Service
-@AllArgsConstructor
+@RequiredArgsConstructor
 public class QuickMatchService {
-
-    private final String QUICK_MATCH_KEY = "quick_match";
 
     private final LobbyRepository lobbyRepository;
 
-    private final RedisTemplate<String,Object> redisTemplate;
+    private final ConcurrentSkipListSet<QueueEntry> queue = new ConcurrentSkipListSet<>();
+    private final ConcurrentHashMap<UUID, QueueEntry> map = new ConcurrentHashMap<>();
 
-    public Optional<Lobby> popBestQuickMatch(){
-        ZSetOperations.TypedTuple<Object> lobbyTuple;
+    private record QueueEntry(UUID lobbyId, Instant createdAt) implements Comparable<QueueEntry> {
+        @Override
+        public int compareTo(QueueEntry other) {
+            int cmp = this.createdAt.compareTo(other.createdAt);
+            if (cmp != 0) {
+                return cmp;
+            }
+            return this.lobbyId.compareTo(other.lobbyId);
+        }
+    }
 
-        while ((lobbyTuple = redisTemplate.opsForZSet().popMin(QUICK_MATCH_KEY)) != null) {
-            Object lobbyId = lobbyTuple.getValue();
+    public Optional<Lobby> popBestQuickMatch() {
+        QueueEntry entry;
+        while ((entry = queue.pollFirst()) != null) {
+            map.remove(entry.lobbyId());
+            UUID lobbyId = entry.lobbyId();
 
-            if(lobbyId == null) {
+            if (lobbyId == null) {
                 continue;
             }
 
             Optional<Lobby> lobby;
             try {
-                lobby = lobbyRepository.findById(UUID.fromString(lobbyId.toString()));
+                lobby = lobbyRepository.findById(lobbyId);
             } catch (IllegalArgumentException ex) {
                 continue;
             }
 
-            if(lobby.filter(this::isValidWaitingQuickMatchLobby).isPresent()) {
+            if (lobby.filter(this::isValidWaitingQuickMatchLobby).isPresent()) {
                 return lobby;
             }
         }
@@ -48,17 +58,22 @@ public class QuickMatchService {
         return Optional.empty();
     }
 
-    public void delete(Lobby lobby){
-        redisTemplate.opsForZSet().remove(QUICK_MATCH_KEY,lobby.getId().toString());
+    public void delete(Lobby lobby) {
+        if (lobby != null && lobby.getId() != null) {
+            QueueEntry entry = map.remove(lobby.getId());
+            if (entry != null) {
+                queue.remove(entry);
+            }
+        }
     }
 
-    public Lobby create(Lobby lobby){
-        redisTemplate.opsForZSet().add(QUICK_MATCH_KEY,lobby.getId().toString(),computeScore());
+    public Lobby create(Lobby lobby) {
+        if (lobby != null && lobby.getId() != null) {
+            QueueEntry entry = new QueueEntry(lobby.getId(), Instant.now());
+            map.put(lobby.getId(), entry);
+            queue.add(entry);
+        }
         return lobby;
-    }
-
-    private double computeScore(){
-        return Instant.now().toEpochMilli() / 1000.0 / 60 / 60;
     }
 
     private boolean isValidWaitingQuickMatchLobby(Lobby lobby) {
@@ -67,5 +82,4 @@ public class QuickMatchService {
                 && lobby.getHostId() != null
                 && lobby.getOpponentId() == null;
     }
-
 }

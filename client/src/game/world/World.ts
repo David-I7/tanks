@@ -1,17 +1,16 @@
-import type {
-  EntityId,
-  LifetimeComponent,
-  MatchState,
-  PositionComponent,
-  ProjectileDefinition,
-  ProjectileComponent,
-  TankComponent,
-  TankDefinition,
-  MatchSetupPlayer,
-  ImpactEvent,
-  VelocityComponent,
+import {
+  type EntityId,
+  type LifetimeComponent,
+  type MatchState,
+  type PositionComponent,
+  type ProjectileDefinition,
+  type ProjectileComponent,
+  type TankComponent,
+  type TankDefinition,
+  type MatchSetupPlayer,
+  type ImpactEvent,
+  type VelocityComponent,
 } from "../types";
-import { MAX_TANK_FUEL } from "../simulation/turnRules";
 
 export class World {
   private nextEntityId = 1;
@@ -69,8 +68,8 @@ export class World {
       bodyAngle: 0,
       aimAngle: player.id === 0 ? -Math.PI / 4 : -Math.PI * 0.75,
       power: 360,
-      maxFuel: MAX_TANK_FUEL,
-      fuel: MAX_TANK_FUEL,
+      maxFuel: tankDefinition.maxFuel,
+      fuel: tankDefinition.maxFuel,
       alive: true,
     });
     this.tankEntitiesByPlayer.set(player.id, entityId);

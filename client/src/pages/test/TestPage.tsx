@@ -2,10 +2,11 @@ import { Bot, Monitor, Radio } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import {
+  createCanvasSizedLocalGameManager,
   GameEngine,
   type GameMode,
 } from "../../game";
-import ResourceManager from "../../game/resources/ResourceManager";
+import ResourceManager from "../../game/rendering/ResourceManager";
 import type { RendererAssets } from "../../game/rendering/CanvasGameRenderer";
 
 const modes: Array<{ value: GameMode; label: string; icon: typeof Monitor }> = [
@@ -43,9 +44,13 @@ export default function TestPage() {
     if (!canvas) return;
 
     engineRef.current?.stop();
+    const gameManager = createCanvasSizedLocalGameManager({
+      canvas,
+      mode: mode === "online" ? "localTwoPlayer" : mode,
+    });
     const engine = new GameEngine({
       canvas,
-      mode,
+      gameManager,
       rendererAssets,
     });
 

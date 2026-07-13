@@ -21,20 +21,14 @@ import java.net.URI;
 import java.util.Optional;
 import java.util.UUID;
 
-
 @Service
 @AllArgsConstructor
 @Slf4j
 public class LobbyService {
 
     private final LobbyRepository lobbyRepository;
-
     private final QuickMatchService quickMatchService;
-
     private final UserSessionService userSessionService;
-
-    private final RedisClaimService redisClaimService;
-
     private final ApplicationEventPublisher eventPublisher;
 
     public Lobby create(UserSession userSession, LobbyType type) {
@@ -53,7 +47,7 @@ public class LobbyService {
                 quickMatchService.create(lobby);
             }
 
-            userSessionService.transitionToLobby(userSession,uuid);
+            userSessionService.transitionToLobby(userSession, uuid);
             userSessionService.save(userSession);
 
             eventPublisher.publishEvent(new LobbyEvent(this, userSession.getUsername(), "/queue/replies",
@@ -68,38 +62,32 @@ public class LobbyService {
     }
 
     public void join(UUID lobbyId, UserSession userSession) {
+        synchronized (lobbyId.toString().intern()) {
+            Lobby lobby = findById(lobbyId);
+            Long originalOpponentId = lobby.getOpponentId();
+            LobbyStatus originalStatus = lobby.getStatus();
+            UserSession originalUserSession = new UserSession(userSession);
 
-        if (!redisClaimService.claimLobbyJoin(lobbyId, userSession.getId())) {
-            throw new ProblemDetailException(HttpStatus.CONFLICT, "Lobby join is already in progress.", URI.create("/lobby/join/private/" + lobbyId));
-        }
+            if (isFullLobby(lobby)) {
+                throw new ProblemDetailException(HttpStatus.BAD_REQUEST, "Lobby is full.", URI.create("/lobby/join/private/" + lobbyId));
+            }
 
-        Lobby lobby = findById(lobbyId);
-        Long originalOpponentId = lobby.getOpponentId();
-        LobbyStatus originalStatus = lobby.getStatus();
-        UserSession originalUserSession = new UserSession(userSession);
+            try {
+                // New user has joined
+                lobby.setOpponentId(userSession.getId());
+                lobby.setStatus(LobbyStatus.READY);
+                lobbyRepository.save(lobby);
 
-        if (isFullLobby(lobby)) {
-            redisClaimService.releaseLobbyJoin(lobbyId, userSession.getId());
-            throw new ProblemDetailException(HttpStatus.BAD_REQUEST, "Lobby is full.", URI.create("/lobby/join/private/" + lobbyId));
-        }
+                userSessionService.transitionToLobby(userSession, lobbyId);
+                userSessionService.save(userSession);
 
-        try {
-            // New user has joined
-            lobby.setOpponentId(userSession.getId());
-            lobby.setStatus(LobbyStatus.READY);
-            lobbyRepository.save(lobby);
-
-            userSessionService.transitionToLobby(userSession,lobbyId);
-            userSessionService.save(userSession);
-
-            eventPublisher.publishEvent(new LobbyEvent(this, userSession.getUsername(), "/queue/replies",
-                    new LobbyEventResponseDto(LobbyEventType.LOBBY_JOINED, "@SERVER", new LobbyEventPayload(lobbyId, userSession.getUsername()))));
-            redisClaimService.deleteLobbyJoin(lobbyId);
-        } catch (RuntimeException ex) {
-            restoreUserSession(userSession, originalUserSession);
-            restoreLobby(lobby, originalOpponentId, originalStatus);
-            redisClaimService.releaseLobbyJoin(lobbyId, userSession.getId());
-            throw ex;
+                eventPublisher.publishEvent(new LobbyEvent(this, userSession.getUsername(), "/queue/replies",
+                        new LobbyEventResponseDto(LobbyEventType.LOBBY_JOINED, "@SERVER", new LobbyEventPayload(lobbyId, userSession.getUsername()))));
+            } catch (RuntimeException ex) {
+                restoreUserSession(userSession, originalUserSession);
+                restoreLobby(lobby, originalOpponentId, originalStatus);
+                throw ex;
+            }
         }
     }
 
@@ -115,9 +103,7 @@ public class LobbyService {
     }
 
     public void removeUser(UserSession userSession) {
-
         UUID lobbyId = userSession.getLobbyId();
-
         Lobby lobby = findById(lobbyId);
 
         if (!isConnectedUser(lobby, userSession.getId()))
@@ -133,9 +119,8 @@ public class LobbyService {
             lobby.setOpponentId(null);
             lobby.setStatus(LobbyStatus.WAITING_FOR_OPPONENT);
             lobbyRepository.save(lobby);
-            redisClaimService.deleteLobbyJoin(lobby.getId());
 
-            eventPublisher.publishEvent(new LobbyEvent(this,null,
+            eventPublisher.publishEvent(new LobbyEvent(this, null,
                     "/topic/lobby/" + userSession.getLobbyId(),
                     new LobbyEventResponseDto(
                             LobbyEventType.LOBBY_DISCONNECT,
@@ -148,34 +133,32 @@ public class LobbyService {
 
     public void delete(Lobby lobby) {
         lobbyRepository.delete(lobby);
-        redisClaimService.deleteLobbyJoin(lobby.getId());
-        redisClaimService.deleteGameCreation(lobby.getId());
-        if(lobby.getType() == LobbyType.QUICK_MATCH){
+        if (lobby.getType() == LobbyType.QUICK_MATCH) {
             quickMatchService.delete(lobby);
         }
     }
 
-    public void removeQuickMatch(Lobby lobby){
+    public void removeQuickMatch(Lobby lobby) {
         quickMatchService.delete(lobby);
     }
 
-    public Optional<Lobby> popBestQuickMatch(){
+    public Optional<Lobby> popBestQuickMatch() {
         return quickMatchService.popBestQuickMatch();
     }
 
-    public Lobby findById(UUID lobbyId){
+    public Lobby findById(UUID lobbyId) {
         Lobby lobby = lobbyRepository.findById(lobbyId)
-                .orElseThrow(() ->new ProblemDetailException(HttpStatus.NOT_FOUND,"The lobby with the provided id does not exist.", URI.create("about:blank")));
+                .orElseThrow(() -> new ProblemDetailException(HttpStatus.NOT_FOUND, "The lobby with the provided id does not exist.", URI.create("about:blank")));
 
         return lobby;
     }
 
-    private boolean isFullLobby(Lobby lobby){
+    private boolean isFullLobby(Lobby lobby) {
         return (lobby.getHostId() != null)
-        && (lobby.getOpponentId() != null);
+                && (lobby.getOpponentId() != null);
     }
 
-    private boolean isConnectedUser(Lobby lobby, Long userId){
+    private boolean isConnectedUser(Lobby lobby, Long userId) {
         return userId.equals(lobby.getOpponentId())
                 || userId.equals(lobby.getHostId());
     }
