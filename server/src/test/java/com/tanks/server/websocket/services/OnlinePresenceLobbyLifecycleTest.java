@@ -17,8 +17,6 @@ import com.tanks.server.websocket.security.services.LobbyAuthorizationService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.simp.stomp.StompCommand;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
@@ -160,46 +158,44 @@ class OnlinePresenceLobbyLifecycleTest {
 
         verify(harness.lobbyRepository).delete(lobby);
         verify(harness.quickMatchService).delete(lobby);
-        verify(harness.redisClaimService).deleteLobbyJoin(lobbyId);
-        verify(harness.redisClaimService).deleteGameCreation(lobbyId);
     }
 
     @Test
     @DisplayName("Quick Match pairs with the oldest valid waiting quick-match Lobby")
     void quickMatchPairsWithOldestValidWaitingLobby() {
         LobbyRepository lobbyRepository = mock(LobbyRepository.class);
-        RedisTemplate<String, Object> redisTemplate = mock(RedisTemplate.class);
-        ZSetOperations<String, Object> zSetOperations = mock(ZSetOperations.class);
-        QuickMatchService quickMatchService = new QuickMatchService(lobbyRepository, redisTemplate);
+        QuickMatchService quickMatchService = new QuickMatchService(lobbyRepository);
         UUID fullLobbyId = UUID.randomUUID();
         UUID privateLobbyId = UUID.randomUUID();
         UUID validLobbyId = UUID.randomUUID();
-        when(redisTemplate.opsForZSet()).thenReturn(zSetOperations);
-        when(zSetOperations.popMin("quick_match"))
-                .thenReturn(tuple(fullLobbyId))
-                .thenReturn(tuple(privateLobbyId))
-                .thenReturn(tuple(validLobbyId))
-                .thenReturn(null);
-        when(lobbyRepository.findById(fullLobbyId)).thenReturn(Optional.of(Lobby.builder()
+
+        Lobby fullLobby = Lobby.builder()
                 .id(fullLobbyId)
                 .type(LobbyType.QUICK_MATCH)
                 .status(LobbyStatus.READY)
                 .hostId(1L)
                 .opponentId(2L)
-                .build()));
-        when(lobbyRepository.findById(privateLobbyId)).thenReturn(Optional.of(Lobby.builder()
+                .build();
+        Lobby privateLobby = Lobby.builder()
                 .id(privateLobbyId)
                 .type(LobbyType.PRIVATE)
                 .status(LobbyStatus.WAITING_FOR_OPPONENT)
                 .hostId(3L)
-                .build()));
+                .build();
         Lobby validLobby = Lobby.builder()
                 .id(validLobbyId)
                 .type(LobbyType.QUICK_MATCH)
                 .status(LobbyStatus.WAITING_FOR_OPPONENT)
                 .hostId(4L)
                 .build();
+
+        when(lobbyRepository.findById(fullLobbyId)).thenReturn(Optional.of(fullLobby));
+        when(lobbyRepository.findById(privateLobbyId)).thenReturn(Optional.of(privateLobby));
         when(lobbyRepository.findById(validLobbyId)).thenReturn(Optional.of(validLobby));
+
+        quickMatchService.create(fullLobby);
+        quickMatchService.create(privateLobby);
+        quickMatchService.create(validLobby);
 
         assertThat(quickMatchService.popBestQuickMatch()).containsSame(validLobby);
     }
@@ -220,7 +216,7 @@ class OnlinePresenceLobbyLifecycleTest {
                 .status(LobbyStatus.WAITING_FOR_OPPONENT)
                 .hostId(1L)
                 .build();
-        when(harness.redisClaimService.claimLobbyJoin(privateInvite, 2L)).thenReturn(true);
+
         when(harness.lobbyRepository.findById(privateInvite)).thenReturn(Optional.of(lobby));
         when(harness.userSessionRepository.save(any(UserSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -259,25 +255,6 @@ class OnlinePresenceLobbyLifecycleTest {
         return new TestingAuthenticationToken(principal, null);
     }
 
-    private static ZSetOperations.TypedTuple<Object> tuple(UUID lobbyId) {
-        return new ZSetOperations.TypedTuple<>() {
-            @Override
-            public Object getValue() {
-                return lobbyId.toString();
-            }
-
-            @Override
-            public Double getScore() {
-                return 0.0;
-            }
-
-            @Override
-            public int compareTo(ZSetOperations.TypedTuple<Object> other) {
-                return 0;
-            }
-        };
-    }
-
     private static class TestHarness {
         private final LobbyRepository lobbyRepository = mock(LobbyRepository.class);
         private final UserSessionRepository userSessionRepository = mock(UserSessionRepository.class);
@@ -286,13 +263,11 @@ class OnlinePresenceLobbyLifecycleTest {
                 userSessionRepository,
                 lobbyRepository,
                 mock(com.tanks.server.websocket.repositories.GameSessionRepository.class));
-        private final RedisClaimService redisClaimService = mock(RedisClaimService.class);
         private final ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
         private final LobbyService lobbyService = new LobbyService(
                 lobbyRepository,
                 quickMatchService,
                 userSessionService,
-                redisClaimService,
                 eventPublisher);
     }
 }

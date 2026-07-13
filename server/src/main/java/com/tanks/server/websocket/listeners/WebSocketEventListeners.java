@@ -15,7 +15,6 @@ import com.tanks.server.websocket.security.entites.WebSocketAuthentication;
 import com.tanks.server.websocket.security.entites.WebSocketPrincipal;
 import com.tanks.server.websocket.services.GameSessionService;
 import com.tanks.server.websocket.services.LobbyService;
-import com.tanks.server.websocket.services.RedisClaimService;
 import com.tanks.server.websocket.services.UserSessionService;
 import com.tanks.server.websocket.events.GameEvent;
 import com.tanks.server.websocket.events.LobbyEvent;
@@ -51,13 +50,10 @@ public class WebSocketEventListeners {
 
     private UserSessionService userSessionService;
 
-    private RedisClaimService redisClaimService;
-
-    public WebSocketEventListeners(GameSessionService gameSessionService, LobbyService lobbyService, UserSessionService userSessionService, RedisClaimService redisClaimService, SimpMessagingTemplate simpMessagingTemplate){
+    public WebSocketEventListeners(GameSessionService gameSessionService, LobbyService lobbyService, UserSessionService userSessionService, SimpMessagingTemplate simpMessagingTemplate){
         this.lobbyService = lobbyService;
         this.gameSessionService = gameSessionService;
         this.userSessionService = userSessionService;
-        this.redisClaimService = redisClaimService;
         this.simpMessagingTemplate = simpMessagingTemplate;
     }
 

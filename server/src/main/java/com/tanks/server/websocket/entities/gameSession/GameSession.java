@@ -6,8 +6,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.springframework.data.annotation.Id;
-import org.springframework.data.redis.core.RedisHash;
-import org.springframework.data.redis.core.index.Indexed;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
@@ -17,7 +15,6 @@ import java.util.UUID;
 @NoArgsConstructor
 @Getter
 @Setter
-@RedisHash(value = "gameSession")
 public class GameSession {
 
     @Id
@@ -65,10 +62,39 @@ public class GameSession {
 
     private Double playerBTankHealth;
 
-    @Indexed
     private GameSessionState state;
 
     private String gameplayDefinitionVersion;
 
     private int connectedPlayerCount = 0;
+
+    public GameSession(GameSession other) {
+        if (other != null) {
+            this.id = other.id;
+            this.playerA = other.playerA;
+            this.playerB = other.playerB;
+            this.startedAt = other.startedAt;
+            this.endedAt = other.endedAt;
+            this.createdAt = other.createdAt;
+            this.playerTurnExpiresAt = other.playerTurnExpiresAt;
+            this.playerTurn = other.playerTurn;
+            this.serverTick = other.serverTick;
+            this.nextDiffSequence = other.nextDiffSequence;
+            this.lastDiffServerTick = other.lastDiffServerTick;
+            this.turnNumber = other.turnNumber;
+            this.playerAUnresolvedIntentId = other.playerAUnresolvedIntentId;
+            this.playerBUnresolvedIntentId = other.playerBUnresolvedIntentId;
+            this.playerATankX = other.playerATankX;
+            this.playerATankY = other.playerATankY;
+            this.playerATankFuel = other.playerATankFuel;
+            this.playerATankHealth = other.playerATankHealth;
+            this.playerBTankX = other.playerBTankX;
+            this.playerBTankY = other.playerBTankY;
+            this.playerBTankFuel = other.playerBTankFuel;
+            this.playerBTankHealth = other.playerBTankHealth;
+            this.state = other.state;
+            this.gameplayDefinitionVersion = other.gameplayDefinitionVersion;
+            this.connectedPlayerCount = other.connectedPlayerCount;
+        }
+    }
 }

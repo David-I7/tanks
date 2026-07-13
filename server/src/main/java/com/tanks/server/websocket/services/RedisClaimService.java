@@ -1,126 +1,76 @@
 package com.tanks.server.websocket.services;
 
-import lombok.RequiredArgsConstructor;
-import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
 
-import java.time.Duration;
-import java.util.Collections;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Service
-@RequiredArgsConstructor
 public class RedisClaimService {
 
-    private static final Duration CLAIM_TTL = Duration.ofSeconds(5);
-
-    private static final Duration USER_SESSION_RELOAD_TTL = Duration.ofHours(1);
-
-    private static final DefaultRedisScript<Long> RELEASE_IF_OWNED_SCRIPT = new DefaultRedisScript<>(
-            """
-            if redis.call('GET', KEYS[1]) == ARGV[1] then
-                return redis.call('DEL', KEYS[1])
-            end
-            return 0
-            """,
-            Long.class
-    );
-
-    private final RedisTemplate<String, Object> redisTemplate;
+    private final ConcurrentHashMap<Long, String> activeSockets = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<UUID, Long> lobbyJoins = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<UUID, Long> gameCreations = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<UUID, Boolean> gameStarts = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Long, Boolean> reloadRequired = new ConcurrentHashMap<>();
 
     public boolean claimSocket(Long userId, String socketSessionId) {
-        String key = socketClaimKey(userId);
-        Boolean claimed = redisTemplate.opsForValue().setIfAbsent(key, socketSessionId, CLAIM_TTL);
-
-        if (Boolean.TRUE.equals(claimed)) {
-            return true;
-        }
-
-        Object currentSocketSessionId = redisTemplate.opsForValue().get(key);
-        return socketSessionId.equals(currentSocketSessionId);
+        String existing = activeSockets.putIfAbsent(userId, socketSessionId);
+        return existing == null || existing.equals(socketSessionId);
     }
 
     public void refreshSocketClaim(Long userId) {
-        redisTemplate.expire(socketClaimKey(userId), CLAIM_TTL);
+        // No-op: in-memory maps do not require TTL refreshing.
     }
 
     public void releaseSocket(Long userId, String socketSessionId) {
         if (socketSessionId == null) {
             return;
         }
-
-        releaseIfOwned(socketClaimKey(userId), socketSessionId);
+        activeSockets.remove(userId, socketSessionId);
     }
 
     public boolean claimLobbyJoin(UUID lobbyId, Long userId) {
-        return Boolean.TRUE.equals(redisTemplate.opsForValue()
-                .setIfAbsent(lobbyJoinClaimKey(lobbyId), userId.toString(), CLAIM_TTL));
+        return lobbyJoins.putIfAbsent(lobbyId, userId) == null;
     }
 
     public void releaseLobbyJoin(UUID lobbyId, Long userId) {
-        releaseIfOwned(lobbyJoinClaimKey(lobbyId), userId.toString());
+        lobbyJoins.remove(lobbyId, userId);
     }
 
     public void deleteLobbyJoin(UUID lobbyId) {
-        redisTemplate.delete(lobbyJoinClaimKey(lobbyId));
+        lobbyJoins.remove(lobbyId);
     }
 
     public boolean claimGameCreation(UUID lobbyId, Long hostId) {
-        return Boolean.TRUE.equals(redisTemplate.opsForValue()
-                .setIfAbsent(gameCreateClaimKey(lobbyId), hostId.toString(), CLAIM_TTL));
+        return gameCreations.putIfAbsent(lobbyId, hostId) == null;
     }
 
     public void releaseGameCreation(UUID lobbyId, Long hostId) {
-        releaseIfOwned(gameCreateClaimKey(lobbyId), hostId.toString());
+        gameCreations.remove(lobbyId, hostId);
     }
 
     public void deleteGameCreation(UUID lobbyId) {
-        redisTemplate.delete(gameCreateClaimKey(lobbyId));
+        gameCreations.remove(lobbyId);
     }
 
     public boolean claimGameStart(UUID gameSessionId) {
-        return Boolean.TRUE.equals(redisTemplate.opsForValue()
-                .setIfAbsent(gameStartClaimKey(gameSessionId), "started", CLAIM_TTL));
+        return gameStarts.putIfAbsent(gameSessionId, true) == null;
     }
 
     public void deleteGameStart(UUID gameSessionId) {
-        redisTemplate.delete(gameStartClaimKey(gameSessionId));
+        gameStarts.remove(gameSessionId);
     }
 
     public void markUserSessionReloadRequired(Long userId) {
-        redisTemplate.opsForValue().set(userSessionReloadKey(userId), "reload", USER_SESSION_RELOAD_TTL);
+        reloadRequired.put(userId, true);
     }
 
     public boolean consumeUserSessionReloadRequired(Long userId) {
-        return redisTemplate.opsForValue().getAndDelete(userSessionReloadKey(userId)) != null;
+        return reloadRequired.remove(userId) != null;
     }
 
     public void deleteUserSessionReloadRequired(Long userId) {
-        redisTemplate.delete(userSessionReloadKey(userId));
-    }
-
-    private void releaseIfOwned(String key, String owner) {
-        redisTemplate.execute(RELEASE_IF_OWNED_SCRIPT, Collections.singletonList(key), owner);
-    }
-
-    private String socketClaimKey(Long userId) {
-        return "claim:user-socket:" + userId;
-    }
-
-    private String lobbyJoinClaimKey(UUID lobbyId) {
-        return "claim:lobby-join:" + lobbyId;
-    }
-
-    private String gameCreateClaimKey(UUID lobbyId) {
-        return "claim:game-create:" + lobbyId;
-    }
-
-    private String gameStartClaimKey(UUID gameSessionId) {
-        return "claim:game-start:" + gameSessionId;
-    }
-
-    private String userSessionReloadKey(Long userId) {
-        return "claim:user-session-reload:" + userId;
+        reloadRequired.remove(userId);
     }
 }

@@ -2,7 +2,6 @@ package com.tanks.server.websocket.entities.lobby;
 
 import lombok.*;
 import org.springframework.data.annotation.Id;
-import org.springframework.data.redis.core.RedisHash;
 
 import java.util.UUID;
 
@@ -11,7 +10,6 @@ import java.util.UUID;
 @Getter
 @Setter
 @Builder
-@RedisHash(value = "lobby")
 public class Lobby {
 
     @Id
@@ -25,5 +23,13 @@ public class Lobby {
 
     private Long opponentId;
 
+    public Lobby(Lobby other) {
+        if (other != null) {
+            this.id = other.id;
+            this.type = other.type;
+            this.status = other.status;
+            this.hostId = other.hostId;
+            this.opponentId = other.opponentId;
+        }
+    }
 }
-

@@ -99,13 +99,21 @@ public class WebSocketControllerTest {
             LobbyController.class,
             ChatController.class,
             GameSessionController.class,
-            LobbyAuthorizationService.class,
-            GameAuthorizationService.class,
             ProblemDetailWriter.class,
             StompErrorHandler.class,
             WebSocketExceptionHandler.class
     })
     public static class TestApp {
+        @org.springframework.context.annotation.Bean
+        public LobbyAuthorizationService lobbyAuthorizationService(UserSessionService userSessionService) {
+            return new LobbyAuthorizationService(userSessionService);
+        }
+
+        @org.springframework.context.annotation.Bean
+        public GameAuthorizationService gameAuthorizationService(LobbyService lobbyService, UserSessionService userSessionService) {
+            return new GameAuthorizationService(lobbyService, userSessionService);
+        }
+
         @org.springframework.context.annotation.Bean
         public org.springframework.security.web.SecurityFilterChain testSecurityFilterChain(org.springframework.security.config.annotation.web.builders.HttpSecurity http) throws Exception {
             return http
@@ -122,14 +130,20 @@ public class WebSocketControllerTest {
         when(auth.getPrincipal()).thenReturn(principal);
         when(principal.getUserSession()).thenReturn(null);
 
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(auth);
+
         ChatEventRequestDto requestDto = ChatEventRequestDto.builder()
                 .type(ChatEventType.CHAT_MESSAGE)
                 .message("hello")
                 .build();
 
-        assertThrows(ProblemDetailException.class, () -> {
-            chatController.sendMessage("lobby-id", requestDto, auth);
-        });
+        try {
+            assertThrows(org.springframework.security.access.AccessDeniedException.class, () -> {
+                chatController.sendMessage("lobby-id", requestDto, auth);
+            });
+        } finally {
+            org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        }
     }
 
     @Test

@@ -14,7 +14,6 @@ import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.data.redis.core.RedisTemplate;
 
 import com.tanks.server.repositories.GameResultRepository;
 import com.tanks.server.repositories.UserRepository;
@@ -284,7 +283,6 @@ class GameSessionServiceInitialStateTest {
         private final QuickMatchService quickMatchService = mock(QuickMatchService.class);
         private final List<Object> events = new ArrayList<>();
         private final ApplicationEventPublisher eventPublisher = events::add;
-        private final RedisTemplate<String, Object> redisTemplate = mock(RedisTemplate.class);
         private final RedisClaimService redisClaimService = mock(RedisClaimService.class);
         private final GameResultRepository gameResultRepository = mock(GameResultRepository.class);
         private final UserRepository userRepository = mock(UserRepository.class);
@@ -296,7 +294,6 @@ class GameSessionServiceInitialStateTest {
                 lobbyRepository,
                 quickMatchService,
                 eventPublisher,
-                redisTemplate,
                 redisClaimService,
                 gameplayRules,
                 initialStateFactory,

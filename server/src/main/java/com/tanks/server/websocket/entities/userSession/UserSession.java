@@ -2,7 +2,6 @@ package com.tanks.server.websocket.entities.userSession;
 
 import lombok.*;
 import org.springframework.data.annotation.Id;
-import org.springframework.data.redis.core.RedisHash;
 
 import java.util.*;
 
@@ -10,7 +9,6 @@ import java.util.*;
 @AllArgsConstructor
 @NoArgsConstructor
 @Data
-@RedisHash("userSession")
 public class UserSession {
 
     @Id

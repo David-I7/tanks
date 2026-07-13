@@ -1,0 +1,3 @@
+# In-memory volatile state coordination
+
+Migrate the server's volatile multiplayer state coordination (user sessions, lobbies, game sessions, matchmaking queues, connection locks) from Redis to a fully local in-memory coordination model. Strip out the Redis repositories and custom configuration, replacing them with custom thread-safe repository beans backed by JDK `ConcurrentHashMap` implementing defensive copy-on-read and copy-on-write semantics. Replace distributed lock claims with standard JVM `synchronized` blocks on unique, interned resource ID strings, and manage the matchmaking queue with a local non-blocking `ConcurrentSkipListSet`. Durable records remain in Postgres.

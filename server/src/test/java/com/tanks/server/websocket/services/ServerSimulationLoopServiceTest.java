@@ -15,7 +15,6 @@ import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 
 import com.tanks.server.websocket.dto.gameplay.OnlineDiffEnvelopeDto;
@@ -136,7 +135,6 @@ class ServerSimulationLoopServiceTest {
         harness.service.cleanupTerminalSessions();
 
         verify(harness.gameRepository).delete(gameSession);
-        verify(harness.redisTemplate).delete("gameSession:" + gameSession.getId());
     }
 
     @Test
@@ -151,7 +149,6 @@ class ServerSimulationLoopServiceTest {
         harness.service.cleanupTerminalSessions();
 
         verify(harness.gameRepository, times(0)).delete(any(GameSession.class));
-        verify(harness.redisTemplate, times(0)).delete(any(String.class));
     }
 
     private static GameSession startedGameSession() {
@@ -181,10 +178,8 @@ class ServerSimulationLoopServiceTest {
         private final GameSessionRepository gameRepository = mock(GameSessionRepository.class);
         private final List<Object> events = new ArrayList<>();
         private final ApplicationEventPublisher eventPublisher = events::add;
-        private final RedisTemplate<String, Object> redisTemplate = mock(RedisTemplate.class);
         private final ServerSimulationLoopService service = new ServerSimulationLoopService(
                 gameRepository,
-                eventPublisher,
-                redisTemplate);
+                eventPublisher);
     }
 }

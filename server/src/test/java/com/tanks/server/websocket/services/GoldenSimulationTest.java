@@ -14,7 +14,6 @@ import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.data.redis.core.RedisTemplate;
 
 import com.tanks.server.repositories.GameResultRepository;
 import com.tanks.server.repositories.UserRepository;
@@ -225,16 +224,13 @@ class GoldenSimulationTest {
         when(harness.gameRepository.findById(gameSessionId)).thenReturn(Optional.of(gameSession));
         when(harness.gameRepository.save(any(GameSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        // Stub redisTemplate hash operations for connectedPlayerCount decrement
-        var hashOps = mock(org.springframework.data.redis.core.HashOperations.class);
-        when(harness.redisTemplate.opsForHash()).thenReturn(hashOps);
-        when(hashOps.increment(any(), any(), org.mockito.Mockito.anyLong())).thenReturn(1L);
+        int initialCount = gameSession.getConnectedPlayerCount();
 
         // Player 2 disconnects
         harness.service.decremenentPlayerCount(gameSessionId);
 
-        // Verify connectedPlayerCount decrement was called
-        org.mockito.Mockito.verify(hashOps).increment("gameSession:" + gameSessionId, "connectedPlayerCount", -1L);
+        // Verify connectedPlayerCount was decremented
+        assertThat(gameSession.getConnectedPlayerCount()).isEqualTo(initialCount - 1);
 
         // Let turn expire for Player 1 (who is still connected)
         gameSession.setServerTick(900);
@@ -264,7 +260,6 @@ class GoldenSimulationTest {
         private final QuickMatchService quickMatchService = mock(QuickMatchService.class);
         private final List<Object> events = new ArrayList<>();
         private final ApplicationEventPublisher eventPublisher = events::add;
-        private final RedisTemplate<String, Object> redisTemplate = mock(RedisTemplate.class);
         private final RedisClaimService redisClaimService = mock(RedisClaimService.class);
         private final GameResultRepository gameResultRepository = mock(GameResultRepository.class);
         private final UserRepository userRepository = mock(UserRepository.class);
@@ -276,7 +271,6 @@ class GoldenSimulationTest {
                 lobbyRepository,
                 quickMatchService,
                 eventPublisher,
-                redisTemplate,
                 redisClaimService,
                 gameplayRules,
                 initialStateFactory,
@@ -284,7 +278,6 @@ class GoldenSimulationTest {
                 userRepository);
         private final ServerSimulationLoopService loopService = new ServerSimulationLoopService(
                 gameRepository,
-                eventPublisher,
-                redisTemplate);
+                eventPublisher);
     }
 }

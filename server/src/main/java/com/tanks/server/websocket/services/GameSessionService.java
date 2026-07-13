@@ -35,7 +35,6 @@ import com.tanks.server.websocket.repositories.LobbyRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
@@ -57,7 +56,6 @@ public class GameSessionService {
     private final LobbyRepository lobbyRepository;
     private final QuickMatchService quickMatchService;
     private final ApplicationEventPublisher eventPublisher;
-    private final RedisTemplate<String, Object> redisTemplate;
     private final RedisClaimService redisClaimService;
     private final OnlineGameplayRules gameplayRules;
     private final OnlineInitialStateFactory initialStateFactory;
@@ -65,17 +63,7 @@ public class GameSessionService {
     private final UserRepository userRepository;
 
     public GameSession create(Lobby lobby) {
-        if (!redisClaimService.claimGameCreation(lobby.getId(), lobby.getHostId())) {
-            throw new ProblemDetailException(HttpStatus.CONFLICT, "Game creation is already in progress.", URI.create("/game/create"));
-        }
-
-        GameSession savedGameSession = null;
-        UserSession host = null;
-        UserSession opponent = null;
-        UserSession originalHost = null;
-        UserSession originalOpponent = null;
-
-        try {
+        synchronized (lobby.getId().toString().intern()) {
             Lobby freshLobby = lobbyRepository.findById(lobby.getId())
                     .orElseThrow(() -> new ProblemDetailException(HttpStatus.NOT_FOUND, "The lobby with the provided id does not exist.", URI.create("about:blank")));
 
@@ -83,77 +71,73 @@ public class GameSessionService {
                 throw new ProblemDetailException(HttpStatus.CONFLICT, "Lobby is no longer ready to create a game.", URI.create("/game/create"));
             }
 
-            host = userSessionService.findById(freshLobby.getHostId());
-            opponent = userSessionService.findById(freshLobby.getOpponentId());
-            originalHost = new UserSession(host);
-            originalOpponent = new UserSession(opponent);
+            UserSession host = userSessionService.findById(freshLobby.getHostId());
+            UserSession opponent = userSessionService.findById(freshLobby.getOpponentId());
+            UserSession originalHost = new UserSession(host);
+            UserSession originalOpponent = new UserSession(opponent);
+            GameSession savedGameSession = null;
 
-            UUID gameSessionId = IdFactory.randomUUID();
-            GameSession gameSession = GameSession.builder()
-                    .id(gameSessionId)
-                    .playerA(host.getUsername())
-                    .playerB(opponent.getUsername())
-                    .createdAt(OffsetDateTime.now())
-                    .state(GameSessionState.CREATED)
-                    .gameplayDefinitionVersion(gameplayRules.currentVersion())
-                    .build();
+            try {
+                UUID gameSessionId = IdFactory.randomUUID();
+                GameSession gameSession = GameSession.builder()
+                        .id(gameSessionId)
+                        .playerA(host.getUsername())
+                        .playerB(opponent.getUsername())
+                        .createdAt(OffsetDateTime.now())
+                        .state(GameSessionState.CREATED)
+                        .gameplayDefinitionVersion(gameplayRules.currentVersion())
+                        .build();
 
-            savedGameSession = gameRepository.save(gameSession);
+                savedGameSession = gameRepository.save(gameSession);
 
-            GameEventResponseDto response = new GameEventResponseDto(
-                    GameEventType.GAME_CREATED,
-                    "@SERVER",
-                    new GameIdPayload(savedGameSession.getId(), null)
-            );
+                GameEventResponseDto response = new GameEventResponseDto(
+                        GameEventType.GAME_CREATED,
+                        "@SERVER",
+                        new GameIdPayload(savedGameSession.getId(), null)
+                );
 
-            userSessionService.transitionToGame(host, savedGameSession.getId());
-            userSessionService.transitionToGame(opponent, savedGameSession.getId());
+                userSessionService.transitionToGame(host, savedGameSession.getId());
+                userSessionService.transitionToGame(opponent, savedGameSession.getId());
 
-            userSessionService.save(host);
-            userSessionService.save(opponent);
-            redisClaimService.markUserSessionReloadRequired(host.getId());
-            redisClaimService.markUserSessionReloadRequired(opponent.getId());
+                userSessionService.save(host);
+                userSessionService.save(opponent);
+                redisClaimService.markUserSessionReloadRequired(host.getId());
+                redisClaimService.markUserSessionReloadRequired(opponent.getId());
 
-            lobbyRepository.delete(freshLobby);
-            redisClaimService.deleteLobbyJoin(lobby.getId());
-            redisClaimService.deleteGameCreation(lobby.getId());
-            if (freshLobby.getType() == LobbyType.QUICK_MATCH) {
-                quickMatchService.delete(freshLobby);
+                lobbyRepository.delete(freshLobby);
+                if (freshLobby.getType() == LobbyType.QUICK_MATCH) {
+                    quickMatchService.delete(freshLobby);
+                }
+
+                eventPublisher.publishEvent(new GameEvent(this, host.getUsername(), "/queue/replies", response));
+                eventPublisher.publishEvent(new GameEvent(this, opponent.getUsername(), "/queue/replies", response));
+
+                return savedGameSession;
+            } catch (RuntimeException ex) {
+                if (host != null) {
+                    redisClaimService.deleteUserSessionReloadRequired(host.getId());
+                }
+                if (opponent != null) {
+                    redisClaimService.deleteUserSessionReloadRequired(opponent.getId());
+                }
+                if (host != null && originalHost != null) {
+                    restoreUserSession(host, originalHost);
+                    saveUserSessionQuietly(host);
+                }
+                if (opponent != null && originalOpponent != null) {
+                    restoreUserSession(opponent, originalOpponent);
+                    saveUserSessionQuietly(opponent);
+                }
+                if (savedGameSession != null) {
+                    deleteGameQuietly(savedGameSession);
+                }
+                throw ex;
             }
-
-            eventPublisher.publishEvent(new GameEvent(this, host.getUsername(), "/queue/replies", response));
-            eventPublisher.publishEvent(new GameEvent(this, opponent.getUsername(), "/queue/replies", response));
-
-            return savedGameSession;
-        } catch (RuntimeException ex) {
-            if (host != null) {
-                redisClaimService.deleteUserSessionReloadRequired(host.getId());
-            }
-            if (opponent != null) {
-                redisClaimService.deleteUserSessionReloadRequired(opponent.getId());
-            }
-            if (host != null && originalHost != null) {
-                restoreUserSession(host, originalHost);
-                saveUserSessionQuietly(host);
-            }
-            if (opponent != null && originalOpponent != null) {
-                restoreUserSession(opponent, originalOpponent);
-                saveUserSessionQuietly(opponent);
-            }
-            if (savedGameSession != null) {
-                deleteGameQuietly(savedGameSession);
-            }
-            redisClaimService.releaseGameCreation(lobby.getId(), lobby.getHostId());
-            throw ex;
         }
     }
 
     public void startGame(GameSession gameSession) {
-        if (!redisClaimService.claimGameStart(gameSession.getId())) {
-            return;
-        }
-
-        try {
+        synchronized (gameSession.getId().toString().intern()) {
             GameSession freshGameSession = findById(gameSession.getId());
             if (!GameSessionState.CREATED.equals(freshGameSession.getState())) {
                 return;
@@ -182,8 +166,6 @@ public class GameSessionService {
                     gameStartedResponse(freshGameSession, PLAYER_B_ID)));
             sendInitialStateToPlayer(freshGameSession, freshGameSession.getPlayerA());
             sendInitialStateToPlayer(freshGameSession, freshGameSession.getPlayerB());
-        } finally {
-            redisClaimService.deleteGameStart(gameSession.getId());
         }
     }
 
@@ -287,27 +269,23 @@ public class GameSessionService {
     }
 
     public GameSession getAndIncrementPlayerCount(UUID gameSessionId){
-        var res = redisTemplate.opsForHash().increment(member(gameSessionId), "connectedPlayerCount", 1L);
-
-        GameSession gameSession;
-        try {
-            gameSession = findById(gameSessionId);
-        } catch (RuntimeException ex) {
-            decremenentPlayerCount(gameSessionId);
-            throw ex;
+        synchronized (gameSessionId.toString().intern()) {
+            GameSession gameSession = findById(gameSessionId);
+            gameSession.setConnectedPlayerCount(gameSession.getConnectedPlayerCount() + 1);
+            return gameRepository.save(gameSession);
         }
-
-        gameSession.setConnectedPlayerCount(res.intValue());
-
-        return gameSession;
     }
 
     public void decremenentPlayerCount(UUID gameSessionId){
-        redisTemplate.opsForHash().increment(member(gameSessionId), "connectedPlayerCount", -1L);
-    }
-
-    private String member(UUID gameSessionId){
-        return "gameSession:" + gameSessionId;
+        synchronized (gameSessionId.toString().intern()) {
+            try {
+                GameSession gameSession = findById(gameSessionId);
+                gameSession.setConnectedPlayerCount(gameSession.getConnectedPlayerCount() - 1);
+                gameRepository.save(gameSession);
+            } catch (RuntimeException ex) {
+                // Ignore if game session not found
+            }
+        }
     }
 
     private OnlineDiffPayloads.IntentRejectionReason rejectionReason(
