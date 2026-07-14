@@ -90,29 +90,30 @@ public class WebSocketEventListeners {
         StompHeaderAccessor accessor =
                 StompHeaderAccessor.wrap(event.getMessage());
 
-        if(accessor.getUser() == null) return;
+        if(accessor.getUser() == null) {
+            log.debug("Unauthenticated user disconnected");
+            return;
+        }
 
         WebSocketPrincipal principal = (WebSocketPrincipal) ((WebSocketAuthentication)accessor.getUser()).getPrincipal();
         UserDto user = principal.getUserDto();
-        claimService.releaseSocket(user.id(), event.getSessionId());
         UserSession userSession = principal.getUserSession();
 
         // UserSession is null if the user failed to connect on the CONNECT command
         if(userSession != null) {
             if (userSession.getState() == UserSessionState.IN_LOBBY) {
                 // notify lobby that the user left
-                log.debug("LOBBY LEAVE");
+                log.debug("User {} left lobby {}", user.username(),userSession.getLobbyId());
                 handleLobbyLeave(userSession);
             } else if (userSession.getState() == UserSessionState.IN_GAME) {
                 // handle game leave
-                log.debug("GAME LEAVE");
+                log.debug("User {} left game {}", user.username(),userSession.getGameSessionId());
                 handleGameLeave(userSession);
             } else {
                 userSessionService.delete(userSession);
+                log.debug("User {} disconnected", user.username());
             }
         }
-
-        log.debug("User '{}' disconnected", user.username());
     }
 
     @EventListener
@@ -122,9 +123,12 @@ public class WebSocketEventListeners {
         if(accessor.getDestination() == null) return;
 
         WebSocketAuthentication authentication =  (WebSocketAuthentication)accessor.getUser();
+        WebSocketPrincipal webSocketPrincipal = (WebSocketPrincipal) (authentication.getPrincipal());
+        UserDto userDto = webSocketPrincipal.getUserDto();
 
         if(accessor.getDestination().startsWith(TOPIC_LOBBY)){
-            log.debug("LOBBY CONNECT");
+            var lobbyId = UUID.fromString(accessor.getDestination().substring(TOPIC_LOBBY.length()));
+            log.debug("User {} subscribed to lobby {}", userDto.username(), lobbyId);
 
             simpMessagingTemplate.convertAndSend(
                     accessor.getDestination(),
@@ -132,13 +136,14 @@ public class WebSocketEventListeners {
                             LobbyEventType.LOBBY_CONNECT,
                             "@SERVER",
                             new LobbyEventPayload(
-                                    UUID.fromString(accessor.getDestination().substring(TOPIC_LOBBY.length())),
+                                   lobbyId,
                                     authentication.getName()
                             )
                     )
             );
         } else if (accessor.getDestination().startsWith(TOPIC_GAME)) {
-            log.debug("GAME CONNECT");
+            var gameId = UUID.fromString(accessor.getDestination().substring(TOPIC_GAME.length()));
+            log.debug("User {} subscribed to game {}", userDto.username(), gameId);
 
             simpMessagingTemplate.convertAndSend(
                     accessor.getDestination(),
@@ -146,7 +151,7 @@ public class WebSocketEventListeners {
                             GameEventType.GAME_CONNECT,
                             "@SERVER",
                             new GameIdPayload(
-                                    UUID.fromString(accessor.getDestination().substring(TOPIC_GAME.length())),
+                                   gameId,
                                     authentication.getName()
                             )
                     )

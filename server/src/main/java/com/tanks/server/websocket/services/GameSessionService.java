@@ -63,116 +63,106 @@ public class GameSessionService {
     private final UserRepository userRepository;
 
     public GameSession create(Lobby lobby) {
-        synchronized (lobby.getId().toString().intern()) {
-            Lobby freshLobby = lobbyRepository.findById(lobby.getId())
-                    .orElseThrow(() -> new ProblemDetailException(HttpStatus.NOT_FOUND, "The lobby with the provided id does not exist.", URI.create("about:blank")));
+        if (lobby.getStatus() != LobbyStatus.READY || lobby.getOpponentId() == null) {
+            throw new ProblemDetailException(HttpStatus.CONFLICT, "Lobby is no longer ready to create a game.", URI.create("/game/create"));
+        }
 
-            if (freshLobby.getStatus() != LobbyStatus.READY || freshLobby.getOpponentId() == null) {
-                throw new ProblemDetailException(HttpStatus.CONFLICT, "Lobby is no longer ready to create a game.", URI.create("/game/create"));
+        UserSession host = userSessionService.findById(lobby.getHostId());
+        UserSession opponent = userSessionService.findById(lobby.getOpponentId());
+        UserSession originalHost = new UserSession(host);
+        UserSession originalOpponent = new UserSession(opponent);
+        GameSession savedGameSession = null;
+
+        try {
+            UUID gameSessionId = IdFactory.randomUUID();
+            long generationSeed = gameSessionId.getMostSignificantBits() ^ gameSessionId.getLeastSignificantBits();
+            var content = contentCatalog.current();
+            var initialWorld = initialWorldFactory.create(content, generationSeed, host.getUsername(), opponent.getUsername());
+            GameSession gameSession = GameSession.builder()
+                    .id(gameSessionId)
+                    .playerA(host.getUsername())
+                    .playerB(opponent.getUsername())
+                    .createdAt(OffsetDateTime.now())
+                    .state(GameSessionState.CREATED)
+                    .gameContentVersion(content.version())
+                    .generationSeed(generationSeed)
+                    .world(initialWorld.world())
+                    .terrainModel(initialWorld.terrainModel())
+                    .build();
+
+            savedGameSession = gameRepository.save(gameSession);
+
+            GameEventResponseDto response = new GameEventResponseDto(
+                    GameEventType.GAME_CREATED,
+                    "@SERVER",
+                    new GameIdPayload(savedGameSession.getId(), null)
+            );
+
+            userSessionService.transitionToGame(host, savedGameSession.getId());
+            userSessionService.transitionToGame(opponent, savedGameSession.getId());
+
+            userSessionService.save(host);
+            userSessionService.save(opponent);
+            claimService.markUserSessionReloadRequired(host.getId());
+            claimService.markUserSessionReloadRequired(opponent.getId());
+
+            lobbyRepository.delete(lobby);
+            if (lobby.getType() == LobbyType.QUICK_MATCH) {
+                quickMatchService.delete(lobby);
             }
 
-            UserSession host = userSessionService.findById(freshLobby.getHostId());
-            UserSession opponent = userSessionService.findById(freshLobby.getOpponentId());
-            UserSession originalHost = new UserSession(host);
-            UserSession originalOpponent = new UserSession(opponent);
-            GameSession savedGameSession = null;
+            eventPublisher.publishEvent(new GameEvent(this, host.getUsername(), "/queue/replies", response));
+            eventPublisher.publishEvent(new GameEvent(this, opponent.getUsername(), "/queue/replies", response));
 
-            try {
-                UUID gameSessionId = IdFactory.randomUUID();
-                long generationSeed = gameSessionId.getMostSignificantBits() ^ gameSessionId.getLeastSignificantBits();
-                var content = contentCatalog.current();
-                var initialWorld = initialWorldFactory.create(content, generationSeed, host.getUsername(), opponent.getUsername());
-                GameSession gameSession = GameSession.builder()
-                        .id(gameSessionId)
-                        .playerA(host.getUsername())
-                        .playerB(opponent.getUsername())
-                        .createdAt(OffsetDateTime.now())
-                        .state(GameSessionState.CREATED)
-                        .gameContentVersion(content.version())
-                        .generationSeed(generationSeed)
-                        .world(initialWorld.world())
-                        .terrainModel(initialWorld.terrainModel())
-                        .build();
+            log.info("Game created: {} vs {}", host.getUsername(), opponent.getUsername());
+            return savedGameSession;
+        } catch (RuntimeException ex) {
 
-                savedGameSession = gameRepository.save(gameSession);
+            claimService.deleteUserSessionReloadRequired(host.getId());
+            claimService.deleteUserSessionReloadRequired(opponent.getId());
+            userSessionService.save(originalHost);
+            userSessionService.save(originalOpponent);
 
-                GameEventResponseDto response = new GameEventResponseDto(
-                        GameEventType.GAME_CREATED,
-                        "@SERVER",
-                        new GameIdPayload(savedGameSession.getId(), null)
-                );
-
-                userSessionService.transitionToGame(host, savedGameSession.getId());
-                userSessionService.transitionToGame(opponent, savedGameSession.getId());
-
-                userSessionService.save(host);
-                userSessionService.save(opponent);
-                claimService.markUserSessionReloadRequired(host.getId());
-                claimService.markUserSessionReloadRequired(opponent.getId());
-
-                lobbyRepository.delete(freshLobby);
-                if (freshLobby.getType() == LobbyType.QUICK_MATCH) {
-                    quickMatchService.delete(freshLobby);
-                }
-
-                eventPublisher.publishEvent(new GameEvent(this, host.getUsername(), "/queue/replies", response));
-                eventPublisher.publishEvent(new GameEvent(this, opponent.getUsername(), "/queue/replies", response));
-
-                return savedGameSession;
-            } catch (RuntimeException ex) {
-                if (host != null) {
-                    claimService.deleteUserSessionReloadRequired(host.getId());
-                }
-                if (opponent != null) {
-                    claimService.deleteUserSessionReloadRequired(opponent.getId());
-                }
-                if (host != null && originalHost != null) {
-                    restoreUserSession(host, originalHost);
-                    saveUserSessionQuietly(host);
-                }
-                if (opponent != null && originalOpponent != null) {
-                    restoreUserSession(opponent, originalOpponent);
-                    saveUserSessionQuietly(opponent);
-                }
-                if (savedGameSession != null) {
-                    deleteGameQuietly(savedGameSession);
-                }
-                throw ex;
+            if (savedGameSession != null) {
+                deleteGameQuietly(savedGameSession);
             }
+
+            log.error("Failed to create game", ex);
+            throw ex;
         }
     }
 
     public void startGame(GameSession gameSession) {
-        synchronized (gameSession.getId().toString().intern()) {
-            GameSession freshGameSession = findById(gameSession.getId());
-            if (!GameSessionState.CREATED.equals(freshGameSession.getState())) {
-                return;
-            }
-
-            freshGameSession.setStartedAt(OffsetDateTime.now());
-            freshGameSession.setServerTick(0);
-            freshGameSession.getWorld().match().activePlayerId(PLAYER_A_ID);
-            freshGameSession.getWorld().match().turnNumber(1);
-            freshGameSession.getWorld().match().turnEndsAtServerTick(
-                    contentCatalog.require(freshGameSession.getGameContentVersion()).world().tickRateHz() * 30L);
-            freshGameSession.setNextDiffSequence(2);
-            freshGameSession.setLastDiffServerTick(0);
-            freshGameSession.setState(GameSessionState.STARTED);
-            gameRepository.save(freshGameSession);
-
-            eventPublisher.publishEvent(new GameEvent(
-                    this,
-                    freshGameSession.getPlayerA(),
-                    "/queue/replies",
-                    gameStartedResponse(freshGameSession, PLAYER_A_ID)));
-            eventPublisher.publishEvent(new GameEvent(
-                    this,
-                    freshGameSession.getPlayerB(),
-                    "/queue/replies",
-                    gameStartedResponse(freshGameSession, PLAYER_B_ID)));
-            sendInitialStateToPlayer(freshGameSession, freshGameSession.getPlayerA());
-            sendInitialStateToPlayer(freshGameSession, freshGameSession.getPlayerB());
+        if (!GameSessionState.CREATED.equals(gameSession.getState())) {
+            return;
         }
+
+        gameSession.setStartedAt(OffsetDateTime.now());
+        gameSession.setServerTick(0);
+        gameSession.getWorld().match().activePlayerId(PLAYER_A_ID);
+        gameSession.getWorld().match().turnNumber(1);
+        gameSession.getWorld().match().turnEndsAtServerTick(
+                contentCatalog.require(gameSession.getGameContentVersion()).world().tickRateHz() * 30L);
+        gameSession.setNextDiffSequence(2);
+        gameSession.setLastDiffServerTick(0);
+        gameSession.setState(GameSessionState.STARTED);
+        gameRepository.save(gameSession);
+
+        eventPublisher.publishEvent(new GameEvent(
+                this,
+                gameSession.getPlayerA(),
+                "/queue/replies",
+                gameStartedResponse(gameSession, PLAYER_A_ID)));
+        eventPublisher.publishEvent(new GameEvent(
+                this,
+                gameSession.getPlayerB(),
+                "/queue/replies",
+                gameStartedResponse(gameSession, PLAYER_B_ID)));
+        sendInitialStateToPlayer(gameSession, gameSession.getPlayerA());
+        sendInitialStateToPlayer(gameSession, gameSession.getPlayerB());
+
+        log.debug("Game started: {} vs {}", gameSession.getPlayerA(), gameSession.getPlayerB());
+
     }
 
     private GameEventResponseDto gameStartedResponse(GameSession gameSession, long localPlayerId) {
@@ -194,6 +184,8 @@ public class GameSessionService {
                 username,
                 "/queue/replies",
                 initialStateFactory.createForPlayer(gameSession, localPlayerId(gameSession, username))));
+
+        log.debug("Initial state sent to player: {}", username);
     }
 
     public boolean sendResyncStateToPlayer(UUID gameSessionId, String username, OnlineDiffResponsePayloads.ResyncReason reason) {
@@ -208,6 +200,8 @@ public class GameSessionService {
                 username,
                 "/queue/replies",
                 initialStateFactory.createResyncForPlayer(gameSession, reason, localPlayerId(gameSession, username))));
+
+        log.debug("Resync state sent to player: {}", username);
         return true;
     }
 
@@ -231,30 +225,36 @@ public class GameSessionService {
 
         if (rejectionReason != null) {
             if (rejectionReason == OnlineDiffResponsePayloads.IntentRejectionReason.INVALID_PAYLOAD) {
+                log.debug("Invalid intent payload: {}", intent);
                 return false;
             }
             publishIntentRejection(gameSession, intent, rejectionReason);
             gameRepository.save(gameSession);
+            log.debug("Intent rejected: {}", intent);
             return false;
         }
 
         if (intent.type() == OnlinePlayerIntentRequestType.MOVE && intent.payload() instanceof OnlinePlayerIntentRequestPayloads.Move move) {
             if (!publishMovementSegment(gameSession, intent, move)) {
                 gameRepository.save(gameSession);
+                log.debug("Movement rejected: {}", intent);
                 return false;
             }
             gameRepository.save(gameSession);
+            log.debug("Movement accepted: {}", intent);
             return true;
         }
 
         if (intent.type() == OnlinePlayerIntentRequestType.FIRE && intent.payload() instanceof OnlinePlayerIntentRequestPayloads.Fire fire) {
             publishProjectileResolution(gameSession, intent, fire);
             gameRepository.save(gameSession);
+            log.debug("Projectile accepted: {}", intent);
             return true;
         }
 
         setUnresolvedIntent(gameSession, intent.playerId(), intent.intentId());
         gameRepository.save(gameSession);
+        log.debug("Intent accepted: {}", intent);
         return true;
     }
 
@@ -278,27 +278,19 @@ public class GameSessionService {
     }
 
     public GameSession getAndIncrementPlayerCount(UUID gameSessionId){
-        synchronized (gameSessionId.toString().intern()) {
-            GameSession gameSession = findById(gameSessionId);
-            if (gameSession.getConnectedPlayerCount() >= 2)
-                throw new ProblemDetailException(HttpStatus.BAD_REQUEST, "Game session already has 2 players", URI.create("about:blank"));
-            gameSession.setConnectedPlayerCount(gameSession.getConnectedPlayerCount() + 1);
-            return gameRepository.save(gameSession);
-        }
+        GameSession gameSession = findById(gameSessionId);
+        if (gameSession.getConnectedPlayerCount() >= 2)
+            throw new ProblemDetailException(HttpStatus.BAD_REQUEST, "Game session already has 2 players", URI.create("about:blank"));
+        gameSession.setConnectedPlayerCount(gameSession.getConnectedPlayerCount() + 1);
+        return gameRepository.save(gameSession);
     }
 
     public void decremenentPlayerCount(UUID gameSessionId){
-        synchronized (gameSessionId.toString().intern()) {
-            try {
-                GameSession gameSession = findById(gameSessionId);
-                if (gameSession.getConnectedPlayerCount() <= 0)
-                    throw new ProblemDetailException(HttpStatus.BAD_REQUEST, "Game session is already empty", URI.create("about:blank"));
-                gameSession.setConnectedPlayerCount(gameSession.getConnectedPlayerCount() - 1);
-                gameRepository.save(gameSession);
-            } catch (RuntimeException ex) {
-                // Ignore if game session not found
-            }
-        }
+        GameSession gameSession = findById(gameSessionId);
+        if (gameSession.getConnectedPlayerCount() <= 0)
+            throw new ProblemDetailException(HttpStatus.BAD_REQUEST, "Game session is already empty", URI.create("about:blank"));
+        gameSession.setConnectedPlayerCount(gameSession.getConnectedPlayerCount() - 1);
+        gameRepository.save(gameSession);
     }
 
     private OnlineDiffResponsePayloads.IntentRejectionReason rejectionReason(
@@ -534,6 +526,7 @@ public class GameSessionService {
         gameSession.setEndedAt(endedAt);
         gameSession.setState(GameSessionState.ENDED);
         gameSession.getWorld().match().winnerPlayerId(winnerPlayerId);
+        log.debug("Game ended: {} vs {}", playerA, playerB);
     }
 
     private User userByUsername(String username) {
@@ -575,6 +568,7 @@ public class GameSessionService {
                         gameSession.getWorld().match().turnNumber(),
                         OnlineDiffResponsePayloads.TurnPhase.AIMING,
                         gameSession.getWorld().match().turnEndsAtServerTick()));
+        log.debug("Turn advanced after shot: {} -> {}", previousPlayerId, activePlayerId);
     }
 
     private long projectileEntityId(GameSession gameSession) {

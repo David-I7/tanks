@@ -3,16 +3,22 @@ package com.tanks.server.websocket.services;
 import org.springframework.stereotype.Service;
 
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantLock;
 
 @Service
 public class ClaimService {
 
     private final ConcurrentHashMap<Long, String> activeSockets = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Long, Boolean> reloadRequired = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Long, ReentrantLock> socketLocks = new ConcurrentHashMap<>();
 
     public boolean claimSocket(Long userId, String socketSessionId) {
         String existing = activeSockets.putIfAbsent(userId, socketSessionId);
-        return existing == null || existing.equals(socketSessionId);
+        boolean socketClaimed = existing == null || existing.equals(socketSessionId);
+        if (socketClaimed) {
+            socketLocks.putIfAbsent(userId, new ReentrantLock());
+        }
+        return socketClaimed;
     }
 
     public void releaseSocket(Long userId, String socketSessionId) {
@@ -20,6 +26,11 @@ public class ClaimService {
             return;
         }
         activeSockets.remove(userId, socketSessionId);
+        socketLocks.remove(userId);
+    }
+
+    public ReentrantLock getSocketLock(Long userId) {
+        return socketLocks.get(userId);
     }
 
     public void markUserSessionReloadRequired(Long userId) {
