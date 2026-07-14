@@ -10,7 +10,7 @@ const DEBOUNCE_TYPING_TIMEOUT = 1000; // 1 sec
 const THROTTLE_TYPING_EVENT = 500; // 0.5 sec
 
 export type ChatMessage = {
-  type: "CONNECT" | "DISCONNECT" | "MESSAGE";
+  type: "CONNECT" | "DISCONNECT" | "MESSAGE" | "LEAVE";
   sender: string;
   payload: string;
 };
@@ -30,6 +30,15 @@ function webSocketEventToChatMessage(
           username === event.sender
             ? `You've connected`
             : `${(event.payload as LobbyEventPayload)!.playerName} connected`,
+      };
+    case "LEAVE":
+      return {
+        type: messageType,
+        sender: event.sender,
+        payload:
+          username === event.sender
+            ? `You've left`
+            : `${(event.payload as LobbyEventPayload)!.playerName} disconnected`,
       };
     case "DISCONNECT":
       return {
@@ -51,7 +60,7 @@ function webSocketEventToChatMessage(
 
 export default function useLobbyChat(lobbyId: string) {
   const { client, status } = useWebSocketStore();
-  const user = useAuthStore(state => state.user);
+  const user = useAuthStore((state) => state.user);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [typingUser, setTypingUser] = useState<string | null>(null);
 
@@ -104,7 +113,8 @@ export default function useLobbyChat(lobbyId: string) {
           messageBody.type === "CHAT_TYPE" ||
           messageBody.type === "CHAT_MESSAGE" ||
           messageBody.type === "LOBBY_DISCONNECT" ||
-          messageBody.type === "LOBBY_CONNECT"
+          messageBody.type === "LOBBY_CONNECT" ||
+          messageBody.type === "LOBBY_LEAVE"
         ) {
           if (messageBody.type === "CHAT_TYPE") {
             if (messageBody.sender === username) return;
@@ -113,16 +123,15 @@ export default function useLobbyChat(lobbyId: string) {
             return;
           }
 
-          if (
-            messageBody.type === "CHAT_MESSAGE"
-          ) {
+          if (messageBody.type === "CHAT_MESSAGE") {
             if (messageBody.sender !== username) {
               typingTimeout.cancel();
               setTypingUser(null);
             }
           }
           if (
-            messageBody.type === "LOBBY_DISCONNECT"
+            messageBody.type === "LOBBY_DISCONNECT" ||
+            messageBody.type === "LOBBY_LEAVE"
           ) {
             if (messageBody.payload.playerName !== username) {
               typingTimeout.cancel();
@@ -144,7 +153,6 @@ export default function useLobbyChat(lobbyId: string) {
       typingTimeout.cancel();
     };
   }, [client, status]);
-
 
   return {
     messages,

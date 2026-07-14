@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type ProblemDetailDto from "../../api/http/dto/ProblemDetailDto";
 import { ApiError } from "../../errors/ApiError";
-import type { EndpointSubscription, } from "../../api/ws/TanksWebSocketClient";
+import type { EndpointSubscription } from "../../api/ws/TanksWebSocketClient";
 import type { WebSocketEventResponseDto } from "../../api/ws/dto/WebSocketEventResponseDto";
 import { useNavigate } from "react-router-dom";
 import { useWebSocketStore } from "../../store/useWebSocketStore";
@@ -12,7 +12,7 @@ import { useScreenStack } from "../../context/ScreenStack";
 export default function useQuickMatchLobby() {
   const { client, status, connect } = useWebSocketStore();
   const navigate = useNavigate();
-  const user = useAuthStore(state => state.user);
+  const user = useAuthStore((state) => state.user);
   const [playerCount, setPlayerCount] = useState<number>(0);
   const [error, setError] = useState<Error | null>(null);
   const { popScreen } = useScreenStack();
@@ -29,9 +29,13 @@ export default function useQuickMatchLobby() {
     const handleLobbyMessage: EndpointSubscription<WebSocketEventResponseDto>["onMessage"] =
       (message) => {
         if (message.body.type === "LOBBY_CONNECT") {
-          setPlayerCount(prev => {
+          setPlayerCount((prev) => {
             const next = prev + 1;
-            if ((message.body.payload as LobbyEventPayload).playerName !== user?.username && next === 2) {
+            if (
+              (message.body.payload as LobbyEventPayload).playerName !==
+                user?.username &&
+              next === 2
+            ) {
               client.publish({ destination: "/app/game/create" });
             }
 
@@ -39,7 +43,10 @@ export default function useQuickMatchLobby() {
           });
         }
 
-        if (message.body.type === "LOBBY_DISCONNECT") {
+        if (
+          message.body.type === "LOBBY_DISCONNECT" ||
+          message.body.type === "LOBBY_LEAVE"
+        ) {
           setPlayerCount(1);
         }
       };
@@ -79,11 +86,18 @@ export default function useQuickMatchLobby() {
   }, [client, status]);
 
   useEffect(() => {
-    if (status === "connecting" || status === "connected" || status === "disconnecting") {
+    if (
+      status === "connecting" ||
+      status === "connected" ||
+      status === "disconnecting"
+    ) {
       hasObservedActiveConnection.current = true;
     }
 
-    if (hasObservedActiveConnection.current && (status === "disconnecting" || status === "disconnected")) {
+    if (
+      hasObservedActiveConnection.current &&
+      (status === "disconnecting" || status === "disconnected")
+    ) {
       popScreen();
     }
   }, [status]);

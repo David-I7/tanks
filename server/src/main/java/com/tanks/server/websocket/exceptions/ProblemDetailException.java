@@ -20,6 +20,13 @@ public class ProblemDetailException extends MessageDeliveryException {
         this.status = status;
     }
 
+    public ProblemDetailException(HttpStatus status, String detail){
+        super(detail);
+        this.detail = detail;
+        this.instance = URI.create("about:blank");
+        this.status = status;
+    }
+
     public HttpStatus getStatus() {
         return status;
     }

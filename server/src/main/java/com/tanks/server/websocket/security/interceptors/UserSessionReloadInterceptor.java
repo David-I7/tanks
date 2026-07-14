@@ -1,11 +1,13 @@
 package com.tanks.server.websocket.security.interceptors;
 
+import com.tanks.server.dto.UserDto;
 import com.tanks.server.websocket.entities.userSession.UserSession;
 import com.tanks.server.websocket.security.entites.WebSocketAuthentication;
 import com.tanks.server.websocket.security.entites.WebSocketPrincipal;
 import com.tanks.server.websocket.services.ClaimService;
 import com.tanks.server.websocket.services.UserSessionService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
@@ -17,6 +19,7 @@ import org.springframework.stereotype.Component;
 
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class UserSessionReloadInterceptor implements ChannelInterceptor {
 
     private final ClaimService claimService;
@@ -38,10 +41,11 @@ public class UserSessionReloadInterceptor implements ChannelInterceptor {
 
         WebSocketAuthentication authentication = (WebSocketAuthentication) accessor.getUser();
         WebSocketPrincipal principal = (WebSocketPrincipal) authentication.getPrincipal();
-        Long userId = principal.getUserDto().id();
+        UserDto userDto = principal.getUserDto();
 
-        if (claimService.consumeUserSessionReloadRequired(userId)) {
-            UserSession userSession = userSessionService.findById(userId);
+        if (claimService.consumeUserSessionReloadRequired(userDto.id())) {
+            log.debug("User session reload required for user {}", userDto.username());
+            UserSession userSession = userSessionService.findById(userDto.id());
             principal.setUserSession(userSession);
         }
 

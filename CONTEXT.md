@@ -29,7 +29,7 @@ The player in a lobby who can start the game when the lobby is ready.
 _Avoid_: Owner, creator, admin
 
 **Game Session**:
-A server-owned online game lifecycle created from a ready lobby, including the participating players, connection count, game state, and turn ownership.
+A server-owned online game lifecycle created from a ready lobby, including the participating players, connection count, authoritative tank and terrain state, and turn ownership.
 _Avoid_: Lobby, room, match
 
 **Turn Timer**:
@@ -51,6 +51,22 @@ _Avoid_: Matchmaking queue, random room
 **Player Intent**:
 A requested player action before it has been accepted by the simulation authority.
 _Avoid_: Command, input event
+
+**Movement Intent**:
+A player intent requesting movement to the left or right; travel distance is determined by authoritative gameplay rules rather than supplied by the player.
+_Avoid_: Displacement request, position update, movement command
+
+**Movement Path**:
+The terrain-aligned route across every horizontal world coordinate between a tank's current position and its proposed destination.
+_Avoid_: Endpoint check, straight-line interpolation
+
+**Partial Movement**:
+An accepted movement that ends at the last reachable grounded position before an obstacle when the full authoritative movement distance cannot be traversed.
+_Avoid_: Clamped intent, failed movement
+
+**Tank Settlement**:
+The server-resolved vertical movement of an unsupported tank onto the first supporting Surface Heightmap position below it, without fall damage or automatic sideways sliding.
+_Avoid_: Client gravity, terrain snap, tank sliding
 
 **Aim State**:
 Local pre-fire aiming information such as angle and power that becomes authoritative only when included in a fire intent.
@@ -144,6 +160,14 @@ _Avoid_: Terrain snapshot, terrain image
 The gameplay terrain model that can be changed by projectile effects and synchronized through terrain patch kinds.
 _Avoid_: Heightmap, mask, background
 
+**Surface Heightmap**:
+The authoritative terrain shape represented by exactly one exposed surface height for each horizontal world coordinate; it cannot represent caves or overhangs.
+_Avoid_: Solid mask, terrain image, collision bitmap
+
+**Bedrock**:
+The indestructible horizontal terrain band from `world height - bedrock depth` through the bottom of the world; terrain deformation cannot move the Surface Heightmap below its upper boundary.
+_Avoid_: World floor, terrain minimum, bottom boundary
+
 **Local Two-Player**:
 A local game mode where two human players share one client machine.
 _Avoid_: Online match, hotseat match
@@ -173,8 +197,8 @@ The complete authoritative game state sent when an online game begins or when a 
 _Avoid_: First diff, lobby payload
 
 **Movement Segment**:
-A server-accepted movement action with a confirmed start state, end state, and duration that the client renders over local monotonic time.
-_Avoid_: Position stream, movement tick
+A server-accepted movement action containing the ordered authoritative Movement Path and duration that the client renders over local monotonic time.
+_Avoid_: Endpoint interpolation, position stream, movement tick
 
 **Projectile Resolution**:
 A server-computed fire result that contains the projectile path outcome, impact, terrain change, damage, and turn transition needed for clients to animate and apply diffs.
@@ -184,13 +208,21 @@ _Avoid_: Projectile tick, client projectile simulation
 Server-provided projectile path data used by clients to animate a projectile resolution.
 _Avoid_: Client recomputation, local ballistics
 
-**Gameplay Definition**:
-Authoritative rules data for online play, such as tank stats, projectile behavior, damage behavior, and terrain effects.
-_Avoid_: Asset, skin, client config
+**Game Content**:
+Immutable authoritative content for play, including world rules, spawn constraints, tank capabilities and geometry, projectile physics, movement rules, damage behavior, and terrain effects.
+_Avoid_: Gameplay definitions, asset bundle, client config
 
-**Gameplay Definition Version**:
-A stable version identifier for the authoritative gameplay definitions used by an online game session.
+**Game Content Version**:
+A stable version identifier for the authoritative Game Content used by an online game session.
 _Avoid_: Build number, asset version
+
+**Generation Seed**:
+The server-generated value stored by a Game Session to reproduce its deterministic initial terrain and spawn generation.
+_Avoid_: Runtime random state, client seed, game identifier
+
+**Spawn Region**:
+A player-specific horizontal world region from which deterministic initial tank placement samples exactly one horizontal coordinate; the tank is grounded at the Surface Heightmap there without retrying for slope or fairness.
+_Avoid_: Fixed spawn point, unrestricted random position, player coordinate
 
 **Private Invite**:
 A private lobby join path based on the lobby identifier shared by the host.

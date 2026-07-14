@@ -12,6 +12,7 @@ import com.tanks.server.websocket.events.LobbyEvent;
 import com.tanks.server.websocket.exceptions.ProblemDetailException;
 import com.tanks.server.websocket.repositories.LobbyRepository;
 import lombok.AllArgsConstructor;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
@@ -22,7 +23,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Service
-@AllArgsConstructor
+@RequiredArgsConstructor
 @Slf4j
 public class LobbyService {
 
@@ -30,6 +31,8 @@ public class LobbyService {
     private final QuickMatchService quickMatchService;
     private final UserSessionService userSessionService;
     private final ApplicationEventPublisher eventPublisher;
+
+    private Object joinLock = new Object();
 
     public Lobby create(UserSession userSession, LobbyType type) {
         UserSession originalUserSession = new UserSession(userSession);
@@ -53,7 +56,7 @@ public class LobbyService {
             eventPublisher.publishEvent(new LobbyEvent(this, userSession.getUsername(), "/queue/replies",
                     new LobbyEventResponseDto(LobbyEventType.LOBBY_CREATED, "@SERVER", new LobbyEventPayload(uuid, userSession.getUsername()))));
         } catch (RuntimeException ex) {
-            restoreUserSession(userSession, originalUserSession);
+            restoreUserSession(originalUserSession);
             cleanupLobby(lobby);
             throw ex;
         }
@@ -62,7 +65,7 @@ public class LobbyService {
     }
 
     public void join(UUID lobbyId, UserSession userSession) {
-        synchronized (lobbyId.toString().intern()) {
+        synchronized (joinLock) {
             Lobby lobby = findById(lobbyId);
             Long originalOpponentId = lobby.getOpponentId();
             LobbyStatus originalStatus = lobby.getStatus();
@@ -84,7 +87,7 @@ public class LobbyService {
                 eventPublisher.publishEvent(new LobbyEvent(this, userSession.getUsername(), "/queue/replies",
                         new LobbyEventResponseDto(LobbyEventType.LOBBY_JOINED, "@SERVER", new LobbyEventPayload(lobbyId, userSession.getUsername()))));
             } catch (RuntimeException ex) {
-                restoreUserSession(userSession, originalUserSession);
+                restoreUserSession(originalUserSession);
                 restoreLobby(lobby, originalOpponentId, originalStatus);
                 throw ex;
             }
@@ -138,10 +141,6 @@ public class LobbyService {
         }
     }
 
-    public void removeQuickMatch(Lobby lobby) {
-        quickMatchService.delete(lobby);
-    }
-
     public Optional<Lobby> popBestQuickMatch() {
         return quickMatchService.popBestQuickMatch();
     }
@@ -164,29 +163,17 @@ public class LobbyService {
     }
 
     private void cleanupLobby(Lobby lobby) {
-        try {
-            delete(lobby);
-        } catch (RuntimeException cleanupEx) {
-            log.warn("Failed to clean up lobby '{}' after failed operation", lobby.getId(), cleanupEx);
-        }
+        delete(lobby);
     }
 
     private void restoreLobby(Lobby lobby, Long opponentId, LobbyStatus status) {
-        try {
-            lobby.setOpponentId(opponentId);
-            lobby.setStatus(status);
-            lobbyRepository.save(lobby);
-        } catch (RuntimeException restoreEx) {
-            log.warn("Failed to restore lobby '{}' after failed join", lobby.getId(), restoreEx);
-        }
+        lobby.setOpponentId(opponentId);
+        lobby.setStatus(status);
+        lobbyRepository.save(lobby);
     }
 
-    private void restoreUserSession(UserSession target, UserSession source) {
-        target.setState(source.getState());
-        target.setGameSessionId(source.getGameSessionId());
-        target.setLobbyId(source.getLobbyId());
-        target.setSocketSessionId(source.getSocketSessionId());
-        target.setTopicSubscriptions(source.getTopicSubscriptions());
+    private void restoreUserSession(UserSession original) {
+        userSessionService.save(original);
     }
 
 }
