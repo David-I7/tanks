@@ -3,13 +3,14 @@ import type { ReactNode } from "react";
 import { useAuthStore } from "../../store/useAuthStore";
 
 export default function AuthProvider({ children }: { children: ReactNode }) {
-    const handleRefresh = useAuthStore(state => state.handleRefresh);
+  const refresh = useAuthStore((state) => state.refresh);
+  const initialized = useAuthStore((state) => state.initialized);
 
-    useEffect(() => {
-        void handleRefresh().catch(() => {
-            // Authentication state is already updated by the store.
-        });
-    }, [handleRefresh]);
+  useEffect(() => {
+    if (initialized) return;
 
-    return children;
+    refresh();
+  }, []);
+
+  return children;
 }

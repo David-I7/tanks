@@ -13,15 +13,20 @@ import { useAuthStore } from "../../store/useAuthStore";
 import Loader from "../../components/misc/Loader";
 import InvalidStateError from "../../errors/InvalidStateError";
 import FormError from "../../components/form/FormError";
+import { useFetch } from "../../hooks/useFetch";
+import type { TanksRequest } from "../../api/http/requests/TanksRequest";
+import type RefreshResponseDto from "../../api/http/dto/RefreshResponseDto";
+import PostOauth2RegisterRequest from "../../api/http/requests/auth/PostOauth2RegisterRequest";
 
 type PostOAuth2RegisterFormProps = { token: string };
 
 export default function PostOAuth2RegisterForm({
   token,
 }: PostOAuth2RegisterFormProps) {
-  const handlePostOAuth2Register = useAuthStore(state => state.handlePostOAuth2Register);
-  const loading = useAuthStore(state => state.loading);
-  const error = useAuthStore(state => state.error);
+  const login = useAuthStore((state) => state.login);
+  const { trigger, error, isLoading } = useFetch(
+    (request: TanksRequest<RefreshResponseDto>) => login(request),
+  );
   const [username, setUsername] = useState<string | undefined>(undefined);
   const [errors, setErrors] = useState<
     Record<"username" | "form", ValidationError | null>
@@ -53,7 +58,9 @@ export default function PostOAuth2RegisterForm({
       return newErrors;
     }
 
-    newErrors["form"] = new InvalidStateError("An error occured trying to register. Please try again later.");
+    newErrors["form"] = new InvalidStateError(
+      "An error occured trying to register. Please try again later.",
+    );
     return newErrors;
   };
 
@@ -63,18 +70,19 @@ export default function PostOAuth2RegisterForm({
 
     const usernameValidationResult = usernameSchema.safeParse(username);
 
-
-
     if (usernameValidationResult.success) {
-      await handlePostOAuth2Register({
-        token,
-        username: usernameValidationResult.data,
-      });
+      await trigger(
+        new PostOauth2RegisterRequest({
+          token,
+          username: usernameValidationResult.data,
+        }),
+      );
     } else {
       setErrors({
         username: new ValidationError(
           usernameValidationResult.error.issues[0].message,
-        ), form: null
+        ),
+        form: null,
       });
     }
   };
@@ -127,7 +135,7 @@ export default function PostOAuth2RegisterForm({
             variant="filled"
             disabled={!isValidForm()}
           >
-            {loading ? <Loader /> : "Continue"}
+            {isLoading ? <Loader /> : "Continue"}
           </Button>
         </div>
       </div>

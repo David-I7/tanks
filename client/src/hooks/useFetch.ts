@@ -1,99 +1,71 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-type FetchState<Data, Err = Error> = {
+type FetchState<Data> = {
   data: Data | null;
-  error: Err | null;
-  state: "loading" | "error" | "data" | "idle";
-  loading: boolean;
+  error: Error | null;
+  state: "pending" | "error" | "success" | "idle";
+  isLoading: boolean;
 };
 
-export function useFetch<Data, Err = Error>(
-  fetchFN: () => Promise<Data>,
-  enabled: boolean = true,
+export function useFetch<Data, FetchFnArgs>(
+  fetchFn: (...args: FetchFnArgs[]) => Promise<Data>,
 ) {
-  const [fetchState, setFetchState] = useState<FetchState<Data, Err>>({
-    loading: enabled,
+  const [fetchState, setFetchState] = useState<FetchState<Data>>({
+    isLoading: false,
     data: null,
     error: null,
-    state: enabled ? "loading" : "idle",
+    state: "idle",
   });
-
-  const setData = (data: Data) => {
-    setFetchState((prev) => ({
-      ...prev,
-      loading: false,
-      state: "data",
-      data,
-      error: null,
-    }));
-  };
-
-  const setIdle = () => {
-    setFetchState((prev) => ({
-      ...prev,
-      loading: false,
-      state: "idle",
-      data: null,
-      error: null,
-    }));
-  };
-
-  const setError = (error: Err) => {
-    setFetchState((prev) => ({
-      ...prev,
-      loading: false,
-      state: "error",
-      error,
-    }));
-  };
 
   const lastFetchId = useRef(0);
 
-  const trigger = useCallback(async () => {
-    const fetchId = ++lastFetchId.current;
+  const trigger = useCallback(
+    async (...args: FetchFnArgs[]) => {
+      const fetchId = ++lastFetchId.current;
 
-    setFetchState((prev) => {
-      if (prev.loading) return prev;
-      return {
-        ...prev,
-        loading: true,
-        state: "loading",
-        error: null,
-      };
-    });
-
-    try {
-      const result = await fetchFN();
-      // Only update if this is still the most recent request
-      if (fetchId === lastFetchId.current) {
-        setFetchState((prev) => ({
+      setFetchState((prev) => {
+        if (prev.isLoading) return prev;
+        return {
           ...prev,
-          loading: false,
-          state: "data",
-          data: result,
-        }));
-      }
-    } catch (err) {
-      if (fetchId === lastFetchId.current) {
-        setFetchState((prev) => ({
-          ...prev,
-          loading: false,
-          state: "error",
-          error: err as Err,
-        }));
-      }
-    }
-  }, [fetchFN]);
+          isLoading: true,
+          state: "pending",
+          error: null,
+        };
+      });
 
-  // Handle auto-triggering
+      try {
+        const result = await fetchFn(...args);
+        // Only update if this is still the most recent request
+        if (fetchId === lastFetchId.current) {
+          setFetchState((_) => ({
+            isLoading: false,
+            state: "success",
+            data: result,
+            error: null,
+          }));
+        }
+      } catch (err) {
+        if (!(err instanceof Error)) {
+          err = new Error("Failed to fetch resource. Please try again later");
+        }
+        if (fetchId === lastFetchId.current) {
+          setFetchState((prev) => ({
+            ...prev,
+            isLoading: false,
+            state: "error",
+            error: err as Error,
+          }));
+        }
+      }
+    },
+    [fetchFn],
+  );
+
   useEffect(() => {
-    if (enabled) {
-      trigger();
-    }
     return () => {
       lastFetchId.current++;
     };
-  }, [enabled, trigger]);
+  }, [trigger]);
 
-  return { ...fetchState, trigger, setData, setError, setIdle };
+  return { ...fetchState, trigger };
 }

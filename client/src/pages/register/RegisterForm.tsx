@@ -17,11 +17,16 @@ import { useAuthStore } from "../../store/useAuthStore";
 import Loader from "../../components/misc/Loader";
 import InvalidStateError from "../../errors/InvalidStateError";
 import FormError from "../../components/form/FormError";
+import { useFetch } from "../../hooks/useFetch";
+import type { TanksRequest } from "../../api/http/requests/TanksRequest";
+import type RefreshResponseDto from "../../api/http/dto/RefreshResponseDto";
+import RegisterRequest from "../../api/http/requests/auth/RegisterRequest";
 
 export default function RegisterForm() {
-  const handleRegister = useAuthStore(state => state.handleRegister);
-  const error = useAuthStore(state => state.error);
-  const loading = useAuthStore(state => state.loading);
+  const login = useAuthStore((state) => state.login);
+  const { trigger, error, isLoading } = useFetch(
+    (request: TanksRequest<RefreshResponseDto>) => login(request),
+  );
   const [username, setUsername] = useState<string | undefined>(undefined);
   const [password, setPassword] = useState<string | undefined>(undefined);
   const [email, setEmail] = useState<string | undefined>(undefined);
@@ -30,7 +35,6 @@ export default function RegisterForm() {
   >({ username: null, password: null, email: null, form: null });
 
   const handleApiError = (err: ApiError) => {
-
     const newErrors: typeof errors = {
       password: null,
       username: null,
@@ -62,7 +66,9 @@ export default function RegisterForm() {
       return newErrors;
     }
 
-    newErrors["form"] = new InvalidStateError("An error occured trying to register. Please try again later.");
+    newErrors["form"] = new InvalidStateError(
+      "An error occured trying to register. Please try again later.",
+    );
     return newErrors;
   };
 
@@ -76,9 +82,8 @@ export default function RegisterForm() {
       email,
     });
 
-
     if (registerValidationResult.success) {
-      handleRegister(registerValidationResult.data);
+      trigger(new RegisterRequest(registerValidationResult.data));
     } else {
       registerValidationResult.error.issues.forEach((issue) => {
         const newErrors: typeof errors = {
@@ -86,7 +91,7 @@ export default function RegisterForm() {
           username: null,
           email: null,
           form: null,
-        }
+        };
         newErrors[issue.path[0] as keyof typeof errors] = new ValidationError(
           issue.message,
         );
@@ -132,8 +137,7 @@ export default function RegisterForm() {
     } else if (error instanceof NetworkError) {
       setErrors({ password: null, username: null, email: null, form: error });
     }
-  }, [error])
-
+  }, [error]);
 
   return (
     <Form onSubmit={handleSubmit}>
@@ -183,9 +187,9 @@ export default function RegisterForm() {
             type="submit"
             color="primary"
             variant="filled"
-            disabled={!isValidForm() || loading}
+            disabled={!isValidForm() || isLoading}
           >
-            <span>{loading ? <Loader /> : "Sign Up"}</span>
+            <span>{isLoading ? <Loader /> : "Sign Up"}</span>
           </Button>
           <div className="text-xs text-text-body/60 mt-4 text-center">
             Already have an account?{" "}
