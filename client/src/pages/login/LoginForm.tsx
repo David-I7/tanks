@@ -17,12 +17,12 @@ import { useAuthStore } from "../../store/useAuthStore";
 import Loader from "../../components/misc/Loader";
 import InvalidStateError from "../../errors/InvalidStateError";
 import FormError from "../../components/form/FormError";
-
+import { useFetch } from "../../hooks/useFetch";
+import LoginRequest from "../../api/http/requests/auth/LoginRequest";
 
 export default function LoginForm() {
-  const handleLogin = useAuthStore(state => state.handleLogin);
-  const error = useAuthStore(state => state.error);
-  const loading = useAuthStore(state => state.loading);
+  const login = useAuthStore((state) => state.passwordLogin);
+  const { trigger, error, isLoading } = useFetch(login);
   const [username, setUsername] = useState<string | undefined>(undefined);
   const [password, setPassword] = useState<string | undefined>(undefined);
   const [errors, setErrors] = useState<
@@ -58,7 +58,9 @@ export default function LoginForm() {
       return newErrors;
     }
 
-    newErrors["form"] = new InvalidStateError("An error occured trying to log in. Please try again later.");
+    newErrors["form"] = new InvalidStateError(
+      "An error occured trying to log in. Please try again later.",
+    );
     return newErrors;
   };
 
@@ -79,7 +81,7 @@ export default function LoginForm() {
     };
 
     if (loginValidationResult.success) {
-      handleLogin(loginValidationResult.data);
+      trigger(new LoginRequest(loginValidationResult.data));
       return;
     } else {
       loginValidationResult.error.issues.forEach((issue) => {
@@ -118,12 +120,11 @@ export default function LoginForm() {
 
     if (error instanceof ApiError) {
       if (error.status === 401) return;
-      setErrors(handleApiError(error))
+      setErrors(handleApiError(error));
     } else if (error instanceof NetworkError) {
       setErrors({ password: null, username: null, form: error });
     }
-  }, [error])
-
+  }, [error]);
 
   return (
     <Form onSubmit={handleSubmit}>
@@ -161,9 +162,9 @@ export default function LoginForm() {
             type="submit"
             color="primary"
             variant="filled"
-            disabled={!isValidForm() || loading}
+            disabled={!isValidForm() || isLoading}
           >
-            <span>{loading ? <Loader /> : "Log In"}</span>
+            <span>{isLoading ? <Loader /> : "Log In"}</span>
           </Button>
           <div className="text-xs text-text-body/60 mt-4 text-center">
             Don't have an account?{" "}

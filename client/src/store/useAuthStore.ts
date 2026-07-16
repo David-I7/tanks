@@ -10,6 +10,10 @@ import type AuthStatusResponseDto from "../api/http/dto/AuthStatusResponseDto";
 import type { UserSessionStatus } from "../api/http/dto/AuthStatusResponseDto";
 import AuthStatusRequest from "../api/http/requests/auth/AuthStatusRequest";
 import InvalidStateError from "../errors/InvalidStateError";
+import type PostOauth2RegisterRequest from "../api/http/requests/auth/PostOauth2RegisterRequest";
+import type RegisterRequest from "../api/http/requests/auth/RegisterRequest";
+import type LoginRequest from "../api/http/requests/auth/LoginRequest";
+import type PostOauth2LoginRequest from "../api/http/requests/auth/PostOAuth2LoginRequest";
 
 type AuthState = {
   initialized: boolean;
@@ -19,9 +23,14 @@ type AuthState = {
   accessToken: string | null;
 
   logout: () => Promise<void>;
-  login: (
-    loginRequest: TanksRequest<RefreshResponseDto>,
+  postOAuth2Register: (
+    request: PostOauth2RegisterRequest,
   ) => Promise<RefreshResponseDto>;
+  postOAuth2Login: (
+    request: PostOauth2LoginRequest,
+  ) => Promise<RefreshResponseDto>;
+  passwordLogin: (request: LoginRequest) => Promise<RefreshResponseDto>;
+  passwordRegister: (request: RegisterRequest) => Promise<RefreshResponseDto>;
   refresh: () => Promise<RefreshResponseDto>;
   status: () => Promise<AuthStatusResponseDto>;
 };
@@ -31,7 +40,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
 
   function handleError(err: unknown) {
     if (err instanceof ApiError) {
-      if (err.status === 401 || err.status === 403) {
+      if (err.status === 401) {
         set((_) => ({
           authState: "unauthenticated",
           user: null,
@@ -84,7 +93,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
     }
   }
 
-  async function login(request: TanksRequest<RefreshResponseDto>) {
+  async function loginOrRegister(request: TanksRequest<RefreshResponseDto>) {
     try {
       const data = await tanksClient.send(request);
       TanksClient.setAccessToken(data.accessToken);
@@ -117,6 +126,19 @@ export const useAuthStore = create<AuthState>((set, get) => {
 
   TanksClient.setRefreshHandler(refresh);
 
+  async function postOAuth2Register(request: PostOauth2RegisterRequest) {
+    return await loginOrRegister(request);
+  }
+  async function postOAuth2Login(request: PostOauth2LoginRequest) {
+    return await loginOrRegister(request);
+  }
+  async function passwordLogin(request: LoginRequest) {
+    return await loginOrRegister(request);
+  }
+  async function passwordRegister(request: RegisterRequest) {
+    return await loginOrRegister(request);
+  }
+
   return {
     initialized: false,
 
@@ -124,7 +146,10 @@ export const useAuthStore = create<AuthState>((set, get) => {
     userStatus: null,
     accessToken: null,
 
-    login,
+    postOAuth2Register,
+    postOAuth2Login,
+    passwordLogin,
+    passwordRegister,
     logout,
     refresh,
     status,

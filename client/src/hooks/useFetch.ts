@@ -1,11 +1,48 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-type FetchState<Data> = {
-  data: Data | null;
-  error: Error | null;
-  state: "pending" | "error" | "success" | "idle";
-  isLoading: boolean;
-};
+type FetchState<Data> =
+  | {
+      data: null;
+      error: null;
+      state: "idle";
+      isLoading: false;
+      isFetching: false;
+    }
+  | {
+      data: null;
+      error: null;
+      state: "pending";
+      isLoading: true;
+      isFetching: true;
+    }
+  | {
+      data: Data;
+      error: null;
+      state: "pending";
+      isLoading: false;
+      isFetching: true;
+    }
+  | {
+      data: Data;
+      error: Error;
+      state: "error";
+      isLoading: false;
+      isFetching: false;
+    }
+  | {
+      data: null;
+      error: Error;
+      state: "error";
+      isLoading: false;
+      isFetching: false;
+    }
+  | {
+      data: Data;
+      error: null;
+      state: "success";
+      isLoading: false;
+      isFetching: false;
+    };
 
 export function useFetch<Data, FetchFnArgs>(
   fetchFn: (...args: FetchFnArgs[]) => Promise<Data>,
@@ -15,6 +52,7 @@ export function useFetch<Data, FetchFnArgs>(
     data: null,
     error: null,
     state: "idle",
+    isFetching: false,
   });
 
   const lastFetchId = useRef(0);
@@ -24,13 +62,15 @@ export function useFetch<Data, FetchFnArgs>(
       const fetchId = ++lastFetchId.current;
 
       setFetchState((prev) => {
-        if (prev.isLoading) return prev;
+        if (prev.isFetching) return prev;
+
         return {
           ...prev,
-          isLoading: true,
           state: "pending",
           error: null,
-        };
+          isFetching: true,
+          isLoading: prev.state === "idle",
+        } as FetchState<Data>;
       });
 
       try {
@@ -39,6 +79,7 @@ export function useFetch<Data, FetchFnArgs>(
         if (fetchId === lastFetchId.current) {
           setFetchState((_) => ({
             isLoading: false,
+            isFetching: false,
             state: "success",
             data: result,
             error: null,
@@ -52,6 +93,7 @@ export function useFetch<Data, FetchFnArgs>(
           setFetchState((prev) => ({
             ...prev,
             isLoading: false,
+            isFetching: false,
             state: "error",
             error: err as Error,
           }));

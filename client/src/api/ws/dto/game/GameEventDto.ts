@@ -1,4 +1,4 @@
-import type { PlayerId } from "../gameplay/onlineGameplayProtocol";
+import type { PlayerId } from "../gameplay/OnlineGameplayProtocol";
 
 export type GameEventPayload = { id: string; playerName: string };
 

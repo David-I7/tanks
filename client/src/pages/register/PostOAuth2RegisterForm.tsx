@@ -23,10 +23,8 @@ type PostOAuth2RegisterFormProps = { token: string };
 export default function PostOAuth2RegisterForm({
   token,
 }: PostOAuth2RegisterFormProps) {
-  const login = useAuthStore((state) => state.login);
-  const { trigger, error, isLoading } = useFetch(
-    (request: TanksRequest<RefreshResponseDto>) => login(request),
-  );
+  const register = useAuthStore((state) => state.postOAuth2Register);
+  const { trigger, error, isLoading } = useFetch(register);
   const [username, setUsername] = useState<string | undefined>(undefined);
   const [errors, setErrors] = useState<
     Record<"username" | "form", ValidationError | null>

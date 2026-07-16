@@ -1,5 +1,3 @@
-export type OnlineGameplayProtocolVersion = "online-gameplay.v1";
-
 export type GameSessionId = string;
 export type PlayerId = number;
 export type EntityId = number;
@@ -9,12 +7,12 @@ export type ServerTick = number;
 
 export type OnlinePlayerIntentRequest =
   | OnlineMoveRequest
-  | OnlineAimRequest
   | OnlineSelectProjectileSlotRequest
   | OnlineFireRequest;
 
-export type OnlinePlayerIntentRequestDto<TIntent extends OnlinePlayerIntentRequest = OnlinePlayerIntentRequest> = {
-  protocolVersion: OnlineGameplayProtocolVersion;
+export type OnlinePlayerIntentRequestDto<
+  TIntent extends OnlinePlayerIntentRequest = OnlinePlayerIntentRequest,
+> = {
   gameSessionId: GameSessionId;
   playerId: PlayerId;
   intentId: IntentId;
@@ -28,14 +26,6 @@ export type OnlineMoveRequest = {
   type: "MOVE";
   payload: {
     direction: -1 | 1;
-  };
-};
-
-export type OnlineAimRequest = {
-  type: "AIM";
-  payload: {
-    angle: number;
-    power: number;
   };
 };
 
@@ -76,8 +66,9 @@ const ONLINE_STATE_DIFF_TYPES = new Set([
   "TERMINAL_GAME",
 ]);
 
-export type OnlineDiffResponseDto<TDiff extends OnlineStateDiffResponse = OnlineStateDiffResponse> = {
-  protocolVersion: OnlineGameplayProtocolVersion;
+export type OnlineDiffResponseDto<
+  TDiff extends OnlineStateDiffResponse = OnlineStateDiffResponse,
+> = {
   gameSessionId: GameSessionId;
   sequence: DiffSequence;
   serverTick: ServerTick;
@@ -86,11 +77,12 @@ export type OnlineDiffResponseDto<TDiff extends OnlineStateDiffResponse = Online
   payload: TDiff["payload"];
 };
 
-export function isOnlineDiffResponseDto(value: unknown): value is OnlineDiffResponseDto {
+export function isOnlineDiffResponseDto(
+  value: unknown,
+): value is OnlineDiffResponseDto {
   if (!value || typeof value !== "object") return false;
 
   const candidate = value as {
-    protocolVersion?: unknown;
     gameSessionId?: unknown;
     sequence?: unknown;
     serverTick?: unknown;
@@ -100,7 +92,6 @@ export function isOnlineDiffResponseDto(value: unknown): value is OnlineDiffResp
   };
 
   return (
-    candidate.protocolVersion === "online-gameplay.v1" &&
     typeof candidate.gameSessionId === "string" &&
     typeof candidate.sequence === "number" &&
     typeof candidate.serverTick === "number" &&
@@ -266,40 +257,46 @@ export type GameContentResponseDto = {
     playerASpawnRegion: { minX: number; maxX: number };
     playerBSpawnRegion: { minX: number; maxX: number };
   };
-  tanks: Record<string, {
-    id: string;
-    name: string;
-    renderAssetId: string;
-    maxHealth: number;
-    maxFuel: number;
-    movementQuantum: number;
-    fuelRate: number;
-    climbCapability: number;
-    collisionRadius: number;
-    halfWidth: number;
-    trackGroundOffset: number;
-    muzzleForwardOffset: number;
-    muzzleVerticalOffset: number;
-    loadout: OnlineProjectileSlotSnapshotResponse[];
-  }>;
-  projectiles: Record<string, {
-    id: string;
-    name: string;
-    renderAssetId: string;
-    radius: number;
-    baseVelocity: number;
-    gravityScale: number;
-    drag: number;
-    muzzleVelocityScale: number;
-    terrainEffectType: "CRATER" | "DRILL";
-    terrainRadius: number;
-    terrainDepth: number;
-    damageEffectType: "RADIAL" | "FOCUSED";
-    damageRadius: number;
-    damage: number;
-    impactRenderAssetId: string;
-    impactDuration: number;
-  }>;
+  tanks: Record<
+    string,
+    {
+      id: string;
+      name: string;
+      renderAssetId: string;
+      maxHealth: number;
+      maxFuel: number;
+      movementQuantum: number;
+      fuelRate: number;
+      climbCapability: number;
+      collisionRadius: number;
+      halfWidth: number;
+      trackGroundOffset: number;
+      muzzleForwardOffset: number;
+      muzzleVerticalOffset: number;
+      loadout: OnlineProjectileSlotSnapshotResponse[];
+    }
+  >;
+  projectiles: Record<
+    string,
+    {
+      id: string;
+      name: string;
+      renderAssetId: string;
+      radius: number;
+      baseVelocity: number;
+      gravityScale: number;
+      drag: number;
+      muzzleVelocityScale: number;
+      terrainEffectType: "CRATER" | "DRILL";
+      terrainRadius: number;
+      terrainDepth: number;
+      damageEffectType: "RADIAL" | "FOCUSED";
+      damageRadius: number;
+      damage: number;
+      impactRenderAssetId: string;
+      impactDuration: number;
+    }
+  >;
 };
 
 export type OnlineTankSnapshotResponse = {
@@ -400,7 +397,6 @@ const exampleState: OnlineGameStateSnapshotResponse = {
 
 export const onlineGameplayProtocolExamples = {
   playerIntent: {
-    protocolVersion: "online-gameplay.v1",
     gameSessionId: "game-123",
     playerId: 1,
     intentId: "intent-abc",
@@ -415,7 +411,6 @@ export const onlineGameplayProtocolExamples = {
   },
   diffs: [
     {
-      protocolVersion: "online-gameplay.v1",
       gameSessionId: "game-123",
       sequence: 1,
       serverTick: 0,
@@ -428,7 +423,6 @@ export const onlineGameplayProtocolExamples = {
       },
     },
     {
-      protocolVersion: "online-gameplay.v1",
       gameSessionId: "game-123",
       sequence: 2,
       serverTick: 30,
@@ -442,7 +436,6 @@ export const onlineGameplayProtocolExamples = {
       },
     },
     {
-      protocolVersion: "online-gameplay.v1",
       gameSessionId: "game-123",
       sequence: 3,
       serverTick: 60,
@@ -454,7 +447,10 @@ export const onlineGameplayProtocolExamples = {
         tankEntityId: 10,
         from: { x: 50, y: 120 },
         to: { x: 55, y: 120 },
-        movementPath: [{ x: 50, y: 120 }, { x: 55, y: 120 }],
+        movementPath: [
+          { x: 50, y: 120 },
+          { x: 55, y: 120 },
+        ],
         fuelBefore: 100,
         fuelAfter: 95,
         fuelSpent: 5,
@@ -465,7 +461,6 @@ export const onlineGameplayProtocolExamples = {
       },
     },
     {
-      protocolVersion: "online-gameplay.v1",
       gameSessionId: "game-123",
       sequence: 4,
       serverTick: 90,
@@ -495,7 +490,6 @@ export const onlineGameplayProtocolExamples = {
       },
     },
     {
-      protocolVersion: "online-gameplay.v1",
       gameSessionId: "game-123",
       sequence: 5,
       serverTick: 90,
@@ -512,7 +506,6 @@ export const onlineGameplayProtocolExamples = {
       },
     },
     {
-      protocolVersion: "online-gameplay.v1",
       gameSessionId: "game-123",
       sequence: 6,
       serverTick: 120,
@@ -527,7 +520,6 @@ export const onlineGameplayProtocolExamples = {
       },
     },
     {
-      protocolVersion: "online-gameplay.v1",
       gameSessionId: "game-123",
       sequence: 7,
       serverTick: 150,
@@ -542,7 +534,6 @@ export const onlineGameplayProtocolExamples = {
       },
     },
     {
-      protocolVersion: "online-gameplay.v1",
       gameSessionId: "game-123",
       sequence: 8,
       serverTick: 180,

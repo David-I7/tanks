@@ -59,7 +59,7 @@ function webSocketEventToChatMessage(
 }
 
 export default function useLobbyChat(lobbyId: string) {
-  const { client, status } = useWebSocketStore();
+  const { subscribe,send, status } = useWebSocketStore();
   const user = useAuthStore((state) => state.user);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [typingUser, setTypingUser] = useState<string | null>(null);

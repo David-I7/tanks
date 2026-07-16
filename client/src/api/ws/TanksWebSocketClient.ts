@@ -13,10 +13,10 @@ export type SubscriptionCleanup = () => void;
 
 export type EndpointSubscription<Data = string> = {
   destination:
-  | "/topic/lobby/:id"
-  | "/topic/game/:id"
-  | "/user/queue/errors"
-  | "/user/queue/replies";
+    | "/topic/lobby/:id"
+    | "/topic/game/:id"
+    | "/user/queue/errors"
+    | "/user/queue/replies";
   id?: string | number;
   onMessage: (message: Message<Data>) => void;
   subscriptionHeaders?: StompHeaders;
@@ -24,15 +24,15 @@ export type EndpointSubscription<Data = string> = {
 
 export type PublishParams = {
   destination:
-  | "/app/chat/:id/send"
-  | "/app/game/:id/intent"
-  | "/app/game/:id/send"
-  | "/app/game/:id/resync"
-  | "/app/game/create"
-  | "/app/lobby/leave"
-  | "/app/lobby/create/private"
-  | "/app/lobby/quick-match"
-  | "/app/lobby/join/private/:id";
+    | "/app/chat/:id/send"
+    | "/app/game/:id/intent"
+    | "/app/game/:id/send"
+    | "/app/game/:id/resync"
+    | "/app/game/create"
+    | "/app/lobby/leave"
+    | "/app/lobby/create/private"
+    | "/app/lobby/quick-match"
+    | "/app/lobby/join/private/:id";
 
   id?: string | number;
 
@@ -60,6 +60,7 @@ export default class TanksWSClient {
     { listeners: EndpointSubscription["onMessage"][]; unsubscribe: () => void }
   >();
   private _onStompError?: (err: ProblemDetailDto) => void;
+  private _onWebSocketClose?: Client["onWebSocketClose"];
 
   setAccessToken(accessToken: string | null) {
     if (accessToken === "" || accessToken === null) {
@@ -80,7 +81,7 @@ export default class TanksWSClient {
     this.client = new Client({
       brokerURL: import.meta.env.VITE_BASE_WEBSOCKETS_URL,
       debug: import.meta.env.DEV ? console.log : undefined,
-      reconnectDelay: 0, // turn off auto reconnect
+      reconnectDelay: 5000, // 5 seconds
     });
 
     this.setAccessToken(accessToken);
@@ -103,11 +104,11 @@ export default class TanksWSClient {
   }
 
   deactivate() {
-    if (this.isActive()) this.client.deactivate();
+    if (this.client.active) this.client.deactivate();
   }
 
   activate() {
-    if (!this.isActive()) {
+    if (!this.client.active) {
       this.client.onStompError = async (err) => {
         try {
           if (
@@ -128,20 +129,17 @@ export default class TanksWSClient {
           if (import.meta.env.DEV) console.log(err);
           this.client.deactivate();
         }
-      }
+      };
+      this.client.onWebSocketClose = (e) => {
+        this.client?.onWebSocketClose(e);
+        this.subscriptionMap.clear();
+      };
       this.client.activate();
     }
   }
 
   onWebSocketClose(onWebSocketClose: Client["onWebSocketClose"]) {
-    this.client.onWebSocketClose = onWebSocketClose;
-  }
-
-  clearSubscriptions() {
-    for (const [_, { unsubscribe }] of this.subscriptionMap.entries()) {
-      unsubscribe();
-    }
-    this.subscriptionMap.clear();
+    this._onWebSocketClose = onWebSocketClose;
   }
 
   publish(params: PublishParams) {
@@ -158,7 +156,7 @@ export default class TanksWSClient {
     if (finalParams.destination.includes(":id")) {
       if (finalParams.id === undefined)
         throw new Error(
-          "Id is not defined for path '" + finalParams.destination + "'",
+          "Id is missing for path '" + finalParams.destination + "'",
         );
       finalParams.destination = finalParams.destination.replace(
         ":id",
@@ -202,14 +200,18 @@ export default class TanksWSClient {
           const subscriptions = this.subscriptionMap.get(
             finalParams.destination,
           )!;
-          subscriptions?.listeners.forEach((listener) => listener(parsedMessage as Message));
+          subscriptions?.listeners.forEach((listener) =>
+            listener(parsedMessage as Message),
+          );
         }
       } catch (err) {
         throw new JSONError("Failed to parse json body");
       }
     };
 
-    const currentSubscriptions = this.subscriptionMap.get(finalParams.destination);
+    const currentSubscriptions = this.subscriptionMap.get(
+      finalParams.destination,
+    );
 
     if (currentSubscriptions === undefined) {
       const recipt = this.client.subscribe(

@@ -56,7 +56,7 @@ export function GoogleLoginWithRedirect({
   onFailure,
 }: GoogleLoginWithRedirectProps) {
   const navigate = useNavigate();
-  const login = useAuthStore((state) => state.login);
+  const login = useAuthStore((state) => state.postOAuth2Login);
 
   const handleSuccess = async (data: OAuth2LoginResponseDto) => {
     if (data.type === "OAUTH2_SUCCESS") {

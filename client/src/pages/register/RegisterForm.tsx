@@ -18,15 +18,11 @@ import Loader from "../../components/misc/Loader";
 import InvalidStateError from "../../errors/InvalidStateError";
 import FormError from "../../components/form/FormError";
 import { useFetch } from "../../hooks/useFetch";
-import type { TanksRequest } from "../../api/http/requests/TanksRequest";
-import type RefreshResponseDto from "../../api/http/dto/RefreshResponseDto";
 import RegisterRequest from "../../api/http/requests/auth/RegisterRequest";
 
 export default function RegisterForm() {
-  const login = useAuthStore((state) => state.login);
-  const { trigger, error, isLoading } = useFetch(
-    (request: TanksRequest<RefreshResponseDto>) => login(request),
-  );
+  const register = useAuthStore((state) => state.passwordRegister);
+  const { trigger, error, isLoading } = useFetch(register);
   const [username, setUsername] = useState<string | undefined>(undefined);
   const [password, setPassword] = useState<string | undefined>(undefined);
   const [email, setEmail] = useState<string | undefined>(undefined);
