@@ -11,37 +11,49 @@ import type { WebSocketEventResponseDto } from "./dto/WebSocketEventResponseDto"
 
 export type SubscriptionCleanup = () => void;
 
-export type EndpointSubscription<Data = string> = {
-  destination:
-    | "/topic/lobby/:id"
-    | "/topic/game/:id"
-    | "/user/queue/errors"
-    | "/user/queue/replies";
-  id?: string | number;
-  onMessage: (message: Message<Data>) => void;
-  subscriptionHeaders?: StompHeaders;
-};
+export type EndpointSubscription<Data = string> =
+  | {
+      destination: "/user/queue/errors" | "/user/queue/replies";
+      onMessage: (message: Message<Data>) => void;
+      subscriptionHeaders?: StompHeaders;
+    }
+  | {
+      destination: "/topic/lobby/:id" | "/topic/game/:id";
+      id: string | number;
+      onMessage: (message: Message<Data>) => void;
+      subscriptionHeaders?: StompHeaders;
+    };
 
-export type PublishParams = {
-  destination:
-    | "/app/chat/:id/send"
-    | "/app/game/:id/intent"
-    | "/app/game/:id/send"
-    | "/app/game/:id/resync"
-    | "/app/game/create"
-    | "/app/lobby/leave"
-    | "/app/lobby/create/private"
-    | "/app/lobby/quick-match"
-    | "/app/lobby/join/private/:id";
+export type PublishParams =
+  | {
+      destination:
+        | "/app/chat/:id/send"
+        | "/app/game/:id/intent"
+        | "/app/game/:id/send"
+        | "/app/game/:id/resync"
+        | "/app/lobby/join/private/:id";
 
-  id?: string | number;
+      id: string | number;
 
-  headers?: StompHeaders;
+      headers?: StompHeaders;
 
-  body?: string | Record<string, any>;
+      body?: string | Record<string, any>;
 
-  binaryBody?: Uint8Array;
-};
+      binaryBody?: Uint8Array;
+    }
+  | {
+      destination:
+        | "/app/game/create"
+        | "/app/lobby/leave"
+        | "/app/lobby/create/private"
+        | "/app/lobby/quick-match";
+
+      headers?: StompHeaders;
+
+      body?: string | Record<string, any>;
+
+      binaryBody?: Uint8Array;
+    };
 
 export type Message<Data = string> = {
   command: string;
@@ -131,7 +143,7 @@ export default class TanksWSClient {
         }
       };
       this.client.onWebSocketClose = (e) => {
-        this.client?.onWebSocketClose(e);
+        this._onWebSocketClose?.(e);
         this.subscriptionMap.clear();
       };
       this.client.activate();

@@ -1,106 +1,174 @@
 import { useEffect, useRef, useState } from "react";
 import type ProblemDetailDto from "../../api/http/dto/ProblemDetailDto";
 import { ApiError } from "../../errors/ApiError";
-import type { EndpointSubscription } from "../../api/ws/TanksWebSocketClient";
-import type { WebSocketEventResponseDto } from "../../api/ws/dto/WebSocketEventResponseDto";
+import type {
+  Message,
+  SubscriptionCleanup,
+} from "../../api/ws/TanksWebSocketClient";
 import { useNavigate } from "react-router-dom";
 import { useWebSocketStore } from "../../store/useWebSocketStore";
 import { useAuthStore } from "../../store/useAuthStore";
-import type { LobbyEventPayload } from "../../api/ws/dto/lobby/LobbyEventDto";
+import type { LobbyEvent } from "../../api/ws/dto/lobby/LobbyEventDto";
 import { useScreenStack } from "../../context/ScreenStack";
+import type WebSocketError from "../../errors/WebSocketError";
+import { useSubscriptionGroup } from "../../hooks/useSubscriptionGroup";
+
+type LobbyState =
+  | {
+      error: null;
+      state: "connecting_to_lobby" | "searching_for_players" | "creating_game";
+      playerCount: number;
+      leaveLobby: () => void;
+      retryLobbyJoin: () => void;
+    }
+  | {
+      error: ApiError | WebSocketError;
+      state: "error";
+      playerCount: number;
+      leaveLobby: () => void;
+      retryLobbyJoin: () => void;
+    };
 
 export default function useQuickMatchLobby() {
-  const { client, status, connect } = useWebSocketStore();
+  const {
+    send,
+    subscribe,
+    status: webSocketStatus,
+    connect,
+    disconnect,
+    error: webSocketError,
+  } = useWebSocketStore();
+  const { add, cleanup } = useSubscriptionGroup();
+
+  const leaveLobby = () => {
+    disconnect();
+    popScreen();
+  };
+
+  const retryLobbyJoin = () => {
+    if (webSocketStatus !== "disconnected" || lobbyState.state !== "error")
+      return;
+    connect();
+    setLobbyState((prev) => ({
+      ...prev,
+      error: null,
+      state: "connecting_to_lobby",
+    }));
+  };
+
+  const [lobbyState, setLobbyState] = useState<LobbyState>({
+    error: null,
+    state: "connecting_to_lobby",
+    playerCount: 0,
+    leaveLobby,
+    retryLobbyJoin,
+  });
   const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
-  const [playerCount, setPlayerCount] = useState<number>(0);
-  const [error, setError] = useState<Error | null>(null);
   const { popScreen } = useScreenStack();
-  const hasObservedActiveConnection = useRef(false);
+
+  function handleLobbyConnect(message: Message<LobbyEvent>) {
+    setLobbyState((prev) => {
+      const next = prev.playerCount + 1;
+      const isHost = message.body.payload.hostName === user!.username;
+
+      if (isHost && next === 2) {
+        send({ destination: "/app/game/create" });
+        return { ...prev, playerCount: 2, state: "creating_game", error: null };
+      }
+
+      return {
+        ...prev,
+        playerCount: 1,
+        state: "searching_for_players",
+        error: null,
+      };
+    });
+  }
 
   useEffect(() => {
-    if (!client) {
+    const isConnected = webSocketStatus === "connected";
+
+    if (!isConnected) {
       connect();
       return;
     }
 
-    if (status !== "connected") return;
+    const handleLobbyTopicMessage = (message: Message<LobbyEvent>) => {
+      if (message.body.type === "LOBBY_CONNECT") {
+        handleLobbyConnect(message);
+      }
 
-    const handleLobbyMessage: EndpointSubscription<WebSocketEventResponseDto>["onMessage"] =
-      (message) => {
-        if (message.body.type === "LOBBY_CONNECT") {
-          setPlayerCount((prev) => {
-            const next = prev + 1;
-            if (
-              (message.body.payload as LobbyEventPayload).playerName !==
-                user?.username &&
-              next === 2
-            ) {
-              client.publish({ destination: "/app/game/create" });
-            }
+      if (
+        message.body.type === "LOBBY_DISCONNECT" ||
+        message.body.type === "LOBBY_LEAVE"
+      ) {
+        if (message.body.payload.triggeredBy === user!.username) return;
+        setLobbyState((prev) => ({
+          ...prev,
+          playerCount: 1,
+          state: "searching_for_players",
+          error: null,
+        }));
+      }
+    };
 
-            return next;
-          });
-        }
+    add(
+      subscribe({
+        destination: "/user/queue/replies",
+        onMessage: (message) => {
+          if (
+            message.body.type === "LOBBY_JOINED" ||
+            message.body.type === "LOBBY_CREATED"
+          ) {
+            add(
+              subscribe({
+                destination: "/topic/lobby/:id",
+                id: message.body.payload.id,
+                onMessage: handleLobbyTopicMessage,
+              }),
+            );
+          }
 
-        if (
-          message.body.type === "LOBBY_DISCONNECT" ||
-          message.body.type === "LOBBY_LEAVE"
-        ) {
-          setPlayerCount(1);
-        }
-      };
+          if (message.body.type === "GAME_CREATED") {
+            navigate(`/game/${message.body.payload.id}`);
+          }
+        },
+      }),
+    );
 
-    const handleReply: EndpointSubscription<WebSocketEventResponseDto>["onMessage"] =
-      (message) => {
-        if (
-          message.body.type === "LOBBY_JOINED" ||
-          message.body.type === "LOBBY_CREATED"
-        ) {
-          client.subscribe({
-            destination: "/topic/lobby/:id",
-            id: message.body.payload.id,
-            onMessage: handleLobbyMessage,
-          });
-        }
+    add(
+      subscribe<ProblemDetailDto>({
+        destination: "/user/queue/errors",
+        onMessage: (message) => {
+          setLobbyState((prev) => ({
+            ...prev,
+            error: new ApiError(message.body, message.body.status),
+            state: "error",
+          }));
+          disconnect();
+        },
+      }),
+    );
 
-        if (message.body.type === "GAME_CREATED") {
-          client.clearSubscriptions();
-          navigate(`/game/${message.body.payload.id}`);
-        }
-      };
+    send({ destination: "/app/lobby/quick-match" });
 
-    client.subscribe({
-      destination: "/user/queue/replies",
-      onMessage: handleReply,
-    });
-
-    client.subscribe<ProblemDetailDto>({
-      destination: "/user/queue/errors",
-      onMessage: (message) => {
-        setError(new ApiError(message.body, message.body.status));
-      },
-    });
-
-    client.publish({ destination: "/app/lobby/quick-match" });
-  }, [client, status]);
+    return () => {
+      if (!isConnected) return;
+      cleanup();
+    };
+  }, [webSocketStatus === "connected"]);
 
   useEffect(() => {
-    if (
-      status === "connecting" ||
-      status === "connected" ||
-      status === "disconnecting"
-    ) {
-      hasObservedActiveConnection.current = true;
+    if (webSocketError) {
+      setLobbyState((prev) => ({
+        ...prev,
+        error: webSocketError,
+        state: "error",
+      }));
+      disconnect();
     }
+  }, [webSocketError]);
 
-    if (
-      hasObservedActiveConnection.current &&
-      (status === "disconnecting" || status === "disconnected")
-    ) {
-      popScreen();
-    }
-  }, [status]);
-
-  return { error, playerCount };
+  return lobbyState;
 }
