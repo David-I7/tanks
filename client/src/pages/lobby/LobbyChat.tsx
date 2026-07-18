@@ -74,7 +74,11 @@ type LobbyMessageProps = {
 };
 
 function LobbyMessage({ username, message }: LobbyMessageProps) {
-  if (message.type === "CONNECT" || message.type === "DISCONNECT") {
+  if (
+    message.type === "CONNECT" ||
+    message.type === "DISCONNECT" ||
+    message.type === "LEAVE"
+  ) {
     const isConnect = message.type === "CONNECT";
     return (
       <div
@@ -93,7 +97,9 @@ function LobbyMessage({ username, message }: LobbyMessageProps) {
           isSelf ? "text-right" : "text-left"
         }`}
       >
-        <span className={isSelf ? "text-link font-bold" : "text-primary font-bold"}>
+        <span
+          className={isSelf ? "text-link font-bold" : "text-primary font-bold"}
+        >
           {isSelf ? "YOU" : message.sender}
         </span>
         <span className="text-text-body/30 mx-1.5">:</span>

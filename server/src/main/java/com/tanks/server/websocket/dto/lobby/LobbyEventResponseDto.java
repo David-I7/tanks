@@ -15,8 +15,6 @@ public class LobbyEventResponseDto {
 
     private LobbyEventType type;
 
-    private String sender;
-
     private Object payload;
 
 }

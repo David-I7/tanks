@@ -1,5 +1,8 @@
+import { useEffect } from "react";
+import { useFetch } from "../../hooks/useFetch";
 import { useAuthStore } from "../../store/useAuthStore";
 import Button, { type ButtonProps } from "../buttons/Button";
+import Loader from "../misc/Loader";
 
 type LogoutProps = {
   onSuccess: () => void;
@@ -11,20 +14,20 @@ export default function Logout({
   onFailure,
   ...buttonProps
 }: LogoutProps) {
-  const handleLogout = useAuthStore(state => state.handleLogout);
+  const logout = useAuthStore((state) => state.logout);
+  const { trigger, isLoading, error, state } = useFetch(() => logout());
 
-  const handleLogoutProxy = () => {
-    try {
-      handleLogout();
+  useEffect(() => {
+    if (state === "success") {
       onSuccess();
-    } catch (err) {
-      onFailure(err as Error);
+    } else if (state === "error") {
+      onFailure(error!);
     }
-  };
+  }, [state]);
 
   return (
-    <Button {...buttonProps} onClick={handleLogoutProxy}>
-      Logout
+    <Button disabled={isLoading} {...buttonProps} onClick={() => trigger()}>
+      {isLoading ? <Loader /> : "Logout"}
     </Button>
   );
 }

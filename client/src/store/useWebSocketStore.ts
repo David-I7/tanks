@@ -1,99 +1,116 @@
 import { create } from "zustand";
-import TanksWSClient from "../api/ws/TanksWebSocketClient";
+import TanksWSClient, {
+  type EndpointSubscription,
+  type PublishParams,
+  type SubscriptionCleanup,
+} from "../api/ws/TanksWebSocketClient";
 import { useAuthStore } from "./useAuthStore";
 import WebSocketError from "../errors/WebSocketError";
 import InvalidStateError from "../errors/InvalidStateError";
+import type { WebSocketEventResponseDto } from "../api/ws/dto/WebSocketEventResponseDto";
 
-export type ConnectionStatus = "connecting" | "connected" | "disconnecting" | "disconnected";
+export type ConnectionStatus = "connecting" | "connected" | "disconnected";
 
 interface WebSocketState {
-  client: TanksWSClient | null;
   status: ConnectionStatus;
   error: WebSocketError | null;
   connect: () => void;
   disconnect: () => void;
-  clearError: () => void;
+  send: (params: PublishParams) => void;
+  subscribe: <Data = WebSocketEventResponseDto>(
+    params: EndpointSubscription<Data>,
+  ) => SubscriptionCleanup;
 }
 
 export const useWebSocketStore = create<WebSocketState>((set, get) => {
+  let client: TanksWSClient | null = null;
+
   // Subscribe to useAuthStore to handle token updates and logout
   useAuthStore.subscribe((authState) => {
-    const { client, disconnect } = get();
+    const { disconnect } = get();
     if (client) {
-      if (
-        authState.state === "unauthenticated" ||
-        authState.state === "error" ||
-        !authState.accessToken
-      ) {
+      if (authState.user === null) {
         // User logged out or token invalidated, disconnect
         disconnect();
       } else {
         // Token updated, update client
         client.setAccessToken(authState.accessToken);
-        client.setRefreshHandler(authState.handleRefresh);
+        client.setRefreshHandler(authState.refresh);
       }
     }
   });
 
-  const connect = () => {
-    const { status } = get();
-    if (status !== "disconnected") return; // already connected, connecting, or disconnecting
+  function createClient() {
+    const { accessToken, refresh, user } = useAuthStore.getState();
 
-    const { accessToken, handleRefresh, state } = useAuthStore.getState();
-
-    if (
-      state === "unauthenticated" ||
-      (state === "loading" && accessToken === null) ||
-      state === "error"
-    ) {
-      throw new InvalidStateError("User must be authenticated to connect to WebSocket");
+    if (user === null) {
+      throw new InvalidStateError(
+        "User must be authenticated to connect to WebSockets",
+      );
     }
 
-    set({ status: "connecting" });
+    client = new TanksWSClient(accessToken!, refresh);
 
-    const newClient = new TanksWSClient(accessToken!, handleRefresh);
+    set({ status: "connecting", error: null });
 
-    newClient.onConnect(() => {
+    client.onConnect(() => {
       set({ status: "connected", error: null });
     });
 
-    newClient.onWebSocketClose(() => {
-      console.log("ON WEBSOCKET CLOSE...")
-      set({ status: "disconnected", client: null });
+    client.onWebSocketClose(() => {
+      set({ status: "disconnected" });
     });
 
-    newClient.onStompError((err) => {
-      const { disconnect } = get();
-      set({ error: new WebSocketError(err) })
-      disconnect();
-    })
+    client.onStompError((err) => {
+      set({ error: new WebSocketError(err) });
+    });
 
-    set({ client: newClient });
-
-    newClient.activate();
+    client.activate();
+    client = client;
   }
 
+  const connect = () => {
+    const { status } = get();
+
+    if (status !== "disconnected")
+      throw new Error(
+        "Client must be disconnected before attempting to connect",
+      );
+
+    if (client === null) {
+      createClient();
+    } else {
+      set({ status: "connecting", error: null });
+      client.activate();
+    }
+  };
+
+  const disconnect = () => {
+    if (client === null) return;
+    client.deactivate();
+  };
+
+  const subscribe = <Data = WebSocketEventResponseDto>(
+    params: EndpointSubscription<Data>,
+  ) => {
+    if (client === null)
+      throw new Error("Client must be connected before subscribing to a topic");
+    return client.subscribe(params);
+  };
+
+  const send = (params: PublishParams) => {
+    if (client === null)
+      throw new Error("Client must be connected before subscribing to a topic");
+    return client.publish(params);
+  };
 
   return {
-    client: null,
     status: "disconnected",
     error: null,
 
     connect,
-
-    disconnect: () => {
-      const { client, status } = get();
-      if (client === null || status === "disconnected" || status === "disconnecting") return;
-
-      set({ status: "disconnecting" });
-      client.deactivate();
-    },
-
-    clearError: () => {
-      const { error } = get();
-      if (error !== null) {
-        set({ error: null });
-      }
-    }
+    disconnect,
+    send,
+    subscribe,
   };
 });

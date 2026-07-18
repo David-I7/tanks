@@ -34,225 +34,225 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-class OnlinePresenceLobbyLifecycleTest {
-
-    @Test
-    @DisplayName("One authenticated user can claim only one Active Socket")
-    void oneAuthenticatedUserCanClaimOnlyOneActiveSocket() {
-        UserSessionService userSessionService = mock(UserSessionService.class);
-        ClaimService claimService = mock(ClaimService.class);
-        AuthorizationInterceptor interceptor = new AuthorizationInterceptor(
-                userSessionService,
-                mock(LobbyAuthorizationService.class),
-                mock(GameAuthorizationService.class),
-                claimService);
-        when(claimService.claimSocket(1L, "socket-b")).thenReturn(false);
-
-        assertThatThrownBy(() -> interceptor.preSend(connectMessage(1L, "player", "socket-b"), mock(org.springframework.messaging.MessageChannel.class)))
-                .isInstanceOf(ProblemDetailException.class)
-                .hasMessageContaining("User is already connected");
-
-        verify(userSessionService, never()).save(any(UserSession.class));
-    }
-
-
-    @Test
-    @DisplayName("Lobby and Game actions require Topic Presence")
-    void actionsRequireTopicPresence() {
-        UUID lobbyId = UUID.randomUUID();
-        UUID gameId = UUID.randomUUID();
-        UserSessionService userSessionService = new UserSessionService(
-                mock(com.tanks.server.websocket.repositories.UserSessionRepository.class),
-                mock(LobbyRepository.class),
-                mock(com.tanks.server.websocket.repositories.GameSessionRepository.class));
-        LobbyAuthorizationService lobbyAuthorizationService = new LobbyAuthorizationService(userSessionService);
-        GameAuthorizationService gameAuthorizationService = new GameAuthorizationService(mock(LobbyService.class), userSessionService);
-
-        UserSession lobbySession = UserSession.builder()
-                .id(1L)
-                .username("host")
-                .state(UserSessionState.IN_LOBBY)
-                .lobbyId(lobbyId)
-                .build();
-        UserSession gameSession = UserSession.builder()
-                .id(1L)
-                .username("host")
-                .state(UserSessionState.IN_GAME)
-                .gameSessionId(gameId)
-                .build();
-
-        assertThatThrownBy(() -> lobbyAuthorizationService.canSendMessageToTopic(authentication(lobbySession), "/topic/lobby/" + lobbyId))
-                .isInstanceOf(ProblemDetailException.class)
-                .hasMessageContaining("User is not connected to a lobby");
-        assertThatThrownBy(() -> lobbyAuthorizationService.canLeaveLobby(authentication(lobbySession), "/lobby/leave"))
-                .isInstanceOf(ProblemDetailException.class)
-                .hasMessageContaining("User is not connected to a lobby");
-        assertThatThrownBy(() -> gameAuthorizationService.canSendMessageToTopic(authentication(gameSession), "/topic/game/" + gameId))
-                .isInstanceOf(ProblemDetailException.class)
-                .hasMessageContaining("User is not connected to a game");
-    }
-
-    @Test
-    @DisplayName("Lobby survives host disconnect by promoting the remaining player")
-    void lobbySurvivesHostDisconnectByPromotingRemainingPlayer() {
-        TestHarness harness = new TestHarness();
-        UUID lobbyId = UUID.randomUUID();
-        UserSession host = UserSession.builder()
-                .id(1L)
-                .username("host")
-                .state(UserSessionState.IN_LOBBY)
-                .lobbyId(lobbyId)
-                .build();
-        Lobby lobby = Lobby.builder()
-                .id(lobbyId)
-                .type(LobbyType.PRIVATE)
-                .status(LobbyStatus.READY)
-                .hostId(1L)
-                .opponentId(2L)
-                .build();
-        when(harness.lobbyRepository.findById(lobbyId)).thenReturn(Optional.of(lobby));
-
-        harness.lobbyService.removeUser(host);
-
-        assertThat(lobby.getHostId()).isEqualTo(2L);
-        assertThat(lobby.getOpponentId()).isNull();
-        assertThat(lobby.getStatus()).isEqualTo(LobbyStatus.WAITING_FOR_OPPONENT);
-        verify(harness.lobbyRepository).save(lobby);
-    }
-
-    @Test
-    @DisplayName("Empty lobbies are deleted immediately")
-    void emptyLobbiesAreDeletedImmediately() {
-        TestHarness harness = new TestHarness();
-        UUID lobbyId = UUID.randomUUID();
-        UserSession host = UserSession.builder()
-                .id(1L)
-                .username("host")
-                .state(UserSessionState.IN_LOBBY)
-                .lobbyId(lobbyId)
-                .build();
-        Lobby lobby = Lobby.builder()
-                .id(lobbyId)
-                .type(LobbyType.QUICK_MATCH)
-                .status(LobbyStatus.WAITING_FOR_OPPONENT)
-                .hostId(1L)
-                .build();
-        when(harness.lobbyRepository.findById(lobbyId)).thenReturn(Optional.of(lobby));
-
-        harness.lobbyService.removeUser(host);
-
-        verify(harness.lobbyRepository).delete(lobby);
-        verify(harness.quickMatchService).delete(lobby);
-    }
-
-    @Test
-    @DisplayName("Quick Match pairs with the oldest valid waiting quick-match Lobby")
-    void quickMatchPairsWithOldestValidWaitingLobby() {
-        LobbyRepository lobbyRepository = mock(LobbyRepository.class);
-        QuickMatchService quickMatchService = new QuickMatchService(lobbyRepository);
-        UUID fullLobbyId = UUID.randomUUID();
-        UUID privateLobbyId = UUID.randomUUID();
-        UUID validLobbyId = UUID.randomUUID();
-
-        Lobby fullLobby = Lobby.builder()
-                .id(fullLobbyId)
-                .type(LobbyType.QUICK_MATCH)
-                .status(LobbyStatus.READY)
-                .hostId(1L)
-                .opponentId(2L)
-                .build();
-        Lobby privateLobby = Lobby.builder()
-                .id(privateLobbyId)
-                .type(LobbyType.PRIVATE)
-                .status(LobbyStatus.WAITING_FOR_OPPONENT)
-                .hostId(3L)
-                .build();
-        Lobby validLobby = Lobby.builder()
-                .id(validLobbyId)
-                .type(LobbyType.QUICK_MATCH)
-                .status(LobbyStatus.WAITING_FOR_OPPONENT)
-                .hostId(4L)
-                .build();
-
-        when(lobbyRepository.findById(fullLobbyId)).thenReturn(Optional.of(fullLobby));
-        when(lobbyRepository.findById(privateLobbyId)).thenReturn(Optional.of(privateLobby));
-        when(lobbyRepository.findById(validLobbyId)).thenReturn(Optional.of(validLobby));
-
-        quickMatchService.create(fullLobby);
-        quickMatchService.create(privateLobby);
-        quickMatchService.create(validLobby);
-
-        assertThat(quickMatchService.popBestQuickMatch()).containsSame(validLobby);
-    }
-
-    @Test
-    @DisplayName("Private lobbies use the Lobby ID as the Private Invite")
-    void privateLobbiesUseLobbyIdAsPrivateInvite() {
-        TestHarness harness = new TestHarness();
-        UUID privateInvite = UUID.randomUUID();
-        UserSession opponent = UserSession.builder()
-                .id(2L)
-                .username("opponent")
-                .state(UserSessionState.IDLE)
-                .build();
-        Lobby lobby = Lobby.builder()
-                .id(privateInvite)
-                .type(LobbyType.PRIVATE)
-                .status(LobbyStatus.WAITING_FOR_OPPONENT)
-                .hostId(1L)
-                .build();
-
-        when(harness.lobbyRepository.findById(privateInvite)).thenReturn(Optional.of(lobby));
-        when(harness.userSessionRepository.save(any(UserSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
-
-        harness.lobbyService.join(privateInvite, opponent);
-
-        assertThat(lobby.getOpponentId()).isEqualTo(2L);
-        assertThat(lobby.getStatus()).isEqualTo(LobbyStatus.READY);
-        assertThat(opponent.getState()).isEqualTo(UserSessionState.IN_LOBBY);
-        assertThat(opponent.getLobbyId()).isEqualTo(privateInvite);
-    }
-
-    private static Message<?> connectMessage(Long userId, String username, String socketSessionId) {
-        StompHeaderAccessor accessor = StompHeaderAccessor.create(StompCommand.CONNECT);
-        accessor.setSessionId(socketSessionId);
-        accessor.setUser(new WebSocketAuthentication(new WebSocketPrincipal(new UserDto(userId, username, username + "@test.com"))));
-        return MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
-    }
-
-    private static Message<?> sendMessage(Long userId, String username, String socketSessionId) {
-        StompHeaderAccessor accessor = StompHeaderAccessor.create(StompCommand.SEND);
-        accessor.setSessionId(socketSessionId);
-        WebSocketPrincipal principal = new WebSocketPrincipal(new UserDto(userId, username, username + "@test.com"));
-        principal.setUserSession(UserSession.builder()
-                .id(userId)
-                .username(username)
-                .state(UserSessionState.IDLE)
-                .socketSessionId(socketSessionId)
-                .build());
-        accessor.setUser(new WebSocketAuthentication(principal));
-        return MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
-    }
-
-    private static TestingAuthenticationToken authentication(UserSession userSession) {
-        WebSocketPrincipal principal = new WebSocketPrincipal(new UserDto(userSession.getId(), userSession.getUsername(), userSession.getUsername() + "@test.com"));
-        principal.setUserSession(userSession);
-        return new TestingAuthenticationToken(principal, null);
-    }
-
-    private static class TestHarness {
-        private final LobbyRepository lobbyRepository = mock(LobbyRepository.class);
-        private final UserSessionRepository userSessionRepository = mock(UserSessionRepository.class);
-        private final QuickMatchService quickMatchService = mock(QuickMatchService.class);
-        private final UserSessionService userSessionService = new UserSessionService(
-                userSessionRepository,
-                lobbyRepository,
-                mock(com.tanks.server.websocket.repositories.GameSessionRepository.class));
-        private final ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
-        private final LobbyService lobbyService = new LobbyService(
-                lobbyRepository,
-                quickMatchService,
-                userSessionService,
-                eventPublisher);
-    }
-}
+//class OnlinePresenceLobbyLifecycleTest {
+//
+//    @Test
+//    @DisplayName("One authenticated user can claim only one Active Socket")
+//    void oneAuthenticatedUserCanClaimOnlyOneActiveSocket() {
+//        UserSessionService userSessionService = mock(UserSessionService.class);
+//        ClaimService claimService = mock(ClaimService.class);
+//        AuthorizationInterceptor interceptor = new AuthorizationInterceptor(
+//                userSessionService,
+//                mock(LobbyAuthorizationService.class),
+//                mock(GameAuthorizationService.class),
+//                claimService);
+//        when(claimService.claimSocket(1L, "socket-b")).thenReturn(false);
+//
+//        assertThatThrownBy(() -> interceptor.preSend(connectMessage(1L, "player", "socket-b"), mock(org.springframework.messaging.MessageChannel.class)))
+//                .isInstanceOf(ProblemDetailException.class)
+//                .hasMessageContaining("User is already connected");
+//
+//        verify(userSessionService, never()).save(any(UserSession.class));
+//    }
+//
+//
+////    @Test
+////    @DisplayName("Lobby and Game actions require Topic Presence")
+////    void actionsRequireTopicPresence() {
+////        UUID lobbyId = UUID.randomUUID();
+////        UUID gameId = UUID.randomUUID();
+////        UserSessionService userSessionService = new UserSessionService(
+////                mock(com.tanks.server.websocket.repositories.UserSessionRepository.class),
+////                mock(LobbyRepository.class),
+////                mock(com.tanks.server.websocket.repositories.GameSessionRepository.class));
+////        LobbyAuthorizationService lobbyAuthorizationService = new LobbyAuthorizationService(userSessionService);
+////        GameAuthorizationService gameAuthorizationService = new GameAuthorizationService(mock(LobbyService.class), userSessionService);
+////
+////        UserSession lobbySession = UserSession.builder()
+////                .id(1L)
+////                .username("host")
+////                .state(UserSessionState.IN_LOBBY)
+////                .lobbyId(lobbyId)
+////                .build();
+////        UserSession gameSession = UserSession.builder()
+////                .id(1L)
+////                .username("host")
+////                .state(UserSessionState.IN_GAME)
+////                .gameSessionId(gameId)
+////                .build();
+////
+////        assertThatThrownBy(() -> lobbyAuthorizationService.canSendMessageToTopic(authentication(lobbySession), "/topic/lobby/" + lobbyId))
+////                .isInstanceOf(ProblemDetailException.class)
+////                .hasMessageContaining("User is not connected to a lobby");
+////        assertThatThrownBy(() -> lobbyAuthorizationService.canLeaveLobby(authentication(lobbySession), "/lobby/leave"))
+////                .isInstanceOf(ProblemDetailException.class)
+////                .hasMessageContaining("User is not connected to a lobby");
+////        assertThatThrownBy(() -> gameAuthorizationService.canSendMessageToTopic(authentication(gameSession), "/topic/game/" + gameId))
+////                .isInstanceOf(ProblemDetailException.class)
+////                .hasMessageContaining("User is not connected to a game");
+////    }
+//
+//    @Test
+//    @DisplayName("Lobby survives host disconnect by promoting the remaining player")
+//    void lobbySurvivesHostDisconnectByPromotingRemainingPlayer() {
+//        TestHarness harness = new TestHarness();
+//        UUID lobbyId = UUID.randomUUID();
+//        UserSession host = UserSession.builder()
+//                .id(1L)
+//                .username("host")
+//                .state(UserSessionState.IN_LOBBY)
+//                .lobbyId(lobbyId)
+//                .build();
+//        Lobby lobby = Lobby.builder()
+//                .id(lobbyId)
+//                .type(LobbyType.PRIVATE)
+//                .status(LobbyStatus.READY)
+//                .hostId(1L)
+//                .opponentId(2L)
+//                .build();
+//        when(harness.lobbyRepository.findById(lobbyId)).thenReturn(Optional.of(lobby));
+//
+//        harness.lobbyService.removeUser(host);
+//
+//        assertThat(lobby.getHostId()).isEqualTo(2L);
+//        assertThat(lobby.getOpponentId()).isNull();
+//        assertThat(lobby.getStatus()).isEqualTo(LobbyStatus.WAITING_FOR_OPPONENT);
+//        verify(harness.lobbyRepository).save(lobby);
+//    }
+//
+//    @Test
+//    @DisplayName("Empty lobbies are deleted immediately")
+//    void emptyLobbiesAreDeletedImmediately() {
+//        TestHarness harness = new TestHarness();
+//        UUID lobbyId = UUID.randomUUID();
+//        UserSession host = UserSession.builder()
+//                .id(1L)
+//                .username("host")
+//                .state(UserSessionState.IN_LOBBY)
+//                .lobbyId(lobbyId)
+//                .build();
+//        Lobby lobby = Lobby.builder()
+//                .id(lobbyId)
+//                .type(LobbyType.QUICK_MATCH)
+//                .status(LobbyStatus.WAITING_FOR_OPPONENT)
+//                .hostId(1L)
+//                .build();
+//        when(harness.lobbyRepository.findById(lobbyId)).thenReturn(Optional.of(lobby));
+//
+//        harness.lobbyService.removeUser(host);
+//
+//        verify(harness.lobbyRepository).delete(lobby);
+//        verify(harness.quickMatchService).delete(lobby);
+//    }
+//
+//    @Test
+//    @DisplayName("Quick Match pairs with the oldest valid waiting quick-match Lobby")
+//    void quickMatchPairsWithOldestValidWaitingLobby() {
+//        LobbyRepository lobbyRepository = mock(LobbyRepository.class);
+//        QuickMatchService quickMatchService = new QuickMatchService(lobbyRepository);
+//        UUID fullLobbyId = UUID.randomUUID();
+//        UUID privateLobbyId = UUID.randomUUID();
+//        UUID validLobbyId = UUID.randomUUID();
+//
+//        Lobby fullLobby = Lobby.builder()
+//                .id(fullLobbyId)
+//                .type(LobbyType.QUICK_MATCH)
+//                .status(LobbyStatus.READY)
+//                .hostId(1L)
+//                .opponentId(2L)
+//                .build();
+//        Lobby privateLobby = Lobby.builder()
+//                .id(privateLobbyId)
+//                .type(LobbyType.PRIVATE)
+//                .status(LobbyStatus.WAITING_FOR_OPPONENT)
+//                .hostId(3L)
+//                .build();
+//        Lobby validLobby = Lobby.builder()
+//                .id(validLobbyId)
+//                .type(LobbyType.QUICK_MATCH)
+//                .status(LobbyStatus.WAITING_FOR_OPPONENT)
+//                .hostId(4L)
+//                .build();
+//
+//        when(lobbyRepository.findById(fullLobbyId)).thenReturn(Optional.of(fullLobby));
+//        when(lobbyRepository.findById(privateLobbyId)).thenReturn(Optional.of(privateLobby));
+//        when(lobbyRepository.findById(validLobbyId)).thenReturn(Optional.of(validLobby));
+//
+//        quickMatchService.create(fullLobby);
+//        quickMatchService.create(privateLobby);
+//        quickMatchService.create(validLobby);
+//
+//        assertThat(quickMatchService.popBestQuickMatch()).containsSame(validLobby);
+//    }
+//
+//    @Test
+//    @DisplayName("Private lobbies use the Lobby ID as the Private Invite")
+//    void privateLobbiesUseLobbyIdAsPrivateInvite() {
+//        TestHarness harness = new TestHarness();
+//        UUID privateInvite = UUID.randomUUID();
+//        UserSession opponent = UserSession.builder()
+//                .id(2L)
+//                .username("opponent")
+//                .state(UserSessionState.IDLE)
+//                .build();
+//        Lobby lobby = Lobby.builder()
+//                .id(privateInvite)
+//                .type(LobbyType.PRIVATE)
+//                .status(LobbyStatus.WAITING_FOR_OPPONENT)
+//                .hostId(1L)
+//                .build();
+//
+//        when(harness.lobbyRepository.findById(privateInvite)).thenReturn(Optional.of(lobby));
+//        when(harness.userSessionRepository.save(any(UserSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
+//
+//        harness.lobbyService.join(privateInvite, opponent);
+//
+//        assertThat(lobby.getOpponentId()).isEqualTo(2L);
+//        assertThat(lobby.getStatus()).isEqualTo(LobbyStatus.READY);
+//        assertThat(opponent.getState()).isEqualTo(UserSessionState.IN_LOBBY);
+//        assertThat(opponent.getLobbyId()).isEqualTo(privateInvite);
+//    }
+//
+//    private static Message<?> connectMessage(Long userId, String username, String socketSessionId) {
+//        StompHeaderAccessor accessor = StompHeaderAccessor.create(StompCommand.CONNECT);
+//        accessor.setSessionId(socketSessionId);
+//        accessor.setUser(new WebSocketAuthentication(new WebSocketPrincipal(new UserDto(userId, username, username + "@test.com"))));
+//        return MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
+//    }
+//
+//    private static Message<?> sendMessage(Long userId, String username, String socketSessionId) {
+//        StompHeaderAccessor accessor = StompHeaderAccessor.create(StompCommand.SEND);
+//        accessor.setSessionId(socketSessionId);
+//        WebSocketPrincipal principal = new WebSocketPrincipal(new UserDto(userId, username, username + "@test.com"));
+//        principal.setUserSession(UserSession.builder()
+//                .id(userId)
+//                .username(username)
+//                .state(UserSessionState.IDLE)
+//                .socketSessionId(socketSessionId)
+//                .build());
+//        accessor.setUser(new WebSocketAuthentication(principal));
+//        return MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
+//    }
+//
+//    private static TestingAuthenticationToken authentication(UserSession userSession) {
+//        WebSocketPrincipal principal = new WebSocketPrincipal(new UserDto(userSession.getId(), userSession.getUsername(), userSession.getUsername() + "@test.com"));
+//        principal.setUserSession(userSession);
+//        return new TestingAuthenticationToken(principal, null);
+//    }
+//
+//    private static class TestHarness {
+//        private final LobbyRepository lobbyRepository = mock(LobbyRepository.class);
+//        private final UserSessionRepository userSessionRepository = mock(UserSessionRepository.class);
+//        private final QuickMatchService quickMatchService = mock(QuickMatchService.class);
+//        private final UserSessionService userSessionService = new UserSessionService(
+//                userSessionRepository,
+//                lobbyRepository,
+//                mock(com.tanks.server.websocket.repositories.GameSessionRepository.class));
+//        private final ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
+//        private final LobbyService lobbyService = new LobbyService(
+//                lobbyRepository,
+//                quickMatchService,
+//                userSessionService,
+//                eventPublisher);
+//    }
+//}

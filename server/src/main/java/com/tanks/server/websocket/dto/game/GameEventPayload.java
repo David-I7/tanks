@@ -1,10 +1,11 @@
-package com.tanks.server.websocket.dto.lobby;
+package com.tanks.server.websocket.dto.game;
 
 import java.util.UUID;
 
-public record LobbyEventPayload(
+public record GameEventPayload(
         UUID id,
         Long hostId,
         String triggeredBy
 ) {
 }
+

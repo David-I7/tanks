@@ -1,7 +1,7 @@
 import type {
   OnlineDiffResponseDto,
   OnlinePlayerIntentRequestDto,
-} from "../../api/ws/dto/gameplay/onlineGameplayProtocol";
+} from "../../api/ws/dto/gameplay/OnlineGameplayProtocol";
 import type { GameManager } from "../authority/gameManager";
 import type { GameAction, GameState } from "../types";
 import type { OnlineGameplayTransport } from "./OnlineGameplayTransport";
@@ -52,7 +52,10 @@ class TransportBackedOnlineGameManager implements OnlineGameManager {
 
   submitAction(action: GameAction): boolean {
     if (this.confirmedState === null) return false;
-    if (this.confirmedState.state.match.activePlayerId !== this.confirmedState.localPlayerId) {
+    if (
+      this.confirmedState.state.match.activePlayerId !==
+      this.confirmedState.localPlayerId
+    ) {
       return false;
     }
 
@@ -81,7 +84,9 @@ class TransportBackedOnlineGameManager implements OnlineGameManager {
 
   getState(): GameState {
     if (this.currentState === null) {
-      throw new Error("Online Game Manager requires Initial State before reading Game State");
+      throw new Error(
+        "Online Game Manager requires Initial State before reading Game State",
+      );
     }
     return this.currentState;
   }
@@ -114,10 +119,17 @@ class TransportBackedOnlineGameManager implements OnlineGameManager {
 
     try {
       this.publishConfirmed(
-        applyOnlineStateDiffResponse(this.confirmedState, diff, this.monotonicNowMs),
+        applyOnlineStateDiffResponse(
+          this.confirmedState,
+          diff,
+          this.monotonicNowMs,
+        ),
       );
     } catch (error) {
-      if (error instanceof OnlineDiffSequenceError && error.kind === "MISSING_DIFF") {
+      if (
+        error instanceof OnlineDiffSequenceError &&
+        error.kind === "MISSING_DIFF"
+      ) {
         this.transport.requestResyncState();
         this.publishConfirmed(requestOnlineResyncState(this.confirmedState));
         return;
@@ -127,9 +139,13 @@ class TransportBackedOnlineGameManager implements OnlineGameManager {
     }
   }
 
-  private createIntentEnvelope(action: GameAction): OnlinePlayerIntentRequestDto {
+  private createIntentEnvelope(
+    action: GameAction,
+  ): OnlinePlayerIntentRequestDto {
     if (this.confirmedState === null) {
-      throw new Error("Cannot create online intent before confirmed state is initialized");
+      throw new Error(
+        "Cannot create online intent before confirmed state is initialized",
+      );
     }
 
     const intentId = this.intentIdFactory();
@@ -139,14 +155,17 @@ class TransportBackedOnlineGameManager implements OnlineGameManager {
       playerId: this.confirmedState.localPlayerId,
       intentId,
       lastConfirmedDiffSequence: this.confirmedState.lastConfirmedDiffSequence,
-      lastConfirmedDiffServerTick: this.confirmedState.lastConfirmedDiffServerTick,
+      lastConfirmedDiffServerTick:
+        this.confirmedState.lastConfirmedDiffServerTick,
     };
 
     switch (action.type) {
       case "move":
-        return { ...common, type: "MOVE", payload: { direction: action.direction } };
-      case "aim":
-        return { ...common, type: "AIM", payload: { angle: action.angle, power: action.power } };
+        return {
+          ...common,
+          type: "MOVE",
+          payload: { direction: action.direction },
+        };
       case "selectProjectileSlot":
         return {
           ...common,
@@ -164,6 +183,7 @@ class TransportBackedOnlineGameManager implements OnlineGameManager {
           },
         };
     }
+    throw new Error("Not implemented");
   }
 
   private publishConfirmed(state: OnlineConfirmedState): void {
@@ -186,7 +206,10 @@ class TransportBackedOnlineGameManager implements OnlineGameManager {
 }
 
 function createIntentId(): string {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+  if (
+    typeof crypto !== "undefined" &&
+    typeof crypto.randomUUID === "function"
+  ) {
     return crypto.randomUUID();
   }
 

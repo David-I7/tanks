@@ -54,19 +54,28 @@ public class AuthorizationInterceptor implements ChannelInterceptor {
         StompHeaderAccessor accessor =
                 MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
 
-        if(accessor == null || StompCommand.CONNECT.equals(accessor.getCommand()) || accessor.getUser() == null) return;
+        if (accessor == null || accessor.getUser() == null) {
+            return;
+        }
 
         WebSocketAuthentication authentication = (WebSocketAuthentication) accessor.getUser();
         WebSocketPrincipal principal = (WebSocketPrincipal) authentication.getPrincipal();
         UserDto userDto = principal.getUserDto();
         String sessionId = accessor.getSessionId();
-        ReentrantLock lock = claimService.getSocketLock(userDto.id());
 
         if (StompCommand.DISCONNECT.equals(accessor.getCommand())) {
-            handlePostDisconnect(userDto.id(),sessionId);
+            handlePostDisconnect(userDto.id(), sessionId);
+            return;
         }
 
-        lock.unlock();
+        if (!StompCommand.SUBSCRIBE.equals(accessor.getCommand()) && !StompCommand.SEND.equals(accessor.getCommand())) {
+            return;
+        }
+
+        ReentrantLock lock = (ReentrantLock) accessor.getHeader("socketLock");
+        if (lock != null && lock.isHeldByCurrentThread()) {
+            lock.unlock();
+        }
     }
 
     @Override
@@ -74,33 +83,48 @@ public class AuthorizationInterceptor implements ChannelInterceptor {
 
         StompHeaderAccessor accessor =
                 MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
-        WebSocketAuthentication authentication = (WebSocketAuthentication) accessor.getUser();
+
+        if (accessor == null) {
+            return message;
+        }
 
         if (StompCommand.CONNECT.equals(accessor.getCommand())) {
             handleConnect(accessor);
             return message;
         }
 
+        if (StompCommand.DISCONNECT.equals(accessor.getCommand())) {
+            return message;
+        }
+
+        if (!StompCommand.SUBSCRIBE.equals(accessor.getCommand()) && !StompCommand.SEND.equals(accessor.getCommand())) {
+            return message;
+        }
+
+        WebSocketAuthentication authentication = (WebSocketAuthentication) accessor.getUser();
+        if (authentication == null) return message;
+
         WebSocketPrincipal principal = (WebSocketPrincipal) authentication.getPrincipal();
         UserSession userSession = principal.getUserSession();
-        // User has failed authentication
         if (userSession == null) return message;
 
         ReentrantLock lock = claimService.getSocketLock(userSession.getId());
-        try {
-            lock.lock();
-            // If a disconnect event happened while acquiring the lock, the user is already disconnected, so there is no need to fulfil this request
-            ReentrantLock lock2 = claimService.getSocketLock(userSession.getId());
-            if (lock2 == null) {
-                throw new ProblemDetailException(HttpStatus.BAD_REQUEST, "User disconnected");
-            }
+        if (lock == null) throw new ProblemDetailException(HttpStatus.BAD_REQUEST, "User disconnected");
 
+        lock.lock();
+        accessor.setHeader("socketLock", lock);
+
+        // If a disconnect event happened while acquiring the lock, the user is already disconnected, so there is no need to fulfil this request
+        ReentrantLock lock2 = claimService.getSocketLock(userSession.getId());
+        if (lock2 == null) throw new ProblemDetailException(HttpStatus.BAD_REQUEST, "User disconnected");
+
+        try {
             if (StompCommand.SUBSCRIBE.equals(accessor.getCommand())) {
                 handlePreSubscribe(authentication, accessor);
             } else if (StompCommand.SEND.equals(accessor.getCommand())) {
                 handlePreSend(authentication, accessor);
             }
-        }catch (Exception e){
+        } catch (Exception e) {
             throw e;
         }
 
@@ -169,7 +193,7 @@ public class AuthorizationInterceptor implements ChannelInterceptor {
 
     private void handlePreSend(WebSocketAuthentication authentication,StompHeaderAccessor accessor){
         String destination = accessor.getDestination();
-        System.out.println(destination);
+        log.debug("User {} is sending a request to {}", authentication.getName(),destination);
     }
 
     private void handlePostDisconnect(Long userId,String sessionId){

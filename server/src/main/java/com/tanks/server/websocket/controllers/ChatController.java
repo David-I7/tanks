@@ -31,8 +31,7 @@ public class ChatController {
 
         ChatEventResponseDto responseDto = ChatEventResponseDto.builder()
                 .type(chatMessage.getType())
-                .payload(new ChatMessagePayload(chatMessage.getMessage()))
-                .sender(authentication.getName())
+                .payload(new ChatMessagePayload(chatMessage.getMessage(), authentication.getName()))
                 .build();
 
         return responseDto;

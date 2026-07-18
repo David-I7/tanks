@@ -1,10 +1,19 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { debounce, throttle } from "../../utils/performance";
-import type { ChatEventPayload } from "../../api/ws/dto/chat/ChatEventDto";
-import type { WebSocketEventResponseDto } from "../../api/ws/dto/WebSocketEventResponseDto";
+import {
+  isChatEvent,
+  type ChatEvent,
+} from "../../api/ws/dto/chat/ChatEventDto";
 import { useAuthStore } from "../../store/useAuthStore";
 import { useWebSocketStore } from "../../store/useWebSocketStore";
-import type { LobbyEventPayload } from "../../api/ws/dto/lobby/LobbyEventDto";
+import {
+  isLobbyEvent,
+  type LobbyEvent,
+} from "../../api/ws/dto/lobby/LobbyEventDto";
+import { useSubscriptionGroup } from "../../hooks/useSubscriptionGroup";
+import type { ApiError } from "../../errors/ApiError";
+import type WebSocketError from "../../errors/WebSocketError";
+import InvalidStateError from "../../errors/InvalidStateError";
 
 const DEBOUNCE_TYPING_TIMEOUT = 1000; // 1 sec
 const THROTTLE_TYPING_EVENT = 500; // 0.5 sec
@@ -15,150 +24,219 @@ export type ChatMessage = {
   payload: string;
 };
 
-function webSocketEventToChatMessage(
-  event: WebSocketEventResponseDto,
+function toUiMessage(
+  event: LobbyEvent | ChatEvent,
   username: string,
 ): ChatMessage {
-  const messageType = event.type.split("_")[1] as ChatMessage["type"];
+  if (
+    event.type !== "LOBBY_CONNECT" &&
+    event.type !== "LOBBY_DISCONNECT" &&
+    event.type !== "LOBBY_LEAVE" &&
+    event.type !== "CHAT_MESSAGE" &&
+    event.type !== "CHAT_TYPE"
+  ) {
+    throw new Error(`Invalid event type: ${event.type}`);
+  }
 
-  switch (messageType) {
-    case "CONNECT":
+  const sender = event.payload.triggeredBy;
+
+  switch (event.type) {
+    case "LOBBY_CONNECT":
       return {
-        type: messageType,
-        sender: event.sender,
+        type: "CONNECT",
+        sender,
         payload:
-          username === event.sender
-            ? `You've connected`
-            : `${(event.payload as LobbyEventPayload)!.playerName} connected`,
+          username === sender ? `You've connected` : `${sender} connected`,
       };
-    case "LEAVE":
+    case "LOBBY_LEAVE":
       return {
-        type: messageType,
-        sender: event.sender,
-        payload:
-          username === event.sender
-            ? `You've left`
-            : `${(event.payload as LobbyEventPayload)!.playerName} disconnected`,
+        type: "LEAVE",
+        sender,
+        payload: username === sender ? `You've left` : `${sender} left`,
       };
-    case "DISCONNECT":
+    case "LOBBY_DISCONNECT":
       return {
-        type: messageType,
-        sender: event.sender,
+        type: "DISCONNECT",
+        sender,
         payload:
-          username === event.sender
+          username === sender
             ? `You've disconnected`
-            : `${(event.payload as LobbyEventPayload)!.playerName} disconnected`,
+            : `${sender} disconnected`,
       };
-    case "MESSAGE":
+    case "CHAT_MESSAGE":
       return {
-        type: messageType,
-        sender: event.sender,
-        payload: (event.payload as ChatEventPayload)!.message,
+        type: "MESSAGE",
+        sender,
+        payload: event.payload.message,
       };
   }
+
+  throw new InvalidStateError(`Invalid event type: ${event.type}`);
 }
 
+type LobbyChatState = {
+  messages: ChatMessage[];
+  typingUser: string | null;
+  messageError: ApiError | null;
+  webSocketError: WebSocketError | null;
+  messageState: "sent" | "error" | "sending" | "initial";
+};
+
 export default function useLobbyChat(lobbyId: string) {
-  const { client, status } = useWebSocketStore();
+  const {
+    subscribe,
+    send,
+    status,
+    error: webSocketError,
+    disconnect,
+    status: webSocketStatus,
+  } = useWebSocketStore();
   const user = useAuthStore((state) => state.user);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [typingUser, setTypingUser] = useState<string | null>(null);
+  const [lobbyState, setLobbyState] = useState<LobbyChatState>({
+    messages: [],
+    typingUser: null,
+    messageError: null,
+    webSocketError: null,
+    messageState: "initial",
+  });
+  const { add, cleanup } = useSubscriptionGroup();
 
-  const throttleTyping = useMemo(() => {
-    return throttle(() => {
-      client?.publish({
-        destination: "/app/chat/:id/send",
-        id: lobbyId,
-        body: {
-          type: "CHAT_TYPE",
-        },
-      });
-    }, THROTTLE_TYPING_EVENT);
-  }, [client]);
-
-  const publishMessage = useCallback(
-    (message: string) => {
-      client?.publish({
-        destination: "/app/chat/:id/send",
-        id: lobbyId,
-        body: {
-          type: "CHAT_MESSAGE",
-          message,
-        },
-      });
-    },
-    [client],
+  const { fn: publishTypingEvent, cancel: cancelTypingEvent } = useMemo(
+    () =>
+      throttle(() => {
+        if (status !== "connected") return;
+        send({
+          destination: "/app/chat/:id/send",
+          id: lobbyId,
+          body: {
+            type: "CHAT_TYPE",
+          },
+        });
+      }, THROTTLE_TYPING_EVENT),
+    [webSocketStatus === "connected"],
   );
 
-  const publishTypingEvent = useCallback(() => {
-    throttleTyping.fn();
-  }, [client]);
+  const publishMessage = (message: string) => {
+    if (status !== "connected") return;
+    send({
+      destination: "/app/chat/:id/send",
+      id: lobbyId,
+      body: {
+        type: "CHAT_MESSAGE",
+        message,
+      },
+    });
+    setLobbyState((prev) => {
+      return { ...prev, messageState: "sending", messageError: null };
+    });
+  };
 
   useEffect(() => {
-    if (status !== "connected" || !client) return;
+    if (webSocketError) {
+      disconnect();
+      setLobbyState((prev) => ({
+        ...prev,
+        webSocketError: webSocketError,
+      }));
+    }
+  }, [webSocketError]);
 
-    const typingTimeout = debounce(() => {
-      setTypingUser(null);
+  useEffect(() => {
+    const isConnected = status === "connected";
+    if (!isConnected) return;
+
+    const {
+      fn: debounceRemoveTypingIndicator,
+      cancel: cancelDebounceRemoveTypingIndicator,
+    } = debounce(() => {
+      setLobbyState((prev) => ({
+        ...prev,
+        typingUser: null,
+      }));
     }, DEBOUNCE_TYPING_TIMEOUT);
 
     const username = user!.username;
 
-    client.subscribe({
-      destination: "/topic/lobby/:id",
-      id: lobbyId,
-      onMessage: (message) => {
-        const messageBody = message.body;
+    add(
+      subscribe({
+        destination: "/topic/lobby/:id",
+        id: lobbyId,
+        onMessage: (message) => {
+          const messageBody = message.body;
 
-        if (
-          messageBody.type === "CHAT_TYPE" ||
-          messageBody.type === "CHAT_MESSAGE" ||
-          messageBody.type === "LOBBY_DISCONNECT" ||
-          messageBody.type === "LOBBY_CONNECT" ||
-          messageBody.type === "LOBBY_LEAVE"
-        ) {
-          if (messageBody.type === "CHAT_TYPE") {
-            if (messageBody.sender === username) return;
-            setTypingUser(messageBody.sender);
-            typingTimeout.fn();
-            return;
-          }
+          if (isChatEvent(messageBody) || isLobbyEvent(messageBody)) {
+            if (
+              messageBody.type !== "CHAT_MESSAGE" &&
+              messageBody.type !== "CHAT_TYPE" &&
+              messageBody.type !== "LOBBY_DISCONNECT" &&
+              messageBody.type !== "LOBBY_LEAVE" &&
+              messageBody.type !== "LOBBY_CONNECT"
+            )
+              return;
 
-          if (messageBody.type === "CHAT_MESSAGE") {
-            if (messageBody.sender !== username) {
-              typingTimeout.cancel();
-              setTypingUser(null);
+            if (messageBody.type === "CHAT_TYPE") {
+              if (messageBody.payload.triggeredBy === username) return;
+              setLobbyState((prev) => ({
+                ...prev,
+                typingUser: messageBody.payload.triggeredBy,
+              }));
+              debounceRemoveTypingIndicator();
+              return;
+            } else if (messageBody.type === "CHAT_MESSAGE") {
+              if (messageBody.payload.triggeredBy === username) {
+                setLobbyState((prev) => ({
+                  ...prev,
+                  messageState: "sent",
+                  messageError: null,
+                }));
+              } else {
+                cancelDebounceRemoveTypingIndicator();
+                setLobbyState((prev) => ({
+                  ...prev,
+                  typingUser: null,
+                }));
+              }
+            } else if (
+              messageBody.type === "LOBBY_DISCONNECT" ||
+              messageBody.type === "LOBBY_LEAVE"
+            ) {
+              if (messageBody.payload.triggeredBy !== username) {
+                cancelDebounceRemoveTypingIndicator();
+                setLobbyState((prev) => ({
+                  ...prev,
+                  typingUser: null,
+                }));
+              }
             }
-          }
-          if (
-            messageBody.type === "LOBBY_DISCONNECT" ||
-            messageBody.type === "LOBBY_LEAVE"
-          ) {
-            if (messageBody.payload.playerName !== username) {
-              typingTimeout.cancel();
-              setTypingUser(null);
-            }
-          }
 
-          const nextMessage = webSocketEventToChatMessage(
-            messageBody,
-            username,
-          );
+            const uiMessage = toUiMessage(messageBody, username);
 
-          setMessages((prev) => [...prev, nextMessage]);
-        }
-      },
-    });
+            setLobbyState((prev) => {
+              return {
+                ...prev,
+                messages: [...prev.messages, uiMessage],
+                messageState: "sent",
+                messageError: null,
+              };
+            });
+          }
+        },
+      }),
+    );
 
     return () => {
-      typingTimeout.cancel();
+      if (isConnected) {
+        cleanup();
+      }
+      cancelDebounceRemoveTypingIndicator();
+      cancelTypingEvent();
     };
-  }, [client, status]);
+  }, [webSocketStatus === "connected"]);
 
   return {
-    messages,
+    ...lobbyState,
     publishMessage,
     publishTypingEvent,
-    typingUser,
     username: user!.username,
   };
 }

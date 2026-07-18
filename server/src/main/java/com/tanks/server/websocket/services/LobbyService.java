@@ -54,7 +54,7 @@ public class LobbyService {
             userSessionService.save(userSession);
 
             eventPublisher.publishEvent(new LobbyEvent(this, userSession.getUsername(), "/queue/replies",
-                    new LobbyEventResponseDto(LobbyEventType.LOBBY_CREATED, "@SERVER", new LobbyEventPayload(uuid, userSession.getUsername()))));
+                    new LobbyEventResponseDto(LobbyEventType.LOBBY_CREATED, new LobbyEventPayload(uuid, userSession.getId(),userSession.getUsername()))));
         } catch (RuntimeException ex) {
             restoreUserSession(originalUserSession);
             cleanupLobby(lobby);
@@ -85,7 +85,7 @@ public class LobbyService {
                 userSessionService.save(userSession);
 
                 eventPublisher.publishEvent(new LobbyEvent(this, userSession.getUsername(), "/queue/replies",
-                        new LobbyEventResponseDto(LobbyEventType.LOBBY_JOINED, "@SERVER", new LobbyEventPayload(lobbyId, userSession.getUsername()))));
+                        new LobbyEventResponseDto(LobbyEventType.LOBBY_JOINED, new LobbyEventPayload(lobbyId,lobby.getHostId() ,userSession.getUsername()))));
             } catch (RuntimeException ex) {
                 restoreUserSession(originalUserSession);
                 restoreLobby(lobby, originalOpponentId, originalStatus);
@@ -127,8 +127,7 @@ public class LobbyService {
                     "/topic/lobby/" + userSession.getLobbyId(),
                     new LobbyEventResponseDto(
                             LobbyEventType.LOBBY_DISCONNECT,
-                            "@SERVER",
-                            new LobbyEventPayload(userSession.getLobbyId(), userSession.getUsername())
+                            new LobbyEventPayload(userSession.getLobbyId(), lobby.getHostId(),userSession.getUsername())
                     )
             ));
         }

@@ -1,5 +1,9 @@
 package com.tanks.server.websocket.dto.chat;
 
-public record ChatMessagePayload(String message) {
+import com.fasterxml.jackson.annotation.JsonInclude;
 
+public record ChatMessagePayload(
+        @JsonInclude(JsonInclude.Include.NON_NULL) String message,
+        String triggeredBy
+) {
 }

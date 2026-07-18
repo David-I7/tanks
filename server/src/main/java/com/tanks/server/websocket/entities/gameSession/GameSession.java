@@ -22,6 +22,8 @@ public class GameSession {
     @Id
     private UUID id;
 
+    private Long hostId;
+
     private String playerA;
 
     private String playerB;
@@ -57,6 +59,7 @@ public class GameSession {
     public GameSession(GameSession other) {
         if (other != null) {
             this.id = other.id;
+            this.hostId = other.hostId;
             this.playerA = other.playerA;
             this.playerB = other.playerB;
             this.startedAt = other.startedAt;

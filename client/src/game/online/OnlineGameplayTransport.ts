@@ -2,8 +2,8 @@ import type {
   GameSessionId,
   OnlineDiffResponseDto,
   OnlinePlayerIntentRequestDto,
-} from "../../api/ws/dto/gameplay/onlineGameplayProtocol";
-import { isOnlineDiffResponseDto } from "../../api/ws/dto/gameplay/onlineGameplayProtocol";
+} from "../../api/ws/dto/gameplay/OnlineGameplayProtocol";
+import { isOnlineDiffResponseDto } from "../../api/ws/dto/gameplay/OnlineGameplayProtocol";
 import type {
   EndpointSubscription,
   Message,

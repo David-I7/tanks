@@ -21,11 +21,5 @@ public class UserSessionStatusDto {
     @JsonInclude(JsonInclude.Include.NON_NULL)
     private UUID gameId;
 
-    @JsonInclude(JsonInclude.Include.NON_NULL)
-    private Integer lobbyPlayerCount;
-
-    @JsonInclude(JsonInclude.Include.NON_NULL)
-    private Long lobbyHostId;
-
 }
 

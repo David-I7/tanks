@@ -1,7 +1,7 @@
 import type {
   OnlineGameStateSnapshotResponse,
   OnlineTerrainSnapshotResponse,
-} from "../../api/ws/dto/gameplay/onlineGameplayProtocol";
+} from "../../api/ws/dto/gameplay/OnlineGameplayProtocol";
 import { mockGameContent, type GameContent } from "../content/mockGameContent";
 import type {
   GameState,
@@ -106,7 +106,10 @@ export function onlineSnapshotToGameState(
           drag: 0,
           muzzleVelocityScale: 1,
         },
-        terrainEffect: definition?.terrainEffect ?? { type: "crater", radius: 24 },
+        terrainEffect: definition?.terrainEffect ?? {
+          type: "crater",
+          radius: 24,
+        },
         damageEffect: definition?.damageEffect ?? {
           type: "radial",
           radius: 24,
@@ -142,7 +145,9 @@ function mapOnlineImpactEvents(
   });
 }
 
-function mapOnlinePhase(phase: OnlineGameStateSnapshotResponse["match"]["phase"]): TurnPhase {
+function mapOnlinePhase(
+  phase: OnlineGameStateSnapshotResponse["match"]["phase"],
+): TurnPhase {
   switch (phase) {
     case "AIMING":
       return "aiming";
@@ -157,7 +162,9 @@ function mapOnlinePhase(phase: OnlineGameStateSnapshotResponse["match"]["phase"]
   }
 }
 
-function mapOnlineTerrain(terrain: OnlineTerrainSnapshotResponse): TerrainSnapshot {
+function mapOnlineTerrain(
+  terrain: OnlineTerrainSnapshotResponse,
+): TerrainSnapshot {
   return {
     kind: "heightmap",
     width: terrain.width,
