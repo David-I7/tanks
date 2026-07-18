@@ -39,10 +39,6 @@ export default function QuickMatchLobbyRoom() {
 
       <div> Players: {playerCount}/2</div>
 
-      <div className="text-xs text-text-body/60 uppercase tracking-wider animate-pulse mb-2">
-        Searching for a game...
-      </div>
-
       <Button color="secondary" variant="outline" onClick={leaveLobby}>
         Cancel
       </Button>

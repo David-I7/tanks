@@ -18,15 +18,11 @@ type LobbyState =
       error: null;
       state: "connecting_to_lobby" | "searching_for_players" | "creating_game";
       playerCount: number;
-      leaveLobby: () => void;
-      retryLobbyJoin: () => void;
     }
   | {
       error: ApiError | WebSocketError;
       state: "error";
       playerCount: number;
-      leaveLobby: () => void;
-      retryLobbyJoin: () => void;
     };
 
 export default function useQuickMatchLobby() {
@@ -40,6 +36,15 @@ export default function useQuickMatchLobby() {
   } = useWebSocketStore();
   const { add, cleanup } = useSubscriptionGroup();
 
+  const [lobbyState, setLobbyState] = useState<LobbyState>({
+    error: null,
+    state: "connecting_to_lobby",
+    playerCount: 0,
+  });
+  const navigate = useNavigate();
+  const user = useAuthStore((state) => state.user);
+  const { popScreen } = useScreenStack();
+
   const leaveLobby = () => {
     disconnect();
     popScreen();
@@ -48,29 +53,19 @@ export default function useQuickMatchLobby() {
   const retryLobbyJoin = () => {
     if (webSocketStatus !== "disconnected" || lobbyState.state !== "error")
       return;
-    connect();
+
     setLobbyState((prev) => ({
       ...prev,
       error: null,
+      playerCount: 0,
       state: "connecting_to_lobby",
     }));
   };
 
-  const [lobbyState, setLobbyState] = useState<LobbyState>({
-    error: null,
-    state: "connecting_to_lobby",
-    playerCount: 0,
-    leaveLobby,
-    retryLobbyJoin,
-  });
-  const navigate = useNavigate();
-  const user = useAuthStore((state) => state.user);
-  const { popScreen } = useScreenStack();
-
   function handleLobbyConnect(message: Message<LobbyEvent>) {
     setLobbyState((prev) => {
       const next = prev.playerCount + 1;
-      const isHost = message.body.payload.hostName === user!.username;
+      const isHost = message.body.payload.hostId === user!.id;
 
       if (isHost && next === 2) {
         send({ destination: "/app/game/create" });
@@ -87,6 +82,7 @@ export default function useQuickMatchLobby() {
   }
 
   useEffect(() => {
+    if (lobbyState.error !== null) return;
     const isConnected = webSocketStatus === "connected";
 
     if (!isConnected) {
@@ -157,7 +153,7 @@ export default function useQuickMatchLobby() {
       if (!isConnected) return;
       cleanup();
     };
-  }, [webSocketStatus === "connected"]);
+  }, [webSocketStatus === "connected", lobbyState.error === null]);
 
   useEffect(() => {
     if (webSocketError) {
@@ -170,5 +166,5 @@ export default function useQuickMatchLobby() {
     }
   }, [webSocketError]);
 
-  return lobbyState;
+  return { ...lobbyState, leaveLobby, retryLobbyJoin };
 }

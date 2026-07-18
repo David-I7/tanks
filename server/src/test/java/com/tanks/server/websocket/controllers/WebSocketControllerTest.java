@@ -41,6 +41,7 @@ import java.util.HashMap;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReentrantLock;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
@@ -159,7 +160,7 @@ public class WebSocketControllerTest {
 
         String payload = chatFrame.get(5, TimeUnit.SECONDS);
         assertTrue(payload.contains("\"type\":\"" + ChatEventType.CHAT_MESSAGE + "\""), payload);
-        assertTrue(payload.contains("\"sender\":\"player1\""), payload);
+        assertTrue(payload.contains("\"triggeredBy\":\"player1\""), payload);
         assertTrue(payload.contains("\"message\":\"ready\""), payload);
         session.disconnect();
     }
@@ -190,6 +191,7 @@ public class WebSocketControllerTest {
         when(authService.parseUser("valid-token")).thenReturn(userDto);
         when(claimService.claimSocket(any(Long.class), anyString())).thenReturn(true);
         when(claimService.consumeUserSessionReloadRequired(1L)).thenReturn(true);
+        when(claimService.getSocketLock(any(Long.class))).thenReturn(new ReentrantLock());
 
         // 2. Mock UserSession behavior
         // Initially, user is in LOBBY in the database (Redis)
@@ -304,6 +306,7 @@ public class WebSocketControllerTest {
         when(authService.parseUser("valid-token")).thenReturn(userDto);
         when(claimService.claimSocket(any(Long.class), anyString())).thenReturn(true);
         when(claimService.consumeUserSessionReloadRequired(userSession.getId())).thenReturn(false);
+        when(claimService.getSocketLock(any(Long.class))).thenReturn(new ReentrantLock());
         when(userSessionService.findById(userSession.getId())).thenReturn(userSession);
         when(userSessionService.save(any(UserSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(userSessionService.isInLobby(any(UserSession.class), anyString())).thenCallRealMethod();

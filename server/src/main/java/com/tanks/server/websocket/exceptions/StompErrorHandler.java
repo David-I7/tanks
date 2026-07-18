@@ -36,7 +36,7 @@ public class StompErrorHandler extends StompSubProtocolErrorHandler {
         String destination = null;
 
         if (accessor != null) {
-            accessor.getDestination();
+            destination = accessor.getDestination();
         }
 
         String errorMessage = ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage();

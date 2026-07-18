@@ -145,7 +145,10 @@ export default function useLobbyChat(lobbyId: string) {
     const isConnected = status === "connected";
     if (!isConnected) return;
 
-    const typingTimeout = debounce(() => {
+    const {
+      fn: debounceRemoveTypingIndicator,
+      cancel: cancelDebounceRemoveTypingIndicator,
+    } = debounce(() => {
       setLobbyState((prev) => ({
         ...prev,
         typingUser: null,
@@ -166,7 +169,8 @@ export default function useLobbyChat(lobbyId: string) {
               messageBody.type !== "CHAT_MESSAGE" &&
               messageBody.type !== "CHAT_TYPE" &&
               messageBody.type !== "LOBBY_DISCONNECT" &&
-              messageBody.type !== "LOBBY_LEAVE"
+              messageBody.type !== "LOBBY_LEAVE" &&
+              messageBody.type !== "LOBBY_CONNECT"
             )
               return;
 
@@ -176,25 +180,33 @@ export default function useLobbyChat(lobbyId: string) {
                 ...prev,
                 typingUser: messageBody.payload.triggeredBy,
               }));
-              publishTypingEvent();
+              debounceRemoveTypingIndicator();
               return;
             } else if (messageBody.type === "CHAT_MESSAGE") {
-              if (messageBody.payload.triggeredBy === username) return;
-              cancelTypingEvent();
-              setLobbyState((prev) => ({
-                ...prev,
-                typingUser: null,
-              }));
+              if (messageBody.payload.triggeredBy === username) {
+                setLobbyState((prev) => ({
+                  ...prev,
+                  messageState: "sent",
+                  messageError: null,
+                }));
+              } else {
+                cancelDebounceRemoveTypingIndicator();
+                setLobbyState((prev) => ({
+                  ...prev,
+                  typingUser: null,
+                }));
+              }
             } else if (
               messageBody.type === "LOBBY_DISCONNECT" ||
               messageBody.type === "LOBBY_LEAVE"
             ) {
-              if (messageBody.payload.triggeredBy === username) return;
-              cancelTypingEvent();
-              setLobbyState((prev) => ({
-                ...prev,
-                typingUser: null,
-              }));
+              if (messageBody.payload.triggeredBy !== username) {
+                cancelDebounceRemoveTypingIndicator();
+                setLobbyState((prev) => ({
+                  ...prev,
+                  typingUser: null,
+                }));
+              }
             }
 
             const uiMessage = toUiMessage(messageBody, username);
@@ -216,7 +228,8 @@ export default function useLobbyChat(lobbyId: string) {
       if (isConnected) {
         cleanup();
       }
-      typingTimeout.cancel();
+      cancelDebounceRemoveTypingIndicator();
+      cancelTypingEvent();
     };
   }, [webSocketStatus === "connected"]);
 

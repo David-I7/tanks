@@ -3,7 +3,7 @@ import type { WebSocketEventResponseDto } from "../WebSocketEventResponseDto";
 
 export type GameEventPayload = {
   id: string;
-  hostName: string;
+  hostId: number;
   triggeredBy: string;
 };
 

@@ -45,9 +45,7 @@ function SessionResume() {
       .then((status) => {
         const userStatus = status.userSessionStatus;
 
-        if (userStatus.state === "IN_LOBBY") {
-          navigate(`/lobby/${userStatus.lobbyId}`, { replace: true });
-        } else if (userStatus.state === "IN_GAME") {
+        if (userStatus.state === "IN_GAME") {
           navigate(`/game/${userStatus.gameId}`, { replace: true });
         }
       })

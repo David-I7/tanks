@@ -13,8 +13,6 @@ public class ChatEventResponseDto {
 
     private ChatEventType type;
 
-    private String sender;
-
     private ChatMessagePayload payload;
 
 }

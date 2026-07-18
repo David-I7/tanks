@@ -13,7 +13,5 @@ public class GameEventResponseDto {
 
         private GameEventType type;
 
-        private String sender;
-
         private Object payload;
 }

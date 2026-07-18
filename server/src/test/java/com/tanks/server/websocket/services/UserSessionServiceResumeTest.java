@@ -52,8 +52,6 @@ class UserSessionServiceResumeTest {
 
         assertThat(status.getState()).isEqualTo(UserSessionState.IN_LOBBY);
         assertThat(status.getLobbyId()).isEqualTo(lobbyId);
-        assertThat(status.getLobbyHostId()).isEqualTo(1L);
-        assertThat(status.getLobbyPlayerCount()).isEqualTo(2);
     }
 
     @Test
@@ -82,30 +80,30 @@ class UserSessionServiceResumeTest {
         assertThat(status.getGameId()).isEqualTo(gameId);
     }
 
-    @Test
-    @DisplayName("Auth status falls back to idle when live Lobby state is missing")
-    void authStatusFallsBackToIdleWhenLiveStateIsMissing() {
-        TestHarness harness = new TestHarness();
-        UUID lobbyId = UUID.randomUUID();
-        UserSession userSession = UserSession.builder()
-                .id(1L)
-                .username("host")
-                .state(UserSessionState.IN_LOBBY)
-                .lobbyId(lobbyId)
-                .build();
-
-        when(harness.userSessionRepository.findById(1L)).thenReturn(Optional.of(userSession));
-        when(harness.lobbyRepository.findById(lobbyId)).thenReturn(Optional.empty());
-        when(harness.userSessionRepository.save(any(UserSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
-
-        UserSessionStatusDto status = harness.userSessionService.getUserSessionStatus(1L);
-
-        assertThat(status.getState()).isEqualTo(UserSessionState.IDLE);
-        assertThat(status.getLobbyId()).isNull();
-        assertThat(status.getGameId()).isNull();
-        assertThat(userSession.getState()).isEqualTo(UserSessionState.IDLE);
-        verify(harness.userSessionRepository).save(userSession);
-    }
+//    @Test
+//    @DisplayName("Auth status falls back to idle when live Lobby state is missing")
+//    void authStatusFallsBackToIdleWhenLiveStateIsMissing() {
+//        TestHarness harness = new TestHarness();
+//        UUID lobbyId = UUID.randomUUID();
+//        UserSession userSession = UserSession.builder()
+//                .id(1L)
+//                .username("host")
+//                .state(UserSessionState.IN_LOBBY)
+//                .lobbyId(lobbyId)
+//                .build();
+//
+//        when(harness.userSessionRepository.findById(1L)).thenReturn(Optional.of(userSession));
+//        when(harness.lobbyRepository.findById(lobbyId)).thenReturn(Optional.empty());
+//        when(harness.userSessionRepository.save(any(UserSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
+//
+//        UserSessionStatusDto status = harness.userSessionService.getUserSessionStatus(1L);
+//
+//        assertThat(status.getState()).isEqualTo(UserSessionState.IDLE);
+//        assertThat(status.getLobbyId()).isNull();
+//        assertThat(status.getGameId()).isNull();
+//        assertThat(userSession.getState()).isEqualTo(UserSessionState.IDLE);
+//        verify(harness.userSessionRepository).save(userSession);
+//    }
 
     @Test
     @DisplayName("Lobby and Game resume topics still reject users outside the server-owned session")
@@ -141,9 +139,7 @@ class UserSessionServiceResumeTest {
         private final LobbyRepository lobbyRepository = mock(LobbyRepository.class);
         private final GameSessionRepository gameSessionRepository = mock(GameSessionRepository.class);
         private final UserSessionService userSessionService = new UserSessionService(
-                userSessionRepository,
-                lobbyRepository,
-                gameSessionRepository);
+                userSessionRepository);
         private final LobbyAuthorizationService lobbyAuthorizationService =
                 new LobbyAuthorizationService(userSessionService);
         private final GameAuthorizationService gameAuthorizationService =

@@ -26,9 +26,6 @@ type LobbyState =
       playerCount: number;
       isHost: boolean;
       isOnLobbyPage: boolean;
-      leaveLobby: () => void;
-      retry: () => void;
-      startGame: () => void;
     }
   | {
       error: ApiError | WebSocketError;
@@ -37,9 +34,6 @@ type LobbyState =
       playerCount: number;
       isHost: boolean;
       isOnLobbyPage: boolean;
-      leaveLobby: () => void;
-      retry: () => void;
-      startGame: () => void;
     };
 
 export default function usePrivateLobby() {
@@ -63,38 +57,42 @@ export default function usePrivateLobby() {
     playerCount: 0,
     isHost: action === "CREATE",
     isOnLobbyPage: action === "JOIN",
-    leaveLobby: () => {
-      disconnect();
-    },
-    retry: () => {
-      if (webSocketStatus !== "disconnected" || lobbyState.state !== "error")
-        return;
-      connect();
-      setLobbyState((prev) => ({
-        ...prev,
-        error: null,
-        id: null,
-        state: "connecting_to_lobby",
-        playerCount: 0,
-        isHost: action === "CREATE",
-        isOnLobbyPage: action === "JOIN",
-      }));
-    },
-    startGame: () => {
-      if (lobbyState.state !== "ready_to_start" || !lobbyState.isHost) return;
-      send({
-        destination: "/app/game/create",
-      });
-      setLobbyState((prev) => ({
-        ...prev,
-        state: "creating_game",
-        error: null,
-      }));
-    },
   });
 
   if (action === "JOIN" && urlLobbyId === undefined) {
     throw new InvalidStateError("Lobby ID must be provided to join a lobby");
+  }
+
+  const leaveLobby = () => {
+    disconnect();
+  };
+  const retry = () => {
+    if (webSocketStatus !== "disconnected" || lobbyState.state !== "error")
+      return;
+    resetLobbyState();
+  };
+  const startGame = () => {
+    if (lobbyState.state !== "ready_to_start" || !lobbyState.isHost) return;
+    send({
+      destination: "/app/game/create",
+    });
+    setLobbyState((prev) => ({
+      ...prev,
+      state: "creating_game",
+      error: null,
+    }));
+  };
+
+  function resetLobbyState() {
+    setLobbyState((prev) => ({
+      ...prev,
+      error: null,
+      id: null,
+      state: "connecting_to_lobby",
+      playerCount: 0,
+      isHost: action === "CREATE",
+      isOnLobbyPage: action === "JOIN",
+    }));
   }
 
   useEffect(() => {
@@ -112,6 +110,7 @@ export default function usePrivateLobby() {
   }, [webSocketError]);
 
   useEffect(() => {
+    if (lobbyState.error !== null) return;
     const isConnected = webSocketStatus === "connected";
 
     if (!isConnected) {
@@ -122,7 +121,7 @@ export default function usePrivateLobby() {
     const handleLobbyConnect = (message: Message<LobbyEvent>) => {
       setLobbyState((prev) => {
         const nextPlayerCount = prev.playerCount + 1;
-        const isHost = message.body.payload.hostName === user!.username;
+        const isHost = message.body.payload.hostId === user!.id;
         return {
           ...prev,
           id: message.body.payload.id,
@@ -137,7 +136,7 @@ export default function usePrivateLobby() {
     const handleLobbyDisconnect = (message: Message<LobbyEvent>) => {
       setLobbyState((prev) => {
         const nextPlayerCount = prev.playerCount - 1;
-        const isHost = message.body.payload.hostName === user!.username;
+        const isHost = message.body.payload.hostId === user!.id;
         return {
           ...prev,
           id: message.body.payload.id,
@@ -228,15 +227,18 @@ export default function usePrivateLobby() {
       if (!isConnected) return;
       cleanup();
     };
-  }, [webSocketStatus === "connected"]);
+  }, [webSocketStatus === "connected", lobbyState.error === null]);
 
   return {
     ...lobbyState,
+    startGame,
+    leaveLobby,
+    retry,
     username: user!.username,
     shareLink:
       lobbyState.isHost && lobbyState.id
         ? `${window.location.origin}/lobby/${lobbyState.id}`
         : null,
-    canStartGame: lobbyState.isHost && lobbyState.playerCount === 2,
+    canStartGame: lobbyState.state === "ready_to_start" && lobbyState.isHost,
   };
 }

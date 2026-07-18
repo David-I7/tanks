@@ -2,6 +2,7 @@ package com.tanks.server.websocket.controllers;
 
 import com.tanks.server.websocket.entities.lobby.LobbyType;
 import com.tanks.server.websocket.entities.userSession.UserSession;
+import com.tanks.server.websocket.entities.userSession.UserSessionState;
 import com.tanks.server.websocket.security.entites.WebSocketPrincipal;
 import com.tanks.server.websocket.services.LobbyService;
 import com.tanks.server.websocket.services.UserSessionService;
@@ -50,7 +51,12 @@ public class LobbyController {
     public void leaveLobby(Authentication authentication) {
         WebSocketPrincipal principal = (WebSocketPrincipal) authentication.getPrincipal();
         UserSession userSession = principal.getUserSession();
-        lobbyService.removeUser(userSession);
-        userSessionService.delete(userSession);
+        synchronized (userSession) {
+            if (userSession.getState() == UserSessionState.IN_LOBBY) {
+                userSession.setState(UserSessionState.IDLE);
+                lobbyService.removeUser(userSession);
+                userSessionService.delete(userSession);
+            }
+        }
     }
 }

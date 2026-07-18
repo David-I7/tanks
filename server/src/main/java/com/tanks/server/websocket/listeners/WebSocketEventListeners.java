@@ -3,12 +3,13 @@ package com.tanks.server.websocket.listeners;
 import com.tanks.server.dto.UserDto;
 import com.tanks.server.websocket.dto.game.GameEventResponseDto;
 import com.tanks.server.websocket.dto.game.GameEventType;
-import com.tanks.server.websocket.dto.game.GameIdPayload;
+import com.tanks.server.websocket.dto.game.GameEventPayload;
 import com.tanks.server.websocket.dto.lobby.LobbyEventResponseDto;
 import com.tanks.server.websocket.dto.lobby.LobbyEventType;
 import com.tanks.server.websocket.dto.lobby.LobbyEventPayload;
 import com.tanks.server.websocket.entities.gameSession.GameSession;
 import com.tanks.server.websocket.entities.gameSession.GameSessionState;
+import com.tanks.server.websocket.entities.lobby.Lobby;
 import com.tanks.server.websocket.entities.userSession.UserSession;
 import com.tanks.server.websocket.entities.userSession.UserSessionState;
 import com.tanks.server.websocket.security.entites.WebSocketAuthentication;
@@ -99,7 +100,7 @@ public class WebSocketEventListeners {
         UserDto user = principal.getUserDto();
         UserSession userSession = principal.getUserSession();
 
-        // UserSession is null if the user failed to connect on the CONNECT command
+        // UserSession is null if the user failed inside authorization interceptor
         if(userSession != null) {
             if (userSession.getState() == UserSessionState.IN_LOBBY) {
                 // notify lobby that the user left
@@ -130,13 +131,15 @@ public class WebSocketEventListeners {
             var lobbyId = UUID.fromString(accessor.getDestination().substring(TOPIC_LOBBY.length()));
             log.debug("User {} subscribed to lobby {}", userDto.username(), lobbyId);
 
+            Lobby lobby = lobbyService.findById(lobbyId);
+
             simpMessagingTemplate.convertAndSend(
                     accessor.getDestination(),
                     new LobbyEventResponseDto(
                             LobbyEventType.LOBBY_CONNECT,
-                            "@SERVER",
                             new LobbyEventPayload(
-                                   lobbyId,
+                                    lobbyId,
+                                    lobby.getHostId(),
                                     authentication.getName()
                             )
                     )
@@ -145,20 +148,20 @@ public class WebSocketEventListeners {
             var gameId = UUID.fromString(accessor.getDestination().substring(TOPIC_GAME.length()));
             log.debug("User {} subscribed to game {}", userDto.username(), gameId);
 
+            UserSession userSession = ((WebSocketPrincipal)authentication.getPrincipal()).getUserSession();
+            GameSession gameSession = gameSessionService.getAndIncrementPlayerCount(userSession.getGameSessionId());
+
             simpMessagingTemplate.convertAndSend(
                     accessor.getDestination(),
                     new GameEventResponseDto(
                             GameEventType.GAME_CONNECT,
-                            "@SERVER",
-                            new GameIdPayload(
+                            new GameEventPayload(
                                    gameId,
+                                    gameSession.getHostId(),
                                     authentication.getName()
                             )
                     )
             );
-
-            UserSession userSession = ((WebSocketPrincipal)authentication.getPrincipal()).getUserSession();
-            GameSession gameSession = gameSessionService.getAndIncrementPlayerCount(userSession.getGameSessionId());
 
             if(gameSession.getConnectedPlayerCount() == 2 && gameSession.getState().equals(GameSessionState.CREATED)){
                 gameSessionService.startGame(gameSession);
@@ -206,53 +209,61 @@ public class WebSocketEventListeners {
     }
 
     private void handleLobbyLeave(UserSession userSession){
-        lobbyService.removeUser(userSession);
-        userSessionService.delete(userSession);
+        synchronized (userSession) {
+            if (userSession.getState() == UserSessionState.IN_LOBBY) {
+                userSession.setState(UserSessionState.IDLE);
+                lobbyService.removeUser(userSession);
+                userSessionService.delete(userSession);
+            }
+        }
     }
 
     private void handleGameLeave(UserSession userSession){
-        if(userSessionService.isConnectedToGame(userSession)) {
-            String gameTopic = "/topic/game/" + userSession.getGameSessionId();
-            userSession.setTopicSubscriptions(null);
-            userSession.setSocketSessionId(null);
-            userSessionService.save(userSession);
-            gameSessionService.decremenentPlayerCount(userSession.getGameSessionId());
-            simpMessagingTemplate.convertAndSend(gameTopic, new GameEventResponseDto(GameEventType.GAME_LEAVE, "@SERVER", new GameIdPayload(userSession.getGameSessionId(), userSession.getUsername())));
+        synchronized (userSession) {
+            if (userSession.getState() == UserSessionState.IN_GAME) {
+                userSession.setState(UserSessionState.IDLE);
+                String gameTopic = "/topic/game/" + userSession.getGameSessionId();
+                userSession.setTopicSubscriptions(null);
+                userSession.setSocketSessionId(null);
+                userSessionService.save(userSession);
+                gameSessionService.decremenentPlayerCount(userSession.getGameSessionId());
+                simpMessagingTemplate.convertAndSend(gameTopic, new GameEventResponseDto(GameEventType.GAME_LEAVE,  new GameEventPayload(userSession.getGameSessionId(), null,userSession.getUsername())));
+            }
         }
     }
 
     private void handleLobbyUnsubscribe(UserSession userSession){
-        if(userSessionService.isConnectedToLobby(userSession)) {
-            UUID lobbyId = userSession.getLobbyId();
-            String lobbyTopic = TOPIC_LOBBY + lobbyId;
-            unsubscribeFromTopic(userSession, lobbyTopic);
-            userSessionService.save(userSession);
-            simpMessagingTemplate.convertAndSend(
-                    lobbyTopic,
-                    new LobbyEventResponseDto(
-                            LobbyEventType.LOBBY_DISCONNECT,
-                            "@SERVER",
-                            new LobbyEventPayload(lobbyId, userSession.getUsername())
-                    )
-            );
+        synchronized (userSession) {
+            if (userSession.getState() == UserSessionState.IN_LOBBY) {
+                userSession.setState(UserSessionState.IDLE);
+                UUID lobbyId = userSession.getLobbyId();
+                String lobbyTopic = TOPIC_LOBBY + lobbyId;
+                unsubscribeFromTopic(userSession, lobbyTopic);
+                lobbyService.removeUser(userSession);
+                userSessionService.delete(userSession);
+            }
         }
     }
 
     private void handleGameUnsubscribe(UserSession userSession){
-        if(!userSessionService.isConnectedToGame(userSession)) return;
-
-        UUID gameSessionId = userSession.getGameSessionId();
-        String gameTopic = TOPIC_GAME + gameSessionId;
-        unsubscribeFromTopic(userSession, gameTopic);
-        userSessionService.save(userSession);
-        simpMessagingTemplate.convertAndSend(
-                gameTopic,
-                new GameEventResponseDto(
-                        GameEventType.GAME_DISCONNECT,
-                        "@SERVER",
-                        new GameIdPayload(gameSessionId, userSession.getUsername())
-                )
-        );
+        synchronized (userSession) {
+            if (userSession.getState() == UserSessionState.IN_GAME) {
+                userSession.setState(UserSessionState.IDLE);
+                UUID gameSessionId = userSession.getGameSessionId();
+                String gameTopic = TOPIC_GAME + gameSessionId;
+                unsubscribeFromTopic(userSession, gameTopic);
+                userSession.setSocketSessionId(null);
+                userSessionService.save(userSession);
+                gameSessionService.decremenentPlayerCount(gameSessionId);
+                simpMessagingTemplate.convertAndSend(
+                        gameTopic,
+                        new GameEventResponseDto(
+                                GameEventType.GAME_LEAVE,
+                                new GameEventPayload(gameSessionId, null,userSession.getUsername())
+                        )
+                );
+            }
+        }
     }
 
     private void handleUserRepliesUnsubscribe(UserSession userSession){

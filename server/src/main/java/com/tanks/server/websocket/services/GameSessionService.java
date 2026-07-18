@@ -15,7 +15,7 @@ import com.tanks.server.websocket.dto.gameplay.OnlinePlayerIntentRequestType;
 import com.tanks.server.websocket.dto.gameplay.OnlineStateDiffResponseType;
 import com.tanks.server.websocket.dto.game.GameEventResponseDto;
 import com.tanks.server.websocket.dto.game.GameEventType;
-import com.tanks.server.websocket.dto.game.GameIdPayload;
+import com.tanks.server.websocket.dto.game.GameEventPayload;
 import com.tanks.server.websocket.dto.game.GameStartPayload;
 import com.tanks.server.websocket.entities.gameSession.GameSession;
 import com.tanks.server.websocket.entities.gameSession.GameSessionState;
@@ -80,6 +80,7 @@ public class GameSessionService {
             var initialWorld = initialWorldFactory.create(content, generationSeed, host.getUsername(), opponent.getUsername());
             GameSession gameSession = GameSession.builder()
                     .id(gameSessionId)
+                    .hostId(host.getId())
                     .playerA(host.getUsername())
                     .playerB(opponent.getUsername())
                     .createdAt(OffsetDateTime.now())
@@ -94,8 +95,7 @@ public class GameSessionService {
 
             GameEventResponseDto response = new GameEventResponseDto(
                     GameEventType.GAME_CREATED,
-                    "@SERVER",
-                    new GameIdPayload(savedGameSession.getId(), null)
+                    new GameEventPayload(savedGameSession.getId(), savedGameSession.getHostId(), host.getUsername())
             );
 
             userSessionService.transitionToGame(host, savedGameSession.getId());
@@ -168,7 +168,6 @@ public class GameSessionService {
     private GameEventResponseDto gameStartedResponse(GameSession gameSession, long localPlayerId) {
         return new GameEventResponseDto(
                 GameEventType.GAME_STARTED,
-                "@SERVER",
                 new GameStartPayload(
                         gameSession.getId(),
                         gameSession.getPlayerA(),
