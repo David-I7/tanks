@@ -530,7 +530,20 @@ export class CanvasGameRenderer {
       ctx.fill();
       ctx.stroke();
 
-      if (definition) {
+      const projImage =
+        this.assets.projectileImages?.[slot.projectileDefinitionId];
+
+      if (projImage?.complete) {
+        const iconWidth = layout.slotSize * 0.55;
+        const iconHeight = layout.slotSize * 0.32;
+        ctx.drawImage(
+          projImage,
+          x + layout.slotSize / 2 - iconWidth / 2,
+          y + layout.slotSize / 2 - iconHeight / 2 - 4,
+          iconWidth,
+          iconHeight,
+        );
+      } else if (definition) {
         ctx.fillStyle = definition.visual.fill;
         ctx.strokeStyle = definition.visual.stroke;
         ctx.lineWidth = 3;

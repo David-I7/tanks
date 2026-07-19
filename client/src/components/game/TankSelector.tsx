@@ -60,7 +60,7 @@ export default function TankSelector({
         })}
       </div>
 
-      {/* Selected Tank Arsenal & Projectiles Preview */}
+      {/* Selected Tank Arsenal & Projectile Asset Display */}
       {selectedTank && (
         <div className="flex flex-col gap-2 p-3 rounded-lg border border-border-main bg-background/60">
           <div className="flex items-center justify-between">
@@ -68,25 +68,35 @@ export default function TankSelector({
               {selectedTank.name} Arsenal
             </span>
             <span className="text-[10px] text-text-body-muted font-medium">
-              5 Signature Projectiles
+              5 Projectile Weapons
             </span>
           </div>
           <p className="text-[11px] text-text-body-muted italic mb-1">
             {selectedTank.description}
           </p>
 
-          <div className="grid grid-cols-5 gap-1">
+          <div className="grid grid-cols-5 gap-1.5">
             {selectedTank.projectiles.map((proj) => (
               <div
                 key={proj.id}
-                className="flex flex-col items-center p-1.5 rounded border border-border-main bg-background-high/80 text-center"
+                className="flex flex-col items-center p-1.5 rounded border border-border-main bg-background-high/90 text-center shadow-sm"
                 title={`${proj.name} (${proj.type})`}
               >
-                <div
-                  className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white shadow-sm mb-1"
-                  style={{ backgroundColor: proj.color }}
-                >
-                  {proj.label}
+                <div className="w-9 h-7 flex items-center justify-center p-0.5 bg-background/70 rounded border border-border-main mb-1">
+                  {proj.url ? (
+                    <img
+                      src={proj.url}
+                      alt={proj.name}
+                      className="w-full h-full object-contain"
+                    />
+                  ) : (
+                    <div
+                      className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white shadow-sm"
+                      style={{ backgroundColor: proj.color }}
+                    >
+                      {proj.label}
+                    </div>
+                  )}
                 </div>
                 <span className="text-[10px] font-bold truncate w-full text-text-body-high">
                   {proj.name}
