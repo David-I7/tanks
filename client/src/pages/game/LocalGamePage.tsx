@@ -42,6 +42,7 @@ export default function LocalGamePage() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const engineRef = useRef<GameEngine | null>(null);
   const location = useLocation();
+  const state = location.state as LocationState | null;
 
   const tanks = useAssetStore((state) => state.tanks);
   const assetState = useAssetStore((state) => state.state);
