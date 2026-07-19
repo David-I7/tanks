@@ -13,6 +13,7 @@ export type AssetStore = {
   isLoading: boolean;
   error: string | null;
   tanks: TankAsset[];
+  projectileImages: Record<string, HTMLImageElement>;
   selectedTankId: string;
   loadAssets: () => Promise<void>;
   setSelectedTankId: (id: string) => void;
@@ -26,6 +27,7 @@ export const useAssetStore = create<AssetStore>((set, get) => ({
   isLoading: false,
   error: null,
   tanks: [],
+  projectileImages: {},
   selectedTankId: "heavy-armor",
 
   loadAssets: async () => {
@@ -44,11 +46,31 @@ export const useAssetStore = create<AssetStore>((set, get) => ({
       })),
     );
 
+    const projectileKeys = [
+      "basicShell",
+      "heavyShell",
+      "titanShell",
+      "precisionDart",
+      "pulseRail",
+      "mortar",
+      "cluster",
+      "needle",
+    ];
+
+    const projImages: Record<string, HTMLImageElement> = {};
+    await Promise.all(
+      projectileKeys.map(async (key) => {
+        const img = await resourceManager.getImage(key);
+        if (img) projImages[key] = img;
+      }),
+    );
+
     set({
       isLoaded: true,
       isLoading: false,
       error: success ? null : "Some resources failed to load",
       tanks: tankAssets,
+      projectileImages: projImages,
     });
   },
 

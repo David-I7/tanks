@@ -27,6 +27,8 @@ export default function LocalGamePage() {
     }
   }, [isLoaded, loadAssets]);
 
+  const projectileImages = useAssetStore((state) => state.projectileImages);
+
   const rendererAssets = useMemo<RendererAssets>(() => {
     const tankImages: Record<string, HTMLImageElement> = {};
     tanks.forEach((t) => {
@@ -37,9 +39,10 @@ export default function LocalGamePage() {
     const firstImage = Object.values(tankImages)[0];
     return {
       tankImages,
+      projectileImages,
       tankImage: firstImage,
     };
-  }, [tanks]);
+  }, [tanks, projectileImages]);
 
   const modeParam = searchParams.get("mode");
   const mode: GameMode =

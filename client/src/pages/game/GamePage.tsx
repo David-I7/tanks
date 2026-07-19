@@ -39,6 +39,8 @@ function GameView({ gameSessionId }: { gameSessionId: string }) {
     }
   }, [isLoaded, loadAssets]);
 
+  const projectileImages = useAssetStore((state) => state.projectileImages);
+
   const rendererAssets = useMemo<RendererAssets>(() => {
     const tankImages: Record<string, HTMLImageElement> = {};
     tanks.forEach((t) => {
@@ -48,9 +50,10 @@ function GameView({ gameSessionId }: { gameSessionId: string }) {
     });
     return {
       tankImages,
+      projectileImages,
       tankImage: Object.values(tankImages)[0],
     };
-  }, [tanks]);
+  }, [tanks, projectileImages]);
 
   const [isSessionReady, setIsSessionReady] = useState(false);
   const [hasViewState, setHasViewState] = useState(false);

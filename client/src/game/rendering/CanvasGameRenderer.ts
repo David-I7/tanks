@@ -6,6 +6,7 @@ import type { DpiViewport, GameViewport } from "../world/worldSizing";
 export type RendererAssets = {
   tankImage?: HTMLImageElement;
   tankImages?: Record<string, HTMLImageElement>;
+  projectileImages?: Record<string, HTMLImageElement>;
 };
 
 type RenderContext = {
@@ -233,13 +234,27 @@ export class CanvasGameRenderer {
     gameState: GameState,
   ): void {
     for (const entry of gameState.projectiles) {
-      ctx.fillStyle = entry.visual.fill;
-      ctx.strokeStyle = entry.visual.stroke;
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(entry.position.x, entry.position.y, entry.radius, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
+      const projImage =
+        this.assets.projectileImages?.[entry.projectileDefinitionId];
+
+      if (projImage?.complete) {
+        ctx.save();
+        ctx.translate(entry.position.x, entry.position.y);
+        const angle = Math.atan2(entry.velocity.y, entry.velocity.x);
+        ctx.rotate(angle);
+        const width = Math.max(16, entry.radius * 4);
+        const height = Math.max(10, entry.radius * 2.5);
+        ctx.drawImage(projImage, -width / 2, -height / 2, width, height);
+        ctx.restore();
+      } else {
+        ctx.fillStyle = entry.visual.fill;
+        ctx.strokeStyle = entry.visual.stroke;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(entry.position.x, entry.position.y, entry.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+      }
     }
   }
 

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 16" width="60" height="16">
+  <defs>
+    <linearGradient id="needleGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#1e3a8a"/>
+      <stop offset="60%" stop-color="#3b82f6"/>
+      <stop offset="100%" stop-color="#bfdbfe"/>
+    </linearGradient>
+  </defs>
+  <polygon points="2,8 58,2 58,14" fill="url(#needleGrad)" stroke="#1d4ed8" stroke-width="1.5"/>
+</svg>

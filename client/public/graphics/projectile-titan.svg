@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 70 34" width="70" height="34">
+  <defs>
+    <linearGradient id="titanShellGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#7f1d1d"/>
+      <stop offset="50%" stop-color="#dc2626"/>
+      <stop offset="100%" stop-color="#f87171"/>
+    </linearGradient>
+  </defs>
+  <!-- Fins -->
+  <polygon points="5,2 18,17 5,17" fill="#1f2937"/>
+  <polygon points="5,32 18,17 5,17" fill="#1f2937"/>
+  <!-- Body -->
+  <path d="M 15 8 L 45 8 C 58 8 68 17 68 17 C 68 17 58 26 45 26 L 15 26 Z" fill="url(#titanShellGrad)" stroke="#450a0a" stroke-width="2"/>
+  <circle cx="60" cy="17" r="4" fill="#fef08a"/>
+</svg>
