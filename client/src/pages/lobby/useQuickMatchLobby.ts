@@ -1,13 +1,13 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import type ProblemDetailDto from "../../api/http/dto/ProblemDetailDto";
 import { ApiError } from "../../errors/ApiError";
 import type {
   Message,
-  SubscriptionCleanup,
 } from "../../api/ws/TanksWebSocketClient";
 import { useNavigate } from "react-router-dom";
 import { useWebSocketStore } from "../../store/useWebSocketStore";
 import { useAuthStore } from "../../store/useAuthStore";
+import { useAssetStore } from "../../store/useAssetStore";
 import type { LobbyEvent } from "../../api/ws/dto/lobby/LobbyEventDto";
 import { useScreenStack } from "../../context/ScreenStack";
 import type WebSocketError from "../../errors/WebSocketError";
@@ -34,6 +34,7 @@ export default function useQuickMatchLobby() {
     disconnect,
     error: webSocketError,
   } = useWebSocketStore();
+  const selectedTankId = useAssetStore((state) => state.selectedTankId);
   const { add, cleanup } = useSubscriptionGroup();
 
   const [lobbyState, setLobbyState] = useState<LobbyState>({
@@ -147,7 +148,10 @@ export default function useQuickMatchLobby() {
       }),
     );
 
-    send({ destination: "/app/lobby/quick-match" });
+    send({
+      destination: "/app/lobby/quick-match",
+      body: { tankId: selectedTankId },
+    });
 
     return () => {
       if (!isConnected) return;
@@ -168,3 +172,4 @@ export default function useQuickMatchLobby() {
 
   return { ...lobbyState, leaveLobby, retryLobbyJoin };
 }
+

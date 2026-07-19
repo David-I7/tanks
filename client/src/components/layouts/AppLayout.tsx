@@ -6,9 +6,15 @@ import { REDIRECT_KEY } from "../../constants";
 import { useLocation, useNavigate } from "react-router-dom";
 import AppBackground from "./AppBackground";
 import { useAuthStore } from "../../store/useAuthStore";
+import { useAssetStore } from "../../store/useAssetStore";
 
 export default function AppLayout() {
   const location = useLocation();
+  const loadAssets = useAssetStore((state) => state.loadAssets);
+
+  useEffect(() => {
+    loadAssets();
+  }, [loadAssets]);
 
   useEffect(() => {
     const publicNonAuthPaths = ["/", "/test", "/game/local"];
@@ -49,7 +55,7 @@ function SessionResume() {
           navigate(`/game/${userStatus.gameId}`, { replace: true });
         }
       })
-      .catch((err) => {});
+      .catch(() => {});
   }, [user, location.pathname]);
 
   return null;

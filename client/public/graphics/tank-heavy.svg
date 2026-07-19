@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 120" width="200" height="120">
+  <defs>
+    <linearGradient id="heavyBody" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#374151" />
+      <stop offset="50%" stop-color="#1f2937" />
+      <stop offset="100%" stop-color="#111827" />
+    </linearGradient>
+    <linearGradient id="heavyArmor" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#4b5563" />
+      <stop offset="100%" stop-color="#1f2937" />
+    </linearGradient>
+    <linearGradient id="barrelMetal" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#6b7280" />
+      <stop offset="50%" stop-color="#374151" />
+      <stop offset="100%" stop-color="#111827" />
+    </linearGradient>
+    <radialGradient id="redGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ef4444" />
+      <stop offset="100%" stop-color="#991b1b" />
+    </radialGradient>
+  </defs>
+
+  <!-- Heavy Treads -->
+  <rect x="15" y="70" width="170" height="38" rx="10" fill="#0f172a" stroke="#374151" stroke-width="3"/>
+  <!-- Tread Wheels -->
+  <circle cx="35" cy="89" r="12" fill="#1e293b" stroke="#475569" stroke-width="2"/>
+  <circle cx="35" cy="89" r="5" fill="#64748b"/>
+  <circle cx="70" cy="89" r="12" fill="#1e293b" stroke="#475569" stroke-width="2"/>
+  <circle cx="70" cy="89" r="5" fill="#64748b"/>
+  <circle cx="105" cy="89" r="12" fill="#1e293b" stroke="#475569" stroke-width="2"/>
+  <circle cx="105" cy="89" r="5" fill="#64748b"/>
+  <circle cx="140" cy="89" r="12" fill="#1e293b" stroke="#475569" stroke-width="2"/>
+  <circle cx="140" cy="89" r="5" fill="#64748b"/>
+  <circle cx="165" cy="89" r="10" fill="#1e293b" stroke="#475569" stroke-width="2"/>
+
+  <!-- Tread details -->
+  <line x1="20" y1="70" x2="20" y2="108" stroke="#334155" stroke-width="2"/>
+  <line x1="180" y1="70" x2="180" y2="108" stroke="#334155" stroke-width="2"/>
+
+  <!-- Main Chassis -->
+  <polygon points="25,72 175,72 160,42 35,42" fill="url(#heavyBody)" stroke="#4b5563" stroke-width="2"/>
+  <!-- Armor Plates -->
+  <polygon points="40,68 85,68 80,48 45,48" fill="url(#heavyArmor)" stroke="#6b7280" stroke-width="1"/>
+  <polygon points="95,68 150,68 145,48 90,48" fill="url(#heavyArmor)" stroke="#6b7280" stroke-width="1"/>
+
+  <!-- Dual Heavy Cannon Barrels -->
+  <rect x="110" y="28" width="85" height="7" rx="2" fill="url(#barrelMetal)" stroke="#1f2937" stroke-width="1"/>
+  <rect x="110" y="38" width="85" height="7" rx="2" fill="url(#barrelMetal)" stroke="#1f2937" stroke-width="1"/>
+  <rect x="185" y="26" width="10" height="11" rx="1" fill="#dc2626"/>
+  <rect x="185" y="36" width="10" height="11" rx="1" fill="#dc2626"/>
+
+  <!-- Turret Dome -->
+  <path d="M 50 44 L 125 44 C 135 44 140 30 120 20 L 70 20 C 55 20 45 32 50 44 Z" fill="url(#heavyBody)" stroke="#6b7280" stroke-width="2"/>
+
+  <!-- Hatch & Sensor -->
+  <rect x="75" y="14" width="22" height="6" rx="2" fill="#374151" stroke="#6b7280" stroke-width="1"/>
+  <circle cx="112" cy="30" r="4" fill="url(#redGlow)"/>
+</svg>

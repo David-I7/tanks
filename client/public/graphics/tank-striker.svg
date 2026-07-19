@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 120" width="200" height="120">
+  <defs>
+    <linearGradient id="desertBody" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#d97706" />
+      <stop offset="50%" stop-color="#b45309" />
+      <stop offset="100%" stop-color="#78350f" />
+    </linearGradient>
+    <linearGradient id="desertArmor" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#f59e0b" />
+      <stop offset="100%" stop-color="#b45309" />
+    </linearGradient>
+    <linearGradient id="strikerBarrel" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#78350f" />
+      <stop offset="50%" stop-color="#451a03" />
+      <stop offset="100%" stop-color="#1c1917" />
+    </linearGradient>
+  </defs>
+
+  <!-- Speed Treads -->
+  <rect x="20" y="74" width="160" height="34" rx="8" fill="#1c1917" stroke="#92400e" stroke-width="2"/>
+  <circle cx="38" cy="91" r="10" fill="#292524" stroke="#d97706" stroke-width="2"/>
+  <circle cx="70" cy="91" r="10" fill="#292524" stroke="#d97706" stroke-width="2"/>
+  <circle cx="102" cy="91" r="10" fill="#292524" stroke="#d97706" stroke-width="2"/>
+  <circle cx="134" cy="91" r="10" fill="#292524" stroke="#d97706" stroke-width="2"/>
+  <circle cx="162" cy="91" r="10" fill="#292524" stroke="#d97706" stroke-width="2"/>
+
+  <!-- Sleek Chassis -->
+  <polygon points="30,75 170,75 150,48 45,48" fill="url(#desertBody)" stroke="#f59e0b" stroke-width="2"/>
+  <polygon points="50,70 100,70 95,54 55,54" fill="url(#desertArmor)" stroke="#fbbf24" stroke-width="1"/>
+
+  <!-- Long Velocity Cannon Barrel -->
+  <rect x="105" y="32" width="90" height="8" rx="2" fill="url(#strikerBarrel)" stroke="#78350f" stroke-width="1"/>
+  <rect x="188" y="30" width="8" height="12" rx="1" fill="#f59e0b"/>
+
+  <!-- Aerodynamic Turret -->
+  <path d="M 55 48 L 120 48 C 135 48 135 24 110 24 L 75 24 C 60 24 50 36 55 48 Z" fill="url(#desertBody)" stroke="#f59e0b" stroke-width="2"/>
+  <circle cx="95" cy="36" r="4" fill="#fbbf24"/>
+</svg>

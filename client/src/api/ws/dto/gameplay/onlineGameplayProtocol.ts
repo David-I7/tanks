@@ -13,6 +13,7 @@ export type OnlinePlayerIntentRequest =
 export type OnlinePlayerIntentRequestDto<
   TIntent extends OnlinePlayerIntentRequest = OnlinePlayerIntentRequest,
 > = {
+  protocolVersion?: string;
   gameSessionId: GameSessionId;
   playerId: PlayerId;
   intentId: IntentId;
@@ -69,6 +70,7 @@ const ONLINE_STATE_DIFF_TYPES = new Set([
 export type OnlineDiffResponseDto<
   TDiff extends OnlineStateDiffResponse = OnlineStateDiffResponse,
 > = {
+  protocolVersion?: string;
   gameSessionId: GameSessionId;
   sequence: DiffSequence;
   serverTick: ServerTick;
@@ -397,6 +399,7 @@ const exampleState: OnlineGameStateSnapshotResponse = {
 
 export const onlineGameplayProtocolExamples = {
   playerIntent: {
+    protocolVersion: "online-gameplay.v1",
     gameSessionId: "game-123",
     playerId: 1,
     intentId: "intent-abc",
@@ -411,6 +414,7 @@ export const onlineGameplayProtocolExamples = {
   },
   diffs: [
     {
+      protocolVersion: "online-gameplay.v1",
       gameSessionId: "game-123",
       sequence: 1,
       serverTick: 0,
@@ -423,6 +427,7 @@ export const onlineGameplayProtocolExamples = {
       },
     },
     {
+      protocolVersion: "online-gameplay.v1",
       gameSessionId: "game-123",
       sequence: 2,
       serverTick: 30,
@@ -436,6 +441,7 @@ export const onlineGameplayProtocolExamples = {
       },
     },
     {
+      protocolVersion: "online-gameplay.v1",
       gameSessionId: "game-123",
       sequence: 3,
       serverTick: 60,
@@ -461,6 +467,7 @@ export const onlineGameplayProtocolExamples = {
       },
     },
     {
+      protocolVersion: "online-gameplay.v1",
       gameSessionId: "game-123",
       sequence: 4,
       serverTick: 90,
@@ -490,6 +497,7 @@ export const onlineGameplayProtocolExamples = {
       },
     },
     {
+      protocolVersion: "online-gameplay.v1",
       gameSessionId: "game-123",
       sequence: 5,
       serverTick: 90,
@@ -506,6 +514,7 @@ export const onlineGameplayProtocolExamples = {
       },
     },
     {
+      protocolVersion: "online-gameplay.v1",
       gameSessionId: "game-123",
       sequence: 6,
       serverTick: 120,
@@ -520,6 +529,7 @@ export const onlineGameplayProtocolExamples = {
       },
     },
     {
+      protocolVersion: "online-gameplay.v1",
       gameSessionId: "game-123",
       sequence: 7,
       serverTick: 150,
@@ -534,6 +544,7 @@ export const onlineGameplayProtocolExamples = {
       },
     },
     {
+      protocolVersion: "online-gameplay.v1",
       gameSessionId: "game-123",
       sequence: 8,
       serverTick: 180,

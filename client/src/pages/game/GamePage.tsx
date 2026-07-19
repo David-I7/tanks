@@ -21,10 +21,11 @@ export default function GamePage() {
   return <GameView gameSessionId={id} />;
 }
 
+function useOnlineGame() {}
+
 function GameView({ gameSessionId }: { gameSessionId: string }) {
   const navigate = useNavigate();
-  const { client, status, connect } = useWebSocketStore();
-  const getAuthStatus = useAuthStore((state) => state.getAuthStatus);
+  const { status, connect } = useWebSocketStore();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const engineRef = useRef<GameEngine | null>(null);
   const [rendererAssets, setRendererAssets] = useState<RendererAssets | null>(
@@ -66,21 +67,6 @@ function GameView({ gameSessionId }: { gameSessionId: string }) {
         console.error("Error:", message.body);
       },
     });
-
-    void (async () => {
-      const authStatus = await getAuthStatus();
-      if (cancelled) return;
-
-      if (
-        authStatus?.userSessionStatus?.state !== "IN_GAME" ||
-        authStatus.userSessionStatus.gameId !== gameSessionId
-      ) {
-        navigate("/", { replace: true });
-        return;
-      }
-
-      setIsSessionReady(true);
-    })();
 
     return () => {
       cancelled = true;

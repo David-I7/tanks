@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { ApiError } from "../../errors/ApiError";
 import type { WebSocketEventResponseDto } from "../../api/ws/dto/WebSocketEventResponseDto";
 import type {
@@ -10,6 +10,7 @@ import InvalidStateError from "../../errors/InvalidStateError";
 import { useNavigate, useParams } from "react-router-dom";
 import { useWebSocketStore } from "../../store/useWebSocketStore";
 import { useAuthStore } from "../../store/useAuthStore";
+import { useAssetStore } from "../../store/useAssetStore";
 import type WebSocketError from "../../errors/WebSocketError";
 import { useSubscriptionGroup } from "../../hooks/useSubscriptionGroup";
 import type { LobbyEvent } from "../../api/ws/dto/lobby/LobbyEventDto";
@@ -46,9 +47,18 @@ export default function usePrivateLobby() {
     error: webSocketError,
   } = useWebSocketStore();
   const user = useAuthStore((state) => state.user);
+  const selectedTankId = useAssetStore((state) => state.selectedTankId);
+  const setSelectedTankId = useAssetStore((state) => state.setSelectedTankId);
+
   const navigate = useNavigate();
   const { id: urlLobbyId } = useParams();
   const action = urlLobbyId ? "JOIN" : "CREATE";
+
+  // Pause connection if joining via URL directly until tank is selected
+  const [needsTankSelection, setNeedsTankSelection] = useState(
+    action === "JOIN"
+  );
+
   const { add, cleanup } = useSubscriptionGroup();
   const [lobbyState, setLobbyState] = useState<LobbyState>({
     error: null,
@@ -62,6 +72,11 @@ export default function usePrivateLobby() {
   if (action === "JOIN" && urlLobbyId === undefined) {
     throw new InvalidStateError("Lobby ID must be provided to join a lobby");
   }
+
+  const confirmTankSelection = (tankId: string) => {
+    setSelectedTankId(tankId);
+    setNeedsTankSelection(false);
+  };
 
   const leaveLobby = () => {
     disconnect();
@@ -110,7 +125,7 @@ export default function usePrivateLobby() {
   }, [webSocketError]);
 
   useEffect(() => {
-    if (lobbyState.error !== null) return;
+    if (lobbyState.error !== null || needsTankSelection) return;
     const isConnected = webSocketStatus === "connected";
 
     if (!isConnected) {
@@ -215,11 +230,15 @@ export default function usePrivateLobby() {
     );
 
     if (action === "CREATE") {
-      send({ destination: "/app/lobby/create/private" });
+      send({
+        destination: "/app/lobby/create/private",
+        body: { tankId: selectedTankId },
+      });
     } else if (action === "JOIN") {
       send({
         destination: "/app/lobby/join/private/:id",
         id: urlLobbyId!,
+        body: { tankId: selectedTankId },
       });
     }
 
@@ -227,7 +246,7 @@ export default function usePrivateLobby() {
       if (!isConnected) return;
       cleanup();
     };
-  }, [webSocketStatus === "connected", lobbyState.error === null]);
+  }, [webSocketStatus === "connected", lobbyState.error === null, needsTankSelection]);
 
   return {
     ...lobbyState,
@@ -240,5 +259,9 @@ export default function usePrivateLobby() {
         ? `${window.location.origin}/lobby/${lobbyState.id}`
         : null,
     canStartGame: lobbyState.state === "ready_to_start" && lobbyState.isHost,
+    needsTankSelection,
+    confirmTankSelection,
+    selectedTankId,
   };
 }
+

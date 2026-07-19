@@ -9,6 +9,8 @@ import { useScreenStack } from "../../context/ScreenStack.tsx";
 import InvalidStateError from "../../errors/InvalidStateError.ts";
 import Surface from "../../components/layouts/Surface.tsx";
 import Separator from "../../components/misc/Separator.tsx";
+import TankSelector from "../../components/game/TankSelector.tsx";
+import { useState } from "react";
 
 export default function PrivateLobbyRoom() {
   const {
@@ -23,8 +25,37 @@ export default function PrivateLobbyRoom() {
     error,
     retry,
     leaveLobby,
+    needsTankSelection,
+    confirmTankSelection,
+    selectedTankId,
   } = usePrivateLobby();
   const { copied, copyText } = useClipboard();
+  const [modalTankId, setModalTankId] = useState(selectedTankId);
+
+  if (needsTankSelection) {
+    return (
+      <Surface className="px-8 py-8 w-full max-w-md flex flex-col gap-6 text-center z-20">
+        <H1 className="text-xl text-center">Join Private Room</H1>
+        <p className="text-sm text-text-body-muted">
+          Select your tank before entering the room lobby.
+        </p>
+
+        <TankSelector
+          selectedTankId={modalTankId}
+          onSelectTank={setModalTankId}
+          label="Your Tank Identity"
+        />
+
+        <Button
+          color="primary"
+          onClick={() => confirmTankSelection(modalTankId)}
+          className="w-full font-black text-sm tracking-widest mt-2"
+        >
+          Confirm & Join Room
+        </Button>
+      </Surface>
+    );
+  }
 
   if (state === "waiting_for_players" || state === "ready_to_start") {
     return (
