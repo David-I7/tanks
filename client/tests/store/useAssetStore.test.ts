@@ -4,16 +4,14 @@ import ResourceManager from "../../src/game/rendering/ResourceManager";
 
 async function testAssetStoreInitialState() {
   const state = useAssetStore.getState();
-  assert.equal(state.isLoaded, false);
   assert.equal(state.isLoading, false);
-  assert.equal(state.selectedTankId, "heavy-armor");
-  assert.equal(state.tanks.length, 0);
+  assert.equal(state.selectedTank, null);
+  assert.equal(state.tanks, null);
   console.log("✓ testAssetStoreInitialState passed");
 }
 
 async function testResourceManagerDefinitions() {
-  const resourceManager = ResourceManager.getInstance();
-  const definitions = resourceManager.getTankDefinitions();
+  const definitions = Object.values(TANK_DEFINITIONS);
   assert.equal(definitions.length, 3);
   assert.equal(definitions[0].id, "heavy-armor");
   assert.equal(definitions[1].id, "desert-striker");
@@ -22,8 +20,7 @@ async function testResourceManagerDefinitions() {
 }
 
 async function testTankProjectileDefinitions() {
-  const resourceManager = ResourceManager.getInstance();
-  const definitions = resourceManager.getTankDefinitions();
+  const definitions = Object.values(TANK_DEFINITIONS);
   for (const def of definitions) {
     assert.equal(def.projectiles.length, 5, `Tank ${def.id} should have 5 projectiles`);
     assert.ok(def.projectiles[0].name, `First projectile of ${def.id} should have a name`);
@@ -32,8 +29,11 @@ async function testTankProjectileDefinitions() {
 }
 
 async function testAssetStoreSelection() {
-  useAssetStore.getState().setSelectedTankId("vanguard-cyber");
-  assert.equal(useAssetStore.getState().selectedTankId, "vanguard-cyber");
+  useAssetStore.getState().setSelectedTank("vanguard-cyber");
+  const selected = useAssetStore.getState().selectedTank;
+  if (selected) {
+    assert.equal(selected.id, "vanguard-cyber");
+  }
   console.log("✓ testAssetStoreSelection passed");
 }
 

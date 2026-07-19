@@ -47,17 +47,11 @@ export default function usePrivateLobby() {
     error: webSocketError,
   } = useWebSocketStore();
   const user = useAuthStore((state) => state.user);
-  const selectedTankId = useAssetStore((state) => state.selectedTankId);
-  const setSelectedTankId = useAssetStore((state) => state.setSelectedTankId);
+  const selectedTank = useAssetStore((state) => state.selectedTank);
 
   const navigate = useNavigate();
   const { id: urlLobbyId } = useParams();
   const action = urlLobbyId ? "JOIN" : "CREATE";
-
-  // Pause connection if joining via URL directly until tank is selected
-  const [needsTankSelection, setNeedsTankSelection] = useState(
-    action === "JOIN"
-  );
 
   const { add, cleanup } = useSubscriptionGroup();
   const [lobbyState, setLobbyState] = useState<LobbyState>({
@@ -72,11 +66,6 @@ export default function usePrivateLobby() {
   if (action === "JOIN" && urlLobbyId === undefined) {
     throw new InvalidStateError("Lobby ID must be provided to join a lobby");
   }
-
-  const confirmTankSelection = (tankId: string) => {
-    setSelectedTankId(tankId);
-    setNeedsTankSelection(false);
-  };
 
   const leaveLobby = () => {
     disconnect();
@@ -125,7 +114,7 @@ export default function usePrivateLobby() {
   }, [webSocketError]);
 
   useEffect(() => {
-    if (lobbyState.error !== null || needsTankSelection) return;
+    if (lobbyState.error !== null) return;
     const isConnected = webSocketStatus === "connected";
 
     if (!isConnected) {
@@ -232,13 +221,13 @@ export default function usePrivateLobby() {
     if (action === "CREATE") {
       send({
         destination: "/app/lobby/create/private",
-        body: { tankId: selectedTankId },
+        body: { tankId: selectedTank?.id ?? "heavy-armor" },
       });
     } else if (action === "JOIN") {
       send({
         destination: "/app/lobby/join/private/:id",
         id: urlLobbyId!,
-        body: { tankId: selectedTankId },
+        body: { tankId: selectedTank?.id ?? "heavy-armor" },
       });
     }
 
@@ -246,7 +235,7 @@ export default function usePrivateLobby() {
       if (!isConnected) return;
       cleanup();
     };
-  }, [webSocketStatus === "connected", lobbyState.error === null, needsTankSelection]);
+  }, [webSocketStatus === "connected", lobbyState.error === null]);
 
   return {
     ...lobbyState,
@@ -259,9 +248,5 @@ export default function usePrivateLobby() {
         ? `${window.location.origin}/lobby/${lobbyState.id}`
         : null,
     canStartGame: lobbyState.state === "ready_to_start" && lobbyState.isHost,
-    needsTankSelection,
-    confirmTankSelection,
-    selectedTankId,
   };
 }
-

@@ -1,22 +1,21 @@
-import { useAssetStore } from "../../store/useAssetStore";
-import { TANK_DEFINITIONS, type TankDefinition } from "../../game/rendering/ResourceManager";
+import { useAssetStore, type TankAsset } from "../../store/useAssetStore";
 
 type TankSelectorProps = {
-  selectedTankId: string;
-  onSelectTank: (tankId: string) => void;
+  onTankSelect?: (tank: TankAsset) => void;
   label?: string;
 };
 
 export default function TankSelector({
-  selectedTankId,
-  onSelectTank,
+  onTankSelect,
   label = "Select Your Tank",
 }: TankSelectorProps) {
   const tanks = useAssetStore((state) => state.tanks);
-  const tankDefs: TankDefinition[] =
-    tanks.length > 0 ? tanks : TANK_DEFINITIONS;
+  const selectedTank = useAssetStore((state) => state.selectedTank);
+  const selectTank = useAssetStore((state) => state.setSelectedTank);
 
-  const selectedTank = tankDefs.find((t) => t.id === selectedTankId) || tankDefs[0];
+  if (!tanks) {
+    return <div>Loading tanks...</div>;
+  }
 
   return (
     <div className="flex flex-col gap-3 w-full text-left">
@@ -28,13 +27,16 @@ export default function TankSelector({
 
       {/* Tank Cards Selection Grid */}
       <div className="grid grid-cols-3 gap-2">
-        {tankDefs.map((tank) => {
-          const isSelected = tank.id === selectedTankId;
+        {tanks.map((tank) => {
+          const isSelected = tank === selectedTank;
           return (
             <button
               key={tank.id}
               type="button"
-              onClick={() => onSelectTank(tank.id)}
+              onClick={() => {
+                selectTank(tank.id);
+                onTankSelect && onTankSelect(tank);
+              }}
               className={`flex flex-col items-center p-2 rounded-lg border transition-all duration-200 cursor-pointer ${
                 isSelected
                   ? "border-primary bg-primary/10 shadow-md ring-2 ring-primary/40"

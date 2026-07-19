@@ -34,7 +34,7 @@ export default function useQuickMatchLobby() {
     disconnect,
     error: webSocketError,
   } = useWebSocketStore();
-  const selectedTankId = useAssetStore((state) => state.selectedTankId);
+  const selectedTank = useAssetStore((state) => state.selectedTank);
   const { add, cleanup } = useSubscriptionGroup();
 
   const [lobbyState, setLobbyState] = useState<LobbyState>({
@@ -150,7 +150,7 @@ export default function useQuickMatchLobby() {
 
     send({
       destination: "/app/lobby/quick-match",
-      body: { tankId: selectedTankId },
+      body: { tankId: selectedTank?.id ?? "heavy-armor" },
     });
 
     return () => {
@@ -172,4 +172,3 @@ export default function useQuickMatchLobby() {
 
   return { ...lobbyState, leaveLobby, retryLobbyJoin };
 }
-

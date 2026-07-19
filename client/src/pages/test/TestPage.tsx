@@ -27,9 +27,9 @@ export default function TestPage() {
   useEffect(() => {
     let cancelled = false;
     ResourceManager.getInstance()
-      .getImage("tank")
+      .getImage("heavy-armor")
       .then((tankImage) => {
-        if (!cancelled) setRendererAssets({ tankImage });
+        if (!cancelled && tankImage) setRendererAssets({ tankImage });
       })
       .catch(() => {
         if (!cancelled) setRendererAssets({});

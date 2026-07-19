@@ -18,31 +18,39 @@ export default function LocalGamePage() {
   const engineRef = useRef<GameEngine | null>(null);
 
   const tanks = useAssetStore((state) => state.tanks);
-  const isLoaded = useAssetStore((state) => state.isLoaded);
+  const assetState = useAssetStore((state) => state.state);
   const loadAssets = useAssetStore((state) => state.loadAssets);
 
   useEffect(() => {
-    if (!isLoaded) {
+    if (assetState === "idle") {
       loadAssets();
     }
-  }, [isLoaded, loadAssets]);
-
-  const projectileImages = useAssetStore((state) => state.projectileImages);
+  }, [assetState, loadAssets]);
 
   const rendererAssets = useMemo<RendererAssets>(() => {
     const tankImages: Record<string, HTMLImageElement> = {};
-    tanks.forEach((t) => {
-      if (t.image) {
-        tankImages[t.id] = t.image;
-      }
-    });
+    const projectileImages: Record<string, HTMLImageElement> = {};
+
+    if (tanks) {
+      tanks.forEach((t) => {
+        if (t.image) {
+          tankImages[t.id] = t.image;
+        }
+        t.projectiles?.forEach((p) => {
+          if (p.image) {
+            projectileImages[p.id] = p.image;
+          }
+        });
+      });
+    }
+
     const firstImage = Object.values(tankImages)[0];
     return {
       tankImages,
       projectileImages,
       tankImage: firstImage,
     };
-  }, [tanks, projectileImages]);
+  }, [tanks]);
 
   const modeParam = searchParams.get("mode");
   const mode: GameMode =
