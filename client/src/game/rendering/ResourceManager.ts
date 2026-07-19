@@ -210,7 +210,7 @@ export default class ResourceManager {
 
     for (const [key, url] of Object.entries(RESOURCE_URLS.images)) {
       const imageId = key as ImageIds;
-      if (imageId in this.resources.images) {
+      if (this.resources.images[imageId] !== null) {
         continue;
       }
 

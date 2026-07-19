@@ -1,48 +1,85 @@
 import { ArrowLeft } from "lucide-react";
 import { useEffect, useMemo, useRef } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   createCanvasSizedLocalGameManager,
   GameEngine,
-  type GameMode,
   type MatchSetup,
 } from "../../game";
 import type { RendererAssets } from "../../game/rendering/CanvasGameRenderer";
 import IconButton from "../../components/buttons/IconButton";
-import { useAssetStore } from "../../store/useAssetStore";
+import Loader from "../../components/misc/Loader";
+import { useAssetStore, type TankAsset } from "../../store/useAssetStore";
+
+type LocationState = {
+  mode: "playerVsAi" | "localTwoPlayer";
+  player1Config: {
+    name: string;
+    tankId: TankAsset["id"];
+  };
+  player2Config: {
+    name: string;
+    tankId: TankAsset["id"];
+  };
+};
+
+function validateLocationState(state: any): state is LocationState {
+  return (
+    state &&
+    typeof state === "object" &&
+    (state.mode === "playerVsAi" || state.mode === "localTwoPlayer") &&
+    typeof state.player1Config === "object" &&
+    typeof state.player2Config === "object" &&
+    "name" in state.player1Config &&
+    "tankId" in state.player1Config &&
+    "name" in state.player2Config &&
+    "tankId" in state.player2Config
+  );
+}
 
 export default function LocalGamePage() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const engineRef = useRef<GameEngine | null>(null);
+  const location = useLocation();
 
   const tanks = useAssetStore((state) => state.tanks);
   const assetState = useAssetStore((state) => state.state);
   const loadAssets = useAssetStore((state) => state.loadAssets);
 
   useEffect(() => {
-    if (assetState === "idle") {
+    if (assetState === "idle" || tanks === null) {
       loadAssets();
     }
-  }, [assetState, loadAssets]);
+  }, [assetState, tanks, loadAssets]);
+
+  if (!state || !validateLocationState(state)) {
+    throw new Error("Invalid state for local game setup");
+  }
+
+  if (tanks === null) {
+    return (
+      <main className="relative z-10 flex min-h-screen items-center justify-center bg-background p-4 text-text-body-high">
+        <Loader />
+      </main>
+    );
+  }
+
+  const { mode, player1Config, player2Config } = state;
 
   const rendererAssets = useMemo<RendererAssets>(() => {
     const tankImages: Record<string, HTMLImageElement> = {};
     const projectileImages: Record<string, HTMLImageElement> = {};
-
-    if (tanks) {
-      tanks.forEach((t) => {
-        if (t.image) {
-          tankImages[t.id] = t.image;
-        }
-        t.projectiles?.forEach((p) => {
+    tanks.forEach((t) => {
+      if (t.image) {
+        tankImages[t.id] = t.image;
+        for (const p of t.projectiles) {
           if (p.image) {
             projectileImages[p.id] = p.image;
           }
-        });
-      });
-    }
+        }
+      }
+    });
 
     const firstImage = Object.values(tankImages)[0];
     return {
@@ -52,38 +89,25 @@ export default function LocalGamePage() {
     };
   }, [tanks]);
 
-  const modeParam = searchParams.get("mode");
-  const mode: GameMode =
-    modeParam === "playerVsAi" ? "playerVsAi" : "localTwoPlayer";
-
-  const p1Name = searchParams.get("p1Name") || "Player 1";
-  const p1Tank = searchParams.get("p1Tank") || "heavy-armor";
-  const p2Name =
-    searchParams.get("p2Name") ||
-    (mode === "playerVsAi" ? "AI Bot" : "Player 2");
-  const p2Tank =
-    searchParams.get("p2Tank") ||
-    (mode === "playerVsAi" ? "desert-striker" : "vanguard-cyber");
-
   const matchSetup = useMemo<MatchSetup>(
     () => ({
       mode,
       players: [
         {
           id: 0,
-          displayName: p1Name,
+          displayName: player1Config.name,
           controllerKind: "human",
-          tankSelection: { tankDefinitionId: p1Tank },
+          tankSelection: { tankDefinitionId: player1Config.tankId },
         },
         {
           id: 1,
-          displayName: p2Name,
+          displayName: player2Config.name,
           controllerKind: mode === "playerVsAi" ? "ai" : "human",
-          tankSelection: { tankDefinitionId: p2Tank },
+          tankSelection: { tankDefinitionId: player2Config.tankId },
         },
       ],
     }),
-    [mode, p1Name, p1Tank, p2Name, p2Tank],
+    [mode, player1Config, player2Config],
   );
 
   useEffect(() => {
