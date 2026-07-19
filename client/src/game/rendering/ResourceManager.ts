@@ -1,8 +1,17 @@
+export type TankProjectileDefinition = {
+  id: string;
+  name: string;
+  label: string;
+  color: string;
+  type: string;
+};
+
 export type TankDefinition = {
   id: string;
   name: string;
   description: string;
   url: string;
+  projectiles: TankProjectileDefinition[];
 };
 
 export const TANK_DEFINITIONS: TankDefinition[] = [
@@ -11,18 +20,39 @@ export const TANK_DEFINITIONS: TankDefinition[] = [
     name: "Heavy Armor",
     description: "Reinforced steel hull with heavy dual-barreled firepower.",
     url: "/graphics/tank-heavy.svg",
+    projectiles: [
+      { id: "titanShell", name: "Titan Shell", label: "T", color: "#ef4444", type: "Crater Burst" },
+      { id: "heavyShell", name: "Heavy Shell", label: "H", color: "#f87171", type: "Drill Slam" },
+      { id: "mortar", name: "Mortar", label: "M", color: "#34d399", type: "High Arc" },
+      { id: "basicShell", name: "Basic Shell", label: "S", color: "#f97316", type: "Standard" },
+      { id: "cluster", name: "Cluster", label: "C", color: "#fbbf24", type: "Area Spread" },
+    ],
   },
   {
     id: "desert-striker",
     name: "Desert Striker",
-    description: "High mobility chassis optimized for speed and accuracy.",
+    description: "High mobility chassis optimized for speed and long-range accuracy.",
     url: "/graphics/tank-striker.svg",
+    projectiles: [
+      { id: "precisionDart", name: "Precision Dart", label: "P", color: "#f59e0b", type: "Deep Drill" },
+      { id: "needle", name: "Needle", label: "N", color: "#60a5fa", type: "Velocity" },
+      { id: "cluster", name: "Cluster", label: "C", color: "#fbbf24", type: "Area Spread" },
+      { id: "basicShell", name: "Basic Shell", label: "S", color: "#f97316", type: "Standard" },
+      { id: "mortar", name: "Mortar", label: "M", color: "#34d399", type: "High Arc" },
+    ],
   },
   {
     id: "vanguard-cyber",
     name: "Vanguard Cyber",
     description: "Futuristic navy alloy tank featuring energy rail cannons.",
     url: "/graphics/tank-vanguard.svg",
+    projectiles: [
+      { id: "pulseRail", name: "Pulse Rail", label: "R", color: "#38bdf8", type: "Plasma Core" },
+      { id: "needle", name: "Needle", label: "N", color: "#60a5fa", type: "Velocity" },
+      { id: "heavyShell", name: "Heavy Shell", label: "H", color: "#f87171", type: "Drill Slam" },
+      { id: "basicShell", name: "Basic Shell", label: "S", color: "#f97316", type: "Standard" },
+      { id: "cluster", name: "Cluster", label: "C", color: "#fbbf24", type: "Area Spread" },
+    ],
   },
 ];
 
@@ -89,7 +119,6 @@ export default class ResourceManager {
             this.resources.images[key] = image;
           })
           .catch(() => {
-            // Stub image fallback for Node environment or failed network requests
             if (typeof Image !== "undefined") {
               const fallback = new Image();
               fallback.src = url;

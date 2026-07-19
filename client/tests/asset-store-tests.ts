@@ -21,6 +21,16 @@ async function testResourceManagerDefinitions() {
   console.log("✓ testResourceManagerDefinitions passed");
 }
 
+async function testTankProjectileDefinitions() {
+  const resourceManager = ResourceManager.getInstance();
+  const definitions = resourceManager.getTankDefinitions();
+  for (const def of definitions) {
+    assert.equal(def.projectiles.length, 5, `Tank ${def.id} should have 5 projectiles`);
+    assert.ok(def.projectiles[0].name, `First projectile of ${def.id} should have a name`);
+  }
+  console.log("✓ testTankProjectileDefinitions passed");
+}
+
 async function testAssetStoreSelection() {
   useAssetStore.getState().setSelectedTankId("vanguard-cyber");
   assert.equal(useAssetStore.getState().selectedTankId, "vanguard-cyber");
@@ -30,6 +40,7 @@ async function testAssetStoreSelection() {
 async function run() {
   await testAssetStoreInitialState();
   await testResourceManagerDefinitions();
+  await testTankProjectileDefinitions();
   await testAssetStoreSelection();
   console.log("All asset store tests passed!");
 }

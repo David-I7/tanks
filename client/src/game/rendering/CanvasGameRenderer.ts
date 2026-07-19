@@ -186,9 +186,10 @@ export class CanvasGameRenderer {
       ctx.translate(entry.position.x, entry.position.y);
       ctx.rotate(entry.bodyAngle);
 
+      const renderAssetId = "renderAssetId" in entry ? (entry as any).renderAssetId : undefined;
       const image =
         this.assets.tankImages?.[entry.tankDefinitionId] ||
-        this.assets.tankImages?.[entry.renderAssetId] ||
+        (renderAssetId ? this.assets.tankImages?.[renderAssetId] : undefined) ||
         this.assets.tankImage;
 
       if (image?.complete) {
