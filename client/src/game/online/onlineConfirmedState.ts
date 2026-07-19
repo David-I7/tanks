@@ -25,8 +25,8 @@ export type PendingPrediction = {
 };
 
 type ReconciledIntent = {
-  intentId: string | null;
-  playerId: number | null;
+  intentId: string;
+  playerId?: number;
 };
 
 export type ConfirmedMovementSegment =
@@ -577,39 +577,33 @@ function isStaleResyncDiff(
 function getReconciledIntent(
   diff: OnlineDiffResponseDto,
 ): ReconciledIntent | null {
-  if (diff.intentId !== null) {
-    return {
-      intentId: diff.intentId,
-      playerId: getDiffPlayerId(diff),
-    };
+  const playerId = getDiffPlayerId(diff);
+
+  if (diff.type === "MOVEMENT_SEGMENT") {
+    const payload = diff.payload as OnlineMovementSegmentResponse["payload"];
+    if (!payload.intentId) return null;
+    return { intentId: payload.intentId, playerId };
   }
 
-  if (
-    diff.type === "MOVEMENT_SEGMENT" ||
-    diff.type === "PROJECTILE_RESOLUTION"
-  ) {
-    const payload = diff.payload as
-      | OnlineMovementSegmentResponse["payload"]
-      | OnlineProjectileResolutionResponse["payload"];
-
-    return {
-      intentId: payload.intentId,
-      playerId: getDiffPlayerId(diff),
-    };
+  if (diff.type === "PROJECTILE_RESOLUTION") {
+    const payload = diff.payload as OnlineProjectileResolutionResponse["payload"];
+    if (!payload.intentId) return null;
+    return { intentId: payload.intentId, playerId };
   }
 
   if (diff.type === "INTENT_REJECTION") {
     const payload = diff.payload as OnlineIntentRejectionResponse["payload"];
-    return {
-      intentId: payload.rejectedIntentId,
-      playerId: payload.playerId,
-    };
+    return { intentId: payload.rejectedIntentId, playerId };
+  }
+
+  if (diff.intentId) {
+    return { intentId: diff.intentId, playerId };
   }
 
   return null;
 }
 
-function getDiffPlayerId(diff: OnlineDiffResponseDto): number | null {
+function getDiffPlayerId(diff: OnlineDiffResponseDto): number | undefined {
   if (diff.type === "MOVEMENT_SEGMENT") {
     return (diff.payload as OnlineMovementSegmentResponse["payload"]).playerId;
   }
@@ -623,7 +617,7 @@ function getDiffPlayerId(diff: OnlineDiffResponseDto): number | null {
     return (diff.payload as OnlineIntentRejectionResponse["payload"]).playerId;
   }
 
-  return null;
+  return undefined;
 }
 
 function isMatchingPendingPrediction(
@@ -634,7 +628,7 @@ function isMatchingPendingPrediction(
     return false;
   }
 
-  if (reconciledIntent.playerId === null) {
+  if (reconciledIntent.playerId === undefined) {
     return true;
   }
 

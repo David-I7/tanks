@@ -57,59 +57,6 @@ public class DefaultGameSimulation implements GameSimulation {
     }
 
     @Override
-    public OnlineDiffResponsePayloads.ProjectileResolution fire(GameContent content, World world, TerrainModel terrain,
-            String intentId, long projectileEntityId, long playerId, OnlinePlayerIntentRequestPayloads.Fire request) {
-        TankState firing = world.requireTankByPlayer(playerId);
-        TankDefinition tank = content.requireTank(firing.definitionId());
-        String projectileId = tank.loadout().stream().filter(slot -> slot.id().equals(request.projectileSlotId()))
-                .map(ProjectileSlotDefinition::projectileDefinitionId)
-                .findFirst().orElseThrow(() -> new IllegalArgumentException("Unknown projectile slot"));
-        ProjectileDefinition projectile = content.requireProjectile(projectileId);
-        double facing = firing.facing();
-        double angle = Math.toRadians(request.angle());
-        OnlineVec2Dto launch = new OnlineVec2Dto(
-                firing.position().x() + tank.muzzleForwardOffset() * facing,
-                firing.position().y() - tank.muzzleVerticalOffset());
-        double speed = projectile.baseVelocity() * request.power() * projectile.muzzleVelocityScale();
-        double vx = Math.cos(angle) * speed * facing;
-        double vy = -Math.sin(angle) * speed;
-        List<OnlineVec2Dto> trajectory = new ArrayList<>();
-        trajectory.add(launch);
-        OnlineVec2Dto impact = launch;
-        TankState hit = null;
-        for (int step = 0; step < content.world().maxProjectileSteps(); step++) {
-            double dt = content.world().projectileTimeStepSeconds();
-            impact = new OnlineVec2Dto(round(impact.x() + vx * dt), round(impact.y() + vy * dt));
-            vy += content.world().gravity() * projectile.gravityScale() * dt;
-            vx *= Math.max(0, 1 - projectile.drag());
-            trajectory.add(impact);
-            hit = hitTank(world, firing.playerId(), impact, projectile.radius(), content);
-            if (hit != null || terrain.intersectsCircle(impact.x(), impact.y(), projectile.radius())
-                    || impact.x() < 0 || impact.x() >= terrain.width() || impact.y() >= terrain.height()) break;
-        }
-        List<OnlineTankDamageResponseDto> damage = new ArrayList<>();
-        for (TankState target : world.tanks().values()) {
-            if (!target.alive()) continue;
-            double distance = Math.hypot(impact.x() - target.position().x(), impact.y() - target.position().y());
-            if (distance > projectile.damageEffect().radius()) continue;
-            int amount = (int) Math.round(projectile.damageEffect().damage());
-            target.health(target.health() - amount);
-            damage.add(new OnlineTankDamageResponseDto(target.entityId(), target.playerId(), amount, target.health()));
-        }
-        return new OnlineDiffResponsePayloads.ProjectileResolution(intentId, projectileEntityId, playerId,
-                projectile.id(), projectile.renderAssetId(), projectile.impactRenderAssetId(), launch,
-                List.copyOf(trajectory), impact, List.copyOf(damage));
-    }
-
-    @Override
-    public OnlineDiffResponsePayloads.TerrainPatch deformTerrain(GameContent content, World world,
-            TerrainModel terrain, String projectileDefinitionId, OnlineVec2Dto impact) {
-        var mutation = terrain.deform(impact.x(), impact.y(), content.requireProjectile(projectileDefinitionId).terrainEffect());
-        return new OnlineDiffResponsePayloads.TerrainPatch(List.of(new OnlineTerrainPatchResponseDto.HeightmapRange(
-                OnlineTerrainPatchResponseDto.TerrainPatchKind.HEIGHTMAP_RANGE, mutation.startX(), mutation.surface())));
-    }
-
-    @Override
     public List<OnlineDiffResponsePayloads.MovementSegment> settleUnsupportedTanks(GameContent content, World world,
             TerrainModel terrain, long startedServerTick) {
         List<OnlineDiffResponsePayloads.MovementSegment> segments = new ArrayList<>();
@@ -129,12 +76,12 @@ public class DefaultGameSimulation implements GameSimulation {
         return List.copyOf(segments);
     }
 
-    private static TankState hitTank(World world, long ownerId, OnlineVec2Dto point, double projectileRadius,
+    private static Optional<TankState> hitTank(World world, long ownerId, OnlineVec2Dto point, double projectileRadius,
             GameContent content) {
         return world.tanks().values().stream().filter(tank -> tank.playerId() != ownerId && tank.alive())
                 .filter(tank -> Math.hypot(point.x() - tank.position().x(), point.y() - tank.position().y())
                         <= projectileRadius + content.requireTank(tank.definitionId()).collisionRadius())
-                .findFirst().orElse(null);
+                .findFirst();
     }
 
     private static double round(double value) { return Math.round(value * 1000d) / 1000d; }

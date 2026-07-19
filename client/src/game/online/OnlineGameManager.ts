@@ -29,8 +29,7 @@ export function createOnlineGameManager(options: {
 }
 
 class TransportBackedOnlineGameManager implements OnlineGameManager {
-  private confirmedState: OnlineConfirmedState | null = null;
-  private currentState: GameState | null = null;
+  private activeState: ActiveOnlineGameManager | null = null;
   private readonly listeners = new Set<(state: GameState) => void>();
   private readonly unsubscribeTransport: () => void;
   private readonly transport: OnlineGameplayTransport;
@@ -51,7 +50,95 @@ class TransportBackedOnlineGameManager implements OnlineGameManager {
   }
 
   submitAction(action: GameAction): boolean {
-    if (this.confirmedState === null) return false;
+    if (!this.activeState) return false;
+    return this.activeState.submitAction(action);
+  }
+
+  update(): void {
+    this.activeState?.update();
+  }
+
+  getState(): GameState {
+    if (!this.activeState) {
+      throw new Error(
+        "Online Game Manager requires Initial State before reading Game State",
+      );
+    }
+    return this.activeState.getState();
+  }
+
+  subscribe(listener: (state: GameState) => void): () => void {
+    this.listeners.add(listener);
+    if (this.activeState) listener(this.activeState.getState());
+    return () => {
+      this.listeners.delete(listener);
+    };
+  }
+
+  destroy(): void {
+    this.unsubscribeTransport();
+    this.listeners.clear();
+  }
+
+  private applyDiff(diff: OnlineDiffResponseDto): void {
+    if (diff.type === "INITIAL_STATE") {
+      this.activeState = new ActiveOnlineGameManager(
+        initializeOnlineConfirmedState(diff),
+        this.transport,
+        this.intentIdFactory,
+        this.monotonicNowMs,
+        (state) => this.publishState(state),
+      );
+      this.publishState(this.activeState.getState());
+      return;
+    }
+
+    if (!this.activeState) {
+      if (diff.type === "RESYNC_STATE") {
+        this.activeState = new ActiveOnlineGameManager(
+          initializeOnlineConfirmedStateFromResync(diff),
+          this.transport,
+          this.intentIdFactory,
+          this.monotonicNowMs,
+          (state) => this.publishState(state),
+        );
+        this.publishState(this.activeState.getState());
+      }
+      return;
+    }
+
+    this.activeState.applyDiff(diff);
+  }
+
+  private publishState(state: GameState): void {
+    for (const listener of this.listeners) {
+      listener(state);
+    }
+  }
+}
+
+class ActiveOnlineGameManager {
+  private confirmedState: OnlineConfirmedState;
+  private currentState: GameState;
+
+  constructor(
+    initialState: OnlineConfirmedState,
+    private readonly transport: OnlineGameplayTransport,
+    private readonly intentIdFactory: () => string,
+    private readonly monotonicNowMs: () => number,
+    private readonly publish: (state: GameState) => void,
+  ) {
+    this.confirmedState = initialState;
+    const now = this.monotonicNowMs();
+    this.currentState = onlineConfirmedStateToGameState(
+      initialState,
+      projectOnlineRenderState(initialState, now),
+      onlineGameContentFromResponse(initialState.state.gameContent),
+      now,
+    );
+  }
+
+  submitAction(action: GameAction): boolean {
     if (
       this.confirmedState.state.match.activePlayerId !==
       this.confirmedState.localPlayerId
@@ -77,43 +164,16 @@ class TransportBackedOnlineGameManager implements OnlineGameManager {
   }
 
   update(): void {
-    if (this.confirmedState) {
-      this.publishState(this.confirmedState);
-    }
+    this.publishConfirmed(this.confirmedState);
   }
 
   getState(): GameState {
-    if (this.currentState === null) {
-      throw new Error(
-        "Online Game Manager requires Initial State before reading Game State",
-      );
-    }
     return this.currentState;
   }
 
-  subscribe(listener: (state: GameState) => void): () => void {
-    this.listeners.add(listener);
-    if (this.currentState) listener(this.currentState);
-    return () => {
-      this.listeners.delete(listener);
-    };
-  }
-
-  destroy(): void {
-    this.unsubscribeTransport();
-    this.listeners.clear();
-  }
-
-  private applyDiff(diff: OnlineDiffResponseDto): void {
+  applyDiff(diff: OnlineDiffResponseDto): void {
     if (diff.type === "INITIAL_STATE") {
       this.publishConfirmed(initializeOnlineConfirmedState(diff));
-      return;
-    }
-
-    if (this.confirmedState === null) {
-      if (diff.type === "RESYNC_STATE") {
-        this.publishConfirmed(initializeOnlineConfirmedStateFromResync(diff));
-      }
       return;
     }
 
@@ -142,12 +202,6 @@ class TransportBackedOnlineGameManager implements OnlineGameManager {
   private createIntentEnvelope(
     action: GameAction,
   ): OnlinePlayerIntentRequestDto {
-    if (this.confirmedState === null) {
-      throw new Error(
-        "Cannot create online intent before confirmed state is initialized",
-      );
-    }
-
     const intentId = this.intentIdFactory();
     const common = {
       protocolVersion: "online-gameplay.v1" as const,
@@ -188,10 +242,6 @@ class TransportBackedOnlineGameManager implements OnlineGameManager {
 
   private publishConfirmed(state: OnlineConfirmedState): void {
     this.confirmedState = state;
-    this.publishState(state);
-  }
-
-  private publishState(state: OnlineConfirmedState): void {
     const now = this.monotonicNowMs();
     this.currentState = onlineConfirmedStateToGameState(
       state,
@@ -199,9 +249,7 @@ class TransportBackedOnlineGameManager implements OnlineGameManager {
       onlineGameContentFromResponse(state.state.gameContent),
       now,
     );
-    for (const listener of this.listeners) {
-      listener(this.currentState);
-    }
+    this.publish(this.currentState);
   }
 }
 

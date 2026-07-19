@@ -10,16 +10,19 @@ export type CanvasAimInput = {
   gameViewport: GameViewport;
   cameraX: number;
   gameState: GameState;
+  activeTank?: GameState["tanks"][number];
 };
 
 export function calculateAimIntent(
   input: CanvasAimInput,
 ): Extract<GameAction, { type: "aim" }> | null {
-  const activeTank = input.gameState.tanks.find(
-    (entry) =>
-      entry.playerId === input.gameState.match.activePlayerId &&
-      entry.alive,
-  );
+  const activeTank =
+    input.activeTank ??
+    input.gameState.tanks.find(
+      (entry) =>
+        entry.playerId === input.gameState.match.activePlayerId &&
+        entry.alive,
+    );
   if (!activeTank) return null;
 
   const point = domPointToGameViewportPoint({
@@ -102,6 +105,7 @@ export function findProjectileSlotAtCanvasPoint(
   canvasHeight: number,
   canvasX: number,
   canvasY: number,
+  activeTank?: GameState["tanks"][number],
 ): string | null {
   if (
     gameState.match.phase !== "aiming" &&
@@ -110,20 +114,22 @@ export function findProjectileSlotAtCanvasPoint(
     return null;
   }
 
-  const activeTank = gameState.tanks.find(
-    (entry) =>
-      entry.playerId === gameState.match.activePlayerId && entry.alive,
-  );
-  if (!activeTank) return null;
+  const targetTank =
+    activeTank ??
+    gameState.tanks.find(
+      (entry) =>
+        entry.playerId === gameState.match.activePlayerId && entry.alive,
+    );
+  if (!targetTank) return null;
 
   const layout = getProjectileSelectorLayout(
     canvasWidth,
     canvasHeight,
-    activeTank.loadout.length,
+    targetTank.loadout.length,
   );
 
-  for (let index = 0; index < activeTank.loadout.length; index += 1) {
-    const slot = activeTank.loadout[index];
+  for (let index = 0; index < targetTank.loadout.length; index += 1) {
+    const slot = targetTank.loadout[index];
     if (!slot) continue;
     const slotX = layout.x + index * (layout.slotSize + layout.gap);
     if (

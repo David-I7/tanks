@@ -68,6 +68,8 @@ const keyboardProjectileSlotIntentProducer: IntentProducer = ({
 const pointerIntentProducer: IntentProducer = ({ state, context }) => {
   const intents: GameAction[] = [];
   const activeTank = getActiveTank(context.gameState);
+  if (!activeTank) return intents;
+
   const pointerDown = state.pendingPointerDown;
   const pointerPoint = pointerDown
     ? domPointToGameViewportPoint({
@@ -85,6 +87,7 @@ const pointerIntentProducer: IntentProducer = ({ state, context }) => {
       context.gameViewport.height,
       pointerPoint.x,
       pointerPoint.y,
+      activeTank,
     );
     if (selectedSlotId) {
       intents.push({
@@ -100,6 +103,7 @@ const pointerIntentProducer: IntentProducer = ({ state, context }) => {
     gameViewport: context.gameViewport,
     cameraX: context.cameraX,
     gameState: context.gameState,
+    activeTank,
   });
 
   if (!aim) return intents;
@@ -112,9 +116,10 @@ const pointerIntentProducer: IntentProducer = ({ state, context }) => {
       context.gameViewport.height,
       pointerPoint.x,
       pointerPoint.y,
+      activeTank,
     );
     const projectileSlotId =
-      activeTank?.selectedProjectileSlotId ?? activeTank?.loadout[0]?.id;
+      activeTank.selectedProjectileSlotId ?? activeTank.loadout[0]?.id;
     if (projectileSlotId && !clickedSlotId) {
       intents.push({
         type: "fire",
