@@ -5,6 +5,7 @@ import type { DpiViewport, GameViewport } from "../world/worldSizing";
 
 export type RendererAssets = {
   tankImage?: HTMLImageElement;
+  tankImages?: Record<string, HTMLImageElement>;
 };
 
 type RenderContext = {
@@ -185,8 +186,12 @@ export class CanvasGameRenderer {
       ctx.translate(entry.position.x, entry.position.y);
       ctx.rotate(entry.bodyAngle);
 
-      if (this.assets.tankImage?.complete) {
-        const image = this.assets.tankImage;
+      const image =
+        this.assets.tankImages?.[entry.tankDefinitionId] ||
+        this.assets.tankImages?.[entry.renderAssetId] ||
+        this.assets.tankImage;
+
+      if (image?.complete) {
         ctx.scale(entry.facing, 1);
         ctx.drawImage(image, -24, -30, 48, 28);
       } else {

@@ -1,40 +1,79 @@
 import { ArrowLeft } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   createCanvasSizedLocalGameManager,
   GameEngine,
   type GameMode,
+  type MatchSetup,
 } from "../../game";
-import ResourceManager from "../../game/rendering/ResourceManager";
 import type { RendererAssets } from "../../game/rendering/CanvasGameRenderer";
 import IconButton from "../../components/buttons/IconButton";
+import { useAssetStore } from "../../store/useAssetStore";
 
 export default function LocalGamePage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const engineRef = useRef<GameEngine | null>(null);
-  const [rendererAssets, setRendererAssets] = useState<RendererAssets>({});
+
+  const tanks = useAssetStore((state) => state.tanks);
+  const isLoaded = useAssetStore((state) => state.isLoaded);
+  const loadAssets = useAssetStore((state) => state.loadAssets);
+
+  useEffect(() => {
+    if (!isLoaded) {
+      loadAssets();
+    }
+  }, [isLoaded, loadAssets]);
+
+  const rendererAssets = useMemo<RendererAssets>(() => {
+    const tankImages: Record<string, HTMLImageElement> = {};
+    tanks.forEach((t) => {
+      if (t.image) {
+        tankImages[t.id] = t.image;
+      }
+    });
+    const firstImage = Object.values(tankImages)[0];
+    return {
+      tankImages,
+      tankImage: firstImage,
+    };
+  }, [tanks]);
 
   const modeParam = searchParams.get("mode");
   const mode: GameMode =
     modeParam === "playerVsAi" ? "playerVsAi" : "localTwoPlayer";
 
-  useEffect(() => {
-    let cancelled = false;
-    ResourceManager.getInstance()
-      .getImage("tank")
-      .then((tankImage) => {
-        if (!cancelled) setRendererAssets({ tankImage });
-      })
-      .catch(() => {
-        if (!cancelled) setRendererAssets({});
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const p1Name = searchParams.get("p1Name") || "Player 1";
+  const p1Tank = searchParams.get("p1Tank") || "heavy-armor";
+  const p2Name =
+    searchParams.get("p2Name") ||
+    (mode === "playerVsAi" ? "AI Bot" : "Player 2");
+  const p2Tank =
+    searchParams.get("p2Tank") ||
+    (mode === "playerVsAi" ? "desert-striker" : "vanguard-cyber");
+
+  const matchSetup = useMemo<MatchSetup>(
+    () => ({
+      mode,
+      players: [
+        {
+          id: 0,
+          displayName: p1Name,
+          controllerKind: "human",
+          tankSelection: { tankDefinitionId: p1Tank },
+        },
+        {
+          id: 1,
+          displayName: p2Name,
+          controllerKind: mode === "playerVsAi" ? "ai" : "human",
+          tankSelection: { tankDefinitionId: p2Tank },
+        },
+      ],
+    }),
+    [mode, p1Name, p1Tank, p2Name, p2Tank],
+  );
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -44,6 +83,7 @@ export default function LocalGamePage() {
     const gameManager = createCanvasSizedLocalGameManager({
       canvas,
       mode,
+      setup: matchSetup,
     });
     const engine = new GameEngine({
       canvas,
@@ -66,7 +106,7 @@ export default function LocalGamePage() {
         engineRef.current = null;
       }
     };
-  }, [mode, rendererAssets]);
+  }, [mode, matchSetup, rendererAssets]);
 
   const modeLabel = mode === "playerVsAi" ? "Player vs AI" : "Local Two-Player";
 

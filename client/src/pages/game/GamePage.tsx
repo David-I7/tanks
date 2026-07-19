@@ -3,13 +3,13 @@ import { useNavigate, useParams } from "react-router-dom";
 import { uuidSchema } from "../../validation/lobby";
 import { useAuthStore } from "../../store/useAuthStore";
 import { useWebSocketStore } from "../../store/useWebSocketStore";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Loader from "../../components/misc/Loader";
 import { createOnlineGameplayTransport } from "../../game/online/OnlineGameplayTransport";
 import { createOnlineGameManager, GameEngine } from "../../game";
-import ResourceManager from "../../game/rendering/ResourceManager";
 import type { RendererAssets } from "../../game/rendering/CanvasGameRenderer";
 import IconButton from "../../components/buttons/IconButton";
+import { useAssetStore } from "../../store/useAssetStore";
 
 export default function GamePage() {
   const { id } = useParams();
@@ -28,26 +28,32 @@ function GameView({ gameSessionId }: { gameSessionId: string }) {
   const { status, connect } = useWebSocketStore();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const engineRef = useRef<GameEngine | null>(null);
-  const [rendererAssets, setRendererAssets] = useState<RendererAssets | null>(
-    null,
-  );
-  const [isSessionReady, setIsSessionReady] = useState(false);
-  const [hasViewState, setHasViewState] = useState(false);
+
+  const tanks = useAssetStore((state) => state.tanks);
+  const isLoaded = useAssetStore((state) => state.isLoaded);
+  const loadAssets = useAssetStore((state) => state.loadAssets);
 
   useEffect(() => {
-    let cancelled = false;
-    ResourceManager.getInstance()
-      .getImage("tank")
-      .then((tankImage) => {
-        if (!cancelled) setRendererAssets({ tankImage });
-      })
-      .catch(() => {
-        if (!cancelled) setRendererAssets({});
-      });
-    return () => {
-      cancelled = true;
+    if (!isLoaded) {
+      loadAssets();
+    }
+  }, [isLoaded, loadAssets]);
+
+  const rendererAssets = useMemo<RendererAssets>(() => {
+    const tankImages: Record<string, HTMLImageElement> = {};
+    tanks.forEach((t) => {
+      if (t.image) {
+        tankImages[t.id] = t.image;
+      }
+    });
+    return {
+      tankImages,
+      tankImage: Object.values(tankImages)[0],
     };
-  }, []);
+  }, [tanks]);
+
+  const [isSessionReady, setIsSessionReady] = useState(false);
+  const [hasViewState, setHasViewState] = useState(false);
 
   useEffect(() => {
     if (client === null) {
