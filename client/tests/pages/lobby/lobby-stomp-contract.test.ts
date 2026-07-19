@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import TanksWSClient, { type PublishParams } from "../src/api/ws/TanksWebSocketClient";
+import TanksWSClient, { type PublishParams } from "../../../src/api/ws/TanksWebSocketClient";
 
 async function testStompBodyFormatting() {
   const published: any[] = [];

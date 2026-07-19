@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
-import type { OnlineDiffResponseDto, OnlineInitialStateResponse, OnlineIntentRejectionResponse, OnlineMovementSegmentResponse, OnlineProjectileResolutionResponse, OnlineResyncStateResponse, OnlineTerrainPatchResponse } from "../src/api/ws/dto/gameplay/onlineGameplayProtocol";
-import { OnlineDiffSequenceError, applyOnlineStateDiffResponse, initializeOnlineConfirmedState, predictOnlineMovement, projectOnlineRenderState, requestOnlineResyncState } from "../src/game/online/onlineConfirmedState";
+import type { OnlineDiffResponseDto, OnlineInitialStateResponse, OnlineIntentRejectionResponse, OnlineMovementSegmentResponse, OnlineProjectileResolutionResponse, OnlineResyncStateResponse, OnlineTerrainPatchResponse } from "../../../src/api/ws/dto/gameplay/onlineGameplayProtocol";
+import { OnlineDiffSequenceError, applyOnlineStateDiffResponse, initializeOnlineConfirmedState, predictOnlineMovement, projectOnlineRenderState, requestOnlineResyncState } from "../../../src/game/online/onlineConfirmedState";
 
 const surface = Array.from({ length: 100 }, () => 40);
 surface[21] = 39;

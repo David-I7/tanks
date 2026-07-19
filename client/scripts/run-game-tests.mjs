@@ -1,20 +1,20 @@
 import { spawnSync } from "node:child_process";
 
 const tests = [
-  "tests\\asset-store-tests.ts",
-  "tests\\lobby-stomp-contract-tests.ts",
-  "tests\\offline-menu-config-tests.ts",
-  "tests\\local-game-manager-tests.ts",
-  "tests\\game-engine-tests.ts",
-  "tests\\canvas-sizing-tests.ts",
-  "tests\\game-behavior-tests.ts",
-  "tests\\online-gameplay-protocol-contract-tests.ts",
-  "tests\\online-gameplay-transport-tests.ts",
-  "tests\\online-game-manager-tests.ts",
-  "tests\\contract-old-snapshot-remote-authority-tests.ts",
-  "tests\\online-initial-state-tests.ts",
-  "tests\\online-client-state-projection-tests.ts",
-  "tests\\authoritative-online-gameplay-tests.ts",
+  "tests/store/useAssetStore.test.ts",
+  "tests/pages/lobby/lobby-stomp-contract.test.ts",
+  "tests/pages/home/offline-menu-config.test.ts",
+  "tests/game/authority/local-game-manager.test.ts",
+  "tests/game/engine/game-engine.test.ts",
+  "tests/game/world/canvas-sizing.test.ts",
+  "tests/game/simulation/game-behavior.test.ts",
+  "tests/api/ws/dto/gameplay/online-gameplay-protocol-contract.test.ts",
+  "tests/game/online/online-gameplay-transport.test.ts",
+  "tests/game/authority/online-game-manager.test.ts",
+  "tests/game/online/contract-old-snapshot-remote-authority.test.ts",
+  "tests/game/online/online-initial-state.test.ts",
+  "tests/game/online/online-client-state-projection.test.ts",
+  "tests/game/online/authoritative-online-gameplay.test.ts",
 ];
 
 for (const test of tests) {

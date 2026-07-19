@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 
-import { CanvasGameRenderer } from "../src/game/rendering/CanvasGameRenderer";
+import { CanvasGameRenderer } from "../../../src/game/rendering/CanvasGameRenderer";
 import {
   createCanvasSizing,
   domPointToGameViewportPoint,
-} from "../src/game/world/worldSizing";
-import type { GameState } from "../src/game/types";
+} from "../../../src/game/world/worldSizing";
+import type { GameState } from "../../../src/game/types";
 
 function createMockGameState(): GameState {
   return {

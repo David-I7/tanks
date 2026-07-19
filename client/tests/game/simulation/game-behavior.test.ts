@@ -1,32 +1,32 @@
 import assert from "node:assert/strict";
-import { getPlayerMatchConfig } from "../src/game/modes";
+import { getPlayerMatchConfig } from "../../../src/game/modes";
 import {
   createDefaultMatchSetup,
   createInitialWorld,
-} from "../src/game/world/createInitialWorld";
-import { LocalSimulation } from "../src/game/simulation/LocalSimulation";
+} from "../../../src/game/world/createInitialWorld";
+import { LocalSimulation } from "../../../src/game/simulation/LocalSimulation";
 import {
   createLocalSimulationManager,
   type SimulationManager,
-} from "../src/game/authority/simulationManager";
-import { simulationStateToGameState } from "../src/game/authority/gameManager";
-import { createCanvasSizing } from "../src/game/world/worldSizing";
-import { collectGameActions } from "../src/game/input/CanvasInputSource";
+} from "../../../src/game/authority/simulationManager";
+import { simulationStateToGameState } from "../../../src/game/authority/gameManager";
+import { createCanvasSizing } from "../../../src/game/world/worldSizing";
+import { collectGameActions } from "../../../src/game/input/CanvasInputSource";
 import {
   findProjectileSlotAtCanvasPoint,
   getProjectileSelectorLayout,
-} from "../src/game/input/inputHelpers";
-import { TerrainModel } from "../src/game/simulation/TerrainModel";
+} from "../../../src/game/input/inputHelpers";
+import { TerrainModel } from "../../../src/game/simulation/TerrainModel";
 import {
   mockGameContent,
   type GameContent,
-} from "../src/game/content/mockGameContent";
-import type { GameState, MatchSetup } from "../src/game/types";
+} from "../../../src/game/content/mockGameContent";
+import type { GameState, MatchSetup } from "../../../src/game/types";
 import {
   createMockRemoteSimulationTransport,
   createRemoteSimulationManager,
   type RemoteSimulationManager,
-} from "./support/remoteSimulationSupport";
+} from "../../support/remoteSimulationSupport";
 
 function makeSimulation(setup: MatchSetup = createDefaultMatchSetup("localTwoPlayer")) {
   const { world, terrain, content } = createInitialWorld(setup, mockGameContent, {

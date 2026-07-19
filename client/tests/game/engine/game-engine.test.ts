@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 
-import { createCanvasSizedLocalGameManager, GameEngine } from "../src/game";
-import type { GameManager, GameState } from "../src/game";
+import { createCanvasSizedLocalGameManager, GameEngine } from "../../../src/game";
+import type { GameManager, GameState } from "../../../src/game";
 
 type AnimationCallback = (timestamp: number) => void;
 

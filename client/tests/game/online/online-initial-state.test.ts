@@ -1,4 +1,4 @@
-import { onlineGameContentResponseFixture } from "./support/onlineGameContentResponseFixture";
+import { onlineGameContentResponseFixture } from "../../support/onlineGameContentResponseFixture";
 import assert from "node:assert/strict";
 
 import {
@@ -8,14 +8,14 @@ import {
   initializeOnlineConfirmedStateFromResync,
   predictOnlineMovement,
   type OnlineConfirmedState,
-} from "../src/game/online/onlineConfirmedState";
+} from "../../../src/game/online/onlineConfirmedState";
 import type {
   OnlineDiffResponseDto,
   OnlineInitialStateResponse,
   OnlineIntentRejectionResponse,
   OnlineMovementSegmentResponse,
   OnlineResyncStateResponse,
-} from "../src/api/ws/dto/gameplay/onlineGameplayProtocol";
+} from "../../../src/api/ws/dto/gameplay/onlineGameplayProtocol";
 
 const initialStateDiff = {
   protocolVersion: "online-gameplay.v1",

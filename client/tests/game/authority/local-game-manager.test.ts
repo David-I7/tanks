@@ -3,17 +3,17 @@ import assert from "node:assert/strict";
 import {
   mockGameContent,
   type GameContent,
-} from "../src/game/content/mockGameContent";
-import { createDefaultMatchSetup } from "../src/game/world/createInitialWorld";
+} from "../../../src/game/content/mockGameContent";
+import { createDefaultMatchSetup } from "../../../src/game/world/createInitialWorld";
 import {
   createLocalGameManager,
   createLocalSimulationManager,
-} from "../src/game";
+} from "../../../src/game";
 import type {
   GameManager,
   GameMode,
   GameState,
-} from "../src/game";
+} from "../../../src/game";
 
 function createLocalManager(
   mode: Exclude<GameMode, "online"> = "localTwoPlayer",

@@ -5,7 +5,7 @@ import { join } from "node:path";
 const srcRoot = join(process.cwd(), "src", "game");
 const testSupportRoot = join(process.cwd(), "tests", "support");
 
-const publicGameApi = await import("../src/game/index.ts");
+const publicGameApi = await import("../../../src/game/index.ts");
 const publicGameApiSource = readFileSync(join(srcRoot, "index.ts"), "utf8");
 const engineSource = readFileSync(join(srcRoot, "GameEngine.ts"), "utf8");
 

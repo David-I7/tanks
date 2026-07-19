@@ -4,7 +4,7 @@ export type TankProjectileDefinition = {
   label: string;
   color: string;
   type: string;
-  url?: string;
+  url: string;
 };
 
 export type TankDefinition = {
@@ -22,24 +22,95 @@ export const TANK_DEFINITIONS: TankDefinition[] = [
     description: "Reinforced steel hull with heavy dual-barreled firepower.",
     url: "/graphics/tank-heavy.svg",
     projectiles: [
-      { id: "titanShell", name: "Titan Shell", label: "T", color: "#ef4444", type: "Crater Burst", url: "/graphics/projectile-titan.svg" },
-      { id: "heavyShell", name: "Heavy Shell", label: "H", color: "#f87171", type: "Drill Slam", url: "/graphics/projectile-heavy.svg" },
-      { id: "mortar", name: "Mortar", label: "M", color: "#34d399", type: "High Arc", url: "/graphics/projectile-mortar.svg" },
-      { id: "basicShell", name: "Basic Shell", label: "S", color: "#f97316", type: "Standard", url: "/graphics/projectile-basic.svg" },
-      { id: "cluster", name: "Cluster", label: "C", color: "#fbbf24", type: "Area Spread", url: "/graphics/projectile-cluster.svg" },
+      {
+        id: "titanShell",
+        name: "Titan Shell",
+        label: "T",
+        color: "#ef4444",
+        type: "Crater Burst",
+        url: "/graphics/projectile-titan.svg",
+      },
+      {
+        id: "heavyShell",
+        name: "Heavy Shell",
+        label: "H",
+        color: "#f87171",
+        type: "Drill Slam",
+        url: "/graphics/projectile-heavy.svg",
+      },
+      {
+        id: "mortar",
+        name: "Mortar",
+        label: "M",
+        color: "#34d399",
+        type: "High Arc",
+        url: "/graphics/projectile-mortar.svg",
+      },
+      {
+        id: "basicShell",
+        name: "Basic Shell",
+        label: "S",
+        color: "#f97316",
+        type: "Standard",
+        url: "/graphics/projectile-basic.svg",
+      },
+      {
+        id: "cluster",
+        name: "Cluster",
+        label: "C",
+        color: "#fbbf24",
+        type: "Area Spread",
+        url: "/graphics/projectile-cluster.svg",
+      },
     ],
   },
   {
     id: "desert-striker",
     name: "Desert Striker",
-    description: "High mobility chassis optimized for speed and long-range accuracy.",
+    description:
+      "High mobility chassis optimized for speed and long-range accuracy.",
     url: "/graphics/tank-striker.svg",
     projectiles: [
-      { id: "precisionDart", name: "Precision Dart", label: "P", color: "#f59e0b", type: "Deep Drill", url: "/graphics/projectile-precision.svg" },
-      { id: "needle", name: "Needle", label: "N", color: "#60a5fa", type: "Velocity", url: "/graphics/projectile-needle.svg" },
-      { id: "cluster", name: "Cluster", label: "C", color: "#fbbf24", type: "Area Spread", url: "/graphics/projectile-cluster.svg" },
-      { id: "basicShell", name: "Basic Shell", label: "S", color: "#f97316", type: "Standard", url: "/graphics/projectile-basic.svg" },
-      { id: "mortar", name: "Mortar", label: "M", color: "#34d399", type: "High Arc", url: "/graphics/projectile-mortar.svg" },
+      {
+        id: "precisionDart",
+        name: "Precision Dart",
+        label: "P",
+        color: "#f59e0b",
+        type: "Deep Drill",
+        url: "/graphics/projectile-precision.svg",
+      },
+      {
+        id: "needle",
+        name: "Needle",
+        label: "N",
+        color: "#60a5fa",
+        type: "Velocity",
+        url: "/graphics/projectile-needle.svg",
+      },
+      {
+        id: "cluster",
+        name: "Cluster",
+        label: "C",
+        color: "#fbbf24",
+        type: "Area Spread",
+        url: "/graphics/projectile-cluster.svg",
+      },
+      {
+        id: "basicShell",
+        name: "Basic Shell",
+        label: "S",
+        color: "#f97316",
+        type: "Standard",
+        url: "/graphics/projectile-basic.svg",
+      },
+      {
+        id: "mortar",
+        name: "Mortar",
+        label: "M",
+        color: "#34d399",
+        type: "High Arc",
+        url: "/graphics/projectile-mortar.svg",
+      },
     ],
   },
   {
@@ -48,18 +119,52 @@ export const TANK_DEFINITIONS: TankDefinition[] = [
     description: "Futuristic navy alloy tank featuring energy rail cannons.",
     url: "/graphics/tank-vanguard.svg",
     projectiles: [
-      { id: "pulseRail", name: "Pulse Rail", label: "R", color: "#38bdf8", type: "Plasma Core", url: "/graphics/projectile-rail.svg" },
-      { id: "needle", name: "Needle", label: "N", color: "#60a5fa", type: "Velocity", url: "/graphics/projectile-needle.svg" },
-      { id: "heavyShell", name: "Heavy Shell", label: "H", color: "#f87171", type: "Drill Slam", url: "/graphics/projectile-heavy.svg" },
-      { id: "basicShell", name: "Basic Shell", label: "S", color: "#f97316", type: "Standard", url: "/graphics/projectile-basic.svg" },
-      { id: "cluster", name: "Cluster", label: "C", color: "#fbbf24", type: "Area Spread", url: "/graphics/projectile-cluster.svg" },
+      {
+        id: "pulseRail",
+        name: "Pulse Rail",
+        label: "R",
+        color: "#38bdf8",
+        type: "Plasma Core",
+        url: "/graphics/projectile-rail.svg",
+      },
+      {
+        id: "needle",
+        name: "Needle",
+        label: "N",
+        color: "#60a5fa",
+        type: "Velocity",
+        url: "/graphics/projectile-needle.svg",
+      },
+      {
+        id: "heavyShell",
+        name: "Heavy Shell",
+        label: "H",
+        color: "#f87171",
+        type: "Drill Slam",
+        url: "/graphics/projectile-heavy.svg",
+      },
+      {
+        id: "basicShell",
+        name: "Basic Shell",
+        label: "S",
+        color: "#f97316",
+        type: "Standard",
+        url: "/graphics/projectile-basic.svg",
+      },
+      {
+        id: "cluster",
+        name: "Cluster",
+        label: "C",
+        color: "#fbbf24",
+        type: "Area Spread",
+        url: "/graphics/projectile-cluster.svg",
+      },
     ],
   },
 ];
 
 export type Resources = {
   images: {
-    tank: HTMLImageElement;
     [key: string]: HTMLImageElement;
   };
 };
@@ -70,7 +175,6 @@ type LoadedResources = {
 
 const RESOURCE_URLS = {
   images: {
-    tank: "/graphics/tank.png",
     "heavy-armor": "/graphics/tank-heavy.svg",
     "desert-striker": "/graphics/tank-striker.svg",
     "vanguard-cyber": "/graphics/tank-vanguard.svg",
@@ -114,26 +218,22 @@ export default class ResourceManager {
   }
 
   async loadImages(): Promise<Record<string, HTMLImageElement>> {
-    const loadedImages: Record<string, HTMLImageElement> = {};
     const promises: Promise<void>[] = [];
 
     for (const [key, url] of Object.entries(RESOURCE_URLS.images)) {
       if (key in this.resources.images) {
-        loadedImages[key] = this.resources.images[key];
         continue;
       }
 
       promises.push(
         this.loadImage(url)
           .then((image) => {
-            loadedImages[key] = image;
             this.resources.images[key] = image;
           })
           .catch(() => {
             if (typeof Image !== "undefined") {
               const fallback = new Image();
               fallback.src = url;
-              loadedImages[key] = fallback;
               this.resources.images[key] = fallback;
             }
           }),
@@ -159,7 +259,9 @@ export default class ResourceManager {
 
   async getImage(name: string): Promise<HTMLImageElement> {
     if (this.resources.images[name] === undefined) {
-      const url = RESOURCE_URLS.images[name as keyof typeof RESOURCE_URLS.images] || "/graphics/tank.png";
+      const url =
+        RESOURCE_URLS.images[name as keyof typeof RESOURCE_URLS.images] ||
+        "/graphics/tank.png";
       try {
         this.resources.images[name] = await this.loadImage(url);
       } catch (err) {

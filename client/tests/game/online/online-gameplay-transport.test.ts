@@ -1,4 +1,4 @@
-import { onlineGameContentResponseFixture } from "./support/onlineGameContentResponseFixture";
+import { onlineGameContentResponseFixture } from "../../support/onlineGameContentResponseFixture";
 import assert from "node:assert/strict";
 
 import type {
@@ -6,12 +6,12 @@ import type {
   Message,
   PublishParams,
   SubscriptionCleanup,
-} from "../src/api/ws/TanksWebSocketClient";
+} from "../../../src/api/ws/TanksWebSocketClient";
 import type {
   OnlineDiffResponseDto,
   OnlinePlayerIntentRequestDto,
-} from "../src/api/ws/dto/gameplay/onlineGameplayProtocol";
-import { createOnlineGameplayTransport } from "../src/game/online/OnlineGameplayTransport";
+} from "../../../src/api/ws/dto/gameplay/onlineGameplayProtocol";
+import { createOnlineGameplayTransport } from "../../../src/game/online/OnlineGameplayTransport";
 
 type CapturedSubscription = EndpointSubscription<unknown> & {
   cleanup: SubscriptionCleanup;

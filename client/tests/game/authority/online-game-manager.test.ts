@@ -1,18 +1,18 @@
-import { onlineGameContentResponseFixture } from "./support/onlineGameContentResponseFixture";
+import { onlineGameContentResponseFixture } from "../../support/onlineGameContentResponseFixture";
 import assert from "node:assert/strict";
 
 import type {
   OnlineDiffResponseDto,
   OnlineGameStateSnapshotResponse,
   OnlinePlayerIntentRequestDto,
-} from "../src/api/ws/dto/gameplay/onlineGameplayProtocol";
+} from "../../../src/api/ws/dto/gameplay/onlineGameplayProtocol";
 import {
   createOnlineGameManager,
-} from "../src/game/online/OnlineGameManager";
-import type { GameManager } from "../src/game";
+} from "../../../src/game/online/OnlineGameManager";
+import type { GameManager } from "../../../src/game";
 import type {
   OnlineGameplayTransport,
-} from "../src/game/online/OnlineGameplayTransport";
+} from "../../../src/game/online/OnlineGameplayTransport";
 
 // Online behavior is verified at the shared manager seam: GameAction in and
 // cached GameState out.

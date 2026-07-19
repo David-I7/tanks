@@ -1,4 +1,4 @@
-import { onlineGameContentResponseFixture } from "./support/onlineGameContentResponseFixture";
+import { onlineGameContentResponseFixture } from "../../support/onlineGameContentResponseFixture";
 import assert from "node:assert/strict";
 
 import type {
@@ -11,7 +11,7 @@ import type {
   OnlineResyncStateResponse,
   OnlineTerrainPatchResponse,
   OnlineTurnTransitionResponse,
-} from "../src/api/ws/dto/gameplay/onlineGameplayProtocol";
+} from "../../../src/api/ws/dto/gameplay/onlineGameplayProtocol";
 import {
   OnlineDiffSequenceError,
   applyOnlineStateDiffResponse,
@@ -19,7 +19,7 @@ import {
   predictOnlineMovement,
   projectOnlineRenderState,
   requestOnlineResyncState,
-} from "../src/game/online/onlineConfirmedState";
+} from "../../../src/game/online/onlineConfirmedState";
 
 function initialState(): OnlineGameStateSnapshotResponse {
   return {
