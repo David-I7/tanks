@@ -1,9 +1,9 @@
-import { World } from "../world/World";
-import { TerrainModel } from "./TerrainModel";
+import { LocalWorld } from "../world/LocalWorld";
+import { LocalTerrainModel } from "./LocalTerrainModel";
 import {
   type DamageEffect,
   type EntityId,
-  type SimulationState,
+  type LocalSimulationState,
   type GameAction,
   type ProjectileComponent,
   type ProjectileDefinition,
@@ -11,9 +11,9 @@ import {
   MAX_TANK_FUEL,
   MAX_TURN_SECONDS,
   MOVE_FUEL_COST,
+  type GameMode,
 } from "../types";
-import type { GameContent } from "../content/mockGameContent";
-import { getLocalControllerKind } from "../modes";
+import type { GameContent } from "../content/localGameContent";
 import { GRAVITY, getMuzzlePosition } from "./ballistics";
 
 const TANK_HALF_WIDTH = 22;
@@ -22,16 +22,13 @@ const TANK_MOVE_STEP = 2;
 export class LocalSimulation {
   private transitionTimer = 0;
   constructor(
-    readonly world: World,
-    readonly terrain: TerrainModel,
+    readonly world: LocalWorld,
+    readonly terrain: LocalTerrainModel,
     readonly content: GameContent,
   ) {}
 
   submitPlayerAction(playerId: number, action: GameAction): boolean {
-    if (
-      this.world.match.phase !== "aiming" &&
-      this.world.match.phase !== "thinking"
-    ) {
+    if (this.world.match.phase !== "thinking") {
       return false;
     }
     if (this.world.match.activePlayerId !== playerId) return false;
@@ -87,10 +84,7 @@ export class LocalSimulation {
   }
 
   update(dt: number): void {
-    if (
-      this.world.match.phase === "aiming" ||
-      this.world.match.phase === "thinking"
-    ) {
+    if (this.world.match.phase === "thinking") {
       if (this.updateTurnTimer(dt)) return;
     }
 
@@ -117,7 +111,7 @@ export class LocalSimulation {
     this.updateWinner();
   }
 
-  getState(): SimulationState {
+  getState(): LocalSimulationState {
     return {
       match: { ...this.world.match },
       terrain: this.terrain.snapshot(),
@@ -291,10 +285,7 @@ export class LocalSimulation {
         this.world.match.turnNumber += 1;
         this.world.match.turnTimeRemaining = MAX_TURN_SECONDS;
         nextTank.fuel = MAX_TANK_FUEL;
-        this.world.match.phase =
-          getLocalControllerKind(this.world.match.mode, nextPlayerId) === "ai"
-            ? "thinking"
-            : "aiming";
+        this.world.match.phase = "thinking";
         return;
       }
     }
@@ -353,4 +344,17 @@ export class LocalSimulation {
       }
     }
   }
+}
+
+export type LocalControllerKind = "human" | "ai";
+
+export function getLocalControllerKind(
+  mode: GameMode,
+  activePlayerId: number,
+): LocalControllerKind {
+  if (mode === "playerVsAi") {
+    return activePlayerId === 0 ? "human" : "ai";
+  }
+
+  return "human";
 }

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { ApiError } from "../../errors/ApiError";
 import type { WebSocketEventResponseDto } from "../../api/ws/dto/WebSocketEventResponseDto";
 import type {
@@ -10,6 +10,7 @@ import InvalidStateError from "../../errors/InvalidStateError";
 import { useNavigate, useParams } from "react-router-dom";
 import { useWebSocketStore } from "../../store/useWebSocketStore";
 import { useAuthStore } from "../../store/useAuthStore";
+import { useAssetStore } from "../../store/useAssetStore";
 import type WebSocketError from "../../errors/WebSocketError";
 import { useSubscriptionGroup } from "../../hooks/useSubscriptionGroup";
 import type { LobbyEvent } from "../../api/ws/dto/lobby/LobbyEventDto";
@@ -46,9 +47,12 @@ export default function usePrivateLobby() {
     error: webSocketError,
   } = useWebSocketStore();
   const user = useAuthStore((state) => state.user);
+  const selectedTank = useAssetStore((state) => state.selectedTank);
+
   const navigate = useNavigate();
   const { id: urlLobbyId } = useParams();
   const action = urlLobbyId ? "JOIN" : "CREATE";
+
   const { add, cleanup } = useSubscriptionGroup();
   const [lobbyState, setLobbyState] = useState<LobbyState>({
     error: null,
@@ -215,11 +219,15 @@ export default function usePrivateLobby() {
     );
 
     if (action === "CREATE") {
-      send({ destination: "/app/lobby/create/private" });
+      send({
+        destination: "/app/lobby/create/private",
+        body: { tankId: selectedTank?.id ?? "heavy-armor" },
+      });
     } else if (action === "JOIN") {
       send({
         destination: "/app/lobby/join/private/:id",
         id: urlLobbyId!,
+        body: { tankId: selectedTank?.id ?? "heavy-armor" },
       });
     }
 

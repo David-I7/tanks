@@ -7,7 +7,7 @@ import {
   type RendererAssets,
 } from "./rendering/CanvasGameRenderer";
 import type { GameAction, GameState } from "./types";
-import { type GameManager } from "./authority/gameManager";
+import { type GameManager } from "./authority/GameManager";
 import {
   createCanvasSizing,
   readDomCanvasRect,
@@ -21,16 +21,14 @@ const MS_PER_SECOND = 1000;
 export type GameEngineOptions = {
   canvas: HTMLCanvasElement;
   gameManager: GameManager;
-  rendererAssets?: RendererAssets;
+  rendererAssets: RendererAssets;
 };
 
 export class GameEngine {
   private readonly renderer: CanvasGameRenderer;
   private readonly localInput: CanvasInputSource;
   private readonly gameManager: GameManager;
-  private readonly stateListeners = new Set<
-    (state: GameState) => void
-  >();
+  private readonly stateListeners = new Set<(state: GameState) => void>();
   private animationFrameId: number | null = null;
   private lastTimestamp = 0;
   private latestState: GameState;
@@ -48,7 +46,7 @@ export class GameEngine {
     this.applyCanvasSizing();
     this.renderer = new CanvasGameRenderer(
       options.canvas,
-      options.rendererAssets ?? {},
+      options.rendererAssets,
       this.sizing.gameViewport,
       this.sizing.dpiViewport,
     );
@@ -80,10 +78,7 @@ export class GameEngine {
     this.sizing = layout.sizing;
     this.inputLayout = layout.inputLayout;
     this.applyCanvasSizing();
-    this.renderer?.setSizing(
-      this.sizing.gameViewport,
-      this.sizing.dpiViewport,
-    );
+    this.renderer?.setSizing(this.sizing.gameViewport, this.sizing.dpiViewport);
     this.localInput?.setLayout(this.inputLayout);
     return this.sizing;
   }
@@ -110,7 +105,8 @@ export class GameEngine {
   private readonly tick = (timestamp: number) => {
     const dt = Math.min(
       MAX_DELTA_TIME_SECONDS,
-      (timestamp - this.lastTimestamp) / MS_PER_SECOND || FALLBACK_DELTA_TIME_SECONDS,
+      (timestamp - this.lastTimestamp) / MS_PER_SECOND ||
+        FALLBACK_DELTA_TIME_SECONDS,
     );
     this.lastTimestamp = timestamp;
 

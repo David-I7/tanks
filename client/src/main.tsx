@@ -10,7 +10,6 @@ import LobbyPage from "./pages/lobby/LobbyPage";
 import LoginPage from "./pages/login/LoginPage";
 import RegisterPage from "./pages/register/RegisterPage";
 import AppLayout from "./components/layouts/AppLayout";
-import TestPage from "./pages/test/TestPage";
 import GlobalErrorPage from "./pages/error/GlobalErrorPage";
 import GamePage from "./pages/game/GamePage";
 import LocalGamePage from "./pages/game/LocalGamePage";
@@ -59,10 +58,6 @@ const router = createBrowserRouter([
         path: "game/local",
         element: <LocalGamePage />,
       },
-      {
-        path: "test",
-        element: <TestPage />,
-      },
     ],
   },
 ]);
@@ -72,7 +67,7 @@ root.render(
   //<React.StrictMode>
   <AuthProvider>
     <RouterProvider router={router} />
-  </AuthProvider>
+  </AuthProvider>,
 
   //</React.StrictMode>,
 );

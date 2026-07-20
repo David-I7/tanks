@@ -4,7 +4,8 @@ import { getProjectileSelectorLayout } from "../input/inputHelpers";
 import type { DpiViewport, GameViewport } from "../world/worldSizing";
 
 export type RendererAssets = {
-  tankImage?: HTMLImageElement;
+  tankImages: Record<string, HTMLImageElement>;
+  projectileImages: Record<string, HTMLImageElement>;
 };
 
 type RenderContext = {
@@ -32,17 +33,11 @@ export class CanvasGameRenderer {
   constructor(
     private readonly canvas: HTMLCanvasElement,
     private readonly assets: RendererAssets,
-    gameViewport?: GameViewport,
-    dpiViewport?: DpiViewport,
+    gameViewport: GameViewport,
+    dpiViewport: DpiViewport,
   ) {
-    this.gameViewport = gameViewport ?? {
-      width: canvas.width,
-      height: canvas.height,
-    };
-    this.dpiViewport = dpiViewport ?? {
-      width: canvas.width,
-      height: canvas.height,
-    };
+    this.gameViewport = gameViewport;
+    this.dpiViewport = dpiViewport;
     this.worldPasses = [
       {
         name: "terrain",
@@ -121,11 +116,9 @@ export class CanvasGameRenderer {
   private updateCamera(gameState: GameState): void {
     const activeTank = gameState.tanks.find(
       (entry) => entry.playerId === gameState.match.activePlayerId,
-    );
+    )!;
     const focusX =
-      gameState.projectiles[0]?.position.x ??
-      activeTank?.position.x ??
-      this.gameViewport.width / 2;
+      gameState.projectiles[0]?.position.x ?? activeTank.position.x;
     const maxCameraX = Math.max(
       0,
       gameState.terrain.width - this.gameViewport.width,
@@ -185,23 +178,10 @@ export class CanvasGameRenderer {
       ctx.translate(entry.position.x, entry.position.y);
       ctx.rotate(entry.bodyAngle);
 
-      if (this.assets.tankImage?.complete) {
-        const image = this.assets.tankImage;
-        ctx.scale(entry.facing, 1);
-        ctx.drawImage(image, -24, -30, 48, 28);
-      } else {
-        ctx.fillStyle = entry.visual.fill;
-        ctx.strokeStyle = entry.visual.stroke;
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.roundRect(-25, -27, 50, 24, 7);
-        ctx.fill();
-        ctx.stroke();
-        ctx.fillStyle = entry.visual.accent;
-        ctx.beginPath();
-        ctx.arc(0, -28, 10, 0, Math.PI * 2);
-        ctx.fill();
-      }
+      const image = this.assets.tankImages[entry.tankDefinitionId];
+
+      ctx.scale(entry.facing, 1);
+      ctx.drawImage(image, -24, -30, 48, 28);
 
       ctx.restore();
 
@@ -227,13 +207,17 @@ export class CanvasGameRenderer {
     gameState: GameState,
   ): void {
     for (const entry of gameState.projectiles) {
-      ctx.fillStyle = entry.visual.fill;
-      ctx.strokeStyle = entry.visual.stroke;
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(entry.position.x, entry.position.y, entry.radius, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
+      const projImage =
+        this.assets.projectileImages[entry.projectileDefinitionId];
+
+      ctx.save();
+      ctx.translate(entry.position.x, entry.position.y);
+      const angle = Math.atan2(entry.velocity.y, entry.velocity.x);
+      ctx.rotate(angle);
+      const width = Math.max(16, entry.radius * 4);
+      const height = Math.max(10, entry.radius * 2.5);
+      ctx.drawImage(projImage, -width / 2, -height / 2, width, height);
+      ctx.restore();
     }
   }
 
@@ -265,10 +249,7 @@ export class CanvasGameRenderer {
     ctx: CanvasRenderingContext2D,
     gameState: GameState,
   ): void {
-    if (
-      gameState.match.phase !== "aiming" &&
-      gameState.match.phase !== "thinking"
-    ) {
+    if (gameState.match.phase !== "thinking") {
       return;
     }
 
@@ -377,7 +358,7 @@ export class CanvasGameRenderer {
     ctx.fill();
     ctx.stroke();
 
-    ctx.fillStyle = entry.visual.fill;
+    ctx.fillStyle = entry.alive ? "#10b981" : "#ef4444";
     ctx.beginPath();
     ctx.arc(
       align === "left" ? x + 20 : x + width - 20,
@@ -418,10 +399,7 @@ export class CanvasGameRenderer {
     ctx: CanvasRenderingContext2D,
     gameState: GameState,
   ): void {
-    if (
-      gameState.match.phase !== "aiming" &&
-      gameState.match.phase !== "thinking"
-    ) {
+    if (gameState.match.phase !== "thinking") {
       return;
     }
 
@@ -466,10 +444,7 @@ export class CanvasGameRenderer {
     ctx: CanvasRenderingContext2D,
     gameState: GameState,
   ): void {
-    if (
-      gameState.match.phase !== "aiming" &&
-      gameState.match.phase !== "thinking"
-    ) {
+    if (gameState.match.phase !== "thinking") {
       return;
     }
 
@@ -493,8 +468,6 @@ export class CanvasGameRenderer {
     for (let index = 0; index < activeTank.loadout.length; index += 1) {
       const slot = activeTank.loadout[index];
       if (!slot) continue;
-      const definition =
-        gameState.projectileDefinitions[slot.projectileDefinitionId];
       const selected = slot.id === activeTank.selectedProjectileSlotId;
       const x = layout.x + index * (layout.slotSize + layout.gap);
       const y = layout.y + (selected ? -8 : 0);
@@ -509,30 +482,18 @@ export class CanvasGameRenderer {
       ctx.fill();
       ctx.stroke();
 
-      if (definition) {
-        ctx.fillStyle = definition.visual.fill;
-        ctx.strokeStyle = definition.visual.stroke;
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.arc(
-          x + layout.slotSize / 2,
-          y + layout.slotSize / 2 - 6,
-          layout.slotSize * 0.22,
-          0,
-          Math.PI * 2,
-        );
-        ctx.fill();
-        ctx.stroke();
+      const projImage =
+        this.assets.projectileImages[slot.projectileDefinitionId];
 
-        ctx.fillStyle = selected ? "#111827" : "#f8fafc";
-        ctx.font = "700 16px Inter, sans-serif";
-        ctx.textAlign = "center";
-        ctx.fillText(
-          definition.visual.label,
-          x + layout.slotSize / 2,
-          y + layout.slotSize / 2,
-        );
-      }
+      const iconWidth = layout.slotSize * 0.55;
+      const iconHeight = layout.slotSize * 0.32;
+      ctx.drawImage(
+        projImage,
+        x + layout.slotSize / 2 - iconWidth / 2,
+        y + layout.slotSize / 2 - iconHeight / 2 - 4,
+        iconWidth,
+        iconHeight,
+      );
 
       ctx.fillStyle = selected ? "#111827" : "#cbd5e1";
       ctx.font = "700 10px Inter, sans-serif";

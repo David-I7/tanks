@@ -17,7 +17,7 @@ import type {
 } from "../../api/ws/dto/gameplay/OnlineGameplayProtocol";
 import type { Vec2 } from "../types";
 
-export type PendingPrediction = {
+export type OnlinePendingPrediction = {
   intentId: string;
   baseDiffSequence: DiffSequence;
   baseDiffServerTick: ServerTick;
@@ -25,11 +25,11 @@ export type PendingPrediction = {
 };
 
 type ReconciledIntent = {
-  intentId: string | null;
-  playerId: number | null;
+  intentId: string;
+  playerId?: number;
 };
 
-export type ConfirmedMovementSegment =
+export type OnlineConfirmedMovementSegment =
   OnlineMovementSegmentResponse["payload"] & {
     receivedAtMonotonicMs: number;
     durationMs: number;
@@ -51,8 +51,8 @@ export type OnlineConfirmedState = {
   lastConfirmedDiffServerTick: ServerTick;
   expectedNextDiffSequence: DiffSequence;
   resyncStatus: OnlineResyncStatus;
-  pendingPredictions: PendingPrediction[];
-  confirmedMovementSegments: ConfirmedMovementSegment[];
+  pendingPredictions: OnlinePendingPrediction[];
+  confirmedMovementSegments: OnlineConfirmedMovementSegment[];
   impactEvents: OnlineImpactProjectionEvent[];
 };
 
@@ -437,7 +437,7 @@ function applyMovementToSnapshot(
 
 function applyMovementInterpolation(
   state: OnlineGameStateSnapshotResponse,
-  segments: ConfirmedMovementSegment[],
+  segments: OnlineConfirmedMovementSegment[],
   monotonicNowMs: number,
 ): OnlineGameStateSnapshotResponse {
   const activeSegments = segments.filter(
@@ -461,7 +461,7 @@ function applyMovementInterpolation(
 
 function interpolateTank(
   tank: OnlineTankSnapshotResponse,
-  segments: ConfirmedMovementSegment[],
+  segments: OnlineConfirmedMovementSegment[],
   monotonicNowMs: number,
 ): OnlineTankSnapshotResponse {
   const segment = segments.find(
@@ -577,39 +577,33 @@ function isStaleResyncDiff(
 function getReconciledIntent(
   diff: OnlineDiffResponseDto,
 ): ReconciledIntent | null {
-  if (diff.intentId !== null) {
-    return {
-      intentId: diff.intentId,
-      playerId: getDiffPlayerId(diff),
-    };
+  const playerId = getDiffPlayerId(diff);
+
+  if (diff.type === "MOVEMENT_SEGMENT") {
+    const payload = diff.payload as OnlineMovementSegmentResponse["payload"];
+    if (!payload.intentId) return null;
+    return { intentId: payload.intentId, playerId };
   }
 
-  if (
-    diff.type === "MOVEMENT_SEGMENT" ||
-    diff.type === "PROJECTILE_RESOLUTION"
-  ) {
-    const payload = diff.payload as
-      | OnlineMovementSegmentResponse["payload"]
-      | OnlineProjectileResolutionResponse["payload"];
-
-    return {
-      intentId: payload.intentId,
-      playerId: getDiffPlayerId(diff),
-    };
+  if (diff.type === "PROJECTILE_RESOLUTION") {
+    const payload = diff.payload as OnlineProjectileResolutionResponse["payload"];
+    if (!payload.intentId) return null;
+    return { intentId: payload.intentId, playerId };
   }
 
   if (diff.type === "INTENT_REJECTION") {
     const payload = diff.payload as OnlineIntentRejectionResponse["payload"];
-    return {
-      intentId: payload.rejectedIntentId,
-      playerId: payload.playerId,
-    };
+    return { intentId: payload.rejectedIntentId, playerId };
+  }
+
+  if (diff.intentId) {
+    return { intentId: diff.intentId, playerId };
   }
 
   return null;
 }
 
-function getDiffPlayerId(diff: OnlineDiffResponseDto): number | null {
+function getDiffPlayerId(diff: OnlineDiffResponseDto): number | undefined {
   if (diff.type === "MOVEMENT_SEGMENT") {
     return (diff.payload as OnlineMovementSegmentResponse["payload"]).playerId;
   }
@@ -623,18 +617,18 @@ function getDiffPlayerId(diff: OnlineDiffResponseDto): number | null {
     return (diff.payload as OnlineIntentRejectionResponse["payload"]).playerId;
   }
 
-  return null;
+  return undefined;
 }
 
 function isMatchingPendingPrediction(
-  prediction: PendingPrediction,
+  prediction: OnlinePendingPrediction,
   reconciledIntent: ReconciledIntent,
 ): boolean {
   if (prediction.intentId !== reconciledIntent.intentId) {
     return false;
   }
 
-  if (reconciledIntent.playerId === null) {
+  if (reconciledIntent.playerId === undefined) {
     return true;
   }
 

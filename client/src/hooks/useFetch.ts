@@ -85,6 +85,8 @@ export function useFetch<Data, FetchFnArgs>(
             error: null,
           }));
         }
+
+        return result;
       } catch (err) {
         if (!(err instanceof Error)) {
           err = new Error("Failed to fetch resource. Please try again later");

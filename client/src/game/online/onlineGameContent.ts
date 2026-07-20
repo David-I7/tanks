@@ -1,5 +1,5 @@
 import type { GameContentResponseDto } from "../../api/ws/dto/gameplay/OnlineGameplayProtocol";
-import type { GameContent } from "../content/mockGameContent";
+import type { GameContent } from "../content/localGameContent";
 import type { VisualIdentity } from "../types";
 
 export function onlineGameContentFromResponse(

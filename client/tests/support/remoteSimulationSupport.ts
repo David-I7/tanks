@@ -1,32 +1,32 @@
-import { createInitialWorld } from "../../src/game/world/createInitialWorld";
+import { createLocalInitialWorld } from "../../src/game/world/createInitialWorld";
 import { LocalSimulation } from "../../src/game/simulation/LocalSimulation";
-import type { GameContent } from "../../src/game/content/mockGameContent";
+import type { GameContent } from "../../src/game/content/localGameContent";
 import type {
   GameAction,
   MatchSetup,
   RemoteGameAction,
-  SimulationState,
+  LocalSimulationState,
 } from "../../src/game/types";
 
 export type RemoteSimulationTransport = {
   sendIntent(action: RemoteGameAction): void;
-  onSimulationState(listener: (state: SimulationState) => void): () => void;
+  onSimulationState(listener: (state: LocalSimulationState) => void): () => void;
   destroy?(): void;
 };
 
 export type RemoteSimulationManager = {
   submitPlayerAction(playerId: number, action: GameAction): boolean;
   update(dt: number): void;
-  getState(): SimulationState | null;
-  subscribe(listener: (state: SimulationState) => void): () => void;
+  getState(): LocalSimulationState | null;
+  subscribe(listener: (state: LocalSimulationState) => void): () => void;
   destroy(): void;
 };
 
 export class TestRemoteSimulationManager
   implements RemoteSimulationManager
 {
-  private currentState: SimulationState | null = null;
-  private readonly listeners = new Set<(state: SimulationState) => void>();
+  private currentState: LocalSimulationState | null = null;
+  private readonly listeners = new Set<(state: LocalSimulationState) => void>();
   private unsubscribe: (() => void) | null = null;
 
   constructor(private readonly transport: RemoteSimulationTransport) {
@@ -45,11 +45,11 @@ export class TestRemoteSimulationManager
 
   update(_dt: number): void {}
 
-  getState(): SimulationState | null {
+  getState(): LocalSimulationState | null {
     return this.currentState;
   }
 
-  subscribe(listener: (state: SimulationState) => void): () => void {
+  subscribe(listener: (state: LocalSimulationState) => void): () => void {
     this.listeners.add(listener);
     if (this.currentState) listener(this.currentState);
     return () => {
@@ -80,13 +80,13 @@ export type MockRemoteSimulationTransport = RemoteSimulationTransport & {
 export function createMockRemoteSimulationTransport(
   options: MockRemoteSimulationTransportOptions,
 ): MockRemoteSimulationTransport {
-  const { world, terrain, content } = createInitialWorld(
+  const { world, terrain, content } = createLocalInitialWorld(
     options.setup,
     options.content,
     { width: options.width, height: options.height },
   );
   const simulation = new LocalSimulation(world, terrain, content);
-  const listeners = new Set<(state: SimulationState) => void>();
+  const listeners = new Set<(state: LocalSimulationState) => void>();
   const latencyMs = options.latencyMs ?? 45;
   const timeouts = new Set<ReturnType<typeof setTimeout>>();
 
@@ -112,7 +112,7 @@ export function createMockRemoteSimulationTransport(
         simulation.submitPlayerAction(remoteIntent.playerId, remoteIntent.intent);
       });
     },
-    onSimulationState(listener: (state: SimulationState) => void): () => void {
+    onSimulationState(listener: (state: LocalSimulationState) => void): () => void {
       listeners.add(listener);
       scheduleWithLatency(() => {});
       return () => {

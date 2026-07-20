@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 30" width="60" height="30">
+  <defs>
+    <linearGradient id="basicShellGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#f97316"/>
+      <stop offset="60%" stop-color="#fb923c"/>
+      <stop offset="100%" stop-color="#fef08a"/>
+    </linearGradient>
+  </defs>
+  <path d="M 5 15 C 5 7 15 5 35 5 L 55 15 L 35 25 C 15 25 5 23 5 15 Z" fill="url(#basicShellGrad)" stroke="#ea580c" stroke-width="2"/>
+  <circle cx="50" cy="15" r="3" fill="#ffffff"/>
+</svg>

@@ -1,49 +1,108 @@
 import { ArrowLeft } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useEffect, useMemo, useRef } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
-  createCanvasSizedLocalGameManager,
+  createLocalGameManager,
   GameEngine,
-  type GameMode,
+  localGameContent,
+  type MatchSetup,
 } from "../../game";
-import ResourceManager from "../../game/rendering/ResourceManager";
 import type { RendererAssets } from "../../game/rendering/CanvasGameRenderer";
 import IconButton from "../../components/buttons/IconButton";
+import Loader from "../../components/misc/Loader";
+import { useAssetStore, type TankAsset } from "../../store/useAssetStore";
+
+type LocationState = {
+  mode: "playerVsAi" | "localTwoPlayer";
+  player1Config: {
+    name: string;
+    tankId: TankAsset["id"];
+  };
+  player2Config: {
+    name: string;
+    tankId: TankAsset["id"];
+  };
+};
+
+function isValidLocationState(state: any): state is LocationState {
+  return (
+    state &&
+    typeof state === "object" &&
+    (state.mode === "playerVsAi" || state.mode === "localTwoPlayer") &&
+    typeof state.player1Config === "object" &&
+    typeof state.player2Config === "object" &&
+    "name" in state.player1Config &&
+    "tankId" in state.player1Config &&
+    "name" in state.player2Config &&
+    "tankId" in state.player2Config
+  );
+}
 
 export default function LocalGamePage() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const engineRef = useRef<GameEngine | null>(null);
-  const [rendererAssets, setRendererAssets] = useState<RendererAssets>({});
+  const location = useLocation();
+  const state = location.state as LocationState | null;
+  const tanks = useAssetStore((state) => state.tanks);
 
-  const modeParam = searchParams.get("mode");
-  const mode: GameMode =
-    modeParam === "playerVsAi" ? "playerVsAi" : "localTwoPlayer";
+  if (!state || !isValidLocationState(state) || tanks === null) {
+    throw new Error("Invalid state for local game setup");
+  }
 
-  useEffect(() => {
-    let cancelled = false;
-    ResourceManager.getInstance()
-      .getImage("tank")
-      .then((tankImage) => {
-        if (!cancelled) setRendererAssets({ tankImage });
-      })
-      .catch(() => {
-        if (!cancelled) setRendererAssets({});
-      });
-    return () => {
-      cancelled = true;
+  const { mode, player1Config, player2Config } = state;
+
+  const rendererAssets = useMemo<RendererAssets>(() => {
+    const tankImages: Record<string, HTMLImageElement> = {};
+    const projectileImages: Record<string, HTMLImageElement> = {};
+    tanks.forEach((t) => {
+      if (t.image) {
+        tankImages[t.id] = t.image;
+        for (const p of t.projectiles) {
+          if (p.image) {
+            projectileImages[p.id] = p.image;
+          }
+        }
+      }
+    });
+
+    return {
+      tankImages,
+      projectileImages,
     };
-  }, []);
+  }, [tanks]);
+
+  const matchSetup = useMemo<MatchSetup>(
+    () => ({
+      mode,
+      players: [
+        {
+          id: 0,
+          displayName: player1Config.name,
+          controllerKind: "human",
+          tankSelection: { tankDefinitionId: player1Config.tankId },
+        },
+        {
+          id: 1,
+          displayName: player2Config.name,
+          controllerKind: mode === "playerVsAi" ? "ai" : "human",
+          tankSelection: { tankDefinitionId: player2Config.tankId },
+        },
+      ],
+    }),
+    [mode, player1Config, player2Config],
+  );
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
     engineRef.current?.stop();
-    const gameManager = createCanvasSizedLocalGameManager({
+    const gameManager = createLocalGameManager({
       canvas,
       mode,
+      setup: matchSetup,
+      content: localGameContent,
     });
     const engine = new GameEngine({
       canvas,
@@ -66,7 +125,7 @@ export default function LocalGamePage() {
         engineRef.current = null;
       }
     };
-  }, [mode, rendererAssets]);
+  }, [matchSetup, rendererAssets]);
 
   const modeLabel = mode === "playerVsAi" ? "Player vs AI" : "Local Two-Player";
 

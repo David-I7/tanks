@@ -1,15 +1,14 @@
 import { ArrowLeft } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { uuidSchema } from "../../validation/lobby";
-import { useAuthStore } from "../../store/useAuthStore";
 import { useWebSocketStore } from "../../store/useWebSocketStore";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Loader from "../../components/misc/Loader";
-import { createOnlineGameplayTransport } from "../../game/online/OnlineGameplayTransport";
+import { createOnlineGameplayTransport } from "../../game/online/onlineGameplayTransport";
 import { createOnlineGameManager, GameEngine } from "../../game";
-import ResourceManager from "../../game/rendering/ResourceManager";
 import type { RendererAssets } from "../../game/rendering/CanvasGameRenderer";
 import IconButton from "../../components/buttons/IconButton";
+import { useAssetStore } from "../../store/useAssetStore";
 
 export default function GamePage() {
   const { id } = useParams();
@@ -23,30 +22,46 @@ export default function GamePage() {
 
 function GameView({ gameSessionId }: { gameSessionId: string }) {
   const navigate = useNavigate();
-  const { client, status, connect } = useWebSocketStore();
-  const getAuthStatus = useAuthStore((state) => state.getAuthStatus);
+  const { status, connect } = useWebSocketStore();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const engineRef = useRef<GameEngine | null>(null);
-  const [rendererAssets, setRendererAssets] = useState<RendererAssets | null>(
-    null,
-  );
-  const [isSessionReady, setIsSessionReady] = useState(false);
-  const [hasViewState, setHasViewState] = useState(false);
+
+  const tanks = useAssetStore((state) => state.tanks);
+  const assetState = useAssetStore((state) => state.state);
+  const loadAssets = useAssetStore((state) => state.loadAssets);
 
   useEffect(() => {
-    let cancelled = false;
-    ResourceManager.getInstance()
-      .getImage("tank")
-      .then((tankImage) => {
-        if (!cancelled) setRendererAssets({ tankImage });
-      })
-      .catch(() => {
-        if (!cancelled) setRendererAssets({});
+    if (assetState === "idle") {
+      loadAssets();
+    }
+  }, [assetState, loadAssets]);
+
+  const rendererAssets = useMemo<RendererAssets>(() => {
+    const tankImages: Record<string, HTMLImageElement> = {};
+    const projectileImages: Record<string, HTMLImageElement> = {};
+
+    if (tanks) {
+      tanks.forEach((t) => {
+        if (t.image) {
+          tankImages[t.id] = t.image;
+        }
+        t.projectiles?.forEach((p) => {
+          if (p.image) {
+            projectileImages[p.id] = p.image;
+          }
+        });
       });
-    return () => {
-      cancelled = true;
+    }
+
+    return {
+      tankImages,
+      projectileImages,
+      tankImage: Object.values(tankImages)[0],
     };
-  }, []);
+  }, [tanks]);
+
+  const [isSessionReady, setIsSessionReady] = useState(false);
+  const [hasViewState, setHasViewState] = useState(false);
 
   useEffect(() => {
     if (client === null) {
@@ -66,21 +81,6 @@ function GameView({ gameSessionId }: { gameSessionId: string }) {
         console.error("Error:", message.body);
       },
     });
-
-    void (async () => {
-      const authStatus = await getAuthStatus();
-      if (cancelled) return;
-
-      if (
-        authStatus?.userSessionStatus?.state !== "IN_GAME" ||
-        authStatus.userSessionStatus.gameId !== gameSessionId
-      ) {
-        navigate("/", { replace: true });
-        return;
-      }
-
-      setIsSessionReady(true);
-    })();
 
     return () => {
       cancelled = true;
