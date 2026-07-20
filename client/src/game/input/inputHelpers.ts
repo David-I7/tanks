@@ -20,8 +20,7 @@ export function calculateAimIntent(
     input.activeTank ??
     input.gameState.tanks.find(
       (entry) =>
-        entry.playerId === input.gameState.match.activePlayerId &&
-        entry.alive,
+        entry.playerId === input.gameState.match.activePlayerId && entry.alive,
     );
   if (!activeTank) return null;
 
@@ -44,7 +43,8 @@ export function calculateAimIntent(
     ? input.gameState.projectileDefinitions[slot.projectileDefinitionId]
     : null;
   const gravityScale = projectileDefinition?.physics.gravityScale ?? 1;
-  const muzzleVelocityScale = projectileDefinition?.physics.muzzleVelocityScale ?? 1;
+  const muzzleVelocityScale =
+    projectileDefinition?.physics.muzzleVelocityScale ?? 1;
 
   // The peak of a parabolic trajectory must be higher (smaller Y value) than the starting height.
   // We clamp the target peakY to be at least 10 pixels above the start point.
@@ -58,7 +58,11 @@ export function calculateAimIntent(
   const firstAngle = Math.atan2(vy0, vx0);
 
   // Refine calculation using the actual muzzle position
-  const muzzle = getMuzzlePosition(activeTank.position.x, activeTank.position.y, firstAngle);
+  const muzzle = getMuzzlePosition(
+    activeTank.position.x,
+    activeTank.position.y,
+    firstAngle,
+  );
   const refinedPeakY = Math.min(worldY, muzzle.y - 10);
   const dyMuzzlePeak = muzzle.y - refinedPeakY;
 
@@ -87,7 +91,7 @@ export function getProjectileSelectorLayout(
   canvasWidth: number,
   canvasHeight: number,
   slotCount: number,
- ): ProjectileSelectorLayout {
+): ProjectileSelectorLayout {
   const slotSize = Math.max(42, Math.min(64, Math.floor(canvasWidth * 0.045)));
   const gap = 8;
   const totalWidth = slotCount * slotSize + Math.max(0, slotCount - 1) * gap;
@@ -107,10 +111,7 @@ export function findProjectileSlotAtCanvasPoint(
   canvasY: number,
   activeTank?: GameState["tanks"][number],
 ): string | null {
-  if (
-    gameState.match.phase !== "aiming" &&
-    gameState.match.phase !== "thinking"
-  ) {
+  if (gameState.match.phase !== "thinking") {
     return null;
   }
 

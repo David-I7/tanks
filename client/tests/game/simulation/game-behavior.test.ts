@@ -2,25 +2,25 @@ import assert from "node:assert/strict";
 import { getPlayerMatchConfig } from "../../../src/game/modes";
 import {
   createDefaultMatchSetup,
-  createInitialWorld,
+  createLocalInitialWorld,
 } from "../../../src/game/world/createInitialWorld";
 import { LocalSimulation } from "../../../src/game/simulation/LocalSimulation";
 import {
   createLocalSimulationManager,
-  type SimulationManager,
-} from "../../../src/game/authority/simulationManager";
-import { simulationStateToGameState } from "../../../src/game/authority/gameManager";
+  type LocalSimulationManager,
+} from "../../../src/game/simulation/simulationManager";
+import { toGameState } from "../../../src/game/authority/LocalGameManager";
 import { createCanvasSizing } from "../../../src/game/world/worldSizing";
 import { collectGameActions } from "../../../src/game/input/CanvasInputSource";
 import {
   findProjectileSlotAtCanvasPoint,
   getProjectileSelectorLayout,
 } from "../../../src/game/input/inputHelpers";
-import { TerrainModel } from "../../../src/game/simulation/TerrainModel";
+import { LocalTerrainModel } from "../../../src/game/simulation/LocalTerrainModel";
 import {
-  mockGameContent,
+  localGameContent,
   type GameContent,
-} from "../../../src/game/content/mockGameContent";
+} from "../../../src/game/content/localGameContent";
 import type { GameState, MatchSetup } from "../../../src/game/types";
 import {
   createMockRemoteSimulationTransport,
@@ -29,7 +29,7 @@ import {
 } from "../../support/remoteSimulationSupport";
 
 function makeSimulation(setup: MatchSetup = createDefaultMatchSetup("localTwoPlayer")) {
-  const { world, terrain, content } = createInitialWorld(setup, mockGameContent, {
+  const { world, terrain, content } = createLocalInitialWorld(setup, localGameContent, {
     width: 960,
     height: 560,
   });
@@ -45,7 +45,7 @@ function firstTank(simulation: LocalSimulation) {
 function gameStateWithActiveSecondTank(
   simulation: LocalSimulation,
 ): GameState {
-  const state = simulationStateToGameState(simulation.getState(), mockGameContent.projectiles);
+  const state = toGameState(simulation.getState(), localGameContent.projectiles);
   const tanks = state.tanks.map((entry) => {
     if (entry.playerId === 1) {
       return {

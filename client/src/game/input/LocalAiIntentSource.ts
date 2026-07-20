@@ -1,6 +1,6 @@
 import type { GameAction, GameState } from "../types";
 
-export class AiIntentSource {
+export class LocalAiIntentSource {
   private hasQueuedShotForTurn = false;
   private lastTurnNumber: number | null = null;
   private thinkingElapsed = 0;

@@ -12,7 +12,7 @@ import {
   type VelocityComponent,
 } from "../types";
 
-export class World {
+export class LocalWorld {
   private nextEntityId = 1;
   readonly positions = new Map<EntityId, PositionComponent>();
   readonly velocities = new Map<EntityId, VelocityComponent>();

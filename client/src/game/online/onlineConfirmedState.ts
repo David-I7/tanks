@@ -17,7 +17,7 @@ import type {
 } from "../../api/ws/dto/gameplay/OnlineGameplayProtocol";
 import type { Vec2 } from "../types";
 
-export type PendingPrediction = {
+export type OnlinePendingPrediction = {
   intentId: string;
   baseDiffSequence: DiffSequence;
   baseDiffServerTick: ServerTick;
@@ -29,7 +29,7 @@ type ReconciledIntent = {
   playerId?: number;
 };
 
-export type ConfirmedMovementSegment =
+export type OnlineConfirmedMovementSegment =
   OnlineMovementSegmentResponse["payload"] & {
     receivedAtMonotonicMs: number;
     durationMs: number;
@@ -51,8 +51,8 @@ export type OnlineConfirmedState = {
   lastConfirmedDiffServerTick: ServerTick;
   expectedNextDiffSequence: DiffSequence;
   resyncStatus: OnlineResyncStatus;
-  pendingPredictions: PendingPrediction[];
-  confirmedMovementSegments: ConfirmedMovementSegment[];
+  pendingPredictions: OnlinePendingPrediction[];
+  confirmedMovementSegments: OnlineConfirmedMovementSegment[];
   impactEvents: OnlineImpactProjectionEvent[];
 };
 
@@ -437,7 +437,7 @@ function applyMovementToSnapshot(
 
 function applyMovementInterpolation(
   state: OnlineGameStateSnapshotResponse,
-  segments: ConfirmedMovementSegment[],
+  segments: OnlineConfirmedMovementSegment[],
   monotonicNowMs: number,
 ): OnlineGameStateSnapshotResponse {
   const activeSegments = segments.filter(
@@ -461,7 +461,7 @@ function applyMovementInterpolation(
 
 function interpolateTank(
   tank: OnlineTankSnapshotResponse,
-  segments: ConfirmedMovementSegment[],
+  segments: OnlineConfirmedMovementSegment[],
   monotonicNowMs: number,
 ): OnlineTankSnapshotResponse {
   const segment = segments.find(
@@ -621,7 +621,7 @@ function getDiffPlayerId(diff: OnlineDiffResponseDto): number | undefined {
 }
 
 function isMatchingPendingPrediction(
-  prediction: PendingPrediction,
+  prediction: OnlinePendingPrediction,
   reconciledIntent: ReconciledIntent,
 ): boolean {
   if (prediction.intentId !== reconciledIntent.intentId) {

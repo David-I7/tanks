@@ -104,9 +104,9 @@ _Avoid_: Server state, snapshot cache
 A local predicted change for a submitted player intent that has not yet been confirmed or rejected by the server.
 _Avoid_: Optimistic update, client truth
 
-**Unresolved Intent**:
-A player intent that has been submitted but has not yet been accepted or rejected by the server.
-_Avoid_: Queued command, buffered input
+**Online Pending Prediction**:
+A local predicted change for a submitted player intent that has not yet been confirmed or rejected by the server.
+_Avoid_: Optimistic update, client truth, PendingPrediction
 
 **Render State**:
 The state the client draws after combining confirmed state, pending predictions, and in-progress interpolation.
@@ -120,17 +120,17 @@ _Avoid_: World size, canvas buffer, DOM rect
 The physical canvas drawing buffer size derived from the game viewport and device pixel ratio.
 _Avoid_: Backing size, world size, CSS size
 
-**World**:
-The mutable gameplay entity store for match state, tanks, projectiles, positions, velocities, and impact events.
-_Avoid_: Viewport, terrain size, canvas size, render state
+**Local World**:
+The mutable local gameplay entity store for match state, tanks, projectiles, positions, velocities, and impact events.
+_Avoid_: Viewport, terrain size, canvas size, render state, World
 
 **Game State**:
 The client-side gameplay state consumed by rendering, input targeting, and game UI across local and online modes.
 _Avoid_: Local snapshot, online snapshot, ECS state, protocol DTO, game view state
 
-**Simulation State**:
-A read-only export of simulation-owned gameplay state used to publish or adapt simulation state without exposing mutable world internals.
-_Avoid_: View state, render state, world state, ECS state, simulation snapshot
+**Local Simulation State**:
+A read-only export of local simulation-owned gameplay state used to publish or adapt simulation state without exposing mutable world internals.
+_Avoid_: View state, render state, world state, ECS state, simulation snapshot, SimulationState
 
 **Game Action**:
 A mode-neutral player action produced by gameplay input or UI before it is handled by a local or online game authority.

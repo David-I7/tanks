@@ -2,8 +2,9 @@ import { ArrowLeft } from "lucide-react";
 import { useEffect, useMemo, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
-  createCanvasSizedLocalGameManager,
+  createLocalGameManager,
   GameEngine,
+  localGameContent,
   type MatchSetup,
 } from "../../game";
 import type { RendererAssets } from "../../game/rendering/CanvasGameRenderer";
@@ -23,7 +24,7 @@ type LocationState = {
   };
 };
 
-function validateLocationState(state: any): state is LocationState {
+function isValidLocationState(state: any): state is LocationState {
   return (
     state &&
     typeof state === "object" &&
@@ -43,27 +44,10 @@ export default function LocalGamePage() {
   const engineRef = useRef<GameEngine | null>(null);
   const location = useLocation();
   const state = location.state as LocationState | null;
-
   const tanks = useAssetStore((state) => state.tanks);
-  const assetState = useAssetStore((state) => state.state);
-  const loadAssets = useAssetStore((state) => state.loadAssets);
 
-  useEffect(() => {
-    if (assetState === "idle" || tanks === null) {
-      loadAssets();
-    }
-  }, [assetState, tanks, loadAssets]);
-
-  if (!state || !validateLocationState(state)) {
+  if (!state || !isValidLocationState(state) || tanks === null) {
     throw new Error("Invalid state for local game setup");
-  }
-
-  if (tanks === null) {
-    return (
-      <main className="relative z-10 flex min-h-screen items-center justify-center bg-background p-4 text-text-body-high">
-        <Loader />
-      </main>
-    );
   }
 
   const { mode, player1Config, player2Config } = state;
@@ -82,11 +66,9 @@ export default function LocalGamePage() {
       }
     });
 
-    const firstImage = Object.values(tankImages)[0];
     return {
       tankImages,
       projectileImages,
-      tankImage: firstImage,
     };
   }, [tanks]);
 
@@ -116,10 +98,11 @@ export default function LocalGamePage() {
     if (!canvas) return;
 
     engineRef.current?.stop();
-    const gameManager = createCanvasSizedLocalGameManager({
+    const gameManager = createLocalGameManager({
       canvas,
       mode,
       setup: matchSetup,
+      content: localGameContent,
     });
     const engine = new GameEngine({
       canvas,
@@ -142,7 +125,7 @@ export default function LocalGamePage() {
         engineRef.current = null;
       }
     };
-  }, [mode, matchSetup, rendererAssets]);
+  }, [matchSetup, rendererAssets]);
 
   const modeLabel = mode === "playerVsAi" ? "Player vs AI" : "Local Two-Player";
 

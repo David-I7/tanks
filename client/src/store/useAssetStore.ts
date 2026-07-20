@@ -80,7 +80,8 @@ export const useAssetStore = create<AssetStore>((set, get) => ({
       });
       return tanks;
     } catch (err) {
-      const error = err instanceof Error ? err : new Error("Failed to load assets");
+      const error =
+        err instanceof Error ? err : new Error("Failed to load assets");
       set({
         isFetching: false,
         isLoading: false,

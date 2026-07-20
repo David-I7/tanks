@@ -2,11 +2,11 @@ import type {
   OnlineDiffResponseDto,
   OnlinePlayerIntentRequestDto,
 } from "../../api/ws/dto/gameplay/OnlineGameplayProtocol";
-import type { GameManager } from "../authority/gameManager";
+import type { GameManager } from "./GameManager";
 import type { GameAction, GameState } from "../types";
-import type { OnlineGameplayTransport } from "./OnlineGameplayTransport";
-import { onlineConfirmedStateToGameState } from "./onlineGameState";
-import { onlineGameContentFromResponse } from "./onlineGameContent";
+import type { OnlineGameplayTransport } from "../online/onlineGameplayTransport";
+import { toGameState } from "../online/onlineGameState";
+import { onlineGameContentFromResponse } from "../online/onlineGameContent";
 import {
   OnlineDiffSequenceError,
   applyOnlineStateDiffResponse,
@@ -16,19 +16,17 @@ import {
   projectOnlineRenderState,
   requestOnlineResyncState,
   type OnlineConfirmedState,
-} from "./onlineConfirmedState";
-
-export type OnlineGameManager = GameManager;
+} from "../online/onlineConfirmedState";
 
 export function createOnlineGameManager(options: {
   transport: OnlineGameplayTransport;
   intentIdFactory?: () => string;
   monotonicNowMs?: () => number;
-}): OnlineGameManager {
+}): GameManager {
   return new TransportBackedOnlineGameManager(options);
 }
 
-class TransportBackedOnlineGameManager implements OnlineGameManager {
+class TransportBackedOnlineGameManager implements GameManager {
   private activeState: ActiveOnlineGameManager | null = null;
   private readonly listeners = new Set<(state: GameState) => void>();
   private readonly unsubscribeTransport: () => void;
@@ -130,7 +128,7 @@ class ActiveOnlineGameManager {
   ) {
     this.confirmedState = initialState;
     const now = this.monotonicNowMs();
-    this.currentState = onlineConfirmedStateToGameState(
+    this.currentState = toGameState(
       initialState,
       projectOnlineRenderState(initialState, now),
       onlineGameContentFromResponse(initialState.state.gameContent),
@@ -243,7 +241,7 @@ class ActiveOnlineGameManager {
   private publishConfirmed(state: OnlineConfirmedState): void {
     this.confirmedState = state;
     const now = this.monotonicNowMs();
-    this.currentState = onlineConfirmedStateToGameState(
+    this.currentState = toGameState(
       state,
       projectOnlineRenderState(state, now),
       onlineGameContentFromResponse(state.state.gameContent),

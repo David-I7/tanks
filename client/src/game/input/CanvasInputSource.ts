@@ -33,11 +33,13 @@ export type IntentProducer = (input: {
 export function collectGameActions(input: {
   state: CanvasInteractionState;
   context: CanvasInteractionContext;
-  producers?: IntentProducer[];
 }): GameAction[] {
-  return (input.producers ?? defaultIntentProducers).flatMap((producer) =>
-    producer(input),
-  );
+  const producers: IntentProducer[] = defaultIntentProducers;
+  const actions: GameAction[] = [];
+  for (const producer of producers) {
+    actions.push(...producer(input));
+  }
+  return actions;
 }
 
 const movementIntentProducer: IntentProducer = ({ state }) => {

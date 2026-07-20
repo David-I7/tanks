@@ -1,53 +1,40 @@
-import type { GameContent } from "../content/mockGameContent";
+import type { GameContent } from "../content/localGameContent";
 import type { GameViewport } from "../world/worldSizing";
-import {
-  createDefaultMatchSetup,
-  createInitialWorld,
-} from "../world/createInitialWorld";
-import { LocalSimulation } from "../simulation/LocalSimulation";
+import { createLocalInitialWorld } from "../world/createInitialWorld";
+import { LocalSimulation } from "./LocalSimulation";
 import type {
   GameAction,
   GameMode,
   MatchSetup,
-  SimulationState,
+  LocalSimulationState,
 } from "../types";
 
-export type SimulationManager = {
-  submitPlayerAction(playerId: number, action: GameAction): boolean;
-  update(dt: number): void;
-  getState(): SimulationState;
-  subscribe(listener: (state: SimulationState) => void): () => void;
-  destroy(): void;
-};
-
 export function createLocalSimulationManager(options: {
-  mode?: GameMode;
-  setup?: MatchSetup;
+  mode: GameMode;
+  setup: MatchSetup;
   content: GameContent;
   initialGameViewport: GameViewport;
-}): SimulationManager {
-  return new CachedLocalSimulationManager(createLocalSimulation(options));
+}): LocalSimulationManager {
+  return new LocalSimulationManager(createLocalSimulation(options));
 }
 
 function createLocalSimulation(options: {
-  mode?: GameMode;
-  setup?: MatchSetup;
+  mode: GameMode;
+  setup: MatchSetup;
   content: GameContent;
   initialGameViewport: GameViewport;
 }): LocalSimulation {
-  const setup =
-    options.setup ?? createDefaultMatchSetup(options.mode ?? "localTwoPlayer");
-  const { world, terrain, content } = createInitialWorld(
-    setup,
+  const { world, terrain, content } = createLocalInitialWorld(
+    options.setup,
     options.content,
     options.initialGameViewport,
   );
   return new LocalSimulation(world, terrain, content);
 }
 
-class CachedLocalSimulationManager implements SimulationManager {
-  private currentState: SimulationState;
-  private readonly listeners = new Set<(state: SimulationState) => void>();
+export class LocalSimulationManager {
+  private currentState: LocalSimulationState;
+  private readonly listeners = new Set<(state: LocalSimulationState) => void>();
 
   constructor(private readonly localSimulation: LocalSimulation) {
     this.currentState = localSimulation.getState();
@@ -64,11 +51,11 @@ class CachedLocalSimulationManager implements SimulationManager {
     this.publishCurrentState();
   }
 
-  getState(): SimulationState {
+  getState(): LocalSimulationState {
     return this.currentState;
   }
 
-  subscribe(listener: (state: SimulationState) => void): () => void {
+  subscribe(listener: (state: LocalSimulationState) => void): () => void {
     this.listeners.add(listener);
     listener(this.currentState);
     return () => {

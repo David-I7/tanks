@@ -16,7 +16,7 @@ export type GameContent = {
   projectiles: Record<string, ProjectileDefinition>;
 };
 
-export const mockGameContent: GameContent = {
+export const localGameContent: GameContent = {
   version: "game-content.v1",
   world: {
     width: 1280,
@@ -42,12 +42,6 @@ export const mockGameContent: GameContent = {
       damageEffect: { type: "radial", radius: 46, damage: 48 },
       impactAnimationId: "orange-pop",
       impactDuration: 0.42,
-      visual: {
-        fill: "#f8fafc",
-        stroke: "#f97316",
-        accent: "#fed7aa",
-        label: "S",
-      },
     },
     mortar: {
       id: "mortar",
@@ -62,12 +56,6 @@ export const mockGameContent: GameContent = {
       damageEffect: { type: "radial", radius: 62, damage: 38 },
       impactAnimationId: "smoke-ring",
       impactDuration: 0.58,
-      visual: {
-        fill: "#a7f3d0",
-        stroke: "#10b981",
-        accent: "#064e3b",
-        label: "M",
-      },
     },
     heavyShell: {
       id: "heavyShell",
@@ -82,12 +70,6 @@ export const mockGameContent: GameContent = {
       damageEffect: { type: "focused", radius: 34, damage: 72 },
       impactAnimationId: "red-slam",
       impactDuration: 0.5,
-      visual: {
-        fill: "#fecaca",
-        stroke: "#ef4444",
-        accent: "#7f1d1d",
-        label: "H",
-      },
     },
     cluster: {
       id: "cluster",
@@ -102,12 +84,6 @@ export const mockGameContent: GameContent = {
       damageEffect: { type: "radial", radius: 78, damage: 30 },
       impactAnimationId: "spark-burst",
       impactDuration: 0.48,
-      visual: {
-        fill: "#fde68a",
-        stroke: "#eab308",
-        accent: "#713f12",
-        label: "C",
-      },
     },
     needle: {
       id: "needle",
@@ -122,12 +98,6 @@ export const mockGameContent: GameContent = {
       damageEffect: { type: "focused", radius: 22, damage: 58 },
       impactAnimationId: "blue-flash",
       impactDuration: 0.36,
-      visual: {
-        fill: "#bfdbfe",
-        stroke: "#3b82f6",
-        accent: "#1e3a8a",
-        label: "N",
-      },
     },
     // Heavy Armor signature projectile
     titanShell: {
@@ -143,12 +113,6 @@ export const mockGameContent: GameContent = {
       damageEffect: { type: "radial", radius: 75, damage: 85 },
       impactAnimationId: "red-slam",
       impactDuration: 0.65,
-      visual: {
-        fill: "#ef4444",
-        stroke: "#991b1b",
-        accent: "#fca5a5",
-        label: "T",
-      },
     },
     // Desert Striker signature projectile
     precisionDart: {
@@ -164,12 +128,6 @@ export const mockGameContent: GameContent = {
       damageEffect: { type: "focused", radius: 25, damage: 65 },
       impactAnimationId: "spark-burst",
       impactDuration: 0.4,
-      visual: {
-        fill: "#f59e0b",
-        stroke: "#b45309",
-        accent: "#fef08a",
-        label: "P",
-      },
     },
     // Vanguard Cyber signature projectile
     pulseRail: {
@@ -185,12 +143,6 @@ export const mockGameContent: GameContent = {
       damageEffect: { type: "radial", radius: 50, damage: 60 },
       impactAnimationId: "blue-flash",
       impactDuration: 0.45,
-      visual: {
-        fill: "#38bdf8",
-        stroke: "#0284c7",
-        accent: "#e0f2fe",
-        label: "R",
-      },
     },
   },
   tanks: {
@@ -207,12 +159,6 @@ export const mockGameContent: GameContent = {
       trackGroundOffset: 0,
       muzzleForwardOffset: 20,
       muzzleVerticalOffset: 24,
-      visual: {
-        fill: "#4b5563",
-        stroke: "#1f2937",
-        accent: "#9ca3af",
-        label: "H",
-      },
       loadout: [
         { id: "titan", projectileDefinitionId: "titanShell", label: "Ttn" },
         { id: "heavy", projectileDefinitionId: "heavyShell", label: "Hvy" },
@@ -234,14 +180,12 @@ export const mockGameContent: GameContent = {
       trackGroundOffset: 0,
       muzzleForwardOffset: 22,
       muzzleVerticalOffset: 22,
-      visual: {
-        fill: "#d97706",
-        stroke: "#78350f",
-        accent: "#fde68a",
-        label: "D",
-      },
       loadout: [
-        { id: "precision", projectileDefinitionId: "precisionDart", label: "Prc" },
+        {
+          id: "precision",
+          projectileDefinitionId: "precisionDart",
+          label: "Prc",
+        },
         { id: "needle", projectileDefinitionId: "needle", label: "Ndl" },
         { id: "cluster", projectileDefinitionId: "cluster", label: "Clu" },
         { id: "standard", projectileDefinitionId: "basicShell", label: "Std" },
@@ -261,12 +205,6 @@ export const mockGameContent: GameContent = {
       trackGroundOffset: 0,
       muzzleForwardOffset: 18,
       muzzleVerticalOffset: 24,
-      visual: {
-        fill: "#0284c7",
-        stroke: "#0c4a6e",
-        accent: "#7dd3fc",
-        label: "V",
-      },
       loadout: [
         { id: "rail", projectileDefinitionId: "pulseRail", label: "Rail" },
         { id: "needle", projectileDefinitionId: "needle", label: "Ndl" },
@@ -288,12 +226,6 @@ export const mockGameContent: GameContent = {
       trackGroundOffset: 0,
       muzzleForwardOffset: 18,
       muzzleVerticalOffset: 24,
-      visual: {
-        fill: "#22c55e",
-        stroke: "#14532d",
-        accent: "#bbf7d0",
-        label: "V",
-      },
       loadout: [
         { id: "standard", projectileDefinitionId: "basicShell", label: "Std" },
         { id: "mortar", projectileDefinitionId: "mortar", label: "Mtr" },
@@ -315,12 +247,6 @@ export const mockGameContent: GameContent = {
       trackGroundOffset: 0,
       muzzleForwardOffset: 18,
       muzzleVerticalOffset: 24,
-      visual: {
-        fill: "#60a5fa",
-        stroke: "#1e3a8a",
-        accent: "#dbeafe",
-        label: "S",
-      },
       loadout: [
         { id: "standard", projectileDefinitionId: "basicShell", label: "Std" },
         { id: "mortar", projectileDefinitionId: "mortar", label: "Mtr" },

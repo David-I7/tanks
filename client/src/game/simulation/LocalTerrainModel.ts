@@ -1,6 +1,6 @@
 import type { TerrainEffect, TerrainSnapshot } from "../types";
 
-export class TerrainModel {
+export class LocalTerrainModel {
   readonly surface: number[];
 
   constructor(

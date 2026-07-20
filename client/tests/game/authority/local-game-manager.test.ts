@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 
 import {
-  mockGameContent,
+  localGameContent,
   type GameContent,
-} from "../../../src/game/content/mockGameContent";
+} from "../../../src/game/content/localGameContent";
 import { createDefaultMatchSetup } from "../../../src/game/world/createInitialWorld";
 import {
   createLocalGameManager,
@@ -21,7 +21,7 @@ function createLocalManager(
   return createLocalGameManager({
     mode,
     setup: createDefaultMatchSetup(mode),
-    content: mockGameContent,
+    content: localGameContent,
     initialGameViewport: { width: 960, height: 560 },
   });
 }
@@ -30,7 +30,7 @@ function createLocalSimulationManagerForTest() {
   return createLocalSimulationManager({
     mode: "localTwoPlayer",
     setup: createDefaultMatchSetup("localTwoPlayer"),
-    content: mockGameContent,
+    content: localGameContent,
     initialGameViewport: { width: 960, height: 560 },
   });
 }

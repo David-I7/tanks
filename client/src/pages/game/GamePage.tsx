@@ -1,11 +1,10 @@
 import { ArrowLeft } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { uuidSchema } from "../../validation/lobby";
-import { useAuthStore } from "../../store/useAuthStore";
 import { useWebSocketStore } from "../../store/useWebSocketStore";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Loader from "../../components/misc/Loader";
-import { createOnlineGameplayTransport } from "../../game/online/OnlineGameplayTransport";
+import { createOnlineGameplayTransport } from "../../game/online/onlineGameplayTransport";
 import { createOnlineGameManager, GameEngine } from "../../game";
 import type { RendererAssets } from "../../game/rendering/CanvasGameRenderer";
 import IconButton from "../../components/buttons/IconButton";
@@ -20,8 +19,6 @@ export default function GamePage() {
 
   return <GameView gameSessionId={id} />;
 }
-
-function useOnlineGame() {}
 
 function GameView({ gameSessionId }: { gameSessionId: string }) {
   const navigate = useNavigate();

@@ -21,7 +21,6 @@ export type RemoteGameAction = {
 };
 
 export type TurnPhase =
-  | "aiming"
   | "thinking"
   | "ballistics"
   | "impact"
@@ -63,14 +62,12 @@ export type ProjectileDefinition = {
   damageEffect: DamageEffect;
   impactAnimationId: string;
   impactDuration: number;
-  visual: VisualIdentity;
 };
 
 export type ProjectileSlot = {
   id: string;
   projectileDefinitionId: string;
   label: string;
-  renderAssetId?: string;
 };
 
 export type TankDefinition = {
@@ -87,7 +84,6 @@ export type TankDefinition = {
   muzzleForwardOffset: number;
   muzzleVerticalOffset: number;
   loadout: ProjectileSlot[];
-  visual: VisualIdentity;
 };
 
 export type TankSelection = {
@@ -116,7 +112,6 @@ export type TankComponent = {
   controllerKind: ControllerKind;
   tankDefinitionId: string;
   tankName: string;
-  visual: VisualIdentity;
   loadout: ProjectileSlot[];
   selectedProjectileSlotId: string;
   maxHealth: number;
@@ -141,7 +136,6 @@ export type ProjectileComponent = {
   damageEffect: DamageEffect;
   impactAnimationId: string;
   impactDuration: number;
-  visual: VisualIdentity;
 };
 
 export type ImpactEvent = {
@@ -174,14 +168,7 @@ export type HeightmapTerrainSnapshot = {
   surface: number[];
 };
 
-export type MaskTerrainSnapshot = {
-  kind: "mask";
-  width: number;
-  height: number;
-  solid: Uint8Array;
-};
-
-export type TerrainSnapshot = HeightmapTerrainSnapshot | MaskTerrainSnapshot;
+export type TerrainSnapshot = HeightmapTerrainSnapshot;
 
 type DeepReadonly<T> = T extends (...args: never[]) => unknown
   ? T
@@ -191,7 +178,7 @@ type DeepReadonly<T> = T extends (...args: never[]) => unknown
       ? { readonly [K in keyof T]: DeepReadonly<T[K]> }
       : T;
 
-export type SimulationState = DeepReadonly<{
+export type LocalSimulationState = DeepReadonly<{
   match: MatchState;
   terrain: TerrainSnapshot;
   tanks: Array<{

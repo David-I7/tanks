@@ -2,7 +2,7 @@ import type {
   OnlineGameStateSnapshotResponse,
   OnlineTerrainSnapshotResponse,
 } from "../../api/ws/dto/gameplay/OnlineGameplayProtocol";
-import { mockGameContent, type GameContent } from "../content/mockGameContent";
+import { localGameContent, type GameContent } from "../content/localGameContent";
 import type {
   GameState,
   ImpactEvent,
@@ -27,10 +27,10 @@ const fallbackVisual: VisualIdentity = {
   label: "?",
 };
 
-export function onlineConfirmedStateToGameState(
+export function toGameState(
   confirmed: OnlineConfirmedState,
   renderState: OnlineGameStateSnapshotResponse,
-  content: GameContent = mockGameContent,
+  content: GameContent = localGameContent,
   monotonicNowMs: number = performance.now(),
 ): GameState {
   return onlineSnapshotToGameState(
@@ -44,7 +44,7 @@ export function onlineConfirmedStateToGameState(
 
 export function onlineSnapshotToGameState(
   snapshot: OnlineGameStateSnapshotResponse,
-  content: GameContent = mockGameContent,
+  content: GameContent = localGameContent,
   localPlayerId: number | null = null,
   impactEvents: OnlineImpactProjectionEvent[] = [],
   monotonicNowMs: number = performance.now(),
