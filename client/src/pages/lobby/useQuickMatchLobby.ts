@@ -1,9 +1,7 @@
 import { useEffect, useState } from "react";
 import type ProblemDetailDto from "../../api/http/dto/ProblemDetailDto";
 import { ApiError } from "../../errors/ApiError";
-import type {
-  Message,
-} from "../../api/ws/TanksWebSocketClient";
+import type { Message } from "../../api/ws/TanksWebSocketClient";
 import { useNavigate } from "react-router-dom";
 import { useWebSocketStore } from "../../store/useWebSocketStore";
 import { useAuthStore } from "../../store/useAuthStore";
@@ -36,7 +34,6 @@ export default function useQuickMatchLobby() {
   } = useWebSocketStore();
   const selectedTank = useAssetStore((state) => state.selectedTank);
   const { add, cleanup } = useSubscriptionGroup();
-
   const [lobbyState, setLobbyState] = useState<LobbyState>({
     error: null,
     state: "connecting_to_lobby",
@@ -83,13 +80,15 @@ export default function useQuickMatchLobby() {
   }
 
   useEffect(() => {
-    if (lobbyState.error !== null) return;
+    if (webSocketStatus === "disconnected") {
+      connect();
+    }
+  }, []);
+
+  useEffect(() => {
     const isConnected = webSocketStatus === "connected";
 
-    if (!isConnected) {
-      connect();
-      return;
-    }
+    if (!isConnected) return;
 
     const handleLobbyTopicMessage = (message: Message<LobbyEvent>) => {
       if (message.body.type === "LOBBY_CONNECT") {
@@ -150,14 +149,14 @@ export default function useQuickMatchLobby() {
 
     send({
       destination: "/app/lobby/quick-match",
-      body: { tankId: selectedTank?.id ?? "heavy-armor" },
+      body: { tankId: selectedTank!.id },
     });
 
     return () => {
       if (!isConnected) return;
       cleanup();
     };
-  }, [webSocketStatus === "connected", lobbyState.error === null]);
+  }, [webSocketStatus]);
 
   useEffect(() => {
     if (webSocketError) {
@@ -166,7 +165,6 @@ export default function useQuickMatchLobby() {
         error: webSocketError,
         state: "error",
       }));
-      disconnect();
     }
   }, [webSocketError]);
 

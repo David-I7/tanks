@@ -215,7 +215,8 @@ export default function useLobbyChat(lobbyId: string) {
               return {
                 ...prev,
                 messages: [...prev.messages, uiMessage],
-                messageState: "sent",
+                messageState:
+                  prev.messageState === "sending" ? "sent" : prev.messageState,
                 messageError: null,
               };
             });

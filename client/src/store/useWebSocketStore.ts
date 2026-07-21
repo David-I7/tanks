@@ -9,11 +9,23 @@ import WebSocketError from "../errors/WebSocketError";
 import InvalidStateError from "../errors/InvalidStateError";
 import type { WebSocketEventResponseDto } from "../api/ws/dto/WebSocketEventResponseDto";
 
-export type ConnectionStatus = "connecting" | "connected" | "disconnected";
+export type ConnectionStatus =
+  | "connecting"
+  | "reconnecting"
+  | "connected"
+  | "disconnected";
+
+export type DisconnectReason =
+  | "stompError"
+  | "manualDisconnect"
+  | "invalidAccessToken"
+  | "browserDisconnect"
+  | null;
 
 interface WebSocketState {
   status: ConnectionStatus;
   error: WebSocketError | null;
+  disconnectReason: DisconnectReason;
   connect: () => void;
   disconnect: () => void;
   send: (params: PublishParams) => void;
@@ -24,6 +36,7 @@ interface WebSocketState {
 
 export const useWebSocketStore = create<WebSocketState>((set, get) => {
   let client: TanksWSClient | null = null;
+  let disconnectReason: DisconnectReason = null;
 
   // Subscribe to useAuthStore to handle token updates and logout
   useAuthStore.subscribe((authState) => {
@@ -31,6 +44,7 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => {
     if (client) {
       if (authState.user === null) {
         // User logged out or token invalidated, disconnect
+        disconnectReason = "invalidAccessToken";
         disconnect();
       } else {
         // Token updated, update client
@@ -51,18 +65,25 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => {
 
     client = new TanksWSClient(accessToken!, refresh);
 
-    set({ status: "connecting", error: null });
+    set({ status: "connecting" });
 
     client.onConnect(() => {
-      set({ status: "connected", error: null });
+      set({ status: "connected", error: null, disconnectReason: null });
     });
 
     client.onWebSocketClose(() => {
-      set({ status: "disconnected" });
+      if (disconnectReason === null) {
+        disconnectReason = "browserDisconnect";
+        set({ status: "reconnecting", error: null, disconnectReason });
+      } else {
+        set({ status: "disconnected", disconnectReason });
+      }
     });
 
     client.onStompError((err) => {
+      disconnectReason = "stompError";
       set({ error: new WebSocketError(err) });
+      disconnect();
     });
 
     client.activate();
@@ -80,13 +101,17 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => {
     if (client === null) {
       createClient();
     } else {
-      set({ status: "connecting", error: null });
+      set({ status: "connecting", error: null, disconnectReason: null });
       client.activate();
     }
+    disconnectReason = null;
   };
 
   const disconnect = () => {
     if (client === null) return;
+    if (disconnectReason === null) {
+      disconnectReason = "manualDisconnect";
+    }
     client.deactivate();
   };
 
@@ -107,7 +132,7 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => {
   return {
     status: "disconnected",
     error: null,
-
+    disconnectReason: null,
     connect,
     disconnect,
     send,
