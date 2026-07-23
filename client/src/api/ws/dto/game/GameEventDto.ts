@@ -1,4 +1,3 @@
-import type { PlayerId } from "../gameplay/OnlineGameplayProtocol";
 import type { WebSocketEventResponseDto } from "../WebSocketEventResponseDto";
 
 export type GameEventPayload = {
@@ -7,24 +6,10 @@ export type GameEventPayload = {
   triggeredBy: string;
 };
 
-export type GameStartedPayload = {
-  gameSessionId: string;
-  playerA: string;
-  playerB: string;
-  gameStartedAt: string;
-  gameContentVersion: string;
-  localPlayerId: PlayerId;
+export type GameEvent = {
+  type: "GAME_CONNECT" | "GAME_LEAVE" | "GAME_CREATED" | "GAME_DISCONNECT";
+  payload: GameEventPayload;
 };
-
-export type GameEvent =
-  | {
-      type: "GAME_CONNECT" | "GAME_LEAVE" | "GAME_CREATED";
-      payload: GameEventPayload;
-    }
-  | {
-      type: "GAME_STARTED";
-      payload: GameStartedPayload;
-    };
 
 export function isGameEvent(
   event: WebSocketEventResponseDto,
@@ -33,6 +18,6 @@ export function isGameEvent(
     event.type === "GAME_CONNECT" ||
     event.type === "GAME_LEAVE" ||
     event.type === "GAME_CREATED" ||
-    event.type === "GAME_STARTED"
+    event.type === "GAME_DISCONNECT"
   );
 }

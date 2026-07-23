@@ -4,25 +4,67 @@ import { uuidSchema } from "../../validation/lobby";
 import { useWebSocketStore } from "../../store/useWebSocketStore";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Loader from "../../components/misc/Loader";
-import { createOnlineGameplayTransport } from "../../game/online/onlineGameplayTransport";
 import { createOnlineGameManager, GameEngine } from "../../game";
 import type { RendererAssets } from "../../game/rendering/CanvasGameRenderer";
 import IconButton from "../../components/buttons/IconButton";
 import { useAssetStore } from "../../store/useAssetStore";
+import useGameSession from "./useGameSession";
+import { useAuthStore } from "../../store/useAuthStore";
+import InvalidStateError from "../../errors/InvalidStateError";
+import UiError from "../../errors/UiError";
 
 export default function GamePage() {
   const { id } = useParams();
+  const checked = useCheckValidGameSession({ id });
 
-  if (typeof id !== "string" || !uuidSchema.safeParse(id).success) {
-    throw new Error("Invalid game id");
+  if (!checked) {
+    return null;
   }
 
-  return <GameView gameSessionId={id} />;
+  return <GameView gameSessionId={id!} />;
+}
+
+function useCheckValidGameSession({ id }: { id: string | undefined }) {
+  const userStatus = useAuthStore((state) => state.userStatus);
+  const navigate = useNavigate();
+  const [checked, setChecked] = useState(false);
+
+  useEffect(() => {
+    // Should never happen because of RefreshUserStatusDecorator
+    if (userStatus === null)
+      throw new InvalidStateError(
+        "User status is null, but should be initialized",
+      );
+
+    if (userStatus.state !== "IN_GAME") {
+      if (userStatus.state === "IDLE") {
+        throw new UiError({
+          description:
+            "You are not currently in a game. Please join a game session first.",
+          heading: "Not in a game session",
+        });
+      } else if (userStatus.state === "IN_LOBBY") {
+        throw new UiError({
+          description:
+            "You are currently in a lobby. Please join a game session from the lobby.",
+          heading: "In a lobby",
+        });
+      }
+    }
+
+    if (userStatus.gameId !== id) {
+      navigate(`/game/${userStatus.gameId}`, { replace: true });
+    }
+
+    setChecked(true);
+  }, [userStatus, id]);
+
+  return checked;
 }
 
 function GameView({ gameSessionId }: { gameSessionId: string }) {
   const navigate = useNavigate();
-  const { status, connect } = useWebSocketStore();
+  const { state } = useGameSession(gameSessionId);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const engineRef = useRef<GameEngine | null>(null);
 
@@ -101,10 +143,6 @@ function GameView({ gameSessionId }: { gameSessionId: string }) {
       return;
     }
 
-    const gameplayTransport = createOnlineGameplayTransport({
-      client,
-      gameSessionId,
-    });
     const gameManager = createOnlineGameManager({
       transport: gameplayTransport,
     });
@@ -152,7 +190,7 @@ function GameView({ gameSessionId }: { gameSessionId: string }) {
       }
       setHasViewState(false);
     };
-  }, [client, gameSessionId, isSessionReady, rendererAssets, status]);
+  }, [gameSessionId]);
 
   return (
     <main className="relative z-10 flex min-h-screen flex-col bg-background p-4 text-text-body-high">
@@ -172,15 +210,28 @@ function GameView({ gameSessionId }: { gameSessionId: string }) {
       </header>
 
       <div className="relative flex min-h-[560px] flex-1">
+        {(state === "connecting_to_game" ||
+          state === "reconnecting_to_game") && (
+          <>
+            {state === "connecting_to_game" && (
+              <p className="text-lg font-medium text-text-body-muted">
+                Connecting to game...
+              </p>
+            )}
+            {state === "reconnecting_to_game" && (
+              <p className="text-lg font-medium text-text-body-muted">
+                Reconnecting to game...
+              </p>
+            )}
+            <div className="absolute inset-0 flex items-center justify-center rounded bg-background/70">
+              <Loader />
+            </div>
+          </>
+        )}
         <canvas
           ref={canvasRef}
           className="min-h-[560px] min-w-[320px] flex-1 rounded border border-border-main bg-background-high shadow-lg"
         />
-        {!hasViewState && (
-          <div className="absolute inset-0 flex items-center justify-center rounded bg-background/70">
-            <Loader />
-          </div>
-        )}
       </div>
     </main>
   );

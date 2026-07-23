@@ -78,7 +78,6 @@ type LobbyChatState = {
   messages: ChatMessage[];
   typingUser: string | null;
   messageError: ApiError | null;
-  webSocketError: WebSocketError | null;
   messageState: "sent" | "error" | "sending" | "initial";
 };
 
@@ -87,8 +86,6 @@ export default function useLobbyChat(lobbyId: string) {
     subscribe,
     send,
     status,
-    error: webSocketError,
-    disconnect,
     status: webSocketStatus,
   } = useWebSocketStore();
   const user = useAuthStore((state) => state.user);
@@ -96,7 +93,6 @@ export default function useLobbyChat(lobbyId: string) {
     messages: [],
     typingUser: null,
     messageError: null,
-    webSocketError: null,
     messageState: "initial",
   });
   const { add, cleanup } = useSubscriptionGroup();
@@ -130,16 +126,6 @@ export default function useLobbyChat(lobbyId: string) {
       return { ...prev, messageState: "sending", messageError: null };
     });
   };
-
-  useEffect(() => {
-    if (webSocketError) {
-      disconnect();
-      setLobbyState((prev) => ({
-        ...prev,
-        webSocketError: webSocketError,
-      }));
-    }
-  }, [webSocketError]);
 
   useEffect(() => {
     const isConnected = status === "connected";

@@ -74,6 +74,7 @@ export default function usePrivateLobby() {
     if (webSocketStatus !== "disconnected" || lobbyState.state !== "error")
       return;
     resetLobbyState();
+    connect();
   };
   const startGame = () => {
     if (lobbyState.state !== "ready_to_start" || !lobbyState.isHost) return;
@@ -119,14 +120,21 @@ export default function usePrivateLobby() {
   }, []);
 
   useEffect(() => {
+    if (webSocketStatus === "reconnecting") {
+      resetLobbyState();
+    }
+  }, [webSocketStatus]);
+
+  useEffect(() => {
     const isConnected = webSocketStatus === "connected";
 
     if (!isConnected) return;
 
     const handleLobbyConnect = (message: Message<LobbyEvent>) => {
       setLobbyState((prev) => {
-        const nextPlayerCount = prev.playerCount + 1;
         const isHost = message.body.payload.hostId === user!.id;
+        const nextPlayerCount =
+          isHost && message.body.payload.triggeredBy === user!.username ? 1 : 2;
         return {
           ...prev,
           id: message.body.payload.id,
@@ -138,17 +146,20 @@ export default function usePrivateLobby() {
         };
       });
     };
-    const handleLobbyDisconnect = (message: Message<LobbyEvent>) => {
+
+    const handleLobbyLeave = (message: Message<LobbyEvent>) => {
+      if (message.body.payload.triggeredBy === user!.username) {
+        navigate("/", { replace: true });
+        return;
+      }
+
       setLobbyState((prev) => {
-        const nextPlayerCount = prev.playerCount - 1;
-        const isHost = message.body.payload.hostId === user!.id;
         return {
           ...prev,
           id: message.body.payload.id,
-          playerCount: nextPlayerCount,
-          isHost,
-          state:
-            nextPlayerCount === 2 ? "ready_to_start" : "waiting_for_players",
+          playerCount: 1,
+          isHost: message.body.payload.hostId === user!.id,
+          state: "waiting_for_players",
           error: null,
         };
       });
@@ -160,11 +171,12 @@ export default function usePrivateLobby() {
           handleLobbyConnect(message as Message<LobbyEvent>);
           return;
         }
+
         if (
-          message.body.type === "LOBBY_DISCONNECT" ||
-          message.body.type === "LOBBY_LEAVE"
+          message.body.type === "LOBBY_LEAVE" ||
+          message.body.type === "LOBBY_DISCONNECT"
         ) {
-          handleLobbyDisconnect(message as Message<LobbyEvent>);
+          handleLobbyLeave(message as Message<LobbyEvent>);
           return;
         }
       };

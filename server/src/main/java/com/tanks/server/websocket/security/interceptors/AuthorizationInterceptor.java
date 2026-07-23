@@ -93,10 +93,6 @@ public class AuthorizationInterceptor implements ChannelInterceptor {
             return message;
         }
 
-        if (StompCommand.DISCONNECT.equals(accessor.getCommand())) {
-            return message;
-        }
-
         if (!StompCommand.SUBSCRIBE.equals(accessor.getCommand()) && !StompCommand.SEND.equals(accessor.getCommand())) {
             return message;
         }
@@ -118,14 +114,10 @@ public class AuthorizationInterceptor implements ChannelInterceptor {
         ReentrantLock lock2 = claimService.getSocketLock(userSession.getId());
         if (lock2 == null) throw new ProblemDetailException(HttpStatus.BAD_REQUEST, "User disconnected");
 
-        try {
-            if (StompCommand.SUBSCRIBE.equals(accessor.getCommand())) {
-                handlePreSubscribe(authentication, accessor);
-            } else if (StompCommand.SEND.equals(accessor.getCommand())) {
-                handlePreSend(authentication, accessor);
-            }
-        } catch (Exception e) {
-            throw e;
+        if (StompCommand.SUBSCRIBE.equals(accessor.getCommand())) {
+            handlePreSubscribe(authentication, accessor);
+        } else if (StompCommand.SEND.equals(accessor.getCommand())) {
+            handlePreSend(authentication, accessor);
         }
 
         return message;

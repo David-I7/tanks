@@ -16,11 +16,9 @@ import com.tanks.server.websocket.dto.gameplay.OnlineStateDiffResponseType;
 import com.tanks.server.websocket.dto.game.GameEventResponseDto;
 import com.tanks.server.websocket.dto.game.GameEventType;
 import com.tanks.server.websocket.dto.game.GameEventPayload;
-import com.tanks.server.websocket.dto.game.GameStartPayload;
 import com.tanks.server.websocket.entities.gameSession.GameSession;
 import com.tanks.server.websocket.entities.gameSession.GameSessionState;
 import com.tanks.server.websocket.entities.lobby.Lobby;
-import com.tanks.server.websocket.entities.lobby.LobbyStatus;
 import com.tanks.server.websocket.entities.lobby.LobbyType;
 import com.tanks.server.websocket.entities.userSession.UserSession;
 import com.tanks.server.websocket.events.GameEvent;
@@ -63,12 +61,8 @@ public class GameSessionService {
     private final UserRepository userRepository;
 
     public GameSession create(Lobby lobby) {
-        if (lobby.getStatus() != LobbyStatus.READY || lobby.getOpponentId() == null) {
-            throw new ProblemDetailException(HttpStatus.CONFLICT, "Lobby is no longer ready to create a game.", URI.create("/game/create"));
-        }
-
-        UserSession host = userSessionService.findById(lobby.getHostId());
-        UserSession opponent = userSessionService.findById(lobby.getOpponentId());
+        UserSession host = userSessionService.findById(lobby.getHost().getId());
+        UserSession opponent = userSessionService.findById(lobby.getOpponent().getId());
         UserSession originalHost = new UserSession(host);
         UserSession originalOpponent = new UserSession(opponent);
         GameSession savedGameSession = null;
@@ -148,33 +142,10 @@ public class GameSessionService {
         gameSession.setState(GameSessionState.STARTED);
         gameRepository.save(gameSession);
 
-        eventPublisher.publishEvent(new GameEvent(
-                this,
-                gameSession.getPlayerA(),
-                "/queue/replies",
-                gameStartedResponse(gameSession, PLAYER_A_ID)));
-        eventPublisher.publishEvent(new GameEvent(
-                this,
-                gameSession.getPlayerB(),
-                "/queue/replies",
-                gameStartedResponse(gameSession, PLAYER_B_ID)));
         sendInitialStateToPlayer(gameSession, gameSession.getPlayerA());
         sendInitialStateToPlayer(gameSession, gameSession.getPlayerB());
 
         log.debug("Game started: {} vs {}", gameSession.getPlayerA(), gameSession.getPlayerB());
-
-    }
-
-    private GameEventResponseDto gameStartedResponse(GameSession gameSession, long localPlayerId) {
-        return new GameEventResponseDto(
-                GameEventType.GAME_STARTED,
-                new GameStartPayload(
-                        gameSession.getId(),
-                        gameSession.getPlayerA(),
-                        gameSession.getPlayerB(),
-                        gameSession.getStartedAt(),
-                        gameSession.getGameContentVersion(),
-                        localPlayerId));
     }
 
     public void sendInitialStateToPlayer(GameSession gameSession, String username) {

@@ -58,6 +58,8 @@ export default function useQuickMatchLobby() {
       playerCount: 0,
       state: "connecting_to_lobby",
     }));
+
+    connect();
   };
 
   function handleLobbyConnect(message: Message<LobbyEvent>) {
@@ -82,6 +84,16 @@ export default function useQuickMatchLobby() {
   useEffect(() => {
     if (webSocketStatus === "disconnected") {
       connect();
+    }
+  }, []);
+
+  useEffect(() => {
+    if (webSocketStatus === "reconnecting") {
+      setLobbyState((_) => ({
+        error: null,
+        playerCount: 0,
+        state: "connecting_to_lobby",
+      }));
     }
   }, []);
 

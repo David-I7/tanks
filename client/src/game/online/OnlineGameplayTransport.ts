@@ -13,19 +13,15 @@ import type {
 import type { GameEvent } from "../../api/ws/dto/game/GameEventDto";
 
 type OnlineGameplayClient = {
-  publish(params: PublishParams): void;
+  send(params: PublishParams): void;
   subscribe<Data>(params: EndpointSubscription<Data>): SubscriptionCleanup;
 };
 
 export type OnlineGameplayTransport = {
   sendPlayerIntent(intent: OnlinePlayerIntentRequestDto): void;
   requestResyncState(): void;
-  subscribeToStateDiffs(
-    listener: (diff: OnlineDiffResponseDto) => void,
-  ): SubscriptionCleanup;
-  subscribeToGameEvents(
-    listener: (event: GameEvent) => void,
-  ): SubscriptionCleanup;
+  subscribeToStateDiffs(listener: (diff: OnlineDiffResponseDto) => void): void;
+  subscribeToGameEvents(listener: (event: GameEvent) => void): void;
   destroy(): void;
 };
 
@@ -34,18 +30,6 @@ export function createOnlineGameplayTransport(options: {
   gameSessionId: GameSessionId;
 }): OnlineGameplayTransport {
   const cleanups = new Set<SubscriptionCleanup>();
-
-  const trackCleanup = (cleanup: SubscriptionCleanup): SubscriptionCleanup => {
-    let active = true;
-    const trackedCleanup = () => {
-      if (!active) return;
-      active = false;
-      cleanups.delete(trackedCleanup);
-      cleanup();
-    };
-    cleanups.add(trackedCleanup);
-    return trackedCleanup;
-  };
 
   const subscribeToGameTopic = <Data>(
     onMessage: (message: Message<Data>) => void,
@@ -58,7 +42,7 @@ export function createOnlineGameplayTransport(options: {
 
   return {
     sendPlayerIntent(intent: OnlinePlayerIntentRequestDto): void {
-      options.client.publish({
+      options.client.send({
         destination: "/app/game/:id/intent",
         id: options.gameSessionId,
         body: intent,
@@ -66,7 +50,7 @@ export function createOnlineGameplayTransport(options: {
     },
 
     requestResyncState(): void {
-      options.client.publish({
+      options.client.send({
         destination: "/app/game/:id/resync",
         id: options.gameSessionId,
       });
@@ -89,11 +73,6 @@ export function createOnlineGameplayTransport(options: {
         onMessage: handleMessage,
       });
       const topicCleanup = subscribeToGameTopic(handleMessage);
-
-      return trackCleanup(() => {
-        replyCleanup();
-        topicCleanup();
-      });
     },
 
     subscribeToGameEvents(
@@ -111,10 +90,10 @@ export function createOnlineGameplayTransport(options: {
       });
       const topicCleanup = subscribeToGameTopic<GameEvent>(handleMessage);
 
-      return trackCleanup(() => {
+      return () => {
         replyCleanup();
         topicCleanup();
-      });
+      };
     },
 
     destroy(): void {
