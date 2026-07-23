@@ -74,7 +74,7 @@ public class GameAuthorizationService {
             );
         }
 
-        if(!lobby.getHostId().equals(userSession.getId())){
+        if(!lobby.getHost().getId().equals(userSession.getId())){
             throw new ProblemDetailException(
                     HttpStatus.UNAUTHORIZED,
                     "Player is not the host of the lobby.",

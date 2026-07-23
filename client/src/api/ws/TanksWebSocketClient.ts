@@ -28,9 +28,7 @@ export type PublishParams =
   | {
       destination:
         | "/app/chat/:id/send"
-        | "/app/game/:id/intent"
         | "/app/game/:id/send"
-        | "/app/game/:id/resync"
         | "/app/lobby/join/private/:id";
 
       id: string | number;

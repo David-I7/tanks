@@ -1,42 +1,54 @@
-import { useState } from "react";
-import { useNavigate, useRouteError } from "react-router-dom";
-import {
-  AlertTriangle,
-  Check,
-  ChevronDown,
-  ChevronUp,
-  Copy,
-  Home,
-  LogIn,
-  RefreshCw,
-  RotateCcw,
-  Undo2,
-} from "lucide-react";
-import Button from "../../components/buttons/Button";
-import H1 from "../../components/headings/H1";
-import AppBackground from "../../components/layouts/AppBackground";
-import Surface from "../../components/layouts/Surface";
+import { isRouteErrorResponse, useRouteError } from "react-router-dom";
+import useClipboard from "../../hooks/useClipboard";
+import PageNotFound from "../../errors/PageNotFoundError";
+import UiErrorPage from "./UiErrorPage";
+import UiError from "../../errors/UiError";
 
 export default function GlobalErrorPage() {
   const error = useRouteError();
-  const navigate = useNavigate();
-  //const [showDiagnostics, setShowDiagnostics] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const { copied, copyText } = useClipboard();
   const isDev = import.meta.env.DEV;
 
-  if (isDev) {
-    console.error(error);
+  if (
+    (isRouteErrorResponse(error) && error.status === 404) ||
+    error instanceof PageNotFound
+  ) {
+    const path =
+      error instanceof PageNotFound ? error.path : error.data?.path || "";
+    return (
+      <UiErrorPage
+        error={
+          new UiError({
+            description: `Could not find the requested page: ${path}`,
+            heading: "Page Not Found",
+          })
+        }
+      />
+    );
+  } else if (error instanceof UiError) {
+    return <UiErrorPage error={error} />;
   }
 
-  const handleCopyDiagnostics = async () => {
-    try {
-      await navigator.clipboard.writeText("");
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (copyError) {
-      console.error("Failed to copy diagnostics", copyError);
-    }
-  };
-
-  return "Error";
+  return (
+    <>
+      {
+        <UiErrorPage
+          error={
+            new UiError({
+              description: "An unexpected error occurred.",
+              heading: "Something went wrong",
+            })
+          }
+        />
+      }
+      {isDev && (
+        <div>
+          <p>Error: {error instanceof Error ? error.message : String(error)}</p>
+          <button onClick={() => copyText(String(error))}>
+            {copied ? "Copied!" : "Copy error to clipboard"}
+          </button>
+        </div>
+      )}
+    </>
+  );
 }

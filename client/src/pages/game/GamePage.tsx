@@ -1,158 +1,64 @@
 import { ArrowLeft } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
-import { uuidSchema } from "../../validation/lobby";
-import { useWebSocketStore } from "../../store/useWebSocketStore";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Loader from "../../components/misc/Loader";
-import { createOnlineGameplayTransport } from "../../game/online/onlineGameplayTransport";
-import { createOnlineGameManager, GameEngine } from "../../game";
-import type { RendererAssets } from "../../game/rendering/CanvasGameRenderer";
 import IconButton from "../../components/buttons/IconButton";
-import { useAssetStore } from "../../store/useAssetStore";
+import useGameSession from "./useGameSession";
+import { useAuthStore } from "../../store/useAuthStore";
+import InvalidStateError from "../../errors/InvalidStateError";
+import UiError from "../../errors/UiError";
 
 export default function GamePage() {
   const { id } = useParams();
+  const checked = useCheckValidGameSession({ id });
 
-  if (typeof id !== "string" || !uuidSchema.safeParse(id).success) {
-    throw new Error("Invalid game id");
+  if (!checked) {
+    return null;
   }
 
-  return <GameView gameSessionId={id} />;
+  return <GameView gameSessionId={id!} />;
+}
+
+function useCheckValidGameSession({ id }: { id: string | undefined }) {
+  const userStatus = useAuthStore((state) => state.userStatus);
+  const navigate = useNavigate();
+  const [checked, setChecked] = useState(false);
+
+  useEffect(() => {
+    if (userStatus === null)
+      throw new InvalidStateError(
+        "User status is null, but should be initialized",
+      );
+
+    if (userStatus.state !== "IN_GAME") {
+      if (userStatus.state === "IDLE") {
+        throw new UiError({
+          description:
+            "You are not currently in a game. Please join a game session first.",
+          heading: "Not in a game session",
+        });
+      } else if (userStatus.state === "IN_LOBBY") {
+        throw new UiError({
+          description:
+            "You are currently in a lobby. Please join a game session from the lobby.",
+          heading: "In a lobby",
+        });
+      }
+    }
+
+    if (userStatus.gameId !== id) {
+      navigate(`/game/${userStatus.gameId}`, { replace: true });
+    }
+
+    setChecked(true);
+  }, [userStatus, id]);
+
+  return checked;
 }
 
 function GameView({ gameSessionId }: { gameSessionId: string }) {
   const navigate = useNavigate();
-  const { status, connect } = useWebSocketStore();
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const engineRef = useRef<GameEngine | null>(null);
-
-  const tanks = useAssetStore((state) => state.tanks);
-  const assetState = useAssetStore((state) => state.state);
-  const loadAssets = useAssetStore((state) => state.loadAssets);
-
-  useEffect(() => {
-    if (assetState === "idle") {
-      loadAssets();
-    }
-  }, [assetState, loadAssets]);
-
-  const rendererAssets = useMemo<RendererAssets>(() => {
-    const tankImages: Record<string, HTMLImageElement> = {};
-    const projectileImages: Record<string, HTMLImageElement> = {};
-
-    if (tanks) {
-      tanks.forEach((t) => {
-        if (t.image) {
-          tankImages[t.id] = t.image;
-        }
-        t.projectiles?.forEach((p) => {
-          if (p.image) {
-            projectileImages[p.id] = p.image;
-          }
-        });
-      });
-    }
-
-    return {
-      tankImages,
-      projectileImages,
-      tankImage: Object.values(tankImages)[0],
-    };
-  }, [tanks]);
-
-  const [isSessionReady, setIsSessionReady] = useState(false);
-  const [hasViewState, setHasViewState] = useState(false);
-
-  useEffect(() => {
-    if (client === null) {
-      connect();
-      return;
-    }
-
-    if (status !== "connected") return;
-
-    let cancelled = false;
-    let errorsCleanup: (() => void) | undefined;
-    setIsSessionReady(false);
-
-    errorsCleanup = client.subscribe<unknown>({
-      destination: "/user/queue/errors",
-      onMessage: (message) => {
-        console.error("Error:", message.body);
-      },
-    });
-
-    return () => {
-      cancelled = true;
-      errorsCleanup?.();
-      setIsSessionReady(false);
-    };
-  }, [client, gameSessionId, getAuthStatus, navigate, status]);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (
-      !canvas ||
-      !client ||
-      status !== "connected" ||
-      !isSessionReady ||
-      rendererAssets === null
-    ) {
-      return;
-    }
-
-    const gameplayTransport = createOnlineGameplayTransport({
-      client,
-      gameSessionId,
-    });
-    const gameManager = createOnlineGameManager({
-      transport: gameplayTransport,
-    });
-    let engine: GameEngine | null = null;
-    let resizeObserver: ResizeObserver | null = null;
-    let unsubscribeViewState: (() => void) | null = null;
-    let unsubscribeInitialState: () => void = () => {};
-
-    unsubscribeInitialState = gameManager.subscribe(() => {
-      if (engine || !canvas) return;
-
-      engineRef.current?.stop();
-      engine = new GameEngine({
-        canvas,
-        gameManager,
-        rendererAssets,
-      });
-      engineRef.current = engine;
-      setHasViewState(true);
-      unsubscribeViewState = engine.subscribe(() => {
-        setHasViewState(true);
-      });
-      engine.start();
-
-      resizeObserver = new ResizeObserver(() => {
-        engine?.resize();
-      });
-      resizeObserver.observe(canvas);
-
-      unsubscribeInitialState();
-      unsubscribeInitialState = () => {};
-    });
-
-    return () => {
-      unsubscribeInitialState();
-      resizeObserver?.disconnect();
-      unsubscribeViewState?.();
-      engine?.stop();
-      if (!engine) {
-        gameManager.destroy();
-      }
-      gameplayTransport.destroy();
-      if (engineRef.current === engine) {
-        engineRef.current = null;
-      }
-      setHasViewState(false);
-    };
-  }, [client, gameSessionId, isSessionReady, rendererAssets, status]);
+  const { state } = useGameSession(gameSessionId);
 
   return (
     <main className="relative z-10 flex min-h-screen flex-col bg-background p-4 text-text-body-high">
@@ -163,22 +69,32 @@ function GameView({ gameSessionId }: { gameSessionId: string }) {
             icon={<ArrowLeft size={16} />}
           />
           <h1 className="font-heading text-xl font-bold tracking-wide text-primary">
-            Online Game
+            Game Session
           </h1>
         </div>
         <div className="text-sm font-medium text-text-body-muted">
-          {hasViewState ? "Online Mode" : "Connecting"}
+          Active Session
         </div>
       </header>
 
-      <div className="relative flex min-h-[560px] flex-1">
-        <canvas
-          ref={canvasRef}
-          className="min-h-[560px] min-w-[320px] flex-1 rounded border border-border-main bg-background-high shadow-lg"
-        />
-        {!hasViewState && (
-          <div className="absolute inset-0 flex items-center justify-center rounded bg-background/70">
+      <div className="relative flex flex-1 flex-col items-center justify-center rounded border border-border-main bg-background-high p-8 shadow-lg">
+        {state === "connecting_to_game" || state === "reconnecting_to_game" ? (
+          <div className="flex flex-col items-center gap-4">
             <Loader />
+            <p className="text-lg font-medium text-text-body-muted">
+              {state === "connecting_to_game"
+                ? "Connecting to game session..."
+                : "Reconnecting to game session..."}
+            </p>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center gap-4 text-center">
+            <div className="rounded-full bg-primary/10 p-4 text-primary font-semibold text-lg">
+              Game Session Active
+            </div>
+            <p className="max-w-md text-text-body-muted">
+              Connected to game session successfully.
+            </p>
           </div>
         )}
       </div>

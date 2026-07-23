@@ -14,8 +14,6 @@ import Loader from "../../components/misc/Loader";
 import InvalidStateError from "../../errors/InvalidStateError";
 import FormError from "../../components/form/FormError";
 import { useFetch } from "../../hooks/useFetch";
-import type { TanksRequest } from "../../api/http/requests/TanksRequest";
-import type RefreshResponseDto from "../../api/http/dto/RefreshResponseDto";
 import PostOauth2RegisterRequest from "../../api/http/requests/auth/PostOauth2RegisterRequest";
 
 type PostOAuth2RegisterFormProps = { token: string };

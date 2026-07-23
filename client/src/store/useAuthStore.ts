@@ -37,6 +37,7 @@ type AuthState = {
 
 export const useAuthStore = create<AuthState>((set, get) => {
   const tanksClient = new TanksClient();
+  const promiseMap = new Map();
 
   function handleError(err: unknown) {
     if (err instanceof ApiError) {
@@ -59,7 +60,10 @@ export const useAuthStore = create<AuthState>((set, get) => {
       );
 
     try {
-      const data = await tanksClient.send(new AuthStatusRequest());
+      const promise =
+        promiseMap.get("status") ?? tanksClient.send(new AuthStatusRequest());
+      promiseMap.set("status", promise);
+      const data = await promise;
       set((prev) => ({
         ...prev,
         user: data.user,
@@ -74,7 +78,10 @@ export const useAuthStore = create<AuthState>((set, get) => {
 
   async function refresh() {
     try {
-      const response = await tanksClient.send(new RefreshRequest());
+      const promise =
+        promiseMap.get("refresh") ?? tanksClient.send(new RefreshRequest());
+      promiseMap.set("refresh", promise);
+      const response = await promise;
       TanksClient.setAccessToken(response.accessToken);
       set({
         accessToken: response.accessToken,
@@ -95,7 +102,10 @@ export const useAuthStore = create<AuthState>((set, get) => {
 
   async function loginOrRegister(request: TanksRequest<RefreshResponseDto>) {
     try {
-      const data = await tanksClient.send(request);
+      const promise =
+        promiseMap.get("loginOrRegister") ?? tanksClient.send(request);
+      promiseMap.set("loginOrRegister", promise);
+      const data = await promise;
       TanksClient.setAccessToken(data.accessToken);
       set({
         accessToken: data.accessToken,
@@ -111,7 +121,10 @@ export const useAuthStore = create<AuthState>((set, get) => {
 
   async function logout() {
     try {
-      await new TanksClient().send(new LogoutRequest());
+      const promise =
+        promiseMap.get("logout") ?? new TanksClient().send(new LogoutRequest());
+      promiseMap.set("logout", promise);
+      await promise;
       TanksClient.setAccessToken("");
       set({
         accessToken: null,

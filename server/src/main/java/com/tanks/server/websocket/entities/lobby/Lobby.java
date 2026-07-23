@@ -19,17 +19,17 @@ public class Lobby {
 
     private LobbyStatus status;
 
-    private Long hostId;
+    private LobbyPlayerConfig host;
 
-    private Long opponentId;
+    private LobbyPlayerConfig opponent;
 
     public Lobby(Lobby other) {
         if (other != null) {
             this.id = other.id;
             this.type = other.type;
             this.status = other.status;
-            this.hostId = other.hostId;
-            this.opponentId = other.opponentId;
+            this.host = new LobbyPlayerConfig(other.host);
+            this.opponent = new LobbyPlayerConfig(other.opponent);
         }
     }
 }
