@@ -79,7 +79,7 @@ public class QuickMatchService {
     private boolean isValidWaitingQuickMatchLobby(Lobby lobby) {
         return lobby.getType() == LobbyType.QUICK_MATCH
                 && lobby.getStatus() == LobbyStatus.WAITING_FOR_OPPONENT
-                && lobby.getHostId() != null
-                && lobby.getOpponentId() == null;
+                && lobby.getHost() != null && lobby.getHost().getId() != null
+                && lobby.getOpponent() == null;
     }
 }

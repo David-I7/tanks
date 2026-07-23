@@ -20,7 +20,6 @@ import com.tanks.server.websocket.services.UserSessionService;
 import com.tanks.server.websocket.services.ClaimService;
 import com.tanks.server.websocket.events.GameEvent;
 import com.tanks.server.websocket.events.LobbyEvent;
-import com.tanks.server.websocket.events.OnlineGameplayEvent;
 import com.tanks.server.websocket.events.WebSocketEvent;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
@@ -67,11 +66,6 @@ public class WebSocketEventListeners {
 
     @EventListener
     public void handleGameEvent(GameEvent event) {
-        send(event);
-    }
-
-    @EventListener
-    public void handleOnlineGameplayEvent(OnlineGameplayEvent event) {
         send(event);
     }
 

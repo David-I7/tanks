@@ -12,7 +12,6 @@ import {
 } from "../../api/ws/dto/lobby/LobbyEventDto";
 import { useSubscriptionGroup } from "../../hooks/useSubscriptionGroup";
 import type { ApiError } from "../../errors/ApiError";
-import type WebSocketError from "../../errors/WebSocketError";
 import InvalidStateError from "../../errors/InvalidStateError";
 
 const DEBOUNCE_TYPING_TIMEOUT = 1000; // 1 sec

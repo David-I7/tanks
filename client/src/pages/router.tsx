@@ -8,7 +8,6 @@ import RegisterPage from "./register/RegisterPage";
 import AuthenticatedRoute from "../components/auth/AuthenticatedRoute";
 import LobbyPage from "./lobby/LobbyPage";
 import GamePage from "./game/GamePage";
-import LocalGamePage from "./game/LocalGamePage";
 import RefreshUserStatusDecorator from "../components/decorators/RefreshUserStatusDecorator";
 
 const router = createBrowserRouter([
@@ -38,7 +37,9 @@ const router = createBrowserRouter([
         path: "lobby/:id",
         element: (
           <AuthenticatedRoute>
-            <LobbyPage />
+            <RefreshUserStatusDecorator blocking fallback={null}>
+              <LobbyPage />
+            </RefreshUserStatusDecorator>
           </AuthenticatedRoute>
         ),
       },
@@ -51,10 +52,6 @@ const router = createBrowserRouter([
             </RefreshUserStatusDecorator>
           </AuthenticatedRoute>
         ),
-      },
-      {
-        path: "game/local",
-        element: <LocalGamePage />,
       },
     ],
   },

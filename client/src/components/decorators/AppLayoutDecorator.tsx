@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from "react";
+import { useEffect } from "react";
 import AppLayout from "../../components/layouts/AppLayout";
 import { useLocation } from "react-router-dom";
 import { useAssetStore } from "../../store/useAssetStore";

@@ -1,4 +1,4 @@
-import { useNavigate, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { uuidSchema } from "../../validation/lobby";
 import PrivateLobbyRoom from "./PrivateLobbyRoom";
 import { useAssetStore } from "../../store/useAssetStore";

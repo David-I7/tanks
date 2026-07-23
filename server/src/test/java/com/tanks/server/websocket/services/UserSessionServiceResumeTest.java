@@ -41,8 +41,8 @@ class UserSessionServiceResumeTest {
                 .build();
         Lobby lobby = Lobby.builder()
                 .id(lobbyId)
-                .hostId(1L)
-                .opponentId(2L)
+                .host(com.tanks.server.websocket.entities.lobby.LobbyPlayerConfig.builder().id(1L).build())
+                .opponent(com.tanks.server.websocket.entities.lobby.LobbyPlayerConfig.builder().id(2L).build())
                 .build();
 
         when(harness.userSessionRepository.findById(1L)).thenReturn(Optional.of(userSession));

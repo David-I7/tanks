@@ -8,21 +8,9 @@ import type ProblemDetailDto from "../../api/http/dto/ProblemDetailDto";
 import type { GameEvent } from "../../api/ws/dto/game/GameEventDto";
 import type { Message } from "../../api/ws/TanksWebSocketClient";
 import { useNavigate } from "react-router-dom";
-import { createOnlineGameplayTransport } from "../../game";
-import type { RendererAssets } from "../../game/rendering/CanvasGameRenderer";
 
 type GameState =
   | {
-      redererAssets: null;
-      gameplayTransport: null;
-      error: null;
-      state: "connecting_to_game" | "reconnecting_to_game";
-    }
-  | {
-      redererAssets: RendererAssets | null;
-      gameplayTransport: ReturnType<
-        typeof createOnlineGameplayTransport
-      > | null;
       error: null;
       state:
         | "connecting_to_game"
@@ -34,13 +22,10 @@ type GameState =
   | {
       error: ApiError | WebSocketError;
       state: "error";
-      gameplayTransport: null;
-      redererAssets: null;
     };
 
 export default function useGameSession(gameSessionId: string) {
   const {
-    send,
     subscribe,
     status: webSocketStatus,
     connect,
@@ -72,15 +57,13 @@ export default function useGameSession(gameSessionId: string) {
     connect();
   };
 
-  function handleGameConnect(message: Message<GameEvent>) {
-    setGameState((prev) => {
-      return {
-        ...prev,
-        state:
-          prev.state === "reconnecting_to_game" ? "in_game" : "starting_game",
-        error: null,
-      };
-    });
+  function handleGameConnect(_message: Message<GameEvent>) {
+    setGameState((prev) => ({
+      ...prev,
+      state:
+        prev.state === "reconnecting_to_game" ? "in_game" : "starting_game",
+      error: null,
+    }));
   }
 
   function handleGameLeave(message: Message<GameEvent>) {
@@ -95,7 +78,7 @@ export default function useGameSession(gameSessionId: string) {
 
   useEffect(() => {
     if (webSocketStatus === "reconnecting") {
-      setGameState((_) => ({
+      setGameState(() => ({
         error: null,
         state: "reconnecting_to_game",
       }));
