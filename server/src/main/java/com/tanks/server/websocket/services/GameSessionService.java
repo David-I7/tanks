@@ -1,10 +1,5 @@
 package com.tanks.server.websocket.services;
 
-import com.tanks.server.entities.User;
-import com.tanks.server.entities.gameResult.GameOutcome;
-import com.tanks.server.entities.gameResult.GameResult;
-import com.tanks.server.repositories.GameResultRepository;
-import com.tanks.server.repositories.UserRepository;
 import com.tanks.server.utils.IdFactory;
 import com.tanks.server.websocket.dto.game.GameEventPayload;
 import com.tanks.server.websocket.dto.game.GameEventResponseDto;
@@ -39,8 +34,6 @@ public class GameSessionService {
     private final QuickMatchService quickMatchService;
     private final ApplicationEventPublisher eventPublisher;
     private final ClaimService claimService;
-    private final GameResultRepository gameResultRepository;
-    private final UserRepository userRepository;
 
     public GameSession create(Lobby lobby) {
         UserSession host = userSessionService.findById(lobby.getHost().getId());
@@ -115,8 +108,7 @@ public class GameSessionService {
                 new GameEventPayload(gameSession.getId(), gameSession.getHostId(), gameSession.getPlayerA())
         );
 
-        eventPublisher.publishEvent(new GameEvent(this, gameSession.getPlayerA(), "/queue/replies", response));
-        eventPublisher.publishEvent(new GameEvent(this, gameSession.getPlayerB(), "/queue/replies", response));
+        eventPublisher.publishEvent(new GameEvent(this, null, "/topic/game/" + gameSession.getId(), response));
 
         log.debug("Game started: {} vs {}", gameSession.getPlayerA(), gameSession.getPlayerB());
     }
