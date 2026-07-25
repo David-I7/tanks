@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -21,10 +22,10 @@ public class UserService {
 
     @Transactional
     public void register(User user){
-        Optional<User> existingUser = repository.findByUsernameOrEmail(user.getUsername(),user.getEmail());
-        if(existingUser.isPresent()){
-            boolean sameEmail = user.getEmail().equals(existingUser.get().getEmail());
-            boolean sameUsername = user.getUsername().equals(existingUser.get().getUsername());
+        List<User> existingUsers = repository.findByUsernameOrEmail(user.getUsername(),user.getEmail());
+        if(!existingUsers.isEmpty()){
+            boolean sameEmail = existingUsers.size() == 2 || user.getEmail().equals(existingUsers.getFirst().getEmail());
+            boolean sameUsername = existingUsers.size() == 2 || user.getUsername().equals(existingUsers.getFirst().getUsername());
             String message = sameUsername && sameEmail ? "Username and email are already taken" : sameUsername ? "Username is taken" : "Email is taken";
             throw new ResponseStatusException(HttpStatus.CONFLICT,message);
         }
