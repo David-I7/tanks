@@ -9,7 +9,6 @@ import { useUserStatusQuery } from "../../hooks/useUserStatusQuery";
 export default function AppLayoutDecorator() {
   const location = useLocation();
   useAssetQuery();
-  useUserStatusQuery();
 
   useEffect(() => {
     const publicNonAuthPaths = ["/", "/game/local"];

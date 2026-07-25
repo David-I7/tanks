@@ -13,16 +13,14 @@ import H1 from "../../components/headings/H1";
 import { ApiError } from "../../errors/ApiError";
 import NetworkError from "../../errors/NetworkError";
 import type ContraintValidationDto from "../../api/http/dto/ConstraintValidationDto";
-import { useAuthStore } from "../../store/useAuthStore";
 import Loader from "../../components/misc/Loader";
 import InvalidStateError from "../../errors/InvalidStateError";
 import FormError from "../../components/form/FormError";
-import { useFetch } from "../../hooks/useFetch";
 import LoginRequest from "../../api/http/requests/auth/LoginRequest";
+import { useLoginMutation } from "../../hooks/useAuthMutations";
 
 export default function LoginForm() {
-  const login = useAuthStore((state) => state.passwordLogin);
-  const { trigger, error, isLoading } = useFetch(login);
+  const { mutate, isPending, error } = useLoginMutation();
   const [username, setUsername] = useState<string | undefined>(undefined);
   const [password, setPassword] = useState<string | undefined>(undefined);
   const [errors, setErrors] = useState<
@@ -81,7 +79,7 @@ export default function LoginForm() {
     };
 
     if (loginValidationResult.success) {
-      trigger(new LoginRequest(loginValidationResult.data));
+      mutate(new LoginRequest(loginValidationResult.data));
       return;
     } else {
       loginValidationResult.error.issues.forEach((issue) => {
@@ -162,9 +160,9 @@ export default function LoginForm() {
             type="submit"
             color="primary"
             variant="filled"
-            disabled={!isValidForm() || isLoading}
+            disabled={!isValidForm() || isPending}
           >
-            <span>{isLoading ? <Loader /> : "Log In"}</span>
+            <span>{isPending ? <Loader /> : "Log In"}</span>
           </Button>
           <div className="text-xs text-text-body/60 mt-4 text-center">
             Don't have an account?{" "}

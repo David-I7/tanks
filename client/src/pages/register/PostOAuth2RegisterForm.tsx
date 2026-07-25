@@ -14,17 +14,15 @@ import Loader from "../../components/misc/Loader";
 import InvalidStateError from "../../errors/InvalidStateError";
 import FormError from "../../components/form/FormError";
 import { useFetch } from "../../hooks/useFetch";
-import type { TanksRequest } from "../../api/http/requests/TanksRequest";
-import type RefreshResponseDto from "../../api/http/dto/RefreshResponseDto";
 import PostOauth2RegisterRequest from "../../api/http/requests/auth/PostOauth2RegisterRequest";
+import { useOAuth2RegisterMutation } from "../../hooks/useAuthMutations";
 
 type PostOAuth2RegisterFormProps = { token: string };
 
 export default function PostOAuth2RegisterForm({
   token,
 }: PostOAuth2RegisterFormProps) {
-  const register = useAuthStore((state) => state.postOAuth2Register);
-  const { trigger, error, isLoading } = useFetch(register);
+  const { mutate, isPending, error } = useOAuth2RegisterMutation();
   const [username, setUsername] = useState<string | undefined>(undefined);
   const [errors, setErrors] = useState<
     Record<"username" | "form", ValidationError | null>
@@ -69,7 +67,7 @@ export default function PostOAuth2RegisterForm({
     const usernameValidationResult = usernameSchema.safeParse(username);
 
     if (usernameValidationResult.success) {
-      await trigger(
+      mutate(
         new PostOauth2RegisterRequest({
           token,
           username: usernameValidationResult.data,
@@ -133,7 +131,7 @@ export default function PostOAuth2RegisterForm({
             variant="filled"
             disabled={!isValidForm()}
           >
-            {isLoading ? <Loader /> : "Continue"}
+            {isPending ? <Loader /> : "Continue"}
           </Button>
         </div>
       </div>

@@ -15,6 +15,7 @@ import { useAssetStore } from "../../store/useAssetStore";
 import type WebSocketError from "../../errors/WebSocketError";
 import { useSubscriptionGroup } from "../../hooks/useSubscriptionGroup";
 import type { LobbyEvent } from "../../api/ws/dto/lobby/LobbyEventDto";
+import { queryClient } from "../../query/queryClient";
 
 type LobbyState =
   | {
@@ -72,6 +73,7 @@ export default function usePrivateLobby() {
 
   const leaveLobby = () => {
     disconnect();
+    queryClient.invalidateQueries({ queryKey: ["userStatus"] });
   };
   const retry = () => {
     if (webSocketStatus !== "disconnected" || lobbyState.state !== "error")
@@ -84,6 +86,7 @@ export default function usePrivateLobby() {
     send({
       destination: "/app/game/create",
     });
+    queryClient.invalidateQueries({ queryKey: ["userStatus"] });
     setLobbyState((prev) => ({
       ...prev,
       state: "creating_game",

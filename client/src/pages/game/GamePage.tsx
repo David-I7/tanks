@@ -1,17 +1,14 @@
 import { ArrowLeft } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
-import { uuidSchema } from "../../validation/lobby";
-import { useWebSocketStore } from "../../store/useWebSocketStore";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Loader from "../../components/misc/Loader";
 import { createOnlineGameManager, GameEngine } from "../../game";
 import type { RendererAssets } from "../../game/rendering/CanvasGameRenderer";
 import IconButton from "../../components/buttons/IconButton";
-import { useAssetStore } from "../../store/useAssetStore";
 import useGameSession from "./useGameSession";
-import { useAuthStore } from "../../store/useAuthStore";
-import InvalidStateError from "../../errors/InvalidStateError";
 import UiError from "../../errors/UiError";
+import { useUserStatusQuery } from "../../hooks/useUserStatusQuery";
+import { useAssetQuery } from "../../hooks/useAssetQuery";
 
 export default function GamePage() {
   const { id } = useParams();
@@ -23,8 +20,6 @@ export default function GamePage() {
 
   return <GameView gameSessionId={id!} />;
 }
-
-import { useUserStatusQuery } from "../../hooks/useUserStatusQuery";
 
 function useCheckValidGameSession({ id }: { id: string | undefined }) {
   const { data: userStatus } = useUserStatusQuery();
@@ -66,15 +61,7 @@ function GameView({ gameSessionId }: { gameSessionId: string }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const engineRef = useRef<GameEngine | null>(null);
 
-  const tanks = useAssetStore((state) => state.tanks);
-  const assetState = useAssetStore((state) => state.state);
-  const loadAssets = useAssetStore((state) => state.loadAssets);
-
-  useEffect(() => {
-    if (assetState === "idle") {
-      loadAssets();
-    }
-  }, [assetState, loadAssets]);
+  const { data: tanks } = useAssetQuery();
 
   const rendererAssets = useMemo<RendererAssets>(() => {
     const tankImages: Record<string, HTMLImageElement> = {};
@@ -104,90 +91,7 @@ function GameView({ gameSessionId }: { gameSessionId: string }) {
   const [hasViewState, setHasViewState] = useState(false);
 
   useEffect(() => {
-    if (client === null) {
-      connect();
-      return;
-    }
-
-    if (status !== "connected") return;
-
-    let cancelled = false;
-    let errorsCleanup: (() => void) | undefined;
-    setIsSessionReady(false);
-
-    errorsCleanup = client.subscribe<unknown>({
-      destination: "/user/queue/errors",
-      onMessage: (message) => {
-        console.error("Error:", message.body);
-      },
-    });
-
-    return () => {
-      cancelled = true;
-      errorsCleanup?.();
-      setIsSessionReady(false);
-    };
-  }, [client, gameSessionId, getAuthStatus, navigate, status]);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (
-      !canvas ||
-      !client ||
-      status !== "connected" ||
-      !isSessionReady ||
-      rendererAssets === null
-    ) {
-      return;
-    }
-
-    const gameManager = createOnlineGameManager({
-      transport: gameplayTransport,
-    });
-    let engine: GameEngine | null = null;
-    let resizeObserver: ResizeObserver | null = null;
-    let unsubscribeViewState: (() => void) | null = null;
-    let unsubscribeInitialState: () => void = () => {};
-
-    unsubscribeInitialState = gameManager.subscribe(() => {
-      if (engine || !canvas) return;
-
-      engineRef.current?.stop();
-      engine = new GameEngine({
-        canvas,
-        gameManager,
-        rendererAssets,
-      });
-      engineRef.current = engine;
-      setHasViewState(true);
-      unsubscribeViewState = engine.subscribe(() => {
-        setHasViewState(true);
-      });
-      engine.start();
-
-      resizeObserver = new ResizeObserver(() => {
-        engine?.resize();
-      });
-      resizeObserver.observe(canvas);
-
-      unsubscribeInitialState();
-      unsubscribeInitialState = () => {};
-    });
-
-    return () => {
-      unsubscribeInitialState();
-      resizeObserver?.disconnect();
-      unsubscribeViewState?.();
-      engine?.stop();
-      if (!engine) {
-        gameManager.destroy();
-      }
-      gameplayTransport.destroy();
-      if (engineRef.current === engine) {
-        engineRef.current = null;
-      }
-      setHasViewState(false);
-    };
+    // Session ready setup
   }, [gameSessionId]);
 
   return (

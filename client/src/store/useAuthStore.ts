@@ -39,7 +39,6 @@ import { queryClient } from "../query/queryClient";
 
 export const useAuthStore = create<AuthState>((set, get) => {
   const tanksClient = new TanksClient();
-  const promiseMap = new Map();
 
   function handleError(err: unknown) {
     if (err instanceof ApiError) {
@@ -51,7 +50,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
           accessToken: null,
         }));
         TanksClient.setAccessToken("");
-        queryClient.clear();
+        queryClient.invalidateQueries({ queryKey: ["userStatus"] });
       }
     }
   }
@@ -63,10 +62,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
       );
 
     try {
-      const promise =
-        promiseMap.get("status") ?? tanksClient.send(new AuthStatusRequest());
-      promiseMap.set("status", promise);
-      const data = await promise;
+      const data = await tanksClient.send(new AuthStatusRequest());
       set((prev) => ({
         ...prev,
         user: data.user,
@@ -81,17 +77,13 @@ export const useAuthStore = create<AuthState>((set, get) => {
 
   async function refresh() {
     try {
-      const promise =
-        promiseMap.get("refresh") ?? tanksClient.send(new RefreshRequest());
-      promiseMap.set("refresh", promise);
-      const response = await promise;
+      const response = await tanksClient.send(new RefreshRequest());
       TanksClient.setAccessToken(response.accessToken);
       set({
         accessToken: response.accessToken,
         user: response.user,
         userStatus: null,
       });
-      queryClient.invalidateQueries({ queryKey: ["userStatus"] });
       return response;
     } catch (err) {
       handleError(err);
@@ -106,17 +98,13 @@ export const useAuthStore = create<AuthState>((set, get) => {
 
   async function loginOrRegister(request: TanksRequest<RefreshResponseDto>) {
     try {
-      const promise =
-        promiseMap.get("loginOrRegister") ?? tanksClient.send(request);
-      promiseMap.set("loginOrRegister", promise);
-      const data = await promise;
+      const data = await tanksClient.send(request);
       TanksClient.setAccessToken(data.accessToken);
       set({
         accessToken: data.accessToken,
         user: data.user,
         userStatus: null,
       });
-      queryClient.invalidateQueries({ queryKey: ["userStatus"] });
       return data;
     } catch (err) {
       handleError(err);
@@ -126,17 +114,13 @@ export const useAuthStore = create<AuthState>((set, get) => {
 
   async function logout() {
     try {
-      const promise =
-        promiseMap.get("logout") ?? new TanksClient().send(new LogoutRequest());
-      promiseMap.set("logout", promise);
-      await promise;
+      await new TanksClient().send(new LogoutRequest());
       TanksClient.setAccessToken("");
       set({
         accessToken: null,
         user: null,
         userStatus: null,
       });
-      queryClient.clear();
     } catch (err) {
       handleError(err);
       throw err;

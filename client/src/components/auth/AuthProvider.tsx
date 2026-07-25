@@ -8,9 +8,11 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (initialized) return;
-    try {
-      refresh();
-    } catch (error) {}
+    (async () => {
+      try {
+        await refresh();
+      } catch (error) {}
+    })();
   }, []);
 
   return children;
