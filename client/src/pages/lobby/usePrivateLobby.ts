@@ -10,10 +10,12 @@ import InvalidStateError from "../../errors/InvalidStateError";
 import { useNavigate, useParams } from "react-router-dom";
 import { useWebSocketStore } from "../../store/useWebSocketStore";
 import { useAuthStore } from "../../store/useAuthStore";
+import { useAssetQuery } from "../../hooks/useAssetQuery";
 import { useAssetStore } from "../../store/useAssetStore";
 import type WebSocketError from "../../errors/WebSocketError";
 import { useSubscriptionGroup } from "../../hooks/useSubscriptionGroup";
 import type { LobbyEvent } from "../../api/ws/dto/lobby/LobbyEventDto";
+import { queryClient } from "../../query/queryClient";
 
 type LobbyState =
   | {
@@ -47,7 +49,9 @@ export default function usePrivateLobby() {
     error: webSocketError,
   } = useWebSocketStore();
   const user = useAuthStore((state) => state.user);
-  const selectedTank = useAssetStore((state) => state.selectedTank);
+  const { data: tanks } = useAssetQuery();
+  const selectedTankId = useAssetStore((state) => state.selectedTankId);
+  const selectedTank = tanks?.find((t) => t.id === selectedTankId) || null;
 
   const navigate = useNavigate();
   const { id: urlLobbyId } = useParams();
@@ -69,6 +73,7 @@ export default function usePrivateLobby() {
 
   const leaveLobby = () => {
     disconnect();
+    queryClient.invalidateQueries({ queryKey: ["userStatus"] });
   };
   const retry = () => {
     if (webSocketStatus !== "disconnected" || lobbyState.state !== "error")
@@ -81,6 +86,7 @@ export default function usePrivateLobby() {
     send({
       destination: "/app/game/create",
     });
+    queryClient.invalidateQueries({ queryKey: ["userStatus"] });
     setLobbyState((prev) => ({
       ...prev,
       state: "creating_game",

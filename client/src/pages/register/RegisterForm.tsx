@@ -13,16 +13,14 @@ import H1 from "../../components/headings/H1";
 import { ApiError } from "../../errors/ApiError";
 import type ContraintValidationDto from "../../api/http/dto/ConstraintValidationDto";
 import NetworkError from "../../errors/NetworkError";
-import { useAuthStore } from "../../store/useAuthStore";
 import Loader from "../../components/misc/Loader";
 import InvalidStateError from "../../errors/InvalidStateError";
 import FormError from "../../components/form/FormError";
-import { useFetch } from "../../hooks/useFetch";
 import RegisterRequest from "../../api/http/requests/auth/RegisterRequest";
+import { useRegisterMutation } from "../../hooks/useAuthMutations";
 
 export default function RegisterForm() {
-  const register = useAuthStore((state) => state.passwordRegister);
-  const { trigger, error, isLoading } = useFetch(register);
+  const { mutate, isPending, error } = useRegisterMutation();
   const [username, setUsername] = useState<string | undefined>(undefined);
   const [password, setPassword] = useState<string | undefined>(undefined);
   const [email, setEmail] = useState<string | undefined>(undefined);
@@ -79,7 +77,7 @@ export default function RegisterForm() {
     });
 
     if (registerValidationResult.success) {
-      trigger(new RegisterRequest(registerValidationResult.data));
+      mutate(new RegisterRequest(registerValidationResult.data));
     } else {
       registerValidationResult.error.issues.forEach((issue) => {
         const newErrors: typeof errors = {
@@ -183,9 +181,9 @@ export default function RegisterForm() {
             type="submit"
             color="primary"
             variant="filled"
-            disabled={!isValidForm() || isLoading}
+            disabled={!isValidForm() || isPending}
           >
-            <span>{isLoading ? <Loader /> : "Sign Up"}</span>
+            <span>{isPending ? <Loader /> : "Sign Up"}</span>
           </Button>
           <div className="text-xs text-text-body/60 mt-4 text-center">
             Already have an account?{" "}

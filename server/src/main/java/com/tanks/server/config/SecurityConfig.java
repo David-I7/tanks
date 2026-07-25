@@ -34,15 +34,16 @@ public class SecurityConfig {
     private JwtAuthenticationFilter jwtAuthenticationFilter;
 
     @Bean
-    SecurityFilterChain httpSecurity(HttpSecurity http){
+    SecurityFilterChain httpSecurity(HttpSecurity http) {
         return http
                 .csrf(csrf -> csrf.ignoringRequestMatchers("/**"))
                 .cors(Customizer.withDefaults())
                 .logout(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
                         // Only allow internal forwards to this endpoint
-                        .dispatcherTypeMatchers(DispatcherType.FORWARD).permitAll()
+                        .dispatcherTypeMatchers(DispatcherType.FORWARD, DispatcherType.ERROR).permitAll()
                         .requestMatchers("/api/v1/auth/login/oauth2/response").denyAll()
+                        .requestMatchers("/error").denyAll()
                         .requestMatchers("/api/v1/auth/status").authenticated()
                         .requestMatchers(
                                 "/api/v1/auth/register/**",
@@ -51,21 +52,18 @@ public class SecurityConfig {
                                 "/api/v1/auth/refresh",
                                 "/api/v1/auth/oauth2/authorization/**",
                                 "/api/v1/auth/login/oauth2/callback/*",
-                                "/ws",
-                                "/api/v1/test"
-                        ).permitAll()
-                        .anyRequest().authenticated()
-                )
+                                "/ws")
+                        .permitAll()
+                        .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-                .oauth2Login(login->{
+                .oauth2Login(login -> {
                     login
-                            .authorizationEndpoint(config-> config.baseUri("/api/v1/auth/oauth2/authorization"))
-                            .redirectionEndpoint( config-> config.baseUri("/api/v1/auth/login/oauth2/callback/*"))
+                            .authorizationEndpoint(config -> config.baseUri("/api/v1/auth/oauth2/authorization"))
+                            .redirectionEndpoint(config -> config.baseUri("/api/v1/auth/login/oauth2/callback/*"))
                             .successHandler(oAuth2SuccessHandler)
-                            .failureHandler(authenticationFailureHandler)
-                    ;
+                            .failureHandler(authenticationFailureHandler);
                 })
-                .sessionManagement(session->session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .build();
     }
 

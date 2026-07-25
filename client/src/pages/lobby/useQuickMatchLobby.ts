@@ -5,7 +5,6 @@ import type { Message } from "../../api/ws/TanksWebSocketClient";
 import { useNavigate } from "react-router-dom";
 import { useWebSocketStore } from "../../store/useWebSocketStore";
 import { useAuthStore } from "../../store/useAuthStore";
-import { useAssetStore } from "../../store/useAssetStore";
 import type { LobbyEvent } from "../../api/ws/dto/lobby/LobbyEventDto";
 import { useScreenStack } from "../../context/ScreenStack";
 import type WebSocketError from "../../errors/WebSocketError";
@@ -23,6 +22,9 @@ type LobbyState =
       playerCount: number;
     };
 
+import { useAssetQuery } from "../../hooks/useAssetQuery";
+import { useAssetStore } from "../../store/useAssetStore";
+
 export default function useQuickMatchLobby() {
   const {
     send,
@@ -32,7 +34,9 @@ export default function useQuickMatchLobby() {
     disconnect,
     error: webSocketError,
   } = useWebSocketStore();
-  const selectedTank = useAssetStore((state) => state.selectedTank);
+  const { data: tanks } = useAssetQuery();
+  const selectedTankId = useAssetStore((state) => state.selectedTankId);
+  const selectedTank = tanks?.find((t) => t.id === selectedTankId) || null;
   const { add, cleanup } = useSubscriptionGroup();
   const [lobbyState, setLobbyState] = useState<LobbyState>({
     error: null,

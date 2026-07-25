@@ -9,8 +9,7 @@ import {
 } from "../../game";
 import type { RendererAssets } from "../../game/rendering/CanvasGameRenderer";
 import IconButton from "../../components/buttons/IconButton";
-import Loader from "../../components/misc/Loader";
-import { useAssetStore, type TankAsset } from "../../store/useAssetStore";
+import { useAssetQuery, type TankAsset } from "../../hooks/useAssetQuery";
 
 type LocationState = {
   mode: "playerVsAi" | "localTwoPlayer";
@@ -44,9 +43,9 @@ export default function LocalGamePage() {
   const engineRef = useRef<GameEngine | null>(null);
   const location = useLocation();
   const state = location.state as LocationState | null;
-  const tanks = useAssetStore((state) => state.tanks);
+  const { data: tanks } = useAssetQuery();
 
-  if (!state || !isValidLocationState(state) || tanks === null) {
+  if (!state || !isValidLocationState(state) || !tanks) {
     throw new Error("Invalid state for local game setup");
   }
 

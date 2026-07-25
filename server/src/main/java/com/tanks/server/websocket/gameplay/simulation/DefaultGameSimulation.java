@@ -5,6 +5,9 @@ import java.util.List;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
 import com.tanks.server.websocket.dto.gameplay.*;
+import com.tanks.server.websocket.dto.gameplay.OnlineDiffResponsePayloads.ProjectileResolution;
+import com.tanks.server.websocket.dto.gameplay.OnlineDiffResponsePayloads.TerrainPatch;
+import com.tanks.server.websocket.dto.gameplay.OnlinePlayerIntentRequestPayloads.Fire;
 import com.tanks.server.websocket.gameplay.content.*;
 import com.tanks.server.websocket.gameplay.validation.MovementPathValidator;
 import com.tanks.server.websocket.gameplay.world.*;
@@ -15,7 +18,8 @@ public class DefaultGameSimulation implements GameSimulation {
     public Optional<OnlineDiffResponsePayloads.MovementSegment> move(GameContent content, World world,
             TerrainModel terrain, String intentId, long playerId, OnlinePlayerIntentRequestPayloads.Move request,
             long startedServerTick) {
-        if (request.direction() != -1 && request.direction() != 1) return Optional.empty();
+        if (request.direction() != -1 && request.direction() != 1)
+            return Optional.empty();
         TankState state = world.requireTankByPlayer(playerId);
         TankDefinition tank = content.requireTank(state.definitionId());
         state.facing(request.direction());
@@ -30,23 +34,29 @@ public class DefaultGameSimulation implements GameSimulation {
 
         for (int step = 0; step < tank.movementQuantum(); step++) {
             int nextX = (int) Math.round(currentX) + request.direction();
-            if (!MovementPathValidator.withinBounds(nextX, tank, content.world().width())) break;
+            if (!MovementPathValidator.withinBounds(nextX, tank, content.world().width()))
+                break;
             double nextY = terrain.surfaceY(nextX) - tank.trackGroundOffset();
-            if (!MovementPathValidator.canClimb(currentY, nextY, tank)) break;
+            if (!MovementPathValidator.canClimb(currentY, nextY, tank))
+                break;
             boolean ledge = nextY - currentY > tank.climbCapability();
             int cost = (int) Math.ceil(tank.fuelRate()
                     * (ledge ? Math.abs(nextX - currentX) : Math.hypot(nextX - currentX, nextY - currentY)));
-            if (cost > fuelRemaining) break;
+            if (cost > fuelRemaining)
+                break;
             fuelRemaining -= cost;
-            if (ledge) path.add(new OnlineVec2Dto(nextX, currentY));
+            if (ledge)
+                path.add(new OnlineVec2Dto(nextX, currentY));
             currentX = nextX;
             currentY = nextY;
             path.add(new OnlineVec2Dto(currentX, currentY));
             completedColumns++;
-            if (ledge) break;
+            if (ledge)
+                break;
         }
 
-        if (path.size() == 1) return Optional.empty();
+        if (path.size() == 1)
+            return Optional.empty();
         OnlineVec2Dto to = path.getLast();
         state.position(to);
         state.fuel(fuelRemaining);
@@ -79,10 +89,27 @@ public class DefaultGameSimulation implements GameSimulation {
     private static Optional<TankState> hitTank(World world, long ownerId, OnlineVec2Dto point, double projectileRadius,
             GameContent content) {
         return world.tanks().values().stream().filter(tank -> tank.playerId() != ownerId && tank.alive())
-                .filter(tank -> Math.hypot(point.x() - tank.position().x(), point.y() - tank.position().y())
-                        <= projectileRadius + content.requireTank(tank.definitionId()).collisionRadius())
+                .filter(tank -> Math.hypot(point.x() - tank.position().x(),
+                        point.y() - tank.position().y()) <= projectileRadius
+                                + content.requireTank(tank.definitionId()).collisionRadius())
                 .findFirst();
     }
 
-    private static double round(double value) { return Math.round(value * 1000d) / 1000d; }
+    private static double round(double value) {
+        return Math.round(value * 1000d) / 1000d;
+    }
+
+    @Override
+    public ProjectileResolution fire(GameContent content, World world, TerrainModel terrain, String intentId,
+            long projectileEntityId, long playerId, Fire request) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'fire'");
+    }
+
+    @Override
+    public TerrainPatch deformTerrain(GameContent content, World world, TerrainModel terrain,
+            String projectileDefinitionId, OnlineVec2Dto impact) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'deformTerrain'");
+    }
 }

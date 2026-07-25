@@ -1,4 +1,5 @@
-import { useAssetStore, type TankAsset } from "../../store/useAssetStore";
+import { useAssetQuery, type TankAsset } from "../../hooks/useAssetQuery";
+import { useAssetStore } from "../../store/useAssetStore";
 
 type TankSelectorProps = {
   onTankSelect?: (tank: TankAsset) => void;
@@ -9,13 +10,15 @@ export default function TankSelector({
   onTankSelect,
   label = "Select Your Tank",
 }: TankSelectorProps) {
-  const tanks = useAssetStore((state) => state.tanks);
-  const selectedTank = useAssetStore((state) => state.selectedTank);
+  const { data: tanks, isLoading } = useAssetQuery();
+  const selectedTankId = useAssetStore((state) => state.selectedTankId);
   const selectTank = useAssetStore((state) => state.setSelectedTank);
 
-  if (!tanks) {
-    return <div>Loading tanks...</div>;
+  if (isLoading || !tanks) {
+    return <div className="text-xs text-text-body-muted">Loading tanks...</div>;
   }
+
+  const selectedTank = tanks.find((t) => t.id === selectedTankId) || null;
 
   return (
     <div className="flex flex-col gap-3 w-full text-left">
@@ -28,7 +31,7 @@ export default function TankSelector({
       {/* Tank Cards Selection Grid */}
       <div className="grid grid-cols-3 gap-2">
         {tanks.map((tank) => {
-          const isSelected = tank === selectedTank;
+          const isSelected = tank.id === selectedTankId;
           return (
             <button
               key={tank.id}

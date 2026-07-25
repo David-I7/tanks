@@ -6,6 +6,7 @@ import { usePopup } from "../../hooks/usePopup";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../../store/useAuthStore";
 import PostOauth2LoginRequest from "../../api/http/requests/auth/PostOAuth2LoginRequest";
+import { useOAuth2LoginMutation } from "../../hooks/useAuthMutations";
 
 type GoogleLoginProps = {
   onSuccess: (response: OAuth2LoginResponseDto) => void;
@@ -56,12 +57,12 @@ export function GoogleLoginWithRedirect({
   onFailure,
 }: GoogleLoginWithRedirectProps) {
   const navigate = useNavigate();
-  const login = useAuthStore((state) => state.postOAuth2Login);
+  const { mutate } = useOAuth2LoginMutation();
 
   const handleSuccess = async (data: OAuth2LoginResponseDto) => {
     if (data.type === "OAUTH2_SUCCESS") {
       try {
-        await login(new PostOauth2LoginRequest({ token: data.token! }));
+        mutate(new PostOauth2LoginRequest({ token: data.token! }));
       } catch (err) {
         onFailure(err as Error);
       }

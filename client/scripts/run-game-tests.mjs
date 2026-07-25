@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 
 const tests = [
   "tests/store/useAssetStore.test.ts",
+  "tests/hooks/useUserStatusQuery.test.ts",
   "tests/pages/lobby/lobby-stomp-contract.test.ts",
   "tests/pages/home/offline-menu-config.test.ts",
   "tests/game/authority/local-game-manager.test.ts",

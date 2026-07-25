@@ -1,4 +1,4 @@
-import { useNavigate, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { uuidSchema } from "../../validation/lobby";
 import PrivateLobbyRoom from "./PrivateLobbyRoom";
 import { useAssetStore } from "../../store/useAssetStore";
@@ -6,14 +6,15 @@ import TankSelector from "../../components/game/TankSelector";
 import Surface from "../../components/layouts/Surface";
 import H1 from "../../components/headings/H1";
 import PageNotFoundError from "../../errors/PageNotFoundError";
-import { useAuthStore } from "../../store/useAuthStore";
 import { useEffect, useState } from "react";
-import InvalidStateError from "../../errors/InvalidStateError";
 import UiError from "../../errors/UiError";
+import { useAssetQuery } from "../../hooks/useAssetQuery";
 
 export default function LobbyPage() {
   const { id } = useParams();
-  const selectedTank = useAssetStore((state) => state.selectedTank);
+  const { data: tanks } = useAssetQuery();
+  const selectedTankId = useAssetStore((state) => state.selectedTankId);
+  const selectedTank = tanks?.find((t) => t.id === selectedTankId) || null;
   const checked = useCheckValidLobbySession({ id });
 
   if (!checked) {
@@ -36,16 +37,14 @@ export default function LobbyPage() {
   return <PrivateLobbyRoom />;
 }
 
+import { useUserStatusQuery } from "../../hooks/useUserStatusQuery";
+
 function useCheckValidLobbySession({ id }: { id: string | undefined }) {
-  const userStatus = useAuthStore((state) => state.userStatus);
+  const { data: userStatus } = useUserStatusQuery();
   const [checked, setChecked] = useState(false);
 
   useEffect(() => {
-    // Should never happen because of RefreshUserStatusDecorator
-    if (userStatus === null)
-      throw new InvalidStateError(
-        "User status is null, but should be initialized",
-      );
+    if (userStatus == null) return;
 
     if (userStatus.state === "IN_LOBBY") {
       throw new UiError({

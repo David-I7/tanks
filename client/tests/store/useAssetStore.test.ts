@@ -1,12 +1,9 @@
 import assert from "node:assert/strict";
 import { useAssetStore, TANK_DEFINITIONS } from "../../src/store/useAssetStore";
-import ResourceManager from "../../src/game/rendering/ResourceManager";
 
 async function testAssetStoreInitialState() {
   const state = useAssetStore.getState();
-  assert.equal(state.isLoading, false);
-  assert.equal(state.selectedTank, null);
-  assert.equal(state.tanks, null);
+  assert.equal(state.selectedTankId, null);
   console.log("✓ testAssetStoreInitialState passed");
 }
 
@@ -30,10 +27,8 @@ async function testTankProjectileDefinitions() {
 
 async function testAssetStoreSelection() {
   useAssetStore.getState().setSelectedTank("vanguard-cyber");
-  const selected = useAssetStore.getState().selectedTank;
-  if (selected) {
-    assert.equal(selected.id, "vanguard-cyber");
-  }
+  const selectedId = useAssetStore.getState().selectedTankId;
+  assert.equal(selectedId, "vanguard-cyber");
   console.log("✓ testAssetStoreSelection passed");
 }
 

@@ -1,19 +1,14 @@
-import { useEffect, type ReactNode } from "react";
+import { useEffect } from "react";
 import AppLayout from "../../components/layouts/AppLayout";
 import { useLocation } from "react-router-dom";
-import { useAssetStore } from "../../store/useAssetStore";
+import { useAssetQuery } from "../../hooks/useAssetQuery";
 import { REDIRECT_KEY } from "../../constants";
 import { BrowserStorage } from "../../utils/storage";
-import RefreshUserStatusDecorator from "./RefreshUserStatusDecorator";
-import { useAuthStore } from "../../store/useAuthStore";
+import { useUserStatusQuery } from "../../hooks/useUserStatusQuery";
 
 export default function AppLayoutDecorator() {
   const location = useLocation();
-  const loadAssets = useAssetStore((state) => state.loadAssets);
-
-  useEffect(() => {
-    loadAssets();
-  }, [loadAssets]);
+  useAssetQuery();
 
   useEffect(() => {
     const publicNonAuthPaths = ["/", "/game/local"];
@@ -23,18 +18,16 @@ export default function AppLayoutDecorator() {
   }, [location.pathname]);
 
   return (
-    <RefreshUserStatusDecorator>
-      <>
-        <CheckResumeSession />
-        <AppLayout />
-      </>
-    </RefreshUserStatusDecorator>
+    <>
+      <CheckResumeSession />
+      <AppLayout />
+    </>
   );
 }
 
 function CheckResumeSession() {
   const location = useLocation();
-  const userStatus = useAuthStore((state) => state.userStatus);
+  const { data: userStatus } = useUserStatusQuery();
 
   useEffect(() => {
     if (userStatus == null || userStatus.state !== "IN_GAME") return;
