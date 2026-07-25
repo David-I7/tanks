@@ -10,6 +10,7 @@ import InvalidStateError from "../../errors/InvalidStateError";
 import { useNavigate, useParams } from "react-router-dom";
 import { useWebSocketStore } from "../../store/useWebSocketStore";
 import { useAuthStore } from "../../store/useAuthStore";
+import { useAssetQuery } from "../../hooks/useAssetQuery";
 import { useAssetStore } from "../../store/useAssetStore";
 import type WebSocketError from "../../errors/WebSocketError";
 import { useSubscriptionGroup } from "../../hooks/useSubscriptionGroup";
@@ -47,7 +48,9 @@ export default function usePrivateLobby() {
     error: webSocketError,
   } = useWebSocketStore();
   const user = useAuthStore((state) => state.user);
-  const selectedTank = useAssetStore((state) => state.selectedTank);
+  const { data: tanks } = useAssetQuery();
+  const selectedTankId = useAssetStore((state) => state.selectedTankId);
+  const selectedTank = tanks?.find((t) => t.id === selectedTankId) || null;
 
   const navigate = useNavigate();
   const { id: urlLobbyId } = useParams();

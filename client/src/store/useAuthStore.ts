@@ -35,6 +35,8 @@ type AuthState = {
   status: () => Promise<AuthStatusResponseDto>;
 };
 
+import { queryClient } from "../query/queryClient";
+
 export const useAuthStore = create<AuthState>((set, get) => {
   const tanksClient = new TanksClient();
   const promiseMap = new Map();
@@ -49,6 +51,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
           accessToken: null,
         }));
         TanksClient.setAccessToken("");
+        queryClient.clear();
       }
     }
   }
@@ -88,6 +91,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
         user: response.user,
         userStatus: null,
       });
+      queryClient.invalidateQueries({ queryKey: ["userStatus"] });
       return response;
     } catch (err) {
       handleError(err);
@@ -112,6 +116,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
         user: data.user,
         userStatus: null,
       });
+      queryClient.invalidateQueries({ queryKey: ["userStatus"] });
       return data;
     } catch (err) {
       handleError(err);
@@ -131,6 +136,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
         user: null,
         userStatus: null,
       });
+      queryClient.clear();
     } catch (err) {
       handleError(err);
       throw err;

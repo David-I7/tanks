@@ -7,7 +7,7 @@ import Surface from "../../components/layouts/Surface";
 import TankSelector from "../../components/game/TankSelector";
 import { useScreenStack } from "../../context/ScreenStack";
 import { useNavigate } from "react-router-dom";
-import { useAssetStore, type TankAsset } from "../../store/useAssetStore";
+import { useAssetQuery, type TankAsset } from "../../hooks/useAssetQuery";
 import randInt from "../../utils/random";
 
 type PlayerConfig = {
@@ -18,7 +18,7 @@ type PlayerConfig = {
 export default function OfflineMenu() {
   const { popScreen } = useScreenStack();
   const navigate = useNavigate();
-  const tanks = useAssetStore((state) => state.tanks);
+  const { data: tanks } = useAssetQuery();
 
   const [mode, setMode] = useState<"playerVsAi" | "localTwoPlayer">(
     "playerVsAi",
@@ -26,12 +26,12 @@ export default function OfflineMenu() {
   const [player1Config, setPlayer1Config] = useState<PlayerConfig>({
     name: "Player 1",
     tankId:
-      tanks === null ? "heavy-armor" : tanks[randInt(0, tanks.length - 1)].id,
+      !tanks ? "heavy-armor" : tanks[randInt(0, tanks.length - 1)].id,
   });
   const [player2Config, setPlayer2Config] = useState<PlayerConfig>({
     name: "Player 2",
     tankId:
-      tanks === null
+      !tanks
         ? "desert-striker"
         : tanks[randInt(0, tanks.length - 1)].id,
   });
@@ -40,7 +40,7 @@ export default function OfflineMenu() {
     navigate(`/game/local`, { state: { mode, player1Config, player2Config } });
   };
 
-  if (tanks === null) {
+  if (!tanks) {
     return "Loading tanks...";
   }
 

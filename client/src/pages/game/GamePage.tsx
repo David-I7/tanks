@@ -24,17 +24,15 @@ export default function GamePage() {
   return <GameView gameSessionId={id!} />;
 }
 
+import { useUserStatusQuery } from "../../hooks/useUserStatusQuery";
+
 function useCheckValidGameSession({ id }: { id: string | undefined }) {
-  const userStatus = useAuthStore((state) => state.userStatus);
+  const { data: userStatus } = useUserStatusQuery();
   const navigate = useNavigate();
   const [checked, setChecked] = useState(false);
 
   useEffect(() => {
-    // Should never happen because of RefreshUserStatusDecorator
-    if (userStatus === null)
-      throw new InvalidStateError(
-        "User status is null, but should be initialized",
-      );
+    if (userStatus == null) return;
 
     if (userStatus.state !== "IN_GAME") {
       if (userStatus.state === "IDLE") {
