@@ -67,13 +67,11 @@ public class AuthorizationInterceptor implements ChannelInterceptor {
             handlePostDisconnect(userDto.id(), sessionId);
         }
 
-        ReentrantLock lock = (ReentrantLock) accessor.getHeader("socketLock");
-        if (lock != null && lock.isHeldByCurrentThread()) {
-            lock.unlock();
-        } else {
-            ReentrantLock userLock = claimService.getSocketLock(userDto.id());
-            if (userLock != null && userLock.isHeldByCurrentThread()) {
-                userLock.unlock();
+        Map<String, Object> sessionAttributes = accessor.getSessionAttributes();
+        if (sessionAttributes != null) {
+            ReentrantLock lock = (ReentrantLock) sessionAttributes.remove("socketLock");
+            if (lock != null && lock.isHeldByCurrentThread()) {
+                lock.unlock();
             }
         }
     }
@@ -116,8 +114,9 @@ public class AuthorizationInterceptor implements ChannelInterceptor {
         }
 
         lock.lock();
-        if (accessor.isMutable()) {
-            accessor.setHeader("socketLock", lock);
+        Map<String, Object> sessionAttributes = accessor.getSessionAttributes();
+        if (sessionAttributes != null) {
+            sessionAttributes.put("socketLock", lock);
         }
 
         // If a disconnect event happened while acquiring the lock, the user is already disconnected, so there is no need to fulfil this request
