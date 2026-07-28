@@ -73,7 +73,6 @@ export default function usePrivateLobby() {
 
   const leaveLobby = () => {
     disconnect();
-    queryClient.invalidateQueries({ queryKey: ["userStatus"] });
   };
   const retry = () => {
     if (webSocketStatus !== "disconnected" || lobbyState.state !== "error")
@@ -123,6 +122,10 @@ export default function usePrivateLobby() {
     if (webSocketStatus === "disconnected") {
       connect();
     }
+
+    return () => {
+      queryClient.invalidateQueries({ queryKey: ["userStatus"] });
+    };
   }, []);
 
   useEffect(() => {

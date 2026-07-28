@@ -44,6 +44,14 @@ export function createOnlineGameplayTransport(options: {
       onMessage,
     });
 
+  const subscribeToUserReplies = <Data>(
+    onMessage: (message: Message<Data>) => void,
+  ): SubscriptionCleanup =>
+    options.client.subscribe<Data>({
+      destination: "/user/queue/replies",
+      onMessage,
+    });
+
   return {
     sendPlayerIntent(intent: OnlinePlayerIntentRequestDto): void {
       options.client.send({
@@ -72,11 +80,16 @@ export function createOnlineGameplayTransport(options: {
         }
       };
 
+      const replyCleanup = subscribeToUserReplies(handleMessage);
       const topicCleanup = subscribeToGameTopic(handleMessage);
+
+      cleanups.add(replyCleanup);
       cleanups.add(topicCleanup);
 
       return () => {
+        replyCleanup();
         topicCleanup();
+        cleanups.delete(replyCleanup);
         cleanups.delete(topicCleanup);
       };
     },
@@ -90,11 +103,16 @@ export function createOnlineGameplayTransport(options: {
         }
       };
 
+      const replyCleanup = subscribeToUserReplies(handleMessage);
       const topicCleanup = subscribeToGameTopic<GameEvent>(handleMessage);
+
+      cleanups.add(replyCleanup);
       cleanups.add(topicCleanup);
 
       return () => {
+        replyCleanup();
         topicCleanup();
+        cleanups.delete(replyCleanup);
         cleanups.delete(topicCleanup);
       };
     },

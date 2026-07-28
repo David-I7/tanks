@@ -8,7 +8,7 @@ export function useUserStatusQuery() {
 
   return useQuery({
     queryKey: ["userStatus", user?.id],
-    queryFn: async (): Promise<UserSessionStatus> => {
+    queryFn: async (): Promise<UserSessionStatus | null> => {
       return await status().then((res) => res.userSessionStatus);
     },
     enabled: user !== null,

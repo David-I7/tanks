@@ -25,22 +25,20 @@ function useCheckValidGameSession({ id }: { id: string | undefined }) {
   const { data: userStatus, isPending } = useUserStatusQuery();
   const navigate = useNavigate();
 
-  if (userStatus == null || isPending) return false;
+  if (isPending) return false;
 
-  if (userStatus.state !== "IN_GAME") {
-    if (userStatus.state === "IDLE") {
-      throw new UiError({
-        description:
-          "You are not currently in a game. Please join a game session first.",
-        heading: "Not in a game session",
-      });
-    } else if (userStatus.state === "IN_LOBBY") {
-      throw new UiError({
-        description:
-          "You are currently in a lobby. Please join a game session from the lobby.",
-        heading: "In a lobby",
-      });
-    }
+  if (userStatus == undefined || userStatus.state === "IDLE") {
+    throw new UiError({
+      description:
+        "You are not currently in a game. Please join a game session first.",
+      heading: "Not in a game session",
+    });
+  } else if (userStatus.state === "IN_LOBBY") {
+    throw new UiError({
+      description:
+        "You are currently in a lobby. Please join a game session from the lobby.",
+      heading: "In a lobby",
+    });
   }
 
   if (userStatus.gameId !== id) {
