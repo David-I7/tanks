@@ -61,7 +61,6 @@ public class GameSessionService {
     private final GameStateResponseFactory initialStateFactory;
     private final GameResultRepository gameResultRepository;
     private final UserRepository userRepository;
-    private final ObjectMapper objectMapper;
 
     public GameSession create(Lobby lobby) {
         UserSession host = userSessionService.findById(lobby.getHost().getId());
