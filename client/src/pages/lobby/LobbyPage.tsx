@@ -39,9 +39,9 @@ export default function LobbyPage() {
 import { useUserStatusQuery } from "../../hooks/useUserStatusQuery";
 
 function useCheckValidLobbySession({ id }: { id: string | undefined }) {
-  const { data: userStatus, isPending } = useUserStatusQuery();
+  const { data: userStatus, isPending, isFetching } = useUserStatusQuery();
 
-  if (isPending) return false;
+  if (isPending || isFetching) return false;
 
   if (userStatus == null) return true;
 

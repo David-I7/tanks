@@ -133,7 +133,7 @@ export default function useQuickMatchLobby() {
     add(
       subscribe({
         destination: "/user/queue/replies",
-        onMessage: (message) => {
+        onMessage: async (message) => {
           if (
             message.body.type === "LOBBY_JOINED" ||
             message.body.type === "LOBBY_CREATED"
@@ -148,7 +148,7 @@ export default function useQuickMatchLobby() {
           }
 
           if (message.body.type === "GAME_CREATED") {
-            queryClient.invalidateQueries({ queryKey: ["userStatus"] });
+            await queryClient.invalidateQueries({ queryKey: ["userStatus"] });
             navigate(`/game/${message.body.payload.id}`);
           }
         },

@@ -201,7 +201,7 @@ export default function usePrivateLobby() {
     };
 
     let handleUserReplies: EndpointSubscription<WebSocketEventResponseDto>["onMessage"] =
-      (message) => {
+      async (message) => {
         if (
           message.body.type === "LOBBY_CREATED" ||
           message.body.type === "LOBBY_JOINED"
@@ -211,7 +211,7 @@ export default function usePrivateLobby() {
         }
 
         if (message.body.type === "GAME_CREATED") {
-          queryClient.invalidateQueries({ queryKey: ["userStatus"] });
+          await queryClient.invalidateQueries({ queryKey: ["userStatus"] });
           navigate(`/game/${message.body.payload.id}`, { replace: true });
           return;
         }

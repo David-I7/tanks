@@ -22,10 +22,10 @@ export default function GamePage() {
 }
 
 function useCheckValidGameSession({ id }: { id: string | undefined }) {
-  const { data: userStatus, isPending } = useUserStatusQuery();
+  const { data: userStatus, isPending, isFetching } = useUserStatusQuery();
   const navigate = useNavigate();
 
-  if (isPending) return false;
+  if (isPending || isFetching) return false;
 
   if (userStatus == undefined || userStatus.state === "IDLE") {
     throw new UiError({
