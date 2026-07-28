@@ -1,6 +1,5 @@
 package com.tanks.server.websocket.services;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tanks.server.entities.User;
 import com.tanks.server.entities.gameResult.GameOutcome;
 import com.tanks.server.entities.gameResult.GameResult;
@@ -60,7 +59,6 @@ public class GameSessionService {
     private final GameStateResponseFactory initialStateFactory;
     private final GameResultRepository gameResultRepository;
     private final UserRepository userRepository;
-    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public GameSession create(Lobby lobby) {
         UserSession host = userSessionService.findById(lobby.getHost().getId());
@@ -321,11 +319,13 @@ public class GameSessionService {
         if (intent.payload() instanceof OnlinePlayerIntentRequestPayloads.Move move) {
             return move;
         }
-        try {
-            return objectMapper.convertValue(intent.payload(), OnlinePlayerIntentRequestPayloads.Move.class);
-        } catch (IllegalArgumentException ex) {
-            return null;
+        if (intent.payload() instanceof java.util.Map<?, ?> map) {
+            Object dirObj = map.get("direction");
+            if (dirObj instanceof Number num) {
+                return new OnlinePlayerIntentRequestPayloads.Move(num.intValue());
+            }
         }
+        return null;
     }
 
     private OnlinePlayerIntentRequestPayloads.Fire extractFirePayload(OnlinePlayerIntentRequestDto<?> intent) {
@@ -335,11 +335,15 @@ public class GameSessionService {
         if (intent.payload() instanceof OnlinePlayerIntentRequestPayloads.Fire fire) {
             return fire;
         }
-        try {
-            return objectMapper.convertValue(intent.payload(), OnlinePlayerIntentRequestPayloads.Fire.class);
-        } catch (IllegalArgumentException ex) {
-            return null;
+        if (intent.payload() instanceof java.util.Map<?, ?> map) {
+            Object angleObj = map.get("angle");
+            Object powerObj = map.get("power");
+            Object slotObj = map.get("projectileSlotId");
+            if (angleObj instanceof Number angleNum && powerObj instanceof Number powerNum && slotObj instanceof String slotId) {
+                return new OnlinePlayerIntentRequestPayloads.Fire(angleNum.doubleValue(), powerNum.doubleValue(), slotId);
+            }
         }
+        return null;
     }
 
     private OnlineDiffResponsePayloads.IntentRejectionReason rejectionReason(
