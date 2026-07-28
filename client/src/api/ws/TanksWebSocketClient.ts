@@ -123,10 +123,8 @@ export default class TanksWSClient {
     if (!this.client.active) {
       this.client.onStompError = async (err) => {
         try {
-          if (
-            err.headers["content-type"] &&
-            err.headers["content-type"] === "application/json"
-          ) {
+          const contentType = err.headers ? err.headers["content-type"] : undefined;
+          if (contentType && contentType.includes("json")) {
             const problemDetail = JSON.parse(err.body) as ProblemDetailDto;
 
             if (import.meta.env.DEV) console.error(problemDetail);
@@ -200,13 +198,16 @@ export default class TanksWSClient {
 
     const handleMessage = (message: IMessage) => {
       try {
-        if (
-          message.headers &&
-          message.headers["content-type"] === "application/json"
-        ) {
+        const contentType = message.headers
+          ? message.headers["content-type"]
+          : undefined;
+        if (!contentType || contentType.includes("json")) {
           const parsedMessage = {
             ...message,
-            body: JSON.parse(message.body) as Data,
+            body:
+              typeof message.body === "string"
+                ? (JSON.parse(message.body) as Data)
+                : (message.body as Data),
           };
 
           const subscriptions = this.subscriptionMap.get(

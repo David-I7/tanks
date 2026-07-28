@@ -103,6 +103,8 @@ export default function useGameSession(gameSessionId: string) {
       },
     });
 
+    transport.requestResyncState();
+
     return () => {
       if (!isConnected) return;
       unsubscribeManager();

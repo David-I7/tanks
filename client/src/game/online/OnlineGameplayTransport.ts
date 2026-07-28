@@ -74,7 +74,8 @@ export function createOnlineGameplayTransport(options: {
       const handleMessage = (message: Message<unknown>) => {
         if (
           isOnlineDiffResponseDto(message.body) &&
-          message.body.gameSessionId === options.gameSessionId
+          String(message.body.gameSessionId).toLowerCase() ===
+            String(options.gameSessionId).toLowerCase()
         ) {
           listener(message.body);
         }
