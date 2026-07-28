@@ -11,6 +11,8 @@ import java.time.OffsetDateTime;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import com.tanks.server.websocket.dto.gameplay.OnlinePlayerIntentRequestDto;
 import com.tanks.server.websocket.gameplay.world.TerrainModel;
 import com.tanks.server.websocket.gameplay.world.World;
 
@@ -61,6 +63,9 @@ public class GameSession {
     @Builder.Default
     private Set<Long> connectedUserIds = ConcurrentHashMap.newKeySet();
 
+    @Builder.Default
+    private ConcurrentLinkedQueue<OnlinePlayerIntentRequestDto<?>> pendingIntents = new ConcurrentLinkedQueue<>();
+
     public int getConnectedPlayerCount() {
         return connectedUserIds != null ? connectedUserIds.size() : 0;
     }
@@ -89,6 +94,7 @@ public class GameSession {
             if (other.connectedUserIds != null) {
                 this.connectedUserIds.addAll(other.connectedUserIds);
             }
+            this.pendingIntents = other.pendingIntents != null ? other.pendingIntents : new ConcurrentLinkedQueue<>();
         }
     }
 }

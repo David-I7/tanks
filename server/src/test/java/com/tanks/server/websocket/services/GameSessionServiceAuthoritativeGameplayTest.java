@@ -131,6 +131,31 @@ class GameSessionServiceAuthoritativeGameplayTest {
         assertThat(session.getMatchEndsAtServerTick()).isEqualTo(5400L);
     }
 
+    @Test
+    @DisplayName("enqueuePlayerIntent places intent into pendingIntents without immediate simulation execution")
+    void enqueuePlayerIntentEnqueuesWithoutExecutingSimulation() {
+        Harness harness = new Harness();
+        GameSession session = harness.startedSession(77);
+        when(harness.gameRepository.findById(session.getId())).thenReturn(Optional.of(session));
+
+        OnlinePlayerIntentRequestDto<?> intent = new OnlinePlayerIntentRequestDto<>(
+                OnlineGameplayProtocolVersion.V1, session.getId().toString(), 1,
+                "move-1", 1, 0, OnlinePlayerIntentRequestType.MOVE,
+                new OnlinePlayerIntentRequestPayloads.Move(1));
+
+        boolean enqueued = harness.service.enqueuePlayerIntent("host", session.getId(), intent);
+
+        assertThat(enqueued).isTrue();
+        assertThat(session.getPendingIntents()).containsExactly(intent);
+        assertThat(harness.diffs()).isEmpty();
+
+        harness.service.processPendingIntents(session);
+
+        assertThat(session.getPendingIntents()).isEmpty();
+        assertThat(harness.diffs()).hasSize(1);
+        assertThat(harness.diffs().getFirst().type()).isEqualTo(OnlineStateDiffResponseType.MOVEMENT_SEGMENT);
+    }
+
     private static class Harness {
         final GameSessionRepository gameRepository = mock(GameSessionRepository.class);
         final UserSessionService userSessionService = mock(UserSessionService.class);

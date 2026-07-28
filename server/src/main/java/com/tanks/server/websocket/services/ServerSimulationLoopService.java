@@ -1,8 +1,13 @@
 package com.tanks.server.websocket.services;
 
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import org.springframework.context.ApplicationListener;
@@ -32,23 +37,39 @@ public class ServerSimulationLoopService implements ApplicationListener<ContextC
     public static final int TURN_TIMER_TICKS = TICKS_PER_SECOND * 30;
     public static final int TERMINAL_DELIVERY_GRACE_SECONDS = 5;
     public static final long TICK_RATE_NANOS = 1_000_000_000L / TICKS_PER_SECOND;
+    public static final int BATCH_SIZE = 15;
 
     private final GameSessionRepository gameRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final GameSessionService gameSessionService;
+    private final ScheduledExecutorService executorService;
     private volatile boolean acceptingFrames = true;
 
     public ServerSimulationLoopService(GameSessionRepository gameRepository, ApplicationEventPublisher eventPublisher) {
-        this(gameRepository, eventPublisher, null);
+        this(gameRepository, eventPublisher, null, createDefaultExecutorService());
     }
 
     public ServerSimulationLoopService(
             GameSessionRepository gameRepository,
             ApplicationEventPublisher eventPublisher,
             GameSessionService gameSessionService) {
+        this(gameRepository, eventPublisher, gameSessionService, createDefaultExecutorService());
+    }
+
+    public ServerSimulationLoopService(
+            GameSessionRepository gameRepository,
+            ApplicationEventPublisher eventPublisher,
+            GameSessionService gameSessionService,
+            ScheduledExecutorService executorService) {
         this.gameRepository = gameRepository;
         this.eventPublisher = eventPublisher;
         this.gameSessionService = gameSessionService;
+        this.executorService = executorService;
+    }
+
+    private static ScheduledExecutorService createDefaultExecutorService() {
+        int threads = Math.max(4, Runtime.getRuntime().availableProcessors());
+        return Executors.newScheduledThreadPool(threads);
     }
 
     @Scheduled(fixedRate = TICK_RATE_NANOS, timeUnit = TimeUnit.NANOSECONDS)
@@ -58,8 +79,22 @@ public class ServerSimulationLoopService implements ApplicationListener<ContextC
         }
 
         try {
-            for (GameSession gameSession : activeSessions()) {
-                advance(gameSession);
+            List<GameSession> activeGames = activeSessions();
+            if (activeGames.isEmpty()) {
+                return;
+            }
+
+            List<List<GameSession>> batches = partition(activeGames, BATCH_SIZE);
+            if (executorService == null || executorService.isShutdown()) {
+                for (List<GameSession> batch : batches) {
+                    new GameBatchTickTask(batch, this).run();
+                }
+            } else {
+                List<CompletableFuture<Void>> futures = new ArrayList<>();
+                for (List<GameSession> batch : batches) {
+                    futures.add(CompletableFuture.runAsync(new GameBatchTickTask(batch, this), executorService));
+                }
+                CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
             }
         } catch (DataAccessException ex) {
             if (acceptingFrames) {
@@ -67,7 +102,17 @@ public class ServerSimulationLoopService implements ApplicationListener<ContextC
             } else {
                 log.debug("Skipping server simulation frame during shutdown.", ex);
             }
+        } catch (Exception ex) {
+            log.error("Error executing simulation loop frame", ex);
         }
+    }
+
+    static <T> List<List<T>> partition(List<T> list, int size) {
+        List<List<T>> partitions = new ArrayList<>();
+        for (int i = 0; i < list.size(); i += size) {
+            partitions.add(new ArrayList<>(list.subList(i, Math.min(i + size, list.size()))));
+        }
+        return partitions;
     }
 
     @Scheduled(fixedRate = 1, timeUnit = TimeUnit.SECONDS)
@@ -95,9 +140,16 @@ public class ServerSimulationLoopService implements ApplicationListener<ContextC
     @Override
     public void onApplicationEvent(ContextClosedEvent event) {
         acceptingFrames = false;
+        if (executorService != null && !executorService.isShutdown()) {
+            executorService.shutdown();
+        }
     }
 
     void advance(GameSession gameSession) {
+        if (gameSessionService != null) {
+            gameSessionService.processPendingIntents(gameSession);
+        }
+
         long nextServerTick = gameSession.getServerTick() + 1;
         gameSession.setServerTick(nextServerTick);
 
@@ -106,7 +158,8 @@ public class ServerSimulationLoopService implements ApplicationListener<ContextC
             return;
         }
 
-        if (gameSession.getWorld().match().turnEndsAtServerTick() <= nextServerTick) {
+        if (gameSession.getWorld() != null && gameSession.getWorld().match() != null
+                && gameSession.getWorld().match().turnEndsAtServerTick() <= nextServerTick) {
             advanceTurnWithoutShot(gameSession);
         }
 

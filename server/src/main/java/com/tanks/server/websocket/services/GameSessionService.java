@@ -188,12 +188,44 @@ public class GameSessionService {
         return 0;
     }
 
-    public boolean acceptPlayerIntent(String username, UUID gameSessionId, OnlinePlayerIntentRequestDto<?> intent) {
+    public boolean enqueuePlayerIntent(String username, UUID gameSessionId, OnlinePlayerIntentRequestDto<?> intent) {
+        if (intent == null || intent.intentId() == null || intent.intentId().isBlank() || intent.type() == null) {
+            return false;
+        }
+        if (!OnlineGameplayProtocolVersion.V1.equals(intent.protocolVersion())
+                || gameSessionId == null
+                || !gameSessionId.toString().equals(intent.gameSessionId())) {
+            return false;
+        }
+        GameSession gameSession = findById(gameSessionId);
+        if (!GameSessionState.STARTED.equals(gameSession.getState())) {
+            return false;
+        }
+        if (!playerUsername(gameSession, intent.playerId()).equals(username)) {
+            return false;
+        }
+
+        gameSession.getPendingIntents().offer(intent);
+        gameRepository.save(gameSession);
+        return true;
+    }
+
+    public void processPendingIntents(GameSession gameSession) {
+        if (gameSession == null || gameSession.getPendingIntents() == null) {
+            return;
+        }
+        OnlinePlayerIntentRequestDto<?> intent;
+        while ((intent = gameSession.getPendingIntents().poll()) != null) {
+            processPlayerIntent(gameSession, intent);
+        }
+    }
+
+    public boolean processPlayerIntent(GameSession gameSession, OnlinePlayerIntentRequestDto<?> intent) {
         if (intent == null) {
             return false;
         }
 
-        GameSession gameSession = findById(gameSessionId);
+        String username = playerUsername(gameSession, intent.playerId());
         OnlineDiffResponsePayloads.IntentRejectionReason rejectionReason = rejectionReason(gameSession, username, intent);
 
         if (rejectionReason != null) {
@@ -202,32 +234,37 @@ public class GameSessionService {
                 return false;
             }
             publishIntentRejection(gameSession, intent, rejectionReason);
-            gameRepository.save(gameSession);
             log.debug("Intent rejected: {}", intent);
             return false;
         }
 
         if (intent.type() == OnlinePlayerIntentRequestType.MOVE && intent.payload() instanceof OnlinePlayerIntentRequestPayloads.Move move) {
             if (!publishMovementSegment(gameSession, intent, move)) {
-                gameRepository.save(gameSession);
                 log.debug("Movement rejected: {}", intent);
                 return false;
             }
-            gameRepository.save(gameSession);
             log.debug("Movement accepted: {}", intent);
             return true;
         }
 
         if (intent.type() == OnlinePlayerIntentRequestType.FIRE && intent.payload() instanceof OnlinePlayerIntentRequestPayloads.Fire fire) {
             publishProjectileResolution(gameSession, intent, fire);
-            gameRepository.save(gameSession);
             log.debug("Projectile accepted: {}", intent);
             return true;
         }
 
         setUnresolvedIntent(gameSession, intent.playerId(), intent.intentId());
-        gameRepository.save(gameSession);
         log.debug("Intent accepted: {}", intent);
+        return true;
+    }
+
+    public boolean acceptPlayerIntent(String username, UUID gameSessionId, OnlinePlayerIntentRequestDto<?> intent) {
+        if (!enqueuePlayerIntent(username, gameSessionId, intent)) {
+            return false;
+        }
+        GameSession gameSession = findById(gameSessionId);
+        processPendingIntents(gameSession);
+        gameRepository.save(gameSession);
         return true;
     }
 

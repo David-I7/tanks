@@ -172,6 +172,42 @@ class ServerSimulationLoopServiceTest {
         assertThat(payload.reason()).isEqualTo(OnlineDiffResponsePayloads.TerminalGameReason.MATCH_TIME_EXPIRED);
     }
 
+    @Test
+    @DisplayName("Active games are partitioned into batches of up to 15 games")
+    void activeGamesArePartitionedInto15GameBatches() {
+        List<GameSession> activeGames = new ArrayList<>();
+        for (int i = 0; i < 35; i++) {
+            activeGames.add(startedGameSession());
+        }
+
+        List<List<GameSession>> batches = ServerSimulationLoopService.partition(activeGames, 15);
+
+        assertThat(batches).hasSize(3);
+        assertThat(batches.get(0)).hasSize(15);
+        assertThat(batches.get(1)).hasSize(15);
+        assertThat(batches.get(2)).hasSize(5);
+    }
+
+    @Test
+    @DisplayName("Worker threads drain pending intents and advance tick for batch games")
+    void batchWorkerThreadsDrainIntentsAndAdvanceTick() {
+        TestHarness harness = new TestHarness();
+        GameSession gameSession1 = startedGameSession();
+        GameSession gameSession2 = startedGameSession();
+        gameSession1.getWorld().match().turnEndsAtServerTick(100);
+        gameSession2.getWorld().match().turnEndsAtServerTick(100);
+
+        when(harness.gameRepository.findByState(GameSessionState.STARTED))
+                .thenReturn(List.of(gameSession1, gameSession2));
+
+        harness.service.runFrame();
+
+        assertThat(gameSession1.getServerTick()).isEqualTo(1);
+        assertThat(gameSession2.getServerTick()).isEqualTo(1);
+        verify(harness.gameRepository).save(gameSession1);
+        verify(harness.gameRepository).save(gameSession2);
+    }
+
     private static GameSession startedGameSession() {
         return GameSession.builder()
                 .id(UUID.randomUUID())
