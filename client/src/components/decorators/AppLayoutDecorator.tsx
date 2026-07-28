@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import AppLayout from "../../components/layouts/AppLayout";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useAssetQuery } from "../../hooks/useAssetQuery";
 import { REDIRECT_KEY } from "../../constants";
 import { BrowserStorage } from "../../utils/storage";
@@ -27,6 +27,7 @@ export default function AppLayoutDecorator() {
 
 function CheckResumeSession() {
   const location = useLocation();
+  const navigate = useNavigate();
   const { data: userStatus } = useUserStatusQuery();
 
   useEffect(() => {
@@ -35,8 +36,8 @@ function CheckResumeSession() {
     if (location.pathname.includes(`/game`)) return;
 
     // Redirect to the game page
-    window.location.href = `/game/${userStatus.gameId}`;
-  }, [location.pathname, userStatus]);
+    navigate(`/game/${userStatus.gameId}`);
+  }, [location.pathname, userStatus, navigate]);
 
   return null;
 }

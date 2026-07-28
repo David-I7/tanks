@@ -9,11 +9,9 @@ import H1 from "../../components/headings/H1";
 import { ApiError } from "../../errors/ApiError";
 import type ContraintValidationDto from "../../api/http/dto/ConstraintValidationDto";
 import NetworkError from "../../errors/NetworkError";
-import { useAuthStore } from "../../store/useAuthStore";
 import Loader from "../../components/misc/Loader";
 import InvalidStateError from "../../errors/InvalidStateError";
 import FormError from "../../components/form/FormError";
-import { useFetch } from "../../hooks/useFetch";
 import PostOauth2RegisterRequest from "../../api/http/requests/auth/PostOauth2RegisterRequest";
 import { useOAuth2RegisterMutation } from "../../hooks/useAuthMutations";
 

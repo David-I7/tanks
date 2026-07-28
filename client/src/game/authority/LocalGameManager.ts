@@ -2,7 +2,8 @@ import {
   localGameContent,
   type GameContent,
 } from "../content/localGameContent";
-import { createCanvasSizing, readDomCanvasRect } from "../world/worldSizing";
+import { createCanvasSizing, readDomCanvasRect, type GameViewport } from "../world/worldSizing";
+import { createDefaultMatchSetup } from "../world/createInitialWorld";
 import { LocalAiIntentSource } from "../input/LocalAiIntentSource";
 import {
   createLocalSimulationManager,
@@ -15,28 +16,45 @@ import type {
   MatchSetup,
   LocalSimulationState,
 } from "../types";
-import type { GameManager } from "./GameManager";
+import type { GameManager } from "./gameManager";
 
 export function createLocalGameManager(options: {
-  canvas: HTMLCanvasElement;
+  canvas?: HTMLCanvasElement;
+  initialGameViewport?: GameViewport;
   mode: Exclude<GameMode, "online">;
   setup: MatchSetup;
   content: GameContent;
 }): GameManager {
-  const sizing = createCanvasSizing({
-    domCanvasRect: readDomCanvasRect(options.canvas),
-    devicePixelRatio: window.devicePixelRatio || 1,
-  });
+  const gameViewport =
+    options.initialGameViewport ??
+    (options.canvas
+      ? createCanvasSizing({
+          domCanvasRect: readDomCanvasRect(options.canvas),
+          devicePixelRatio: typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1,
+        }).gameViewport
+      : { width: 960, height: 560 });
 
   return new LocalGameManager(
     createLocalSimulationManager({
       mode: options.mode,
       setup: options.setup,
       content: options.content,
-      initialGameViewport: sizing.gameViewport,
+      initialGameViewport: gameViewport,
     }),
     options.content.projectiles,
   );
+}
+
+export function createCanvasSizedLocalGameManager(options: {
+  canvas?: HTMLCanvasElement;
+  mode: Exclude<GameMode, "online">;
+}): GameManager {
+  return createLocalGameManager({
+    canvas: options.canvas,
+    mode: options.mode,
+    setup: createDefaultMatchSetup(options.mode),
+    content: localGameContent,
+  });
 }
 
 class LocalGameManager implements GameManager {

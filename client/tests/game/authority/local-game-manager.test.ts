@@ -76,7 +76,7 @@ function updateUntil(
   const state = requireGameState(manager);
 
   assert.equal(state.match.activePlayerId, 0);
-  assert.equal(state.projectileDefinitions, mockGameContent.projectiles);
+  assert.equal(state.projectileDefinitions, localGameContent.projectiles);
   assert.equal(manager.getState(), state);
 
   let subscribedState: GameState | null = null;
@@ -230,11 +230,11 @@ function updateUntil(
   const nextTurn = updateUntil(
     manager,
     (state) =>
-      state.match.activePlayerId === 1 && state.match.phase === "aiming",
-    120,
+      state.match.activePlayerId === 1 && state.match.phase === "thinking",
+    360,
   );
   assert.equal(nextTurn.match.activePlayerId, 1);
-  assert.equal(nextTurn.match.phase, "aiming");
+  assert.equal(nextTurn.match.phase, "thinking");
   manager.destroy();
 }
 
@@ -273,14 +273,14 @@ function updateUntil(
 {
   const lethalContent: GameContent = {
     tanks: {
-      ...mockGameContent.tanks,
-      vanguard: { ...mockGameContent.tanks.vanguard, maxHealth: 10_000 },
-      specter: { ...mockGameContent.tanks.specter, maxHealth: 1 },
+      ...localGameContent.tanks,
+      vanguard: { ...localGameContent.tanks.vanguard, maxHealth: 10_000 },
+      specter: { ...localGameContent.tanks.specter, maxHealth: 1 },
     },
     projectiles: {
-      ...mockGameContent.projectiles,
+      ...localGameContent.projectiles,
       cluster: {
-        ...mockGameContent.projectiles.cluster,
+        ...localGameContent.projectiles.cluster,
         damageEffect: { type: "radial", radius: 5_000, damage: 100 },
       },
     },

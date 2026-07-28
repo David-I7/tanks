@@ -27,7 +27,7 @@ function createClient() {
     publishes,
     subscriptions,
     client: {
-      publish(params: PublishParams): void {
+      send(params: PublishParams): void {
         publishes.push(params);
       },
       subscribe<Data>(params: EndpointSubscription<Data>): SubscriptionCleanup {
@@ -158,7 +158,6 @@ const otherGameDiff = {
 
   const unsubscribe = transport.subscribeToStateDiffs(() => {});
   transport.destroy();
-  unsubscribe();
 
   assert.equal(subscriptions[0]?.cleaned, true);
   assert.equal(subscriptions[1]?.cleaned, true);

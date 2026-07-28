@@ -24,6 +24,7 @@ type LobbyState =
 
 import { useAssetQuery } from "../../hooks/useAssetQuery";
 import { useAssetStore } from "../../store/useAssetStore";
+import { queryClient } from "../../query/queryClient";
 
 export default function useQuickMatchLobby() {
   const {
@@ -89,6 +90,10 @@ export default function useQuickMatchLobby() {
     if (webSocketStatus === "disconnected") {
       connect();
     }
+
+    return () => {
+      queryClient.invalidateQueries({ queryKey: ["userStatus"] });
+    };
   }, []);
 
   useEffect(() => {
@@ -128,7 +133,7 @@ export default function useQuickMatchLobby() {
     add(
       subscribe({
         destination: "/user/queue/replies",
-        onMessage: (message) => {
+        onMessage: async (message) => {
           if (
             message.body.type === "LOBBY_JOINED" ||
             message.body.type === "LOBBY_CREATED"
@@ -143,6 +148,7 @@ export default function useQuickMatchLobby() {
           }
 
           if (message.body.type === "GAME_CREATED") {
+            await queryClient.invalidateQueries({ queryKey: ["userStatus"] });
             navigate(`/game/${message.body.payload.id}`);
           }
         },

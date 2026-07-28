@@ -1,9 +1,6 @@
 import { LocalWorld } from "./LocalWorld";
 import { LocalTerrainModel } from "../simulation/LocalTerrainModel";
-import {
-  localGameContent,
-  type GameContent,
-} from "../content/localGameContent";
+import type { GameContent } from "../content/localGameContent";
 import {
   type ControllerKind,
   type GameMode,
@@ -42,6 +39,27 @@ export function getPlayerMatchConfig(
     controllerKind: "human",
   };
 }
+
+export function createDefaultMatchSetup(
+  mode: GameMode = "localTwoPlayer",
+): MatchSetup {
+  return {
+    mode,
+    players: [
+      {
+        id: 0,
+        ...getPlayerMatchConfig(mode, 0),
+        tankSelection: { tankDefinitionId: "vanguard" },
+      },
+      {
+        id: 1,
+        ...getPlayerMatchConfig(mode, 1),
+        tankSelection: { tankDefinitionId: "specter" },
+      },
+    ],
+  };
+}
+
 
 export function createLocalInitialWorld(
   setup: MatchSetup,

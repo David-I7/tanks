@@ -33,10 +33,10 @@ export type Vec2 = {
 };
 
 export type VisualIdentity = {
-  fill: string;
-  stroke: string;
-  accent: string;
-  label: string;
+  fill?: string;
+  stroke?: string;
+  accent?: string;
+  label?: string;
 };
 
 export type ProjectilePhysics = {
@@ -62,6 +62,7 @@ export type ProjectileDefinition = {
   damageEffect: DamageEffect;
   impactAnimationId: string;
   impactDuration: number;
+  visual?: VisualIdentity;
 };
 
 export type ProjectileSlot = {
@@ -84,6 +85,7 @@ export type TankDefinition = {
   muzzleForwardOffset: number;
   muzzleVerticalOffset: number;
   loadout: ProjectileSlot[];
+  visual?: VisualIdentity;
 };
 
 export type TankSelection = {
@@ -123,6 +125,7 @@ export type TankComponent = {
   maxFuel: number;
   fuel: number;
   alive: boolean;
+  visual?: VisualIdentity;
 };
 
 export type ProjectileComponent = {
@@ -136,6 +139,7 @@ export type ProjectileComponent = {
   damageEffect: DamageEffect;
   impactAnimationId: string;
   impactDuration: number;
+  visual?: VisualIdentity;
 };
 
 export type ImpactEvent = {

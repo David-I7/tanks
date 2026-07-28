@@ -6,7 +6,6 @@ import TankSelector from "../../components/game/TankSelector";
 import Surface from "../../components/layouts/Surface";
 import H1 from "../../components/headings/H1";
 import PageNotFoundError from "../../errors/PageNotFoundError";
-import { useEffect, useState } from "react";
 import UiError from "../../errors/UiError";
 import { useAssetQuery } from "../../hooks/useAssetQuery";
 
@@ -40,26 +39,23 @@ export default function LobbyPage() {
 import { useUserStatusQuery } from "../../hooks/useUserStatusQuery";
 
 function useCheckValidLobbySession({ id }: { id: string | undefined }) {
-  const { data: userStatus } = useUserStatusQuery();
-  const [checked, setChecked] = useState(false);
+  const { data: userStatus, isPending, isFetching } = useUserStatusQuery();
 
-  useEffect(() => {
-    if (userStatus == null) return;
+  if (isPending || isFetching) return false;
 
-    if (userStatus.state === "IN_LOBBY") {
-      throw new UiError({
-        description: "You are currently in a lobby in another tab or window.",
-        heading: "In a lobby",
-      });
-    }
+  if (userStatus == null) return true;
 
-    if (!id || !uuidSchema.safeParse(id).success) {
-      if (!uuidSchema.safeParse(id).success)
-        throw new PageNotFoundError("/lobby/" + id);
-    }
+  if (userStatus.state === "IN_LOBBY" && userStatus.lobbyId !== id) {
+    throw new UiError({
+      description: "You are currently in a lobby in another tab or window.",
+      heading: "In a lobby",
+    });
+  }
 
-    setChecked(true);
-  }, [userStatus, id]);
+  if (!id || !uuidSchema.safeParse(id).success) {
+    if (!uuidSchema.safeParse(id).success)
+      throw new PageNotFoundError("/lobby/" + id);
+  }
 
-  return checked;
+  return true;
 }

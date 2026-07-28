@@ -73,7 +73,6 @@ export default function usePrivateLobby() {
 
   const leaveLobby = () => {
     disconnect();
-    queryClient.invalidateQueries({ queryKey: ["userStatus"] });
   };
   const retry = () => {
     if (webSocketStatus !== "disconnected" || lobbyState.state !== "error")
@@ -123,6 +122,10 @@ export default function usePrivateLobby() {
     if (webSocketStatus === "disconnected") {
       connect();
     }
+
+    return () => {
+      queryClient.invalidateQueries({ queryKey: ["userStatus"] });
+    };
   }, []);
 
   useEffect(() => {
@@ -198,7 +201,7 @@ export default function usePrivateLobby() {
     };
 
     let handleUserReplies: EndpointSubscription<WebSocketEventResponseDto>["onMessage"] =
-      (message) => {
+      async (message) => {
         if (
           message.body.type === "LOBBY_CREATED" ||
           message.body.type === "LOBBY_JOINED"
@@ -208,6 +211,7 @@ export default function usePrivateLobby() {
         }
 
         if (message.body.type === "GAME_CREATED") {
+          await queryClient.invalidateQueries({ queryKey: ["userStatus"] });
           navigate(`/game/${message.body.payload.id}`, { replace: true });
           return;
         }

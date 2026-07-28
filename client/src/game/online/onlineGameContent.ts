@@ -1,4 +1,4 @@
-import type { GameContentResponseDto } from "../../api/ws/dto/gameplay/OnlineGameplayProtocol";
+import type { GameContentResponseDto } from "../../api/ws/dto/gameplay/onlineGameplayProtocol";
 import type { GameContent } from "../content/localGameContent";
 import type { VisualIdentity } from "../types";
 
