@@ -178,10 +178,22 @@ export class CanvasGameRenderer {
       ctx.translate(entry.position.x, entry.position.y);
       ctx.rotate(entry.bodyAngle);
 
-      const image = this.assets.tankImages[entry.tankDefinitionId];
+      const image =
+        this.assets.tankImages[entry.tankDefinitionId] ??
+        Object.values(this.assets.tankImages)[0];
 
       ctx.scale(entry.facing, 1);
-      ctx.drawImage(image, -24, -30, 48, 28);
+      if (image && typeof image === "object" && "nodeName" in image) {
+        ctx.drawImage(image, -24, -30, 48, 28);
+      } else {
+        ctx.fillStyle = entry.visual?.fill ?? "#3b82f6";
+        ctx.strokeStyle = entry.visual?.stroke ?? "#1e40af";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.roundRect(-24, -20, 48, 20, 4);
+        ctx.fill();
+        ctx.stroke();
+      }
 
       ctx.restore();
 
@@ -208,7 +220,8 @@ export class CanvasGameRenderer {
   ): void {
     for (const entry of gameState.projectiles) {
       const projImage =
-        this.assets.projectileImages[entry.projectileDefinitionId];
+        this.assets.projectileImages[entry.projectileDefinitionId] ??
+        Object.values(this.assets.projectileImages)[0];
 
       ctx.save();
       ctx.translate(entry.position.x, entry.position.y);
@@ -216,7 +229,14 @@ export class CanvasGameRenderer {
       ctx.rotate(angle);
       const width = Math.max(16, entry.radius * 4);
       const height = Math.max(10, entry.radius * 2.5);
-      ctx.drawImage(projImage, -width / 2, -height / 2, width, height);
+      if (projImage && typeof projImage === "object" && "nodeName" in projImage) {
+        ctx.drawImage(projImage, -width / 2, -height / 2, width, height);
+      } else {
+        ctx.fillStyle = entry.visual?.fill ?? "#f59e0b";
+        ctx.beginPath();
+        ctx.arc(0, 0, entry.radius || 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
       ctx.restore();
     }
   }
@@ -483,17 +503,20 @@ export class CanvasGameRenderer {
       ctx.stroke();
 
       const projImage =
-        this.assets.projectileImages[slot.projectileDefinitionId];
+        this.assets.projectileImages[slot.projectileDefinitionId] ??
+        Object.values(this.assets.projectileImages)[0];
 
       const iconWidth = layout.slotSize * 0.55;
       const iconHeight = layout.slotSize * 0.32;
-      ctx.drawImage(
-        projImage,
-        x + layout.slotSize / 2 - iconWidth / 2,
-        y + layout.slotSize / 2 - iconHeight / 2 - 4,
-        iconWidth,
-        iconHeight,
-      );
+      if (projImage && typeof projImage === "object" && "nodeName" in projImage) {
+        ctx.drawImage(
+          projImage,
+          x + layout.slotSize / 2 - iconWidth / 2,
+          y + layout.slotSize / 2 - iconHeight / 2 - 4,
+          iconWidth,
+          iconHeight,
+        );
+      }
 
       ctx.fillStyle = selected ? "#111827" : "#cbd5e1";
       ctx.font = "700 10px Inter, sans-serif";
