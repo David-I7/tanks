@@ -10,6 +10,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationListener;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.ContextClosedEvent;
@@ -49,6 +50,7 @@ public class ServerSimulationLoopService implements ApplicationListener<ContextC
         this(gameRepository, eventPublisher, null, createDefaultExecutorService());
     }
 
+    @Autowired
     public ServerSimulationLoopService(
             GameSessionRepository gameRepository,
             ApplicationEventPublisher eventPublisher,
