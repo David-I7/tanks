@@ -147,7 +147,7 @@ public class DefaultGameSimulation implements GameSimulation {
             impact = new OnlineVec2Dto(round(currX), round(currY));
             trajectory.add(impact);
 
-            if (currX < 0 || currX >= content.world().width() || currY > content.world().height()) {
+            if (currX < 0 || currX >= content.world().width()) {
                 break;
             }
 
@@ -157,7 +157,10 @@ public class DefaultGameSimulation implements GameSimulation {
                 break;
             }
 
-            if (terrain.intersectsCircle(currX, currY, projectileDef.physics().radius())) {
+            double surfY = terrain.surfaceY(currX);
+            if (currY >= surfY || terrain.intersectsCircle(currX, currY, projectileDef.physics().radius())) {
+                impact = new OnlineVec2Dto(round(currX), round(Math.min(surfY, currY)));
+                trajectory.set(trajectory.size() - 1, impact);
                 break;
             }
         }
