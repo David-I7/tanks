@@ -156,6 +156,31 @@ class GameSessionServiceAuthoritativeGameplayTest {
         assertThat(harness.diffs().getFirst().type()).isEqualTo(OnlineStateDiffResponseType.MOVEMENT_SEGMENT);
     }
 
+    @Test
+    @DisplayName("Map payloads deserialized from JSON by Jackson are correctly extracted and processed")
+    void enqueueAndProcessMapPayloadFromJacksonDeserialization() {
+        Harness harness = new Harness();
+        GameSession session = harness.startedSession(88);
+        when(harness.gameRepository.findById(session.getId())).thenReturn(Optional.of(session));
+
+        Map<String, Object> mapPayload = Map.of("direction", 1);
+        OnlinePlayerIntentRequestDto<?> intent = new OnlinePlayerIntentRequestDto<>(
+                OnlineGameplayProtocolVersion.V1, session.getId().toString(), 1,
+                "move-map-1", 1, 0, OnlinePlayerIntentRequestType.MOVE,
+                mapPayload);
+
+        boolean enqueued = harness.service.enqueuePlayerIntent("host", session.getId(), intent);
+
+        assertThat(enqueued).isTrue();
+        assertThat(session.getPendingIntents()).hasSize(1);
+
+        harness.service.processPendingIntents(session);
+
+        assertThat(session.getPendingIntents()).isEmpty();
+        assertThat(harness.diffs()).hasSize(1);
+        assertThat(harness.diffs().getFirst().type()).isEqualTo(OnlineStateDiffResponseType.MOVEMENT_SEGMENT);
+    }
+
     private static class Harness {
         final GameSessionRepository gameRepository = mock(GameSessionRepository.class);
         final UserSessionService userSessionService = mock(UserSessionService.class);

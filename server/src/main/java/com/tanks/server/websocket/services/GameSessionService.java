@@ -1,5 +1,6 @@
 package com.tanks.server.websocket.services;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tanks.server.entities.User;
 import com.tanks.server.entities.gameResult.GameOutcome;
 import com.tanks.server.entities.gameResult.GameResult;
@@ -59,6 +60,7 @@ public class GameSessionService {
     private final GameStateResponseFactory initialStateFactory;
     private final GameResultRepository gameResultRepository;
     private final UserRepository userRepository;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public GameSession create(Lobby lobby) {
         UserSession host = userSessionService.findById(lobby.getHost().getId());
@@ -238,19 +240,25 @@ public class GameSessionService {
             return false;
         }
 
-        if (intent.type() == OnlinePlayerIntentRequestType.MOVE && intent.payload() instanceof OnlinePlayerIntentRequestPayloads.Move move) {
-            if (!publishMovementSegment(gameSession, intent, move)) {
-                log.debug("Movement rejected: {}", intent);
-                return false;
+        if (intent.type() == OnlinePlayerIntentRequestType.MOVE) {
+            OnlinePlayerIntentRequestPayloads.Move move = extractMovePayload(intent);
+            if (move != null) {
+                if (!publishMovementSegment(gameSession, intent, move)) {
+                    log.debug("Movement rejected: {}", intent);
+                    return false;
+                }
+                log.debug("Movement accepted: {}", intent);
+                return true;
             }
-            log.debug("Movement accepted: {}", intent);
-            return true;
         }
 
-        if (intent.type() == OnlinePlayerIntentRequestType.FIRE && intent.payload() instanceof OnlinePlayerIntentRequestPayloads.Fire fire) {
-            publishProjectileResolution(gameSession, intent, fire);
-            log.debug("Projectile accepted: {}", intent);
-            return true;
+        if (intent.type() == OnlinePlayerIntentRequestType.FIRE) {
+            OnlinePlayerIntentRequestPayloads.Fire fire = extractFirePayload(intent);
+            if (fire != null) {
+                publishProjectileResolution(gameSession, intent, fire);
+                log.debug("Projectile accepted: {}", intent);
+                return true;
+            }
         }
 
         setUnresolvedIntent(gameSession, intent.playerId(), intent.intentId());
@@ -306,6 +314,34 @@ public class GameSessionService {
         gameRepository.save(gameSession);
     }
 
+    private OnlinePlayerIntentRequestPayloads.Move extractMovePayload(OnlinePlayerIntentRequestDto<?> intent) {
+        if (intent == null || intent.payload() == null) {
+            return null;
+        }
+        if (intent.payload() instanceof OnlinePlayerIntentRequestPayloads.Move move) {
+            return move;
+        }
+        try {
+            return objectMapper.convertValue(intent.payload(), OnlinePlayerIntentRequestPayloads.Move.class);
+        } catch (IllegalArgumentException ex) {
+            return null;
+        }
+    }
+
+    private OnlinePlayerIntentRequestPayloads.Fire extractFirePayload(OnlinePlayerIntentRequestDto<?> intent) {
+        if (intent == null || intent.payload() == null) {
+            return null;
+        }
+        if (intent.payload() instanceof OnlinePlayerIntentRequestPayloads.Fire fire) {
+            return fire;
+        }
+        try {
+            return objectMapper.convertValue(intent.payload(), OnlinePlayerIntentRequestPayloads.Fire.class);
+        } catch (IllegalArgumentException ex) {
+            return null;
+        }
+    }
+
     private OnlineDiffResponsePayloads.IntentRejectionReason rejectionReason(
             GameSession gameSession,
             String username,
@@ -331,13 +367,16 @@ public class GameSessionService {
             return OnlineDiffResponsePayloads.IntentRejectionReason.TURN_ALREADY_RESOLVING;
         }
 
-        if (intent.type() == OnlinePlayerIntentRequestType.MOVE && intent.payload() instanceof OnlinePlayerIntentRequestPayloads.Move move) {
-            OnlineDiffResponsePayloads.IntentRejectionReason movementRejection = movementRejectionReason(
-                    gameSession,
-                    intent.playerId(),
-                    move);
-            if (movementRejection != null) {
-                return movementRejection;
+        if (intent.type() == OnlinePlayerIntentRequestType.MOVE) {
+            OnlinePlayerIntentRequestPayloads.Move move = extractMovePayload(intent);
+            if (move != null) {
+                OnlineDiffResponsePayloads.IntentRejectionReason movementRejection = movementRejectionReason(
+                        gameSession,
+                        intent.playerId(),
+                        move);
+                if (movementRejection != null) {
+                    return movementRejection;
+                }
             }
         }
 
@@ -349,11 +388,16 @@ public class GameSessionService {
             return false;
         }
 
-        if (intent.type() == OnlinePlayerIntentRequestType.MOVE && intent.payload() instanceof OnlinePlayerIntentRequestPayloads.Move move) {
-            return move.direction() == -1 || move.direction() == 1;
+        if (intent.type() == OnlinePlayerIntentRequestType.MOVE) {
+            OnlinePlayerIntentRequestPayloads.Move move = extractMovePayload(intent);
+            return move != null && (move.direction() == -1 || move.direction() == 1);
         }
-        if (intent.type() == OnlinePlayerIntentRequestType.FIRE && intent.payload() instanceof OnlinePlayerIntentRequestPayloads.Fire fire) {
-        var validation = contentCatalog.require(gameSession.getGameContentVersion()).validation();
+        if (intent.type() == OnlinePlayerIntentRequestType.FIRE) {
+            OnlinePlayerIntentRequestPayloads.Fire fire = extractFirePayload(intent);
+            if (fire == null) {
+                return false;
+            }
+            var validation = contentCatalog.require(gameSession.getGameContentVersion()).validation();
             return fire.power() >= validation.minFirePower() && fire.power() <= validation.maxFirePower()
                     && fire.angle() >= validation.minAimAngle() && fire.angle() <= validation.maxAimAngle()
                     && contentCatalog.require(gameSession.getGameContentVersion()).tanks().values().stream().flatMap(tank -> tank.loadout().stream())
