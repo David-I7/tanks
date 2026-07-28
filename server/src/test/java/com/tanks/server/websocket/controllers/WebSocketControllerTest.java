@@ -233,7 +233,11 @@ public class WebSocketControllerTest {
         when(gameSessionService.getAndIncrementPlayerCount(gameId))
                 .thenReturn(GameSession.builder()
                         .id(gameId)
-                        .connectedPlayerCount(1)
+                        .state(GameSessionState.CREATED)
+                        .build());
+        when(gameSessionService.addConnectedUser(any(), any()))
+                .thenReturn(GameSession.builder()
+                        .id(gameId)
                         .state(GameSessionState.CREATED)
                         .build());
 

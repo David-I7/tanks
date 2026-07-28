@@ -95,7 +95,7 @@ class ServerSimulationLoopServiceTest {
     void disconnectsDoNotPauseSimulationLoop() {
         TestHarness harness = new TestHarness();
         GameSession gameSession = startedGameSession();
-        gameSession.setConnectedPlayerCount(0);
+        gameSession.getConnectedUserIds().clear();
         gameSession.setServerTick(7);
         gameSession.getWorld().match().turnEndsAtServerTick(100);
 
@@ -150,6 +150,26 @@ class ServerSimulationLoopServiceTest {
         harness.service.cleanupTerminalSessions();
 
         verify(harness.gameRepository, times(0)).delete(any(GameSession.class));
+    }
+
+    @Test
+    @DisplayName("3-minute match clock expiration triggers TERMINAL_GAME diff with MATCH_TIME_EXPIRED")
+    void matchClockExpirationTriggersTerminalGameDiffWithMatchTimeExpired() {
+        TestHarness harness = new TestHarness();
+        GameSession gameSession = startedGameSession();
+        gameSession.setMatchEndsAtServerTick(5400);
+        gameSession.setServerTick(5399);
+
+        harness.service.advance(gameSession);
+
+        assertThat(gameSession.getServerTick()).isEqualTo(5400);
+        assertThat(gameSession.getState()).isEqualTo(GameSessionState.ENDED);
+
+        List<OnlineDiffResponseDto<?>> diffs = gameplayDiffs(harness);
+        assertThat(diffs).hasSize(1);
+        assertThat(diffs.getFirst().type()).isEqualTo(OnlineStateDiffResponseType.TERMINAL_GAME);
+        OnlineDiffResponsePayloads.TerminalGame payload = (OnlineDiffResponsePayloads.TerminalGame) diffs.getFirst().payload();
+        assertThat(payload.reason()).isEqualTo(OnlineDiffResponsePayloads.TerminalGameReason.MATCH_TIME_EXPIRED);
     }
 
     private static GameSession startedGameSession() {

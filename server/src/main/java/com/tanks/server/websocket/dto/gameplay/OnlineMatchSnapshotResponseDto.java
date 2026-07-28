@@ -6,7 +6,18 @@ public record OnlineMatchSnapshotResponseDto(
                 int playerCount,
                 int turnNumber,
                 long turnTimeRemainingTicks,
-                Long winnerPlayerId) {
+                Long winnerPlayerId,
+                Long matchEndsAtServerTick) {
+
+        public OnlineMatchSnapshotResponseDto(
+                        MatchPhase phase,
+                        long activePlayerId,
+                        int playerCount,
+                        int turnNumber,
+                        long turnTimeRemainingTicks,
+                        Long winnerPlayerId) {
+                this(phase, activePlayerId, playerCount, turnNumber, turnTimeRemainingTicks, winnerPlayerId, null);
+        }
 
         public enum MatchPhase {
                 AIMING,

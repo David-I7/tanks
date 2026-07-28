@@ -137,6 +137,7 @@ public class GameSessionService {
         gameSession.getWorld().match().turnNumber(1);
         gameSession.getWorld().match().turnEndsAtServerTick(
                 contentCatalog.require(gameSession.getGameContentVersion()).world().tickRateHz() * 30L);
+        gameSession.setMatchEndsAtServerTick(gameSession.getServerTick() + 5400L);
         gameSession.setNextDiffSequence(2);
         gameSession.setLastDiffServerTick(0);
         gameSession.setState(GameSessionState.STARTED);
@@ -165,11 +166,19 @@ public class GameSessionService {
             return false;
         }
 
+        var resyncDiff = initialStateFactory.createResyncForPlayer(gameSession, reason, localPlayerId(gameSession, username));
+
         eventPublisher.publishEvent(new OnlineGameplayEvent(
                 this,
                 username,
                 "/queue/replies",
-                initialStateFactory.createResyncForPlayer(gameSession, reason, localPlayerId(gameSession, username))));
+                resyncDiff));
+
+        eventPublisher.publishEvent(new OnlineGameplayEvent(
+                this,
+                null,
+                "/topic/game/" + gameSession.getId(),
+                resyncDiff));
 
         log.debug("Resync state sent to player: {}", username);
         return true;
@@ -247,19 +256,39 @@ public class GameSessionService {
         return gameRepository.findById(gameSessionId).orElseThrow(() -> new ProblemDetailException(HttpStatus.NOT_FOUND,"Game session not found", URI.create("about:blank")));
     }
 
+    public GameSession addConnectedUser(UUID gameSessionId, Long userId) {
+        GameSession gameSession = findById(gameSessionId);
+        if (userId != null) {
+            if (!gameSession.getConnectedUserIds().contains(userId) && gameSession.getConnectedUserIds().size() >= 2) {
+                throw new ProblemDetailException(HttpStatus.BAD_REQUEST, "Game session already has 2 players", URI.create("about:blank"));
+            }
+            gameSession.getConnectedUserIds().add(userId);
+        }
+        return gameRepository.save(gameSession);
+    }
+
+    public void removeConnectedUser(UUID gameSessionId, Long userId) {
+        GameSession gameSession = findById(gameSessionId);
+        if (userId != null) {
+            gameSession.getConnectedUserIds().remove(userId);
+        }
+        gameRepository.save(gameSession);
+    }
+
     public GameSession getAndIncrementPlayerCount(UUID gameSessionId){
         GameSession gameSession = findById(gameSessionId);
         if (gameSession.getConnectedPlayerCount() >= 2)
             throw new ProblemDetailException(HttpStatus.BAD_REQUEST, "Game session already has 2 players", URI.create("about:blank"));
-        gameSession.setConnectedPlayerCount(gameSession.getConnectedPlayerCount() + 1);
+        gameSession.getConnectedUserIds().add((long) (gameSession.getConnectedPlayerCount() + 100));
         return gameRepository.save(gameSession);
     }
 
     public void decremenentPlayerCount(UUID gameSessionId){
         GameSession gameSession = findById(gameSessionId);
-        if (gameSession.getConnectedPlayerCount() <= 0)
-            throw new ProblemDetailException(HttpStatus.BAD_REQUEST, "Game session is already empty", URI.create("about:blank"));
-        gameSession.setConnectedPlayerCount(gameSession.getConnectedPlayerCount() - 1);
+        if (!gameSession.getConnectedUserIds().isEmpty()) {
+            Long first = gameSession.getConnectedUserIds().iterator().next();
+            gameSession.getConnectedUserIds().remove(first);
+        }
         gameRepository.save(gameSession);
     }
 
@@ -537,8 +566,22 @@ public class GameSessionService {
                         activePlayerId,
                         gameSession.getWorld().match().turnNumber(),
                         OnlineDiffResponsePayloads.TurnPhase.AIMING,
-                        gameSession.getWorld().match().turnEndsAtServerTick()));
+                        gameSession.getWorld().match().turnEndsAtServerTick(),
+                        gameSession.getMatchEndsAtServerTick()));
         log.debug("Turn advanced after shot: {} -> {}", previousPlayerId, activePlayerId);
+    }
+
+    public void finalizeMatchTimeExpired(GameSession gameSession, Long winnerPlayerId) {
+        finalizeWinResult(gameSession, winnerPlayerId != null ? winnerPlayerId : 0);
+        publishDiff(
+                gameSession,
+                OnlineStateDiffResponseType.TERMINAL_GAME,
+                null,
+                gameSession.getServerTick(),
+                new OnlineDiffResponsePayloads.TerminalGame(
+                        winnerPlayerId,
+                        OnlineDiffResponsePayloads.TerminalGameReason.MATCH_TIME_EXPIRED,
+                        initialStateFactory.createStateSnapshot(gameSession)));
     }
 
     private long projectileEntityId(GameSession gameSession) {
