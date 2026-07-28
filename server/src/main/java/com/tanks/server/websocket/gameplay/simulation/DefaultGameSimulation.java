@@ -118,8 +118,7 @@ public class DefaultGameSimulation implements GameSimulation {
         OnlineVec2Dto launch = new OnlineVec2Dto(round(launchX), round(launchY));
 
         double angleRad = Math.abs(request.angle()) > 2 * Math.PI ? Math.toRadians(request.angle()) : request.angle();
-        double powerPx = request.power() <= 1.0 ? request.power() * 1000.0 : request.power();
-        double speed = powerPx * projectileDef.muzzleVelocityScale();
+        double speed = request.power() * projectileDef.muzzleVelocityScale();
         double vx = speed * Math.cos(angleRad);
         double vy = speed * Math.sin(angleRad);
         double g = content.world().gravity() * projectileDef.gravityScale();
