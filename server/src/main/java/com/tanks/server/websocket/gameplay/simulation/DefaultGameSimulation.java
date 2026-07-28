@@ -117,9 +117,11 @@ public class DefaultGameSimulation implements GameSimulation {
         double launchY = state.position().y() - tankDef.muzzleVerticalOffset();
         OnlineVec2Dto launch = new OnlineVec2Dto(round(launchX), round(launchY));
 
-        double speed = request.power() * projectileDef.physics().muzzleVelocityScale();
-        double vx = speed * Math.cos(request.angle());
-        double vy = speed * Math.sin(request.angle());
+        double angleRad = Math.abs(request.angle()) > 2 * Math.PI ? Math.toRadians(request.angle()) : request.angle();
+        double powerPx = request.power() <= 1.0 ? request.power() * 1000.0 : request.power();
+        double speed = powerPx * projectileDef.physics().muzzleVelocityScale();
+        double vx = speed * Math.cos(angleRad);
+        double vy = speed * Math.sin(angleRad);
         double g = content.world().gravity() * projectileDef.physics().gravityScale();
         double dt = content.world().projectileTimeStepSeconds();
 
