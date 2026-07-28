@@ -8,7 +8,7 @@ import type {
 } from "../../../src/api/ws/dto/gameplay/onlineGameplayProtocol";
 import {
   createOnlineGameManager,
-} from "../../../src/game/online/OnlineGameManager";
+} from "../../../src/game/authority/OnlineGameManager";
 import type { GameManager } from "../../../src/game";
 import type {
   OnlineGameplayTransport,
@@ -243,7 +243,7 @@ function createTransport(): {
   const initialized = gameManager.getState();
   assert.equal(gameManager.getState(), initialized);
   assert.equal(initialized.match.mode, "online");
-  assert.equal(initialized.match.phase, "aiming");
+  assert.equal(initialized.match.phase, "thinking");
   assert.equal(initialized.tanks[0]?.controllerKind, "human");
   assert.equal(initialized.tanks[1]?.controllerKind, "remote");
 

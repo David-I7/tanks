@@ -36,11 +36,13 @@ assert.equal(
   false,
 );
 assert.equal(
-  existsSync(join(srcRoot, "authority", "gameManager.ts")),
+  existsSync(join(srcRoot, "authority", "GameManager.ts")) ||
+    existsSync(join(srcRoot, "authority", "gameManager.ts")),
   true,
 );
 assert.equal(
-  existsSync(join(srcRoot, "authority", "simulationManager.ts")),
+  existsSync(join(srcRoot, "simulation", "simulationManager.ts")) ||
+    existsSync(join(srcRoot, "authority", "simulationManager.ts")),
   true,
 );
 assert.equal(

@@ -4,7 +4,6 @@ import Google from "../icons/Google";
 import GoogleLoginRequest from "../../api/http/requests/auth/GoogleLoginRequest";
 import { usePopup } from "../../hooks/usePopup";
 import { useNavigate } from "react-router-dom";
-import { useAuthStore } from "../../store/useAuthStore";
 import PostOauth2LoginRequest from "../../api/http/requests/auth/PostOAuth2LoginRequest";
 import { useOAuth2LoginMutation } from "../../hooks/useAuthMutations";
 

@@ -2,8 +2,8 @@ import type {
   GameSessionId,
   OnlineDiffResponseDto,
   OnlinePlayerIntentRequestDto,
-} from "../../api/ws/dto/gameplay/OnlineGameplayProtocol";
-import { isOnlineDiffResponseDto } from "../../api/ws/dto/gameplay/OnlineGameplayProtocol";
+} from "../../api/ws/dto/gameplay/onlineGameplayProtocol";
+import { isOnlineDiffResponseDto } from "../../api/ws/dto/gameplay/onlineGameplayProtocol";
 import type {
   EndpointSubscription,
   Message,
@@ -12,7 +12,7 @@ import type {
 } from "../../api/ws/TanksWebSocketClient";
 import type { GameEvent } from "../../api/ws/dto/game/GameEventDto";
 
-type OnlineGameplayClient = {
+export type OnlineGameplayClient = {
   send(params: PublishParams): void;
   subscribe<Data>(params: EndpointSubscription<Data>): SubscriptionCleanup;
 };
@@ -20,8 +20,12 @@ type OnlineGameplayClient = {
 export type OnlineGameplayTransport = {
   sendPlayerIntent(intent: OnlinePlayerIntentRequestDto): void;
   requestResyncState(): void;
-  subscribeToStateDiffs(listener: (diff: OnlineDiffResponseDto) => void): void;
-  subscribeToGameEvents(listener: (event: GameEvent) => void): void;
+  subscribeToStateDiffs(
+    listener: (diff: OnlineDiffResponseDto) => void,
+  ): SubscriptionCleanup;
+  subscribeToGameEvents(
+    listener: (event: GameEvent) => void,
+  ): SubscriptionCleanup;
   destroy(): void;
 };
 
@@ -68,11 +72,13 @@ export function createOnlineGameplayTransport(options: {
         }
       };
 
-      const replyCleanup = options.client.subscribe<unknown>({
-        destination: "/user/queue/replies",
-        onMessage: handleMessage,
-      });
       const topicCleanup = subscribeToGameTopic(handleMessage);
+      cleanups.add(topicCleanup);
+
+      return () => {
+        topicCleanup();
+        cleanups.delete(topicCleanup);
+      };
     },
 
     subscribeToGameEvents(
@@ -84,15 +90,12 @@ export function createOnlineGameplayTransport(options: {
         }
       };
 
-      const replyCleanup = options.client.subscribe<unknown>({
-        destination: "/user/queue/replies",
-        onMessage: handleMessage,
-      });
       const topicCleanup = subscribeToGameTopic<GameEvent>(handleMessage);
+      cleanups.add(topicCleanup);
 
       return () => {
-        replyCleanup();
         topicCleanup();
+        cleanups.delete(topicCleanup);
       };
     },
 

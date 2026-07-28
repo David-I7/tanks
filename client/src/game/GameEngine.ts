@@ -7,7 +7,7 @@ import {
   type RendererAssets,
 } from "./rendering/CanvasGameRenderer";
 import type { GameAction, GameState } from "./types";
-import { type GameManager } from "./authority/GameManager";
+import { type GameManager } from "./authority/gameManager";
 import {
   createCanvasSizing,
   readDomCanvasRect,

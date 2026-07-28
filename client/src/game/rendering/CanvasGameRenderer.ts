@@ -118,7 +118,7 @@ export class CanvasGameRenderer {
       (entry) => entry.playerId === gameState.match.activePlayerId,
     )!;
     const focusX =
-      gameState.projectiles[0]?.position.x ?? activeTank.position.x;
+      gameState.projectiles[0]?.position.x ?? activeTank?.position.x ?? 0;
     const maxCameraX = Math.max(
       0,
       gameState.terrain.width - this.gameViewport.width,
@@ -230,17 +230,17 @@ export class CanvasGameRenderer {
       const radius = 18 + ratio * 48;
       ctx.save();
       ctx.globalAlpha = 1 - ratio * 0.75;
-      ctx.fillStyle = event.visual.fill;
-      ctx.strokeStyle = event.visual.stroke;
+      ctx.fillStyle = event.visual?.fill ?? "#ff4500";
+      ctx.strokeStyle = event.visual?.stroke ?? "#ff8c00";
       ctx.lineWidth = 5;
       ctx.beginPath();
       ctx.arc(event.position.x, event.position.y, radius, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
-      ctx.fillStyle = event.visual.accent;
+      ctx.fillStyle = event.visual?.accent ?? "#ffd700";
       ctx.font = "700 18px sans-serif";
       ctx.textAlign = "center";
-      ctx.fillText(event.visual.label, event.position.x, event.position.y + 6);
+      ctx.fillText(event.visual?.label ?? "", event.position.x, event.position.y + 6);
       ctx.restore();
     }
   }

@@ -1,10 +1,10 @@
 import type {
   OnlineDiffResponseDto,
   OnlinePlayerIntentRequestDto,
-} from "../../api/ws/dto/gameplay/OnlineGameplayProtocol";
-import type { GameManager } from "./GameManager";
+} from "../../api/ws/dto/gameplay/onlineGameplayProtocol";
+import type { GameManager } from "./gameManager";
 import type { GameAction, GameState } from "../types";
-import type { OnlineGameplayTransport } from "../online/onlineGameplayTransport";
+import type { OnlineGameplayTransport } from "../online/OnlineGameplayTransport";
 import { toGameState } from "../online/onlineGameState";
 import { onlineGameContentFromResponse } from "../online/onlineGameContent";
 import {

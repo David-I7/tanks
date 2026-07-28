@@ -10,7 +10,7 @@ import type {
 import type {
   OnlineDiffResponseDto,
   OnlinePlayerIntentRequestDto,
-} from "../../../src/api/ws/dto/gameplay/onlineGameplayProtocol";
+} from "../../../src/api/ws/dto/gameplay/OnlineGameplayProtocol";
 import { createOnlineGameplayTransport } from "../../../src/game/online/OnlineGameplayTransport";
 
 type CapturedSubscription = EndpointSubscription<unknown> & {
@@ -27,7 +27,7 @@ function createClient() {
     publishes,
     subscriptions,
     client: {
-      publish(params: PublishParams): void {
+      send(params: PublishParams): void {
         publishes.push(params);
       },
       subscribe<Data>(params: EndpointSubscription<Data>): SubscriptionCleanup {
@@ -127,9 +127,9 @@ const otherGameDiff = {
     seen.push(stateDiff);
   });
 
-  assert.equal(subscriptions[0]?.destination, "/user/queue/replies");
-  assert.equal(subscriptions[1]?.destination, "/topic/game/:id");
-  assert.equal(subscriptions[1]?.id, "game-123");
+  assert.equal(subscriptions.length, 1);
+  assert.equal(subscriptions[0]?.destination, "/topic/game/:id");
+  assert.equal(subscriptions[0]?.id, "game-123");
 
   subscriptions[0]?.onMessage(message(diff));
   subscriptions[0]?.onMessage(message(otherGameDiff));
@@ -140,13 +140,12 @@ const otherGameDiff = {
       type: "MOVEMENT_SEGMENT",
     }),
   );
-  subscriptions[1]?.onMessage(message({ type: "GAME_CONNECT" }));
+  subscriptions[0]?.onMessage(message({ type: "GAME_CONNECT" }));
 
   assert.deepEqual(seen, [diff]);
 
   unsubscribe();
   assert.equal(subscriptions[0]?.cleaned, true);
-  assert.equal(subscriptions[1]?.cleaned, true);
 }
 
 {
@@ -158,12 +157,9 @@ const otherGameDiff = {
 
   const unsubscribe = transport.subscribeToStateDiffs(() => {});
   transport.destroy();
-  unsubscribe();
 
   assert.equal(subscriptions[0]?.cleaned, true);
-  assert.equal(subscriptions[1]?.cleaned, true);
   assert.equal(subscriptions[0]?.cleanupCalls, 1);
-  assert.equal(subscriptions[1]?.cleanupCalls, 1);
 }
 
 {
@@ -178,9 +174,9 @@ const otherGameDiff = {
     seen.push(event.type);
   });
 
-  assert.equal(subscriptions[0]?.destination, "/user/queue/replies");
-  assert.equal(subscriptions[1]?.destination, "/topic/game/:id");
-  assert.equal(subscriptions[1]?.id, "game-123");
+  assert.equal(subscriptions.length, 1);
+  assert.equal(subscriptions[0]?.destination, "/topic/game/:id");
+  assert.equal(subscriptions[0]?.id, "game-123");
 
   subscriptions[0]?.onMessage(message({ type: "GAME_CONNECT", payload: { playerName: "Ada" } }));
   subscriptions[0]?.onMessage(message({
@@ -196,11 +192,10 @@ const otherGameDiff = {
     },
   }));
   subscriptions[0]?.onMessage(message(diff));
-  subscriptions[1]?.onMessage(message({ type: "GAME_DISCONNECT", payload: { playerName: "Grace" } }));
+  subscriptions[0]?.onMessage(message({ type: "GAME_DISCONNECT", payload: { playerName: "Grace" } }));
 
   unsubscribe();
 
   assert.deepEqual(seen, ["GAME_CONNECT", "GAME_STARTED", "GAME_DISCONNECT"]);
   assert.equal(subscriptions[0]?.cleanupCalls, 1);
-  assert.equal(subscriptions[1]?.cleanupCalls, 1);
 }

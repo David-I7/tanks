@@ -1,7 +1,7 @@
 import type {
   OnlineGameStateSnapshotResponse,
   OnlineTerrainSnapshotResponse,
-} from "../../api/ws/dto/gameplay/OnlineGameplayProtocol";
+} from "../../api/ws/dto/gameplay/onlineGameplayProtocol";
 import { localGameContent, type GameContent } from "../content/localGameContent";
 import type {
   GameState,
@@ -150,7 +150,7 @@ function mapOnlinePhase(
 ): TurnPhase {
   switch (phase) {
     case "AIMING":
-      return "aiming";
+      return "thinking";
     case "BALLISTICS":
       return "ballistics";
     case "IMPACT":

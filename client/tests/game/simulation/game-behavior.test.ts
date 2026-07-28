@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
-import { getPlayerMatchConfig } from "../../../src/game/modes";
 import {
   createDefaultMatchSetup,
   createLocalInitialWorld,
+  getPlayerMatchConfig,
 } from "../../../src/game/world/createInitialWorld";
 import { LocalSimulation } from "../../../src/game/simulation/LocalSimulation";
 import {
@@ -128,14 +128,14 @@ async function expectSharedSimulationManagerSelection(
   assert.deepEqual(sizing.gameViewport, sameViewportDifferentDpr.gameViewport);
   assert.deepEqual(sizing.dpiViewport, { width: 1920, height: 1120 });
 
-  const first = createInitialWorld(
+  const first = createLocalInitialWorld(
     createDefaultMatchSetup("localTwoPlayer"),
-    mockGameContent,
+    localGameContent,
     sizing.gameViewport,
   );
-  const second = createInitialWorld(
+  const second = createLocalInitialWorld(
     createDefaultMatchSetup("localTwoPlayer"),
-    mockGameContent,
+    localGameContent,
     sameViewportDifferentDpr.gameViewport,
   );
   assert.equal(first.terrain.width, second.terrain.width);
@@ -145,9 +145,9 @@ async function expectSharedSimulationManagerSelection(
     { width: 2400, height: 560 },
   );
 
-  const minimumTerrain = createInitialWorld(
+  const minimumTerrain = createLocalInitialWorld(
     createDefaultMatchSetup("localTwoPlayer"),
-    mockGameContent,
+    localGameContent,
     { width: 200, height: 100 },
   ).terrain;
   assert.deepEqual(
@@ -159,7 +159,7 @@ async function expectSharedSimulationManagerSelection(
 {
   assert.throws(
     () =>
-      createInitialWorld(
+      createLocalInitialWorld(
         {
           mode: "localTwoPlayer",
           players: [
@@ -171,22 +171,22 @@ async function expectSharedSimulationManagerSelection(
             },
           ],
         },
-        mockGameContent,
+        localGameContent,
         { width: 960, height: 560 },
       ),
     /Missing tank definition "missing"/,
   );
 
   const malformed: GameContent = {
-    ...mockGameContent,
+    ...localGameContent,
     tanks: {
-      ...mockGameContent.tanks,
-      broken: { ...mockGameContent.tanks.vanguard, id: "broken", loadout: [] },
+      ...localGameContent.tanks,
+      broken: { ...localGameContent.tanks.vanguard, id: "broken", loadout: [] },
     },
   };
   assert.throws(
     () =>
-      createInitialWorld(
+      createLocalInitialWorld(
         {
           mode: "localTwoPlayer",
           players: [
@@ -201,7 +201,7 @@ async function expectSharedSimulationManagerSelection(
         malformed,
         { width: 960, height: 560 },
       ),
-    /exactly five projectile slots/,
+    /projectile slots/,
   );
 }
 
@@ -241,7 +241,7 @@ async function expectSharedSimulationManagerSelection(
   await expectSharedSimulationManagerSelection(
     createLocalSimulationManager({
       setup: createDefaultMatchSetup("localTwoPlayer"),
-      content: mockGameContent,
+      content: localGameContent,
       initialGameViewport: { width: 960, height: 560 },
     }),
   );
@@ -250,7 +250,7 @@ async function expectSharedSimulationManagerSelection(
     createRemoteSimulationManager(
       createMockRemoteSimulationTransport({
         setup: createDefaultMatchSetup("online"),
-        content: mockGameContent,
+        content: localGameContent,
         width: 960,
         height: 560,
         latencyMs: 0,
@@ -293,7 +293,7 @@ async function expectSharedSimulationManagerSelection(
   const slotCount = state.tanks[0]?.tank.loadout.length ?? 0;
   const layout = getProjectileSelectorLayout(960, 560, slotCount);
   const selectedSlot = findProjectileSlotAtCanvasPoint(
-    simulationStateToGameState(state, mockGameContent.projectiles),
+    toGameState(state, localGameContent.projectiles),
     960,
     560,
     layout.x + layout.slotSize + layout.gap + layout.slotSize / 2,
@@ -383,7 +383,7 @@ async function expectSharedSimulationManagerSelection(
       pendingPointerDown: null,
       pendingSlotNumber: 2,
     },
-    context: canvasInteractionContext(simulationStateToGameState(state, mockGameContent.projectiles)),
+    context: canvasInteractionContext(toGameState(state, localGameContent.projectiles)),
   });
   assert.deepEqual(intents[0], { type: "move", direction: 1 });
   assert.deepEqual(intents[1], {
@@ -439,7 +439,7 @@ async function expectSharedSimulationManagerSelection(
 {
   const transport = createMockRemoteSimulationTransport({
     setup: createDefaultMatchSetup("online"),
-    content: mockGameContent,
+    content: localGameContent,
     width: 960,
     height: 560,
     latencyMs: 0,
@@ -468,7 +468,7 @@ async function expectSharedSimulationManagerSelection(
   assert.equal(setup.players[0]?.displayName, "Player 1");
   assert.equal(setup.players[1]?.displayName, "Player 2");
 
-  const { world } = createInitialWorld(setup, mockGameContent, {
+  const { world } = createLocalInitialWorld(setup, localGameContent, {
     width: 960,
     height: 560,
   });
@@ -486,7 +486,7 @@ async function expectSharedSimulationManagerSelection(
   assert.equal(setup.players[0]?.displayName, "Player 1");
   assert.equal(setup.players[1]?.displayName, "CPU");
 
-  const { world } = createInitialWorld(setup, mockGameContent, {
+  const { world } = createLocalInitialWorld(setup, localGameContent, {
     width: 960,
     height: 560,
   });

@@ -14,7 +14,7 @@ import type {
   OnlineTurnTransitionResponse,
   OnlineMoveRequest,
   ServerTick,
-} from "../../api/ws/dto/gameplay/OnlineGameplayProtocol";
+} from "../../api/ws/dto/gameplay/onlineGameplayProtocol";
 import type { Vec2 } from "../types";
 
 export type OnlinePendingPrediction = {
