@@ -174,12 +174,6 @@ public class GameSessionService {
                 "/queue/replies",
                 resyncDiff));
 
-        eventPublisher.publishEvent(new OnlineGameplayEvent(
-                this,
-                null,
-                "/topic/game/" + gameSession.getId(),
-                resyncDiff));
-
         log.debug("Resync state sent to player: {}", username);
         return true;
     }
@@ -271,23 +265,6 @@ public class GameSessionService {
         GameSession gameSession = findById(gameSessionId);
         if (userId != null) {
             gameSession.getConnectedUserIds().remove(userId);
-        }
-        gameRepository.save(gameSession);
-    }
-
-    public GameSession getAndIncrementPlayerCount(UUID gameSessionId){
-        GameSession gameSession = findById(gameSessionId);
-        if (gameSession.getConnectedPlayerCount() >= 2)
-            throw new ProblemDetailException(HttpStatus.BAD_REQUEST, "Game session already has 2 players", URI.create("about:blank"));
-        gameSession.getConnectedUserIds().add((long) (gameSession.getConnectedPlayerCount() + 100));
-        return gameRepository.save(gameSession);
-    }
-
-    public void decremenentPlayerCount(UUID gameSessionId){
-        GameSession gameSession = findById(gameSessionId);
-        if (!gameSession.getConnectedUserIds().isEmpty()) {
-            Long first = gameSession.getConnectedUserIds().iterator().next();
-            gameSession.getConnectedUserIds().remove(first);
         }
         gameRepository.save(gameSession);
     }

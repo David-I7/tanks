@@ -32,6 +32,7 @@ export default function useGameSession(gameSessionId: string) {
 
   const [sessionStatus, setSessionStatus] =
     useState<SessionStatus>("connecting_to_game");
+  const [opponentDisconnected, setOpponentDisconnected] = useState<boolean>(false);
   const [gameManager, setGameManager] = useState<GameManager | null>(null);
   const [gameplayTransport, setGameplayTransport] =
     useState<OnlineGameplayTransport | null>(null);
@@ -94,6 +95,14 @@ export default function useGameSession(gameSessionId: string) {
       });
     });
 
+    const unsubscribeEvents = transport.subscribeToGameEvents((event) => {
+      if (event && event.type === "GAME_DISCONNECT") {
+        setOpponentDisconnected(true);
+      } else if (event && event.type === "GAME_CONNECT") {
+        setOpponentDisconnected(false);
+      }
+    });
+
     const unsubscribeErrors = subscribe<ProblemDetailDto>({
       destination: "/user/queue/errors",
       onMessage: (message) => {
@@ -108,6 +117,7 @@ export default function useGameSession(gameSessionId: string) {
     return () => {
       if (!isConnected) return;
       unsubscribeManager();
+      unsubscribeEvents();
       unsubscribeErrors();
       manager.destroy();
       transport.destroy();
@@ -119,6 +129,7 @@ export default function useGameSession(gameSessionId: string) {
   return {
     sessionStatus,
     state: sessionStatus,
+    opponentDisconnected,
     gameManager,
     gameplayTransport,
     error,

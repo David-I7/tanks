@@ -50,7 +50,7 @@ function useCheckValidGameSession({ id }: { id: string | undefined }) {
 
 function GameView({ gameSessionId }: { gameSessionId: string }) {
   const navigate = useNavigate();
-  const { sessionStatus, gameManager } = useGameSession(gameSessionId);
+  const { sessionStatus, opponentDisconnected, gameManager } = useGameSession(gameSessionId);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const engineRef = useRef<GameEngine | null>(null);
 
@@ -124,6 +124,12 @@ function GameView({ gameSessionId }: { gameSessionId: string }) {
           {sessionStatus === "in_game" ? "Online Mode" : "Connecting"}
         </div>
       </header>
+
+      {opponentDisconnected && sessionStatus === "in_game" && (
+        <div className="mb-3 rounded bg-amber-500/10 border border-amber-500/30 px-4 py-2 text-center text-sm font-semibold text-amber-400 animate-pulse">
+          Opponent disconnected! Waiting for them to reconnect (Match clock continues running...)
+        </div>
+      )}
 
       <div className="relative flex min-h-[560px] flex-1">
         {(sessionStatus === "connecting_to_game" ||
