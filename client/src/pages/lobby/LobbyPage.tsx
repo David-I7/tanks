@@ -45,7 +45,7 @@ function useCheckValidLobbySession({ id }: { id: string | undefined }) {
 
   if (userStatus == null) return true;
 
-  if (userStatus.state === "IN_LOBBY") {
+  if (userStatus.state === "IN_LOBBY" && userStatus.lobbyId !== id) {
     throw new UiError({
       description: "You are currently in a lobby in another tab or window.",
       heading: "In a lobby",

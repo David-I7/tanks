@@ -211,6 +211,7 @@ export default function usePrivateLobby() {
         }
 
         if (message.body.type === "GAME_CREATED") {
+          queryClient.invalidateQueries({ queryKey: ["userStatus"] });
           navigate(`/game/${message.body.payload.id}`, { replace: true });
           return;
         }

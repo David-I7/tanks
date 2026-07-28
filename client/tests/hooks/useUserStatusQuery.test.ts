@@ -7,7 +7,7 @@ async function testUserStatusQueryCacheSeam() {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: {
-        staleTime: 10_000,
+        staleTime: 0,
       },
     },
   });
