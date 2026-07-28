@@ -538,6 +538,11 @@ public class GameSessionService {
             OnlinePlayerIntentRequestPayloads.Fire fire) {
         long firingPlayerId = intent.playerId();
         long targetPlayerId = firingPlayerId == 1 ? 2 : 1;
+        var firingTank = gameSession.getWorld().requireTankByPlayer(firingPlayerId);
+        firingTank.aimAngle(fire.angle());
+        firingTank.power(fire.power());
+        firingTank.selectedProjectileSlotId(fire.projectileSlotId());
+
         var content = contentCatalog.require(gameSession.getGameContentVersion());
         var projectile = gameSimulation.fire(content, gameSession.getWorld(), gameSession.getTerrainModel(),
                 intent.intentId(), projectileEntityId(gameSession), firingPlayerId, fire);
