@@ -121,8 +121,8 @@ public class AuthorizationInterceptor implements ChannelInterceptor {
         }
 
         // If a disconnect event happened while acquiring the lock, the user is already disconnected, so there is no need to fulfil this request
-        ReentrantLock lock2 = claimService.getSocketLock(userSession.getId());
-        if (lock2 == null) {
+        ReentrantLock activeSocketLock = claimService.getSocketLock(userSession.getId());
+        if (activeSocketLock == null) {
             lock.unlock();
             if (StompCommand.DISCONNECT.equals(accessor.getCommand())) {
                 return message;
