@@ -144,7 +144,20 @@ class ActiveOnlineGameManager {
       return false;
     }
 
+    if (action.type === "aim") {
+      const activeTank = this.confirmedState.state.tanks.find(
+        (tank) => tank.playerId === this.confirmedState.localPlayerId,
+      );
+      if (activeTank) {
+        activeTank.aimAngle = action.angle;
+        activeTank.power = action.power;
+        this.publishConfirmed(this.confirmedState);
+      }
+      return true;
+    }
+
     const envelope = this.createIntentEnvelope(action);
+    if (!envelope) return false;
     this.transport.sendPlayerIntent(envelope);
 
     if (action.type === "move") {
@@ -170,11 +183,6 @@ class ActiveOnlineGameManager {
   }
 
   applyDiff(diff: OnlineDiffResponseDto): void {
-    if (diff.type === "INITIAL_STATE") {
-      this.publishConfirmed(initializeOnlineConfirmedState(diff));
-      return;
-    }
-
     try {
       this.publishConfirmed(
         applyOnlineStateDiffResponse(
@@ -199,7 +207,7 @@ class ActiveOnlineGameManager {
 
   private createIntentEnvelope(
     action: GameAction,
-  ): OnlinePlayerIntentRequestDto {
+  ): OnlinePlayerIntentRequestDto | null {
     const intentId = this.intentIdFactory();
     const common = {
       protocolVersion: "online-gameplay.v1" as const,
@@ -234,8 +242,10 @@ class ActiveOnlineGameManager {
             projectileSlotId: action.projectileSlotId,
           },
         };
+      case "aim":
+        return null;
     }
-    throw new Error("Not implemented");
+    return null;
   }
 
   private publishConfirmed(state: OnlineConfirmedState): void {
