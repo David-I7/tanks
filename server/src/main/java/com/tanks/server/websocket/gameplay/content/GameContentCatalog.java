@@ -31,7 +31,7 @@ public class GameContentCatalog {
                             new TerrainEffect.Crater(30), new DamageEffect.Radial(78, 30), "impact.spark-burst", .48),
                     "needle", projectile("needle", "Needle", "projectile.needle", 2, .8, 0, 1.35,
                             new TerrainEffect.Drill(16, 56), new DamageEffect.Focused(22, 58), "impact.blue-flash", .36)),
-            new ValidationRules(0, 1, -90, 90));
+            new ValidationRules(0, 1000, -2 * Math.PI, 2 * Math.PI));
     private static final Map<String, GameContent> VERSIONS = Map.of(CURRENT.version(), CURRENT);
 
     public GameContent current() { return CURRENT; }

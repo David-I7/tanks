@@ -32,6 +32,8 @@ import com.tanks.server.websocket.repositories.GameSessionRepository;
 import com.tanks.server.websocket.repositories.LobbyRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import tools.jackson.databind.ObjectMapper;
+
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -59,6 +61,7 @@ public class GameSessionService {
     private final GameStateResponseFactory initialStateFactory;
     private final GameResultRepository gameResultRepository;
     private final UserRepository userRepository;
+    private final ObjectMapper objectMapper;
 
     public GameSession create(Lobby lobby) {
         UserSession host = userSessionService.findById(lobby.getHost().getId());
@@ -71,7 +74,8 @@ public class GameSessionService {
             UUID gameSessionId = IdFactory.randomUUID();
             long generationSeed = gameSessionId.getMostSignificantBits() ^ gameSessionId.getLeastSignificantBits();
             var content = contentCatalog.current();
-            var initialWorld = initialWorldFactory.create(content, generationSeed, host.getUsername(), opponent.getUsername());
+            var initialWorld = initialWorldFactory.create(content, generationSeed, host.getUsername(),
+                    opponent.getUsername());
             GameSession gameSession = GameSession.builder()
                     .id(gameSessionId)
                     .hostId(host.getId())
@@ -89,8 +93,7 @@ public class GameSessionService {
 
             GameEventResponseDto response = new GameEventResponseDto(
                     GameEventType.GAME_CREATED,
-                    new GameEventPayload(savedGameSession.getId(), savedGameSession.getHostId(), host.getUsername())
-            );
+                    new GameEventPayload(savedGameSession.getId(), savedGameSession.getHostId(), host.getUsername()));
 
             userSessionService.transitionToGame(host, savedGameSession.getId());
             userSessionService.transitionToGame(opponent, savedGameSession.getId());
@@ -159,14 +162,16 @@ public class GameSessionService {
         log.debug("Initial state sent to player: {}", username);
     }
 
-    public boolean sendResyncStateToPlayer(UUID gameSessionId, String username, OnlineDiffResponsePayloads.ResyncReason reason) {
+    public boolean sendResyncStateToPlayer(UUID gameSessionId, String username,
+            OnlineDiffResponsePayloads.ResyncReason reason) {
         GameSession gameSession = findById(gameSessionId);
         if (!GameSessionState.STARTED.equals(gameSession.getState())
                 && !GameSessionState.ENDED.equals(gameSession.getState())) {
             return false;
         }
 
-        var resyncDiff = initialStateFactory.createResyncForPlayer(gameSession, reason, localPlayerId(gameSession, username));
+        var resyncDiff = initialStateFactory.createResyncForPlayer(gameSession, reason,
+                localPlayerId(gameSession, username));
 
         eventPublisher.publishEvent(new OnlineGameplayEvent(
                 this,
@@ -226,7 +231,8 @@ public class GameSessionService {
         }
 
         String username = playerUsername(gameSession, intent.playerId());
-        OnlineDiffResponsePayloads.IntentRejectionReason rejectionReason = rejectionReason(gameSession, username, intent);
+        OnlineDiffResponsePayloads.IntentRejectionReason rejectionReason = rejectionReason(gameSession, username,
+                intent);
 
         if (rejectionReason != null) {
             if (rejectionReason == OnlineDiffResponsePayloads.IntentRejectionReason.INVALID_PAYLOAD) {
@@ -290,14 +296,16 @@ public class GameSessionService {
     }
 
     public GameSession findById(UUID gameSessionId) {
-        return gameRepository.findById(gameSessionId).orElseThrow(() -> new ProblemDetailException(HttpStatus.NOT_FOUND,"Game session not found", URI.create("about:blank")));
+        return gameRepository.findById(gameSessionId).orElseThrow(() -> new ProblemDetailException(HttpStatus.NOT_FOUND,
+                "Game session not found", URI.create("about:blank")));
     }
 
     public GameSession addConnectedUser(UUID gameSessionId, Long userId) {
         GameSession gameSession = findById(gameSessionId);
         if (userId != null) {
             if (!gameSession.getConnectedUserIds().contains(userId) && gameSession.getConnectedUserIds().size() >= 2) {
-                throw new ProblemDetailException(HttpStatus.BAD_REQUEST, "Game session already has 2 players", URI.create("about:blank"));
+                throw new ProblemDetailException(HttpStatus.BAD_REQUEST, "Game session already has 2 players",
+                        URI.create("about:blank"));
             }
             gameSession.getConnectedUserIds().add(userId);
         }
@@ -319,13 +327,11 @@ public class GameSessionService {
         if (intent.payload() instanceof OnlinePlayerIntentRequestPayloads.Move move) {
             return move;
         }
-        if (intent.payload() instanceof java.util.Map<?, ?> map) {
-            Object dirObj = map.get("direction");
-            if (dirObj instanceof Number num) {
-                return new OnlinePlayerIntentRequestPayloads.Move(num.intValue());
-            }
+        try {
+            return objectMapper.convertValue(intent.payload(), OnlinePlayerIntentRequestPayloads.Move.class);
+        } catch (IllegalArgumentException ex) {
+            return null;
         }
-        return null;
     }
 
     private OnlinePlayerIntentRequestPayloads.Fire extractFirePayload(OnlinePlayerIntentRequestDto<?> intent) {
@@ -335,15 +341,11 @@ public class GameSessionService {
         if (intent.payload() instanceof OnlinePlayerIntentRequestPayloads.Fire fire) {
             return fire;
         }
-        if (intent.payload() instanceof java.util.Map<?, ?> map) {
-            Object angleObj = map.get("angle");
-            Object powerObj = map.get("power");
-            Object slotObj = map.get("projectileSlotId");
-            if (angleObj instanceof Number angleNum && powerObj instanceof Number powerNum && slotObj instanceof String slotId) {
-                return new OnlinePlayerIntentRequestPayloads.Fire(angleNum.doubleValue(), powerNum.doubleValue(), slotId);
-            }
+        try {
+            return objectMapper.convertValue(intent.payload(), OnlinePlayerIntentRequestPayloads.Fire.class);
+        } catch (IllegalArgumentException ex) {
+            return null;
         }
-        return null;
     }
 
     private OnlineDiffResponsePayloads.IntentRejectionReason rejectionReason(
@@ -404,7 +406,8 @@ public class GameSessionService {
             var validation = contentCatalog.require(gameSession.getGameContentVersion()).validation();
             return fire.power() >= validation.minFirePower() && fire.power() <= validation.maxFirePower()
                     && fire.angle() >= validation.minAimAngle() && fire.angle() <= validation.maxAimAngle()
-                    && contentCatalog.require(gameSession.getGameContentVersion()).tanks().values().stream().flatMap(tank -> tank.loadout().stream())
+                    && contentCatalog.require(gameSession.getGameContentVersion()).tanks().values().stream()
+                            .flatMap(tank -> tank.loadout().stream())
                             .anyMatch(slot -> slot.id().equals(fire.projectileSlotId()));
         }
 
@@ -495,10 +498,12 @@ public class GameSessionService {
             OnlinePlayerIntentRequestDto<?> intent,
             OnlinePlayerIntentRequestPayloads.Move move) {
         long sequence = gameSession.getNextDiffSequence();
-        var resolved = gameSimulation.move(contentCatalog.require(gameSession.getGameContentVersion()), gameSession.getWorld(), gameSession.getTerrainModel(),
+        var resolved = gameSimulation.move(contentCatalog.require(gameSession.getGameContentVersion()),
+                gameSession.getWorld(), gameSession.getTerrainModel(),
                 intent.intentId(), intent.playerId(), move, gameSession.getServerTick());
         if (resolved.isEmpty()) {
-            publishIntentRejection(gameSession, intent, OnlineDiffResponsePayloads.IntentRejectionReason.IMPASSABLE_TERRAIN);
+            publishIntentRejection(gameSession, intent,
+                    OnlineDiffResponsePayloads.IntentRejectionReason.IMPASSABLE_TERRAIN);
             return false;
         }
         var segment = resolved.get();
