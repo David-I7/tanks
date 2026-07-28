@@ -119,10 +119,10 @@ public class DefaultGameSimulation implements GameSimulation {
 
         double angleRad = Math.abs(request.angle()) > 2 * Math.PI ? Math.toRadians(request.angle()) : request.angle();
         double powerPx = request.power() <= 1.0 ? request.power() * 1000.0 : request.power();
-        double speed = powerPx * projectileDef.physics().muzzleVelocityScale();
+        double speed = powerPx * projectileDef.muzzleVelocityScale();
         double vx = speed * Math.cos(angleRad);
         double vy = speed * Math.sin(angleRad);
-        double g = content.world().gravity() * projectileDef.physics().gravityScale();
+        double g = content.world().gravity() * projectileDef.gravityScale();
         double dt = content.world().projectileTimeStepSeconds();
 
         List<OnlineVec2Dto> trajectory = new ArrayList<>();
@@ -141,9 +141,9 @@ public class DefaultGameSimulation implements GameSimulation {
             currY += currVy * dt;
             currVy += g * dt;
 
-            if (projectileDef.physics().drag() > 0) {
-                currVx *= (1 - projectileDef.physics().drag() * dt);
-                currVy *= (1 - projectileDef.physics().drag() * dt);
+            if (projectileDef.drag() > 0) {
+                currVx *= (1 - projectileDef.drag() * dt);
+                currVy *= (1 - projectileDef.drag() * dt);
             }
 
             impact = new OnlineVec2Dto(round(currX), round(currY));
@@ -153,14 +153,14 @@ public class DefaultGameSimulation implements GameSimulation {
                 break;
             }
 
-            var tankHit = hitTank(world, playerId, impact, projectileDef.physics().radius(), content);
+            var tankHit = hitTank(world, playerId, impact, projectileDef.radius(), content);
             if (tankHit.isPresent()) {
                 hitTankState = tankHit.get();
                 break;
             }
 
             double surfY = terrain.surfaceY(currX);
-            if (currY >= surfY || terrain.intersectsCircle(currX, currY, projectileDef.physics().radius())) {
+            if (currY >= surfY || terrain.intersectsCircle(currX, currY, projectileDef.radius())) {
                 impact = new OnlineVec2Dto(round(currX), round(Math.min(surfY, currY)));
                 trajectory.set(trajectory.size() - 1, impact);
                 break;
@@ -179,12 +179,10 @@ public class DefaultGameSimulation implements GameSimulation {
             int healthAfter = Math.max(0, healthBefore - damage);
             hitTankState.health(healthAfter);
             damagedTanks.add(new OnlineTankDamageResponseDto(
-                    hitTankState.playerId(),
                     hitTankState.entityId(),
-                    healthBefore,
-                    healthAfter,
+                    hitTankState.playerId(),
                     damage,
-                    healthAfter == 0));
+                    healthAfter));
         }
 
         return new ProjectileResolution(
@@ -206,7 +204,10 @@ public class DefaultGameSimulation implements GameSimulation {
         ProjectileDefinition projectileDef = content.requireProjectile(projectileDefinitionId);
         var mutation = terrain.deform(impact.x(), impact.y(), projectileDef.terrainEffect());
         List<OnlineTerrainPatchResponseDto> patches = List.of(
-                new OnlineTerrainPatchResponseDto(mutation.startX(), mutation.surface()));
+                new OnlineTerrainPatchResponseDto.HeightmapRange(
+                        OnlineTerrainPatchResponseDto.TerrainPatchKind.HEIGHTMAP_RANGE,
+                        mutation.startX(),
+                        mutation.surface()));
         return new TerrainPatch(patches);
     }
 }
