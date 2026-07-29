@@ -229,11 +229,9 @@ public class WebSocketControllerTest {
         when(userSessionService.isInLobby(any(UserSession.class), anyString())).thenCallRealMethod();
         when(userSessionService.isIdle(any(UserSession.class))).thenCallRealMethod();
         when(userSessionService.isConnectedToLobby(any(UserSession.class))).thenCallRealMethod();
-        when(userSessionService.isConnectedToGame(any(UserSession.class))).thenCallRealMethod();
-        when(gameSessionService.getAndIncrementPlayerCount(gameId))
+        when(gameSessionService.addConnectedUser(any(), any()))
                 .thenReturn(GameSession.builder()
                         .id(gameId)
-                        .connectedPlayerCount(1)
                         .state(GameSessionState.CREATED)
                         .build());
 

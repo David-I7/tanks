@@ -8,7 +8,11 @@ import lombok.Setter;
 import org.springframework.data.annotation.Id;
 
 import java.time.OffsetDateTime;
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import com.tanks.server.websocket.dto.gameplay.OnlinePlayerIntentRequestDto;
 import com.tanks.server.websocket.gameplay.world.TerrainModel;
 import com.tanks.server.websocket.gameplay.world.World;
 
@@ -40,6 +44,8 @@ public class GameSession {
 
     private long lastDiffServerTick;
 
+    private long matchEndsAtServerTick;
+
     private String playerAUnresolvedIntentId;
 
     private String playerBUnresolvedIntentId;
@@ -54,7 +60,15 @@ public class GameSession {
 
     private TerrainModel terrainModel;
 
-    private int connectedPlayerCount = 0;
+    @Builder.Default
+    private Set<Long> connectedUserIds = ConcurrentHashMap.newKeySet();
+
+    @Builder.Default
+    private ConcurrentLinkedQueue<OnlinePlayerIntentRequestDto<?>> pendingIntents = new ConcurrentLinkedQueue<>();
+
+    public int getConnectedPlayerCount() {
+        return connectedUserIds != null ? connectedUserIds.size() : 0;
+    }
 
     public GameSession(GameSession other) {
         if (other != null) {
@@ -68,6 +82,7 @@ public class GameSession {
             this.serverTick = other.serverTick;
             this.nextDiffSequence = other.nextDiffSequence;
             this.lastDiffServerTick = other.lastDiffServerTick;
+            this.matchEndsAtServerTick = other.matchEndsAtServerTick;
             this.playerAUnresolvedIntentId = other.playerAUnresolvedIntentId;
             this.playerBUnresolvedIntentId = other.playerBUnresolvedIntentId;
             this.state = other.state;
@@ -75,7 +90,11 @@ public class GameSession {
             this.generationSeed = other.generationSeed;
             this.world = other.world == null ? null : new World(other.world);
             this.terrainModel = other.terrainModel == null ? null : new TerrainModel(other.terrainModel);
-            this.connectedPlayerCount = other.connectedPlayerCount;
+            this.connectedUserIds = ConcurrentHashMap.newKeySet();
+            if (other.connectedUserIds != null) {
+                this.connectedUserIds.addAll(other.connectedUserIds);
+            }
+            this.pendingIntents = other.pendingIntents != null ? other.pendingIntents : new ConcurrentLinkedQueue<>();
         }
     }
 }

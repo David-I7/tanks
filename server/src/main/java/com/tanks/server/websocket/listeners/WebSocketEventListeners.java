@@ -131,24 +131,25 @@ public class WebSocketEventListeners {
             log.debug("User {} subscribed to lobby {}", userDto.username(), lobbyId);
 
             Lobby lobby = lobbyService.findById(lobbyId);
-
-            simpMessagingTemplate.convertAndSend(
-                    accessor.getDestination(),
-                    new LobbyEventResponseDto(
-                            LobbyEventType.LOBBY_CONNECT,
-                            new LobbyEventPayload(
-                                    lobbyId,
-                                    lobby.getHost().getId(),
-                                    authentication.getName()
-                            )
-                    )
-            );
+            if (lobby != null && lobby.getHost() != null) {
+                simpMessagingTemplate.convertAndSend(
+                        accessor.getDestination(),
+                        new LobbyEventResponseDto(
+                                LobbyEventType.LOBBY_CONNECT,
+                                new LobbyEventPayload(
+                                        lobbyId,
+                                        lobby.getHost().getId(),
+                                        authentication.getName()
+                                )
+                        )
+                );
+            }
         } else if (accessor.getDestination().startsWith(TOPIC_GAME)) {
             var gameId = UUID.fromString(accessor.getDestination().substring(TOPIC_GAME.length()));
             log.debug("User {} subscribed to game {}", userDto.username(), gameId);
 
             UserSession userSession = ((WebSocketPrincipal)authentication.getPrincipal()).getUserSession();
-            GameSession gameSession = gameSessionService.getAndIncrementPlayerCount(userSession.getGameSessionId());
+            GameSession gameSession = gameSessionService.addConnectedUser(userSession.getGameSessionId(), userSession.getId());
 
             simpMessagingTemplate.convertAndSend(
                     accessor.getDestination(),
@@ -162,8 +163,10 @@ public class WebSocketEventListeners {
                     )
             );
 
-            if(gameSession.getConnectedPlayerCount() == 2 && gameSession.getState().equals(GameSessionState.CREATED)){
+            if (gameSession.getConnectedPlayerCount() == 2 && gameSession.getState().equals(GameSessionState.CREATED)) {
                 gameSessionService.startGame(gameSession);
+            } else if (gameSession.getState().equals(GameSessionState.STARTED)) {
+                gameSessionService.sendResyncStateToPlayer(gameId, userDto.username(), com.tanks.server.websocket.dto.gameplay.OnlineDiffResponsePayloads.ResyncReason.RECONNECT);
             }
         }
     }
@@ -232,7 +235,7 @@ public class WebSocketEventListeners {
                 userSession.setTopicSubscriptions(null);
                 userSession.setSocketSessionId(null);
                 userSessionService.save(userSession);
-                gameSessionService.decremenentPlayerCount(userSession.getGameSessionId());
+                gameSessionService.removeConnectedUser(userSession.getGameSessionId(), userSession.getId());
                 simpMessagingTemplate.convertAndSend(gameTopic, new GameEventResponseDto(GameEventType.GAME_LEAVE, new GameEventPayload(userSession.getGameSessionId(), null, userSession.getUsername())));
             }
         }
@@ -253,7 +256,7 @@ public class WebSocketEventListeners {
             String gameTopic = TOPIC_GAME + gameSessionId;
             unsubscribeFromTopic(userSession, gameTopic);
             userSessionService.save(userSession);
-            gameSessionService.decremenentPlayerCount(gameSessionId);
+            gameSessionService.removeConnectedUser(gameSessionId, userSession.getId());
             simpMessagingTemplate.convertAndSend(
                     gameTopic,
                     new GameEventResponseDto(

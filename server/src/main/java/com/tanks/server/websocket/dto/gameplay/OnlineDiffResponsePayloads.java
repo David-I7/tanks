@@ -58,7 +58,17 @@ public final class OnlineDiffResponsePayloads {
                         long activePlayerId,
                         int turnNumber,
                         TurnPhase phase,
-                        long turnEndsAtServerTick) {
+                        long turnEndsAtServerTick,
+                        Long matchEndsAtServerTick) {
+
+                public TurnTransition(
+                                long previousPlayerId,
+                                long activePlayerId,
+                                int turnNumber,
+                                TurnPhase phase,
+                                long turnEndsAtServerTick) {
+                        this(previousPlayerId, activePlayerId, turnNumber, phase, turnEndsAtServerTick, null);
+                }
         }
 
         public record TerminalGame(
@@ -90,6 +100,7 @@ public final class OnlineDiffResponsePayloads {
         public enum TerminalGameReason {
                 LAST_TANK_STANDING,
                 DRAW,
-                FORFEIT
+                FORFEIT,
+                MATCH_TIME_EXPIRED
         }
 }

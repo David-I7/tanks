@@ -92,7 +92,9 @@ export default function useQuickMatchLobby() {
     }
 
     return () => {
-      queryClient.invalidateQueries({ queryKey: ["userStatus"] });
+      if (queryClient.isFetching({ queryKey: ["userStatus"] }) === 0) {
+        queryClient.invalidateQueries({ queryKey: ["userStatus"] });
+      }
     };
   }, []);
 
@@ -148,7 +150,7 @@ export default function useQuickMatchLobby() {
           }
 
           if (message.body.type === "GAME_CREATED") {
-            await queryClient.invalidateQueries({ queryKey: ["userStatus"] });
+            queryClient.invalidateQueries({ queryKey: ["userStatus"] });
             navigate(`/game/${message.body.payload.id}`);
           }
         },

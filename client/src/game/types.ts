@@ -46,6 +46,27 @@ export type ProjectilePhysics = {
   muzzleVelocityScale: number;
 };
 
+export type ProjectilePattern =
+  | { kind: "standard" }
+  | { kind: "bouncing"; maxBounces: number }
+  | {
+      kind: "damageTrail";
+      durationSeconds: number;
+      damagePerSecond: number;
+      radius: number;
+    }
+  | { kind: "autocannon"; count: number; delaySeconds: number }
+  | {
+      kind: "volley";
+      count: number;
+      delaySeconds: number;
+      spreadAngleDegrees: number;
+    }
+  | { kind: "shotgun"; count: number; spreadAngleDegrees: number }
+  | { kind: "cluster"; count: number; splitAtApex: boolean }
+  | { kind: "laser"; depthMultiplier: number }
+  | { kind: "nuke"; screenShake: number };
+
 export type TerrainEffect =
   | { type: "crater"; radius: number }
   | { type: "drill"; radius: number; depth: number };
@@ -62,6 +83,8 @@ export type ProjectileDefinition = {
   damageEffect: DamageEffect;
   impactAnimationId: string;
   impactDuration: number;
+  pattern?: ProjectilePattern;
+  maxAmmo?: number;
   visual?: VisualIdentity;
 };
 
@@ -69,6 +92,7 @@ export type ProjectileSlot = {
   id: string;
   projectileDefinitionId: string;
   label: string;
+  maxAmmo?: number;
 };
 
 export type TankDefinition = {
@@ -116,6 +140,7 @@ export type TankComponent = {
   tankName: string;
   loadout: ProjectileSlot[];
   selectedProjectileSlotId: string;
+  weaponAmmo: Record<string, number>;
   maxHealth: number;
   health: number;
   facing: 1 | -1;
@@ -139,7 +164,20 @@ export type ProjectileComponent = {
   damageEffect: DamageEffect;
   impactAnimationId: string;
   impactDuration: number;
+  pattern?: ProjectilePattern;
+  bouncesCount?: number;
+  hasSplit?: boolean;
   visual?: VisualIdentity;
+};
+
+export type DamageTrail = {
+  id: string;
+  x: number;
+  y: number;
+  radius: number;
+  damagePerSecond: number;
+  remainingDuration: number;
+  ownerPlayerId: number;
 };
 
 export type ImpactEvent = {
@@ -197,6 +235,7 @@ export type LocalSimulationState = DeepReadonly<{
     projectile: ProjectileComponent;
   }>;
   impactEvents: ImpactEvent[];
+  damageTrails?: DamageTrail[];
 }>;
 
 export type GameState = DeepReadonly<{
@@ -217,6 +256,7 @@ export type GameState = DeepReadonly<{
     }
   >;
   impactEvents: ImpactEvent[];
+  damageTrails?: DamageTrail[];
 }>;
 
 export type GameAssets = {

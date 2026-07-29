@@ -20,7 +20,6 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 
-import java.net.URI;
 import java.util.UUID;
 
 @Controller
@@ -37,7 +36,7 @@ public class GameSessionController {
             @DestinationVariable UUID id,
             @Payload OnlinePlayerIntentRequestDto<?> intent,
             Authentication authentication) {
-        gameSessionService.acceptPlayerIntent(authentication.getName(), id, intent);
+        gameSessionService.enqueuePlayerIntent(authentication.getName(), id, intent);
     }
 
     @MessageMapping("/game/{id}/resync")

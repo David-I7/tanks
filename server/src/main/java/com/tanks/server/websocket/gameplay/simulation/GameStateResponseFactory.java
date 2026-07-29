@@ -37,11 +37,16 @@ public class GameStateResponseFactory {
                 new OnlineMatchSnapshotResponseDto(matchPhase(session), activePlayerId(session), 2,
                         session.getWorld().match().turnNumber(),
                         Math.max(0, session.getWorld().match().turnEndsAtServerTick() - session.getServerTick()),
-                        winnerPlayerId(session)),
+                        winnerPlayerId(session),
+                        session.getMatchEndsAtServerTick()),
                 new OnlineTerrainSnapshotResponseDto.Heightmap(OnlineTerrainSnapshotResponseDto.TerrainSnapshotKind.HEIGHTMAP,
                         session.getTerrainModel().width(), session.getTerrainModel().height(), session.getTerrainModel().surface()),
-                session.getWorld().tanks().values().stream().map(tank -> tankSnapshot(content, tank)).toList(),
-                session.getWorld().projectiles().values().stream().map(projectile -> {
+                session.getWorld().tanks().values().stream()
+                        .sorted(java.util.Comparator.comparingLong(TankState::playerId))
+                        .map(tank -> tankSnapshot(content, tank)).toList(),
+                session.getWorld().projectiles().values().stream()
+                        .sorted(java.util.Comparator.comparingLong(com.tanks.server.websocket.gameplay.world.ProjectileState::entityId))
+                        .map(projectile -> {
                     var definition = content.requireProjectile(projectile.definitionId());
                     return new OnlineProjectileSnapshotResponseDto(projectile.entityId(), projectile.ownerPlayerId(),
                             definition.id(), definition.renderAssetId(), projectile.position(), projectile.velocity());

@@ -77,11 +77,109 @@ class GameSessionServiceAuthoritativeGameplayTest {
         assertThat(harness.service.sendResyncStateToPlayer(session.getId(), "host",
                 OnlineDiffResponsePayloads.ResyncReason.RECONNECT)).isTrue();
         var recovered = (OnlineDiffResponsePayloads.ResyncState) harness.diffs().getFirst().payload();
-        assertThat(recovered.state()).isEqualTo(harness.stateFactory.createStateSnapshot(session));
+        var expectedSnapshot = harness.stateFactory.createStateSnapshot(session);
+        assertThat(recovered.state()).isEqualTo(expectedSnapshot);
         assertThat(((OnlineTerrainSnapshotResponseDto.Heightmap) recovered.state().terrain()).surface())
                 .isEqualTo(session.getTerrainModel().surface());
         assertThat(recovered.state().tanks()).extracting(OnlineTankSnapshotResponseDto::position)
                 .containsExactlyElementsOf(session.getWorld().tanks().values().stream().map(tank -> tank.position()).toList());
+    }
+
+    @Test
+    void idempotentPlayerTrackingAllowsReconnectingUserWithoutError() {
+        Harness harness = new Harness();
+        GameSession session = harness.startedSession(10);
+        when(harness.gameRepository.findById(session.getId())).thenReturn(Optional.of(session));
+
+        harness.service.addConnectedUser(session.getId(), 1L);
+        assertThat(session.getConnectedUserIds()).contains(1L);
+        assertThat(session.getConnectedPlayerCount()).isEqualTo(1);
+
+        // Reconnect/resubscribe with same userId - should succeed idempotently
+        harness.service.addConnectedUser(session.getId(), 1L);
+        assertThat(session.getConnectedPlayerCount()).isEqualTo(1);
+
+        // Add second player
+        harness.service.addConnectedUser(session.getId(), 2L);
+        assertThat(session.getConnectedPlayerCount()).isEqualTo(2);
+
+        // Reconnect second player - should succeed idempotently
+        harness.service.addConnectedUser(session.getId(), 2L);
+        assertThat(session.getConnectedPlayerCount()).isEqualTo(2);
+
+        // Remove user 1
+        harness.service.removeConnectedUser(session.getId(), 1L);
+        assertThat(session.getConnectedUserIds()).containsOnly(2L);
+    }
+
+    @Test
+    void startGameStores3MinuteMatchEndsAtServerTick() {
+        Harness harness = new Harness();
+        var initial = harness.worldFactory.create(harness.contentCatalog.current(), 1, "host", "opponent");
+        GameSession session = GameSession.builder()
+                .id(UUID.randomUUID())
+                .playerA("host")
+                .playerB("opponent")
+                .state(GameSessionState.CREATED)
+                .gameContentVersion(harness.contentCatalog.current().version())
+                .world(initial.world())
+                .terrainModel(initial.terrainModel())
+                .build();
+
+        harness.service.startGame(session);
+
+        assertThat(session.getState()).isEqualTo(GameSessionState.STARTED);
+        assertThat(session.getMatchEndsAtServerTick()).isEqualTo(5400L);
+    }
+
+    @Test
+    @DisplayName("enqueuePlayerIntent places intent into pendingIntents without immediate simulation execution")
+    void enqueuePlayerIntentEnqueuesWithoutExecutingSimulation() {
+        Harness harness = new Harness();
+        GameSession session = harness.startedSession(77);
+        when(harness.gameRepository.findById(session.getId())).thenReturn(Optional.of(session));
+
+        OnlinePlayerIntentRequestDto<?> intent = new OnlinePlayerIntentRequestDto<>(
+                OnlineGameplayProtocolVersion.V1, session.getId().toString(), 1,
+                "move-1", 1, 0, OnlinePlayerIntentRequestType.MOVE,
+                new OnlinePlayerIntentRequestPayloads.Move(1));
+
+        boolean enqueued = harness.service.enqueuePlayerIntent("host", session.getId(), intent);
+
+        assertThat(enqueued).isTrue();
+        assertThat(session.getPendingIntents()).containsExactly(intent);
+        assertThat(harness.diffs()).isEmpty();
+
+        harness.service.processPendingIntents(session);
+
+        assertThat(session.getPendingIntents()).isEmpty();
+        assertThat(harness.diffs()).hasSize(1);
+        assertThat(harness.diffs().getFirst().type()).isEqualTo(OnlineStateDiffResponseType.MOVEMENT_SEGMENT);
+    }
+
+    @Test
+    @DisplayName("Map payloads deserialized from JSON by Jackson are correctly extracted and processed")
+    void enqueueAndProcessMapPayloadFromJacksonDeserialization() {
+        Harness harness = new Harness();
+        GameSession session = harness.startedSession(88);
+        when(harness.gameRepository.findById(session.getId())).thenReturn(Optional.of(session));
+
+        Map<String, Object> mapPayload = Map.of("direction", 1);
+        OnlinePlayerIntentRequestDto<?> intent = new OnlinePlayerIntentRequestDto<>(
+                OnlineGameplayProtocolVersion.V1, session.getId().toString(), 1,
+                "move-map-1", 1, 0, OnlinePlayerIntentRequestType.MOVE,
+                mapPayload);
+
+        boolean enqueued = harness.service.enqueuePlayerIntent("host", session.getId(), intent);
+
+        assertThat(enqueued).isTrue();
+        assertThat(session.getPendingIntents()).hasSize(1);
+
+        harness.service.processPendingIntents(session);
+
+        assertThat(session.getPendingIntents()).isEmpty();
+        assertThat(harness.diffs()).hasSize(1);
+        assertThat(harness.diffs().getFirst().type()).isEqualTo(OnlineStateDiffResponseType.MOVEMENT_SEGMENT);
     }
 
     private static class Harness {

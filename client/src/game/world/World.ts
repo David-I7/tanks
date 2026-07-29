@@ -55,6 +55,12 @@ export class World {
     const entityId = this.createEntity();
     this.positions.set(entityId, { x, y });
     const defaultSlot = tankDefinition.loadout[0]!;
+    const weaponAmmo: Record<string, number> = {};
+    for (const slot of tankDefinition.loadout) {
+      weaponAmmo[slot.id] = slot.maxAmmo !== undefined
+        ? slot.maxAmmo
+        : (slot.projectileDefinitionId === "basicShell" || slot.id === "standard" ? -1 : 1);
+    }
     this.tanks.set(entityId, {
       playerId: player.id,
       displayName: player.displayName,
@@ -63,6 +69,7 @@ export class World {
       tankName: tankDefinition.name,
       loadout: tankDefinition.loadout.map((slot) => ({ ...slot })),
       selectedProjectileSlotId: defaultSlot.id,
+      weaponAmmo,
       maxHealth: tankDefinition.maxHealth,
       health: tankDefinition.maxHealth,
       facing: player.id === 0 ? 1 : -1,

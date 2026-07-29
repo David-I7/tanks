@@ -102,14 +102,111 @@ public class DefaultGameSimulation implements GameSimulation {
     @Override
     public ProjectileResolution fire(GameContent content, World world, TerrainModel terrain, String intentId,
             long projectileEntityId, long playerId, Fire request) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'fire'");
+        TankState state = world.requireTankByPlayer(playerId);
+        TankDefinition tankDef = content.requireTank(state.definitionId());
+        
+        String slotId = request.projectileSlotId();
+        var slotDef = tankDef.loadout().stream()
+                .filter(s -> s.id().equals(slotId))
+                .findFirst()
+                .orElse(tankDef.loadout().getFirst());
+        
+        ProjectileDefinition projectileDef = content.requireProjectile(slotDef.projectileDefinitionId());
+
+        double launchX = state.position().x() + (state.facing() * tankDef.muzzleForwardOffset());
+        double launchY = state.position().y() - tankDef.muzzleVerticalOffset();
+        OnlineVec2Dto launch = new OnlineVec2Dto(round(launchX), round(launchY));
+
+        double angleRad = Math.abs(request.angle()) > 2 * Math.PI ? Math.toRadians(request.angle()) : request.angle();
+        double speed = request.power() * projectileDef.muzzleVelocityScale();
+        double vx = speed * Math.cos(angleRad);
+        double vy = speed * Math.sin(angleRad);
+        double g = content.world().gravity() * projectileDef.gravityScale();
+        double dt = content.world().projectileTimeStepSeconds();
+
+        List<OnlineVec2Dto> trajectory = new ArrayList<>();
+        trajectory.add(launch);
+
+        double currX = launchX;
+        double currY = launchY;
+        double currVx = vx;
+        double currVy = vy;
+
+        TankState hitTankState = null;
+        OnlineVec2Dto impact = launch;
+
+        for (int step = 0; step < content.world().maxProjectileSteps(); step++) {
+            currX += currVx * dt;
+            currY += currVy * dt;
+            currVy += g * dt;
+
+            if (projectileDef.drag() > 0) {
+                currVx *= (1 - projectileDef.drag() * dt);
+                currVy *= (1 - projectileDef.drag() * dt);
+            }
+
+            impact = new OnlineVec2Dto(round(currX), round(currY));
+            trajectory.add(impact);
+
+            if (currX < 0 || currX >= content.world().width()) {
+                break;
+            }
+
+            var tankHit = hitTank(world, playerId, impact, projectileDef.radius(), content);
+            if (tankHit.isPresent()) {
+                hitTankState = tankHit.get();
+                break;
+            }
+
+            double surfY = terrain.surfaceY(currX);
+            if (currY >= surfY || terrain.intersectsCircle(currX, currY, projectileDef.radius())) {
+                impact = new OnlineVec2Dto(round(currX), round(Math.min(surfY, currY)));
+                trajectory.set(trajectory.size() - 1, impact);
+                break;
+            }
+        }
+
+        List<OnlineTankDamageResponseDto> damagedTanks = new ArrayList<>();
+        if (hitTankState != null) {
+            int damage = 50;
+            if (projectileDef.damageEffect() instanceof DamageEffect.Radial radial) {
+                damage = (int) Math.round(radial.damage());
+            } else if (projectileDef.damageEffect() instanceof DamageEffect.Focused focused) {
+                damage = (int) Math.round(focused.damage());
+            }
+            int healthBefore = hitTankState.health();
+            int healthAfter = Math.max(0, healthBefore - damage);
+            hitTankState.health(healthAfter);
+            damagedTanks.add(new OnlineTankDamageResponseDto(
+                    hitTankState.entityId(),
+                    hitTankState.playerId(),
+                    damage,
+                    healthAfter));
+        }
+
+        return new ProjectileResolution(
+                intentId,
+                projectileEntityId,
+                playerId,
+                projectileDef.id(),
+                projectileDef.renderAssetId(),
+                projectileDef.impactRenderAssetId(),
+                launch,
+                List.copyOf(trajectory),
+                impact,
+                List.copyOf(damagedTanks));
     }
 
     @Override
     public TerrainPatch deformTerrain(GameContent content, World world, TerrainModel terrain,
             String projectileDefinitionId, OnlineVec2Dto impact) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'deformTerrain'");
+        ProjectileDefinition projectileDef = content.requireProjectile(projectileDefinitionId);
+        var mutation = terrain.deform(impact.x(), impact.y(), projectileDef.terrainEffect());
+        List<OnlineTerrainPatchResponseDto> patches = List.of(
+                new OnlineTerrainPatchResponseDto.HeightmapRange(
+                        OnlineTerrainPatchResponseDto.TerrainPatchKind.HEIGHTMAP_RANGE,
+                        mutation.startX(),
+                        mutation.surface()));
+        return new TerrainPatch(patches);
     }
 }

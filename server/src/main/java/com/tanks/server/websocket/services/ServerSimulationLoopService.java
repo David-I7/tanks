@@ -1,10 +1,16 @@
 package com.tanks.server.websocket.services;
 
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationListener;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.ContextClosedEvent;
@@ -25,7 +31,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class ServerSimulationLoopService implements ApplicationListener<ContextClosedEvent> {
 
@@ -33,10 +38,41 @@ public class ServerSimulationLoopService implements ApplicationListener<ContextC
     public static final int TURN_TIMER_TICKS = TICKS_PER_SECOND * 30;
     public static final int TERMINAL_DELIVERY_GRACE_SECONDS = 5;
     public static final long TICK_RATE_NANOS = 1_000_000_000L / TICKS_PER_SECOND;
+    public static final int BATCH_SIZE = 15;
 
     private final GameSessionRepository gameRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final GameSessionService gameSessionService;
+    private final ScheduledExecutorService executorService;
     private volatile boolean acceptingFrames = true;
+
+    public ServerSimulationLoopService(GameSessionRepository gameRepository, ApplicationEventPublisher eventPublisher) {
+        this(gameRepository, eventPublisher, null, createDefaultExecutorService());
+    }
+
+    @Autowired
+    public ServerSimulationLoopService(
+            GameSessionRepository gameRepository,
+            ApplicationEventPublisher eventPublisher,
+            GameSessionService gameSessionService) {
+        this(gameRepository, eventPublisher, gameSessionService, createDefaultExecutorService());
+    }
+
+    public ServerSimulationLoopService(
+            GameSessionRepository gameRepository,
+            ApplicationEventPublisher eventPublisher,
+            GameSessionService gameSessionService,
+            ScheduledExecutorService executorService) {
+        this.gameRepository = gameRepository;
+        this.eventPublisher = eventPublisher;
+        this.gameSessionService = gameSessionService;
+        this.executorService = executorService;
+    }
+
+    private static ScheduledExecutorService createDefaultExecutorService() {
+        int threads = Math.max(4, Runtime.getRuntime().availableProcessors());
+        return Executors.newScheduledThreadPool(threads);
+    }
 
     @Scheduled(fixedRate = TICK_RATE_NANOS, timeUnit = TimeUnit.NANOSECONDS)
     public void runFrame() {
@@ -45,8 +81,22 @@ public class ServerSimulationLoopService implements ApplicationListener<ContextC
         }
 
         try {
-            for (GameSession gameSession : activeSessions()) {
-                advance(gameSession);
+            List<GameSession> activeGames = activeSessions();
+            if (activeGames.isEmpty()) {
+                return;
+            }
+
+            List<List<GameSession>> batches = partition(activeGames, BATCH_SIZE);
+            if (executorService == null || executorService.isShutdown()) {
+                for (List<GameSession> batch : batches) {
+                    new GameBatchTickTask(batch, this).run();
+                }
+            } else {
+                List<CompletableFuture<Void>> futures = new ArrayList<>();
+                for (List<GameSession> batch : batches) {
+                    futures.add(CompletableFuture.runAsync(new GameBatchTickTask(batch, this), executorService));
+                }
+                CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
             }
         } catch (DataAccessException ex) {
             if (acceptingFrames) {
@@ -54,7 +104,17 @@ public class ServerSimulationLoopService implements ApplicationListener<ContextC
             } else {
                 log.debug("Skipping server simulation frame during shutdown.", ex);
             }
+        } catch (Exception ex) {
+            log.error("Error executing simulation loop frame", ex);
         }
+    }
+
+    static <T> List<List<T>> partition(List<T> list, int size) {
+        List<List<T>> partitions = new ArrayList<>();
+        for (int i = 0; i < list.size(); i += size) {
+            partitions.add(new ArrayList<>(list.subList(i, Math.min(i + size, list.size()))));
+        }
+        return partitions;
     }
 
     @Scheduled(fixedRate = 1, timeUnit = TimeUnit.SECONDS)
@@ -82,17 +142,78 @@ public class ServerSimulationLoopService implements ApplicationListener<ContextC
     @Override
     public void onApplicationEvent(ContextClosedEvent event) {
         acceptingFrames = false;
+        if (executorService != null && !executorService.isShutdown()) {
+            executorService.shutdown();
+        }
     }
 
     void advance(GameSession gameSession) {
+        if (gameSessionService != null) {
+            gameSessionService.processPendingIntents(gameSession);
+        }
+
         long nextServerTick = gameSession.getServerTick() + 1;
         gameSession.setServerTick(nextServerTick);
 
-        if (gameSession.getWorld().match().turnEndsAtServerTick() <= nextServerTick) {
+        if (gameSession.getMatchEndsAtServerTick() > 0 && nextServerTick >= gameSession.getMatchEndsAtServerTick()) {
+            handleMatchExpiration(gameSession);
+            return;
+        }
+
+        if (gameSession.getWorld() != null && gameSession.getWorld().match() != null
+                && gameSession.getWorld().match().turnEndsAtServerTick() <= nextServerTick) {
             advanceTurnWithoutShot(gameSession);
         }
 
         gameRepository.save(gameSession);
+    }
+
+    private void handleMatchExpiration(GameSession gameSession) {
+        Long winnerPlayerId = evaluateWinnerOnExpiration(gameSession);
+        if (gameSessionService != null) {
+            gameSessionService.finalizeMatchTimeExpired(gameSession, winnerPlayerId);
+        } else {
+            gameSession.setEndedAt(OffsetDateTime.now());
+            gameSession.setState(GameSessionState.ENDED);
+            if (gameSession.getWorld() != null) {
+                gameSession.getWorld().match().winnerPlayerId(winnerPlayerId);
+            }
+            OnlineDiffResponseDto<OnlineDiffResponsePayloads.TerminalGame> diff = new OnlineDiffResponseDto<>(
+                    OnlineGameplayProtocolVersion.V1,
+                    gameSession.getId().toString(),
+                    gameSession.getNextDiffSequence(),
+                    gameSession.getServerTick(),
+                    OnlineStateDiffResponseType.TERMINAL_GAME,
+                    null,
+                    new OnlineDiffResponsePayloads.TerminalGame(
+                            winnerPlayerId,
+                            OnlineDiffResponsePayloads.TerminalGameReason.MATCH_TIME_EXPIRED,
+                            null));
+            gameSession.setNextDiffSequence(gameSession.getNextDiffSequence() + 1);
+            gameSession.setLastDiffServerTick(gameSession.getServerTick());
+            eventPublisher.publishEvent(new OnlineGameplayEvent(
+                    this,
+                    null,
+                    "/topic/game/" + gameSession.getId(),
+                    diff));
+            gameRepository.save(gameSession);
+        }
+    }
+
+    private Long evaluateWinnerOnExpiration(GameSession gameSession) {
+        if (gameSession.getWorld() == null) {
+            return 1L;
+        }
+        var tankA = gameSession.getWorld().tanks().get(1L);
+        var tankB = gameSession.getWorld().tanks().get(2L);
+        int healthA = tankA != null ? tankA.health() : 0;
+        int healthB = tankB != null ? tankB.health() : 0;
+        if (healthA > healthB) {
+            return 1L;
+        } else if (healthB > healthA) {
+            return 2L;
+        }
+        return 1L;
     }
 
     private List<GameSession> activeSessions() {
@@ -107,7 +228,6 @@ public class ServerSimulationLoopService implements ApplicationListener<ContextC
         return gameSession.getEndedAt() != null
                 && !gameSession.getEndedAt().plusSeconds(TERMINAL_DELIVERY_GRACE_SECONDS).isAfter(now);
     }
-
 
     private void advanceTurnWithoutShot(GameSession gameSession) {
         long previousPlayerId = gameSession.getWorld().match().activePlayerId();
@@ -132,7 +252,8 @@ public class ServerSimulationLoopService implements ApplicationListener<ContextC
                         activePlayerId,
                         gameSession.getWorld().match().turnNumber(),
                         OnlineDiffResponsePayloads.TurnPhase.AIMING,
-                        gameSession.getWorld().match().turnEndsAtServerTick()));
+                        gameSession.getWorld().match().turnEndsAtServerTick(),
+                        gameSession.getMatchEndsAtServerTick()));
 
         gameSession.setNextDiffSequence(gameSession.getNextDiffSequence() + 1);
         gameSession.setLastDiffServerTick(gameSession.getServerTick());

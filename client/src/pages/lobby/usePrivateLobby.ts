@@ -85,7 +85,6 @@ export default function usePrivateLobby() {
     send({
       destination: "/app/game/create",
     });
-    queryClient.invalidateQueries({ queryKey: ["userStatus"] });
     setLobbyState((prev) => ({
       ...prev,
       state: "creating_game",
@@ -124,7 +123,9 @@ export default function usePrivateLobby() {
     }
 
     return () => {
-      queryClient.invalidateQueries({ queryKey: ["userStatus"] });
+      if (queryClient.isFetching({ queryKey: ["userStatus"] }) === 0) {
+        queryClient.invalidateQueries({ queryKey: ["userStatus"] });
+      }
     };
   }, []);
 
@@ -201,7 +202,7 @@ export default function usePrivateLobby() {
     };
 
     let handleUserReplies: EndpointSubscription<WebSocketEventResponseDto>["onMessage"] =
-      async (message) => {
+      (message) => {
         if (
           message.body.type === "LOBBY_CREATED" ||
           message.body.type === "LOBBY_JOINED"
@@ -211,7 +212,7 @@ export default function usePrivateLobby() {
         }
 
         if (message.body.type === "GAME_CREATED") {
-          await queryClient.invalidateQueries({ queryKey: ["userStatus"] });
+          queryClient.invalidateQueries({ queryKey: ["userStatus"] });
           navigate(`/game/${message.body.payload.id}`, { replace: true });
           return;
         }

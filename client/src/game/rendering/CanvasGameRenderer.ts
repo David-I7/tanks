@@ -173,32 +173,116 @@ export class CanvasGameRenderer {
   private drawTanks(ctx: CanvasRenderingContext2D, gameState: GameState): void {
     for (const entry of gameState.tanks) {
       if (!entry.alive) continue;
+      const isActive = entry.playerId === gameState.match.activePlayerId;
+      const mainColor = entry.visual?.fill ?? "#3b82f6";
+      const strokeColor = entry.visual?.stroke ?? "#1e40af";
+      const accentColor = entry.visual?.accent ?? "#93c5fd";
 
       ctx.save();
       ctx.translate(entry.position.x, entry.position.y);
       ctx.rotate(entry.bodyAngle);
 
-      const image = this.assets.tankImages[entry.tankDefinitionId];
+      // Active player highlight aura & turn pointer
+      if (isActive) {
+        ctx.save();
+        const pulse = 22 + Math.sin(Date.now() * 0.006) * 4;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, pulse, pulse * 0.35, 0, 0, Math.PI * 2);
+        ctx.fillStyle = `${mainColor}33`;
+        ctx.fill();
+        ctx.strokeStyle = mainColor;
+        ctx.lineWidth = 2;
+        ctx.shadowColor = mainColor;
+        ctx.shadowBlur = 10;
+        ctx.stroke();
+        ctx.restore();
 
-      ctx.scale(entry.facing, 1);
-      ctx.drawImage(image, -24, -30, 48, 28);
+        ctx.save();
+        ctx.rotate(-entry.bodyAngle);
+        const bounceY = -52 + Math.sin(Date.now() * 0.006) * 6;
+        ctx.translate(0, bounceY);
+        ctx.beginPath();
+        ctx.moveTo(-8, -10);
+        ctx.lineTo(8, -10);
+        ctx.lineTo(0, 0);
+        ctx.closePath();
+        ctx.fillStyle = "#fbbf24";
+        ctx.fill();
+        ctx.strokeStyle = "#f59e0b";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // Barrel
+      const rad = entry.aimAngle;
+      const barrelLength = 28;
+      const muzzleX = Math.cos(rad) * barrelLength;
+      const muzzleY = -14 + Math.sin(rad) * barrelLength;
+
+      ctx.beginPath();
+      ctx.moveTo(0, -14);
+      ctx.lineTo(muzzleX, muzzleY);
+      ctx.lineWidth = 5;
+      ctx.strokeStyle = mainColor;
+      ctx.lineCap = "round";
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.arc(muzzleX, muzzleY, 3.5, 0, Math.PI * 2);
+      ctx.fillStyle = "#ffffff";
+      ctx.fill();
+
+      // Tank Body
+      ctx.beginPath();
+      ctx.roundRect(-18, -20, 36, 14, 4);
+      const bodyGrad = ctx.createLinearGradient(0, -20, 0, -6);
+      bodyGrad.addColorStop(0, mainColor);
+      bodyGrad.addColorStop(1, strokeColor);
+      ctx.fillStyle = bodyGrad;
+      ctx.fill();
+      ctx.strokeStyle = accentColor;
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      // Treads & Wheels
+      ctx.fillStyle = "#0f172a";
+      ctx.beginPath();
+      ctx.roundRect(-22, -8, 44, 10, 3);
+      ctx.fill();
+      ctx.strokeStyle = "#334155";
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      for (let wx = -15; wx <= 15; wx += 10) {
+        ctx.beginPath();
+        ctx.arc(wx, -3, 3, 0, Math.PI * 2);
+        ctx.fillStyle = "#64748b";
+        ctx.fill();
+      }
+
+      // HP Bar above tank
+      ctx.save();
+      ctx.rotate(-entry.bodyAngle);
+      const barW = 44;
+      const barH = 5;
+      const hpRatio = Math.max(0, entry.health / entry.maxHealth);
+
+      ctx.translate(0, -32);
+      ctx.fillStyle = "rgba(15, 23, 42, 0.85)";
+      ctx.beginPath();
+      ctx.roundRect(-barW / 2 - 2, -3, barW + 4, barH + 6, 3);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(255,255,255,0.2)";
+      ctx.stroke();
+
+      ctx.fillStyle = hpRatio > 0.5 ? "#22c55e" : hpRatio > 0.25 ? "#eab308" : "#ef4444";
+      ctx.beginPath();
+      ctx.roundRect(-barW / 2, -1, barW * hpRatio, barH, 2);
+      ctx.fill();
 
       ctx.restore();
-
-      const turretX = entry.position.x;
-      const turretY = entry.position.y - 22;
-      ctx.strokeStyle =
-        entry.playerId === gameState.match.activePlayerId
-          ? "#ebc80e"
-          : "#d8dee9";
-      ctx.lineWidth = 4;
-      ctx.beginPath();
-      ctx.moveTo(turretX, turretY);
-      ctx.lineTo(
-        turretX + Math.cos(entry.aimAngle) * 34,
-        turretY + Math.sin(entry.aimAngle) * 34,
-      );
-      ctx.stroke();
+      ctx.restore();
     }
   }
 
@@ -207,17 +291,52 @@ export class CanvasGameRenderer {
     gameState: GameState,
   ): void {
     for (const entry of gameState.projectiles) {
-      const projImage =
-        this.assets.projectileImages[entry.projectileDefinitionId];
-
       ctx.save();
       ctx.translate(entry.position.x, entry.position.y);
       const angle = Math.atan2(entry.velocity.y, entry.velocity.x);
       ctx.rotate(angle);
-      const width = Math.max(16, entry.radius * 4);
-      const height = Math.max(10, entry.radius * 2.5);
-      ctx.drawImage(projImage, -width / 2, -height / 2, width, height);
+
+      const radius = entry.radius || 4;
+      const mainColor = entry.visual?.fill ?? "#f59e0b";
+      const strokeColor = entry.visual?.stroke ?? "#d97706";
+
+      // Tail flame / glow
+      ctx.beginPath();
+      ctx.moveTo(-radius * 2.5, 0);
+      ctx.lineTo(0, -radius * 0.8);
+      ctx.lineTo(0, radius * 0.8);
+      ctx.closePath();
+      ctx.fillStyle = `${strokeColor}88`;
+      ctx.fill();
+
+      // Shell core
+      ctx.beginPath();
+      ctx.arc(0, 0, radius, 0, Math.PI * 2);
+      ctx.fillStyle = mainColor;
+      ctx.fill();
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
       ctx.restore();
+    }
+
+    // Draw active Damage Trail hazard zones
+    if (gameState.damageTrails) {
+      for (const trail of gameState.damageTrails) {
+        ctx.save();
+        ctx.translate(trail.x, trail.y);
+        const pulse = Math.sin(Date.now() * 0.008) * 4;
+        ctx.beginPath();
+        ctx.arc(0, 0, trail.radius + pulse, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(239, 68, 68, 0.25)";
+        ctx.fill();
+        ctx.strokeStyle = "#ef4444";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([4, 4]);
+        ctx.stroke();
+        ctx.restore();
+      }
     }
   }
 
@@ -483,17 +602,20 @@ export class CanvasGameRenderer {
       ctx.stroke();
 
       const projImage =
-        this.assets.projectileImages[slot.projectileDefinitionId];
+        this.assets.projectileImages[slot.projectileDefinitionId] ??
+        Object.values(this.assets.projectileImages)[0];
 
       const iconWidth = layout.slotSize * 0.55;
       const iconHeight = layout.slotSize * 0.32;
-      ctx.drawImage(
-        projImage,
-        x + layout.slotSize / 2 - iconWidth / 2,
-        y + layout.slotSize / 2 - iconHeight / 2 - 4,
-        iconWidth,
-        iconHeight,
-      );
+      if (projImage && typeof projImage === "object" && "nodeName" in projImage) {
+        ctx.drawImage(
+          projImage,
+          x + layout.slotSize / 2 - iconWidth / 2,
+          y + layout.slotSize / 2 - iconHeight / 2 - 4,
+          iconWidth,
+          iconHeight,
+        );
+      }
 
       ctx.fillStyle = selected ? "#111827" : "#cbd5e1";
       ctx.font = "700 10px Inter, sans-serif";

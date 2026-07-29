@@ -1,46 +1,151 @@
 import { wait } from "../../utils/time";
 
 const TANK_PROJECTILE_DEFINITIONS = {
-  titanShell: {
-    id: "titanShell",
-    name: "Titan Shell",
-    label: "T",
-    color: "#ef4444",
-    type: "Crater Burst",
-    url: "/graphics/projectile-titan.svg",
-  },
-  heavyShell: {
-    id: "heavyShell",
-    name: "Heavy Shell",
-    label: "H",
-    color: "#f87171",
-    type: "Drill Slam",
-    url: "/graphics/projectile-heavy.svg",
-  },
-  mortar: {
-    id: "mortar",
-    name: "Mortar",
-    label: "M",
-    color: "#34d399",
-    type: "High Arc",
-    url: "/graphics/projectile-mortar.svg",
-  },
   basicShell: {
     id: "basicShell",
     name: "Basic Shell",
-    label: "S",
+    label: "Std",
     color: "#f97316",
     type: "Standard",
     url: "/graphics/projectile-basic.svg",
   },
-  cluster: {
-    id: "cluster",
-    name: "Cluster",
-    label: "C",
+  // Heavy Armor
+  titanShell: {
+    id: "titanShell",
+    name: "Titan Shell",
+    label: "Ttn",
+    color: "#ef4444",
+    type: "Tactical Nuke",
+    url: "/graphics/projectile-titan.svg",
+  },
+  autocannonStream: {
+    id: "autocannonStream",
+    name: "0.08s Autocannon",
+    label: "Auto",
     color: "#fbbf24",
-    type: "Area Spread",
+    type: "4-Round Stream",
+    url: "/graphics/projectile-autocannon.svg",
+  },
+  siegeVolley: {
+    id: "siegeVolley",
+    name: "3-Shot Volley",
+    label: "Vly",
+    color: "#38bdf8",
+    type: "Angled Volley",
+    url: "/graphics/projectile-volley.svg",
+  },
+  heavyBounce: {
+    id: "heavyBounce",
+    name: "Bouncing Bomb",
+    label: "Bnc",
+    color: "#a855f7",
+    type: "5x Ricochet",
+    url: "/graphics/projectile-bouncing.svg",
+  },
+
+  // Desert Striker
+  precisionLaser: {
+    id: "precisionLaser",
+    name: "Plasma Penetrator",
+    label: "Lsr",
+    color: "#22c55e",
+    type: "Crater Laser",
+    url: "/graphics/projectile-laser.svg",
+  },
+  sandstormCluster: {
+    id: "sandstormCluster",
+    name: "Sandstorm Cluster",
+    label: "Clu",
+    color: "#eab308",
+    type: "Apex Split",
     url: "/graphics/projectile-cluster.svg",
   },
+  scatterShotgun: {
+    id: "scatterShotgun",
+    name: "Turret Shotgun",
+    label: "Sht",
+    color: "#f59e0b",
+    type: "5-Bullet Spread",
+    url: "/graphics/projectile-shotgun.svg",
+  },
+  thermalHazard: {
+    id: "thermalHazard",
+    name: "Thermal Hazard",
+    label: "Trl",
+    color: "#ef4444",
+    type: "5s Damage Trail",
+    url: "/graphics/projectile-trail.svg",
+  },
+
+  // Vanguard Cyber
+  mortar: {
+    id: "mortar",
+    name: "Hyper Autocannon",
+    label: "Auto",
+    color: "#38bdf8",
+    type: "4-Round Stream",
+    url: "/graphics/projectile-mortar.svg",
+  },
+  heavyShell: {
+    id: "heavyShell",
+    name: "Cyber Laser",
+    label: "Pls",
+    color: "#06b6d4",
+    type: "Plasma Beam",
+    url: "/graphics/projectile-heavy.svg",
+  },
+  cluster: {
+    id: "cluster",
+    name: "Cyber Cluster",
+    label: "Clu",
+    color: "#8b5cf6",
+    type: "Cluster Split",
+    url: "/graphics/projectile-cluster.svg",
+  },
+  needle: {
+    id: "needle",
+    name: "Ricochet Spike",
+    label: "Spk",
+    color: "#6366f1",
+    type: "Ricochet Bounce",
+    url: "/graphics/projectile-needle.svg",
+  },
+
+  // Specter
+  phantomNuke: {
+    id: "phantomNuke",
+    name: "Phantom Nuke",
+    label: "Nuke",
+    color: "#ec4899",
+    type: "Atomic Payload",
+    url: "/graphics/projectile-nuke.svg",
+  },
+  ghostShotgun: {
+    id: "ghostShotgun",
+    name: "Ghost Shotgun",
+    label: "G-Sht",
+    color: "#d946ef",
+    type: "Fan Spread",
+    url: "/graphics/projectile-ghost.svg",
+  },
+  spectreVolley: {
+    id: "spectreVolley",
+    name: "Spectre Volley",
+    label: "S-Vly",
+    color: "#f43f5e",
+    type: "Tri-Volley",
+    url: "/graphics/projectile-spectre.svg",
+  },
+  toxicTrail: {
+    id: "toxicTrail",
+    name: "Toxic Trail",
+    label: "Tox",
+    color: "#10b981",
+    type: "5s Toxic Hazard",
+    url: "/graphics/projectile-toxic.svg",
+  },
+
+  // Backward compatibility aliases
   precisionDart: {
     id: "precisionDart",
     name: "Precision Dart",
@@ -48,14 +153,6 @@ const TANK_PROJECTILE_DEFINITIONS = {
     color: "#f59e0b",
     type: "Deep Drill",
     url: "/graphics/projectile-precision.svg",
-  },
-  needle: {
-    id: "needle",
-    name: "Needle",
-    label: "N",
-    color: "#60a5fa",
-    type: "Velocity",
-    url: "/graphics/projectile-needle.svg",
   },
   pulseRail: {
     id: "pulseRail",
@@ -75,12 +172,13 @@ export const TANK_DEFINITIONS = {
     name: "Heavy Armor",
     description: "Reinforced steel hull with heavy dual-barreled firepower.",
     url: "/graphics/tank-heavy.svg",
+    color: "#ef4444",
     projectiles: [
-      TANK_PROJECTILE_DEFINITIONS.titanShell,
-      TANK_PROJECTILE_DEFINITIONS.heavyShell,
-      TANK_PROJECTILE_DEFINITIONS.mortar,
       TANK_PROJECTILE_DEFINITIONS.basicShell,
-      TANK_PROJECTILE_DEFINITIONS.cluster,
+      TANK_PROJECTILE_DEFINITIONS.titanShell,
+      TANK_PROJECTILE_DEFINITIONS.autocannonStream,
+      TANK_PROJECTILE_DEFINITIONS.siegeVolley,
+      TANK_PROJECTILE_DEFINITIONS.heavyBounce,
     ],
   },
   "desert-striker": {
@@ -89,12 +187,13 @@ export const TANK_DEFINITIONS = {
     description:
       "High mobility chassis optimized for speed and long-range accuracy.",
     url: "/graphics/tank-striker.svg",
+    color: "#eab308",
     projectiles: [
-      TANK_PROJECTILE_DEFINITIONS.precisionDart,
-      TANK_PROJECTILE_DEFINITIONS.needle,
-      TANK_PROJECTILE_DEFINITIONS.cluster,
       TANK_PROJECTILE_DEFINITIONS.basicShell,
-      TANK_PROJECTILE_DEFINITIONS.mortar,
+      TANK_PROJECTILE_DEFINITIONS.precisionLaser,
+      TANK_PROJECTILE_DEFINITIONS.sandstormCluster,
+      TANK_PROJECTILE_DEFINITIONS.scatterShotgun,
+      TANK_PROJECTILE_DEFINITIONS.thermalHazard,
     ],
   },
   "vanguard-cyber": {
@@ -102,12 +201,27 @@ export const TANK_DEFINITIONS = {
     name: "Vanguard Cyber",
     description: "Futuristic navy alloy tank featuring energy rail cannons.",
     url: "/graphics/tank-vanguard.svg",
+    color: "#06b6d4",
     projectiles: [
-      TANK_PROJECTILE_DEFINITIONS.pulseRail,
-      TANK_PROJECTILE_DEFINITIONS.needle,
-      TANK_PROJECTILE_DEFINITIONS.cluster,
       TANK_PROJECTILE_DEFINITIONS.basicShell,
       TANK_PROJECTILE_DEFINITIONS.mortar,
+      TANK_PROJECTILE_DEFINITIONS.heavyShell,
+      TANK_PROJECTILE_DEFINITIONS.cluster,
+      TANK_PROJECTILE_DEFINITIONS.needle,
+    ],
+  },
+  specter: {
+    id: "specter",
+    name: "Specter",
+    description: "Stealth shadow tank equipped with tactical nukes and toxic trails.",
+    url: "/graphics/tank-specter.svg",
+    color: "#a855f7",
+    projectiles: [
+      TANK_PROJECTILE_DEFINITIONS.basicShell,
+      TANK_PROJECTILE_DEFINITIONS.phantomNuke,
+      TANK_PROJECTILE_DEFINITIONS.ghostShotgun,
+      TANK_PROJECTILE_DEFINITIONS.spectreVolley,
+      TANK_PROJECTILE_DEFINITIONS.toxicTrail,
     ],
   },
 };
@@ -134,6 +248,7 @@ export type TankDefinition = {
   name: string;
   description: string;
   url: string;
+  color: string;
   projectiles: TankProjectileDefinition[];
 };
 
@@ -144,16 +259,28 @@ const RESOURCE_URLS = {
     "heavy-armor": "/graphics/tank-heavy.svg",
     "desert-striker": "/graphics/tank-striker.svg",
     "vanguard-cyber": "/graphics/tank-vanguard.svg",
+    specter: "/graphics/tank-specter.svg",
 
     // Projectile assets
     basicShell: "/graphics/projectile-basic.svg",
     heavyShell: "/graphics/projectile-heavy.svg",
     titanShell: "/graphics/projectile-titan.svg",
-    precisionDart: "/graphics/projectile-precision.svg",
-    pulseRail: "/graphics/projectile-rail.svg",
+    autocannonStream: "/graphics/projectile-autocannon.svg",
+    siegeVolley: "/graphics/projectile-volley.svg",
+    heavyBounce: "/graphics/projectile-bouncing.svg",
+    precisionLaser: "/graphics/projectile-laser.svg",
+    sandstormCluster: "/graphics/projectile-cluster.svg",
+    scatterShotgun: "/graphics/projectile-shotgun.svg",
+    thermalHazard: "/graphics/projectile-trail.svg",
     mortar: "/graphics/projectile-mortar.svg",
     cluster: "/graphics/projectile-cluster.svg",
     needle: "/graphics/projectile-needle.svg",
+    phantomNuke: "/graphics/projectile-nuke.svg",
+    ghostShotgun: "/graphics/projectile-ghost.svg",
+    spectreVolley: "/graphics/projectile-spectre.svg",
+    toxicTrail: "/graphics/projectile-toxic.svg",
+    precisionDart: "/graphics/projectile-precision.svg",
+    pulseRail: "/graphics/projectile-rail.svg",
   },
 };
 
@@ -164,14 +291,26 @@ export default class ResourceManager {
       "heavy-armor": null,
       "desert-striker": null,
       "vanguard-cyber": null,
+      specter: null,
       basicShell: null,
       heavyShell: null,
       titanShell: null,
-      precisionDart: null,
-      pulseRail: null,
+      autocannonStream: null,
+      siegeVolley: null,
+      heavyBounce: null,
+      precisionLaser: null,
+      sandstormCluster: null,
+      scatterShotgun: null,
+      thermalHazard: null,
       mortar: null,
       cluster: null,
       needle: null,
+      phantomNuke: null,
+      ghostShotgun: null,
+      spectreVolley: null,
+      toxicTrail: null,
+      precisionDart: null,
+      pulseRail: null,
     },
   };
   private promiseMap: Map<string, Promise<any>> = new Map();
@@ -226,8 +365,8 @@ export default class ResourceManager {
 
   private async loadImage(url: string): Promise<HTMLImageElement | null> {
     let tries = 0;
-    const maxRetries = 3;
-    const retryDelay = 1000; // 1 second
+    const maxRetries = 2;
+    const retryDelay = 200;
 
     while (tries < maxRetries) {
       try {
@@ -246,9 +385,7 @@ export default class ResourceManager {
         }
       }
     }
-    throw new Error(
-      `Failed to load image after ${maxRetries} attempts: ${url}`,
-    );
+    return null;
   }
 
   async getImage(name: ImageIds): Promise<HTMLImageElement | null> {

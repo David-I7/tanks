@@ -65,16 +65,14 @@ public class AuthorizationInterceptor implements ChannelInterceptor {
 
         if (StompCommand.DISCONNECT.equals(accessor.getCommand())) {
             handlePostDisconnect(userDto.id(), sessionId);
-            return;
         }
 
-        if (!StompCommand.SUBSCRIBE.equals(accessor.getCommand()) && !StompCommand.SEND.equals(accessor.getCommand())) {
-            return;
-        }
-
-        ReentrantLock lock = (ReentrantLock) accessor.getHeader("socketLock");
-        if (lock != null && lock.isHeldByCurrentThread()) {
-            lock.unlock();
+        Map<String, Object> sessionAttributes = accessor.getSessionAttributes();
+        if (sessionAttributes != null) {
+            ReentrantLock lock = (ReentrantLock) sessionAttributes.remove("socketLock");
+            if (lock != null && lock.isHeldByCurrentThread()) {
+                lock.unlock();
+            }
         }
     }
 
@@ -93,7 +91,10 @@ public class AuthorizationInterceptor implements ChannelInterceptor {
             return message;
         }
 
-        if (!StompCommand.SUBSCRIBE.equals(accessor.getCommand()) && !StompCommand.SEND.equals(accessor.getCommand())) {
+        if (!StompCommand.SUBSCRIBE.equals(accessor.getCommand())
+                && !StompCommand.UNSUBSCRIBE.equals(accessor.getCommand())
+                && !StompCommand.SEND.equals(accessor.getCommand())
+                && !StompCommand.DISCONNECT.equals(accessor.getCommand())) {
             return message;
         }
 
@@ -105,14 +106,28 @@ public class AuthorizationInterceptor implements ChannelInterceptor {
         if (userSession == null) return message;
 
         ReentrantLock lock = claimService.getSocketLock(userSession.getId());
-        if (lock == null) throw new ProblemDetailException(HttpStatus.BAD_REQUEST, "User disconnected");
+        if (lock == null) {
+            if (StompCommand.DISCONNECT.equals(accessor.getCommand())) {
+                return message;
+            }
+            throw new ProblemDetailException(HttpStatus.BAD_REQUEST, "User disconnected");
+        }
 
         lock.lock();
-        accessor.setHeader("socketLock", lock);
+        Map<String, Object> sessionAttributes = accessor.getSessionAttributes();
+        if (sessionAttributes != null) {
+            sessionAttributes.put("socketLock", lock);
+        }
 
         // If a disconnect event happened while acquiring the lock, the user is already disconnected, so there is no need to fulfil this request
-        ReentrantLock lock2 = claimService.getSocketLock(userSession.getId());
-        if (lock2 == null) throw new ProblemDetailException(HttpStatus.BAD_REQUEST, "User disconnected");
+        ReentrantLock activeSocketLock = claimService.getSocketLock(userSession.getId());
+        if (activeSocketLock == null) {
+            lock.unlock();
+            if (StompCommand.DISCONNECT.equals(accessor.getCommand())) {
+                return message;
+            }
+            throw new ProblemDetailException(HttpStatus.BAD_REQUEST, "User disconnected");
+        }
 
         if (StompCommand.SUBSCRIBE.equals(accessor.getCommand())) {
             handlePreSubscribe(authentication, accessor);
