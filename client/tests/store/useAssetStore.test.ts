@@ -9,10 +9,11 @@ async function testAssetStoreInitialState() {
 
 async function testResourceManagerDefinitions() {
   const definitions = Object.values(TANK_DEFINITIONS);
-  assert.equal(definitions.length, 3);
+  assert.equal(definitions.length, 4);
   assert.equal(definitions[0].id, "heavy-armor");
   assert.equal(definitions[1].id, "desert-striker");
   assert.equal(definitions[2].id, "vanguard-cyber");
+  assert.equal(definitions[3].id, "specter");
   console.log("✓ testResourceManagerDefinitions passed");
 }
 
