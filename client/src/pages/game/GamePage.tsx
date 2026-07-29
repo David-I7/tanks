@@ -1,5 +1,5 @@
 import { ArrowLeft } from "lucide-react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Navigate, useNavigate, useParams } from "react-router-dom";
 import { useEffect, useMemo, useRef } from "react";
 import Loader from "../../components/misc/Loader";
 import { GameEngine } from "../../game";
@@ -14,18 +14,19 @@ export default function GamePage() {
   const { id } = useParams();
   const checked = useCheckValidGameSession({ id });
 
-  if (!checked) {
+  if (checked === false) {
     return null;
+  } else if (checked !== true) {
+    return checked;
   }
 
   return <GameView gameSessionId={id!} />;
 }
 
 function useCheckValidGameSession({ id }: { id: string | undefined }) {
-  const { data: userStatus, isPending, isFetching } = useUserStatusQuery();
-  const navigate = useNavigate();
+  const { data: userStatus, isFetching } = useUserStatusQuery();
 
-  if (isPending || isFetching) return false;
+  if (isFetching) return false;
 
   if (userStatus == undefined || userStatus.state === "IDLE") {
     throw new UiError({
@@ -42,7 +43,7 @@ function useCheckValidGameSession({ id }: { id: string | undefined }) {
   }
 
   if (userStatus.gameId !== id) {
-    navigate(`/game/${userStatus.gameId}`, { replace: true });
+    return <Navigate to={`/game/${userStatus.gameId}`} replace={true} />;
   }
 
   return true;
@@ -50,7 +51,8 @@ function useCheckValidGameSession({ id }: { id: string | undefined }) {
 
 function GameView({ gameSessionId }: { gameSessionId: string }) {
   const navigate = useNavigate();
-  const { sessionStatus, opponentDisconnected, gameManager } = useGameSession(gameSessionId);
+  const { sessionStatus, opponentDisconnected, gameManager } =
+    useGameSession(gameSessionId);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const engineRef = useRef<GameEngine | null>(null);
 
@@ -127,7 +129,8 @@ function GameView({ gameSessionId }: { gameSessionId: string }) {
 
       {opponentDisconnected && sessionStatus === "in_game" && (
         <div className="mb-3 rounded bg-amber-500/10 border border-amber-500/30 px-4 py-2 text-center text-sm font-semibold text-amber-400 animate-pulse">
-          Opponent disconnected! Waiting for them to reconnect (Match clock continues running...)
+          Opponent disconnected! Waiting for them to reconnect (Match clock
+          continues running...)
         </div>
       )}
 

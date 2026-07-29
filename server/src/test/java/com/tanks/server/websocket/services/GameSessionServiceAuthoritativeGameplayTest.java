@@ -77,7 +77,8 @@ class GameSessionServiceAuthoritativeGameplayTest {
         assertThat(harness.service.sendResyncStateToPlayer(session.getId(), "host",
                 OnlineDiffResponsePayloads.ResyncReason.RECONNECT)).isTrue();
         var recovered = (OnlineDiffResponsePayloads.ResyncState) harness.diffs().getFirst().payload();
-        assertThat(recovered.state()).isEqualTo(harness.stateFactory.createStateSnapshot(session));
+        var expectedSnapshot = harness.stateFactory.createStateSnapshot(session);
+        assertThat(recovered.state()).isEqualTo(expectedSnapshot);
         assertThat(((OnlineTerrainSnapshotResponseDto.Heightmap) recovered.state().terrain()).surface())
                 .isEqualTo(session.getTerrainModel().surface());
         assertThat(recovered.state().tanks()).extracting(OnlineTankSnapshotResponseDto::position)

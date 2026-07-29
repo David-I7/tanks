@@ -16,7 +16,7 @@ export default function LobbyPage() {
   const selectedTank = tanks?.find((t) => t.id === selectedTankId) || null;
   const checked = useCheckValidLobbySession({ id });
 
-  if (!checked) {
+  if (checked === false) {
     return null;
   }
 
@@ -39,9 +39,14 @@ export default function LobbyPage() {
 import { useUserStatusQuery } from "../../hooks/useUserStatusQuery";
 
 function useCheckValidLobbySession({ id }: { id: string | undefined }) {
-  const { data: userStatus, isPending, isFetching } = useUserStatusQuery();
+  const { data: userStatus, isFetching } = useUserStatusQuery();
 
-  if (isPending || isFetching) return false;
+  if (!id || !uuidSchema.safeParse(id).success) {
+    if (!uuidSchema.safeParse(id).success)
+      throw new PageNotFoundError("/lobby/" + id);
+  }
+
+  if (isFetching) return false;
 
   if (userStatus == null) return true;
 
@@ -50,11 +55,6 @@ function useCheckValidLobbySession({ id }: { id: string | undefined }) {
       description: "You are currently in a lobby in another tab or window.",
       heading: "In a lobby",
     });
-  }
-
-  if (!id || !uuidSchema.safeParse(id).success) {
-    if (!uuidSchema.safeParse(id).success)
-      throw new PageNotFoundError("/lobby/" + id);
   }
 
   return true;

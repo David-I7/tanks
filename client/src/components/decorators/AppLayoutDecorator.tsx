@@ -37,7 +37,7 @@ function CheckResumeSession() {
 
     // Redirect to the game page
     navigate(`/game/${userStatus.gameId}`);
-  }, [location.pathname, userStatus, navigate]);
+  }, [location.pathname, userStatus]);
 
   return null;
 }
