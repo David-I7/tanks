@@ -8,6 +8,7 @@ import {
   type ProjectileComponent,
   type ProjectileDefinition,
   type TankComponent,
+  type DamageTrail,
   MAX_TANK_FUEL,
   MAX_TURN_SECONDS,
   MOVE_FUEL_COST,
@@ -21,6 +22,17 @@ const TANK_MOVE_STEP = 2;
 
 export class LocalSimulation {
   private transitionTimer = 0;
+  private pendingProjectiles: Array<{
+    delayRemaining: number;
+    ownerPlayerId: number;
+    projectileDefinition: ProjectileDefinition;
+    power: number;
+    tankX: number;
+    tankY: number;
+    aimAngle: number;
+  }> = [];
+  private damageTrails: DamageTrail[] = [];
+
   constructor(
     readonly world: LocalWorld,
     readonly terrain: LocalTerrainModel,
@@ -28,7 +40,7 @@ export class LocalSimulation {
   ) {}
 
   submitPlayerAction(playerId: number, action: GameAction): boolean {
-    if (this.world.match.phase !== "thinking") {
+    if (this.world.match.phase !== "thinking" || this.damageTrails.length > 0) {
       return false;
     }
     if (this.world.match.activePlayerId !== playerId) return false;
@@ -41,7 +53,7 @@ export class LocalSimulation {
     if (!tank || !position || !tank.alive) return false;
 
     if (action.type === "move") {
-      if (tank.fuel <= 0) return false;
+      if (tank.fuel <= 0 || this.damageTrails.length > 0) return false;
       const fuelSpend = Math.min(tank.fuel, MOVE_FUEL_COST);
       const moveDistance = TANK_MOVE_STEP * (fuelSpend / MOVE_FUEL_COST);
       position.x = Math.max(
@@ -69,13 +81,22 @@ export class LocalSimulation {
     tank.power = Math.max(120, Math.min(action.power, 680));
 
     if (action.type === "fire") {
+      const currentAmmo = tank.weaponAmmo[action.projectileSlotId] ?? -1;
+      if (currentAmmo === 0) {
+        return false;
+      }
       const projectileDefinition = this.resolveProjectileDefinition(
         tank,
         action.projectileSlotId,
       );
       if (!projectileDefinition) return false;
+
+      if (currentAmmo > 0) {
+        tank.weaponAmmo[action.projectileSlotId] = currentAmmo - 1;
+      }
       tank.selectedProjectileSlotId = action.projectileSlotId;
-      this.spawnProjectile(tank, projectileDefinition, position.x, position.y);
+
+      this.fireWeaponPattern(tank, projectileDefinition, position.x, position.y);
       this.world.match.phase = "ballistics";
       this.world.match.turnTimeRemaining = 0;
     }
@@ -87,6 +108,9 @@ export class LocalSimulation {
     if (this.world.match.phase === "thinking") {
       if (this.updateTurnTimer(dt)) return;
     }
+
+    this.updatePendingProjectiles(dt);
+    this.updateDamageTrails(dt);
 
     if (this.world.match.phase === "ballistics") {
       this.updateProjectiles(dt);
@@ -133,26 +157,153 @@ export class LocalSimulation {
         position: { ...event.position },
         visual: { ...event.visual },
       })),
+      damageTrails: this.damageTrails.map((t) => ({ ...t })),
     };
   }
 
-  private spawnProjectile(
+  private fireWeaponPattern(
     tank: TankComponent,
     projectileDefinition: ProjectileDefinition,
     tankX: number,
     tankY: number,
   ): void {
-    const muzzle = getMuzzlePosition(tankX, tankY, tank.aimAngle);
+    const pattern = projectileDefinition.pattern;
+    if (pattern?.kind === "autocannon") {
+      this.spawnProjectileWithAngle(
+        tank.playerId,
+        projectileDefinition,
+        tank.power,
+        tankX,
+        tankY,
+        tank.aimAngle,
+      );
+      for (let i = 1; i < pattern.count; i += 1) {
+        this.pendingProjectiles.push({
+          delayRemaining: i * pattern.delaySeconds,
+          ownerPlayerId: tank.playerId,
+          projectileDefinition,
+          power: tank.power,
+          tankX,
+          tankY,
+          aimAngle: tank.aimAngle,
+        });
+      }
+    } else if (pattern?.kind === "volley") {
+      const count = pattern.count;
+      const spreadRad = (pattern.spreadAngleDegrees * Math.PI) / 180;
+      for (let i = 0; i < count; i += 1) {
+        const offset = (i - (count - 1) / 2) * (spreadRad / (count - 1 || 1));
+        const angle = tank.aimAngle + offset;
+        if (i === 0) {
+          this.spawnProjectileWithAngle(
+            tank.playerId,
+            projectileDefinition,
+            tank.power,
+            tankX,
+            tankY,
+            angle,
+          );
+        } else {
+          this.pendingProjectiles.push({
+            delayRemaining: i * pattern.delaySeconds,
+            ownerPlayerId: tank.playerId,
+            projectileDefinition,
+            power: tank.power,
+            tankX,
+            tankY,
+            aimAngle: angle,
+          });
+        }
+      }
+    } else if (pattern?.kind === "shotgun") {
+      const count = pattern.count;
+      const spreadRad = (pattern.spreadAngleDegrees * Math.PI) / 180;
+      for (let i = 0; i < count; i += 1) {
+        const offset = (i - (count - 1) / 2) * (spreadRad / (count - 1 || 1));
+        this.spawnProjectileWithAngle(
+          tank.playerId,
+          projectileDefinition,
+          tank.power,
+          tankX,
+          tankY,
+          tank.aimAngle + offset,
+        );
+      }
+    } else {
+      this.spawnProjectileWithAngle(
+        tank.playerId,
+        projectileDefinition,
+        tank.power,
+        tankX,
+        tankY,
+        tank.aimAngle,
+      );
+    }
+  }
+
+  private spawnProjectileWithAngle(
+    ownerPlayerId: number,
+    projectileDefinition: ProjectileDefinition,
+    power: number,
+    tankX: number,
+    tankY: number,
+    aimAngle: number,
+  ): void {
+    const muzzle = getMuzzlePosition(tankX, tankY, aimAngle);
     const speedScale = projectileDefinition.physics.muzzleVelocityScale;
     this.world.createProjectile(
-      tank.playerId,
+      ownerPlayerId,
       projectileDefinition,
-      tank.power,
+      power,
       muzzle.x,
       muzzle.y,
-      Math.cos(tank.aimAngle) * tank.power * speedScale,
-      Math.sin(tank.aimAngle) * tank.power * speedScale,
+      Math.cos(aimAngle) * power * speedScale,
+      Math.sin(aimAngle) * power * speedScale,
     );
+  }
+
+  private updatePendingProjectiles(dt: number): void {
+    if (this.pendingProjectiles.length === 0) return;
+    const nextPending: typeof this.pendingProjectiles = [];
+    for (const pending of this.pendingProjectiles) {
+      pending.delayRemaining -= dt;
+      if (pending.delayRemaining <= 0) {
+        this.spawnProjectileWithAngle(
+          pending.ownerPlayerId,
+          pending.projectileDefinition,
+          pending.power,
+          pending.tankX,
+          pending.tankY,
+          pending.aimAngle,
+        );
+      } else {
+        nextPending.push(pending);
+      }
+    }
+    this.pendingProjectiles = nextPending;
+  }
+
+  private updateDamageTrails(dt: number): void {
+    if (this.damageTrails.length === 0) return;
+    const nextTrails: typeof this.damageTrails = [];
+    for (const trail of this.damageTrails) {
+      trail.remainingDuration -= dt;
+      const damageThisTick = trail.damagePerSecond * dt;
+      for (const [entityId, tank] of this.world.tanks) {
+        if (!tank.alive) continue;
+        const pos = this.world.positions.get(entityId);
+        if (!pos) continue;
+        const dist = Math.hypot(pos.x - trail.x, pos.y - 18 - trail.y);
+        if (dist <= trail.radius) {
+          tank.health = Math.max(0, tank.health - damageThisTick);
+          tank.alive = tank.health > 0;
+        }
+      }
+      if (trail.remainingDuration > 0) {
+        nextTrails.push(trail);
+      }
+    }
+    this.damageTrails = nextTrails;
   }
 
   private updateProjectiles(dt: number): void {
@@ -162,6 +313,63 @@ export class LocalSimulation {
       const position = this.world.positions.get(entityId);
       const velocity = this.world.velocities.get(entityId);
       if (!position || !velocity) continue;
+
+      if (
+        projectile.pattern?.kind === "cluster" &&
+        !projectile.hasSplit &&
+        velocity.y >= 0
+      ) {
+        projectile.hasSplit = true;
+        this.world.destroyEntity(entityId);
+        const def =
+          this.content.projectiles[projectile.projectileDefinitionId] ??
+          projectile;
+        const subDef: ProjectileDefinition = {
+          ...def,
+          physics: {
+            ...def.physics,
+            radius: Math.max(2, def.physics.radius - 1),
+          },
+          damageEffect: {
+            type: "radial",
+            radius: 25,
+            damage: Math.ceil(
+              projectile.damageEffect.type === "radial"
+                ? projectile.damageEffect.damage
+                : 25,
+            ),
+          },
+          pattern: { kind: "standard" },
+        };
+        this.world.createProjectile(
+          projectile.ownerPlayerId,
+          subDef,
+          projectile.power,
+          position.x - 10,
+          position.y,
+          velocity.x - 40,
+          velocity.y + 10,
+        );
+        this.world.createProjectile(
+          projectile.ownerPlayerId,
+          subDef,
+          projectile.power,
+          position.x,
+          position.y,
+          velocity.x,
+          velocity.y + 10,
+        );
+        this.world.createProjectile(
+          projectile.ownerPlayerId,
+          subDef,
+          projectile.power,
+          position.x + 10,
+          position.y,
+          velocity.x + 40,
+          velocity.y + 10,
+        );
+        continue;
+      }
 
       velocity.x *= Math.max(0, 1 - projectile.physics.drag * dt);
       velocity.y *= Math.max(0, 1 - projectile.physics.drag * dt);
@@ -180,13 +388,42 @@ export class LocalSimulation {
         position.x < 0 ||
         position.x > this.terrain.width;
 
+      if (hitTerrain && projectile.pattern?.kind === "bouncing") {
+        const bounces = projectile.bouncesCount ?? 0;
+        if (bounces < projectile.pattern.maxBounces) {
+          const x = Math.max(
+            1,
+            Math.min(this.terrain.width - 2, Math.floor(position.x)),
+          );
+          const slope =
+            (this.terrain.getSurfaceY(x + 1) -
+              this.terrain.getSurfaceY(x - 1)) /
+            2;
+          const normLen = Math.hypot(slope, 1);
+          const nx = -slope / normLen;
+          const ny = -1 / normLen;
+          const dot = velocity.x * nx + velocity.y * ny;
+          velocity.x = (velocity.x - 2 * dot * nx) * 0.85;
+          velocity.y = (velocity.y - 2 * dot * ny) * 0.85;
+          position.y = this.terrain.getSurfaceY(x) - projectile.radius - 2;
+          projectile.bouncesCount = bounces + 1;
+          continue;
+        }
+      }
+
       if (hitTankEntityId !== null || hitTerrain || outOfBounds) {
         if (!outOfBounds) {
           this.resolveImpact(position.x, position.y, projectile);
         }
         this.world.destroyEntity(entityId);
-        this.world.match.phase =
-          this.world.impactEvents.size > 0 ? "impact" : "transition";
+        if (
+          this.world.projectiles.size === 0 &&
+          this.pendingProjectiles.length === 0 &&
+          this.damageTrails.length === 0
+        ) {
+          this.world.match.phase =
+            this.world.impactEvents.size > 0 ? "impact" : "transition";
+        }
       }
     }
   }
@@ -218,9 +455,38 @@ export class LocalSimulation {
     y: number,
     projectile: ProjectileComponent,
   ): void {
-    this.terrain.applyTerrainEffect(x, y, projectile.terrainEffect);
+    if (projectile.pattern?.kind === "laser") {
+      const depthMultiplier = projectile.pattern.depthMultiplier;
+      const effect =
+        projectile.terrainEffect.type === "drill"
+          ? {
+              ...projectile.terrainEffect,
+              depth: projectile.terrainEffect.depth * depthMultiplier,
+            }
+          : {
+              type: "drill" as const,
+              radius: projectile.radius * 3,
+              depth: 50 * depthMultiplier,
+            };
+      this.terrain.applyTerrainEffect(x, y, effect);
+    } else {
+      this.terrain.applyTerrainEffect(x, y, projectile.terrainEffect);
+    }
+
     this.world.createImpactEvent(x, y, projectile);
     this.applyDamageEffect(x, y, projectile.damageEffect);
+
+    if (projectile.pattern?.kind === "damageTrail") {
+      this.damageTrails.push({
+        id: `hazard-${Date.now()}-${Math.random()}`,
+        x,
+        y,
+        radius: projectile.pattern.radius,
+        damagePerSecond: projectile.pattern.damagePerSecond,
+        remainingDuration: projectile.pattern.durationSeconds,
+        ownerPlayerId: projectile.ownerPlayerId,
+      });
+    }
   }
 
   private applyDamageEffect(
@@ -322,7 +588,7 @@ export class LocalSimulation {
       this.world.match.phase = "transition";
       return true;
     }
-    this.spawnProjectile(tank, projectileDefinition, position.x, position.y);
+    this.fireWeaponPattern(tank, projectileDefinition, position.x, position.y);
     this.world.match.phase = "ballistics";
     return true;
   }

@@ -148,6 +148,7 @@ export function toGameState(
       velocity: entry.velocity,
     })),
     impactEvents: state.impactEvents,
+    damageTrails: state.damageTrails,
   };
 }
 

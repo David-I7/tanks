@@ -53,6 +53,12 @@ export class LocalWorld {
     if (!defaultSlot) {
       throw new Error(`Tank definition "${tankDefinition.id}" has no projectile slots`);
     }
+    const weaponAmmo: Record<string, number> = {};
+    for (const slot of tankDefinition.loadout) {
+      weaponAmmo[slot.id] = slot.maxAmmo !== undefined
+        ? slot.maxAmmo
+        : (slot.projectileDefinitionId === "basicShell" || slot.id === "standard" ? -1 : 1);
+    }
     this.tanks.set(entityId, {
       playerId: player.id,
       displayName: player.displayName,
@@ -62,6 +68,7 @@ export class LocalWorld {
       visual: { ...tankDefinition.visual },
       loadout: tankDefinition.loadout.map((slot) => ({ ...slot })),
       selectedProjectileSlotId: defaultSlot.id,
+      weaponAmmo,
       maxHealth: tankDefinition.maxHealth,
       health: tankDefinition.maxHealth,
       facing: player.id === 0 ? 1 : -1,
@@ -91,6 +98,9 @@ export class LocalWorld {
       damageEffect: { ...projectileDefinition.damageEffect },
       impactAnimationId: projectileDefinition.impactAnimationId,
       impactDuration: projectileDefinition.impactDuration,
+      pattern: projectileDefinition.pattern ? { ...projectileDefinition.pattern } : undefined,
+      bouncesCount: 0,
+      hasSplit: false,
       visual: { ...projectileDefinition.visual },
     });
     this.lifetimes.set(entityId, { active: true });

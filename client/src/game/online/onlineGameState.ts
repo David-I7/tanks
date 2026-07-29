@@ -64,6 +64,10 @@ export function onlineSnapshotToGameState(
     projectileDefinitions: content.projectiles,
     tanks: snapshot.tanks.map((tank) => {
       const tankDefinition = content.tanks[tank.tankDefinitionId];
+      const weaponAmmo: Record<string, number> = {};
+      for (const slot of tank.loadout) {
+        weaponAmmo[slot.id] = (slot as any).ammo ?? (slot.projectileDefinitionId === "basicShell" || slot.id === "standard" ? -1 : 1);
+      }
       return {
         entityId: tank.entityId,
         playerId: tank.playerId,
@@ -79,6 +83,7 @@ export function onlineSnapshotToGameState(
           renderAssetId: slot.renderAssetId,
         })),
         selectedProjectileSlotId: tank.selectedProjectileSlotId,
+        weaponAmmo,
         maxHealth: tank.maxHealth,
         health: tank.health,
         facing: tank.facing,
