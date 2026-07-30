@@ -132,3 +132,64 @@ export function findProjectileSlotAtCanvasPoint(
 
   return null;
 }
+
+export function isFireButtonClickedAtCanvasPoint(
+  gameState: GameState,
+  canvasWidth: number,
+  canvasHeight: number,
+  canvasX: number,
+  canvasY: number,
+  activeTank?: GameState["tanks"][number],
+): boolean {
+  if (gameState.match.phase !== "thinking") return false;
+  const targetTank =
+    activeTank ??
+    gameState.tanks.find(
+      (entry) =>
+        entry.playerId === gameState.match.activePlayerId && entry.alive,
+    );
+  if (!targetTank) return false;
+
+  const layout = getProjectileSelectorLayout(
+    canvasWidth,
+    canvasHeight,
+    targetTank.loadout.length,
+  );
+  const totalWidth =
+    targetTank.loadout.length * layout.slotSize +
+    Math.max(0, targetTank.loadout.length - 1) * layout.gap;
+
+  const fireX = layout.x + totalWidth + 12;
+  const fireY = layout.y;
+  const fireW = 76;
+  const fireH = layout.slotSize;
+
+  return (
+    canvasX >= fireX - 4 &&
+    canvasX <= fireX + fireW + 4 &&
+    canvasY >= fireY - 4 &&
+    canvasY <= fireY + fireH + 4
+  );
+}
+
+export function isRelockCameraButtonClickedAtCanvasPoint(
+  gameState: GameState,
+  canvasWidth: number,
+  _canvasHeight: number,
+  canvasX: number,
+  canvasY: number,
+): boolean {
+  if (gameState.match.isCameraLocked !== false) return false;
+
+  const btnX = canvasWidth / 2 - 60;
+  const btnY = 65;
+  const btnW = 120;
+  const btnH = 28;
+
+  return (
+    canvasX >= btnX &&
+    canvasX <= btnX + btnW &&
+    canvasY >= btnY &&
+    canvasY <= btnY + btnH
+  );
+}

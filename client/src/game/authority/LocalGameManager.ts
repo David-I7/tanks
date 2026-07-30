@@ -152,6 +152,8 @@ export function toGameState(
     lootCrates: state.lootCrates,
     particles: state.particles,
     floatingTexts: state.floatingTexts,
+    decors: state.decors,
+    clouds: state.clouds,
   };
 }
 

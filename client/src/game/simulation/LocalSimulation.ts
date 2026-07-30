@@ -155,6 +155,13 @@ export class LocalSimulation {
     this.updateParticles(dt);
     this.updateFloatingTexts(dt);
 
+    for (const cloud of this.world.clouds) {
+      cloud.x += cloud.speed;
+      if (cloud.x > this.terrain.width + 100) {
+        cloud.x = -100;
+      }
+    }
+
     this.screenShake *= 0.85;
     if (this.screenShake < 0.1) this.screenShake = 0;
 
@@ -222,7 +229,25 @@ export class LocalSimulation {
       lootCrates: this.lootCrates.map((c) => ({ ...c })),
       particles: this.particles.map((p) => ({ ...p })),
       floatingTexts: this.floatingTexts.map((ft) => ({ ...ft })),
+      decors: this.world.decors.map((d) => ({ ...d })),
+      clouds: this.world.clouds.map((c) => ({ ...c })),
     };
+  }
+
+  setCameraLocked(locked: boolean): void {
+    this.world.match.isCameraLocked = locked;
+  }
+
+  panCamera(deltaX: number): void {
+    this.world.match.isCameraLocked = false;
+    this.world.match.cameraX = Math.max(
+      0,
+      Math.min(this.terrain.width - 800, (this.world.match.cameraX ?? 0) + deltaX),
+    );
+  }
+
+  relockCamera(): void {
+    this.world.match.isCameraLocked = true;
   }
 
   private fireWeaponPattern(
@@ -546,6 +571,19 @@ export class LocalSimulation {
     this.spawnExplosionParticles(x, y);
     this.screenShake = projectile.pattern?.kind === "nuke" ? 22 : 12;
 
+    const blastRadius = Math.max(
+      30,
+      projectile.terrainEffect.radius ?? projectile.damageEffect.radius ?? 35,
+    );
+    for (const decor of this.world.decors) {
+      if (
+        !decor.destroyed &&
+        Math.hypot(decor.x - x, decor.y - y) <= blastRadius * 1.1
+      ) {
+        decor.destroyed = true;
+      }
+    }
+
     if (projectile.pattern?.kind === "damageTrail") {
       this.damageTrails.push({
         id: `hazard-${Date.now()}-${Math.random()}`,
@@ -595,6 +633,10 @@ export class LocalSimulation {
       if (!position || !tank.alive) continue;
       position.y = this.terrain.getSurfaceY(position.x);
       tank.bodyAngle = this.terrain.getSlopeAngle(position.x);
+    }
+    for (const decor of this.world.decors) {
+      decor.y = this.terrain.getSurfaceY(decor.x);
+      decor.rotation = this.terrain.getSlopeAngle(decor.x);
     }
   }
 

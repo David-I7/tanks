@@ -11,6 +11,9 @@ import {
   type MatchSetupPlayer,
   type ImpactEvent,
   type VelocityComponent,
+  type DecorObject,
+  type Cloud,
+  type MapBiome,
 } from "../types";
 
 export class LocalWorld {
@@ -23,9 +26,22 @@ export class LocalWorld {
   readonly impactEvents = new Map<number, ImpactEvent>();
 
   readonly tankEntitiesByPlayer = new Map<number, EntityId>();
+  readonly decors: DecorObject[] = [];
+  readonly clouds: Cloud[] = [];
   private nextImpactEventId = 1;
 
-  constructor(public match: MatchState) {}
+  constructor(public match: MatchState) {
+    if (!this.match.biome) {
+      const BIOMES: MapBiome[] = ["forest", "desert", "ice"];
+      this.match.biome = BIOMES[Math.floor(Math.random() * BIOMES.length)];
+    }
+    if (this.match.isCameraLocked === undefined) {
+      this.match.isCameraLocked = true;
+    }
+    if (this.match.cameraX === undefined) {
+      this.match.cameraX = 0;
+    }
+  }
 
   createEntity(): EntityId {
     const entityId = this.nextEntityId;

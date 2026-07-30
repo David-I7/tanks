@@ -18,6 +18,7 @@ const tests = [
   "tests/game/online/authoritative-online-gameplay.test.ts",
   "tests/game/simulation/procedural-tanks-weapons-ballistics.test.ts",
   "tests/game/simulation/timers-crates-wind-visuals.test.ts",
+  "tests/game/simulation/biomes-decor-camera-controls.test.ts",
 ];
 
 for (const test of tests) {

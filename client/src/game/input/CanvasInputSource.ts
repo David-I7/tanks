@@ -2,6 +2,8 @@ import type { GameAction, GameState } from "../types";
 import {
   calculateAimIntent,
   findProjectileSlotAtCanvasPoint,
+  isFireButtonClickedAtCanvasPoint,
+  isRelockCameraButtonClickedAtCanvasPoint,
 } from "./inputHelpers";
 import type { DomCanvasRect, GameViewport } from "../world/worldSizing";
 import { domPointToGameViewportPoint } from "../world/worldSizing";
@@ -10,6 +12,7 @@ export type CanvasInteractionState = {
   pressedKeys: ReadonlySet<string>;
   pendingPointerDown: { clientX: number; clientY: number } | null;
   pendingSlotNumber: number | null;
+  pendingSpaceKey: boolean;
   pointer: { clientX: number; clientY: number };
 };
 
@@ -67,6 +70,32 @@ const keyboardProjectileSlotIntentProducer: IntentProducer = ({
     : [];
 };
 
+const spacebarFireIntentProducer: IntentProducer = ({ state, context }) => {
+  if (!state.pendingSpaceKey && !state.pressedKeys.has(" ") && !state.pressedKeys.has("Space")) {
+    return [];
+  }
+  if (context.gameState.match.phase !== "thinking") return [];
+
+  const activeTank = getActiveTank(context.gameState);
+  if (!activeTank) return [];
+
+  const slotId =
+    activeTank.selectedProjectileSlotId ?? activeTank.loadout[0]?.id;
+  if (!slotId) return [];
+
+  const ammo = activeTank.weaponAmmo?.[slotId] ?? 1;
+  if (ammo === 0) return [];
+
+  return [
+    {
+      type: "fire",
+      angle: activeTank.aimAngle,
+      power: activeTank.power,
+      projectileSlotId: slotId,
+    },
+  ];
+};
+
 const pointerIntentProducer: IntentProducer = ({ state, context }) => {
   const intents: GameAction[] = [];
   const activeTank = getActiveTank(context.gameState);
@@ -110,14 +139,35 @@ const pointerIntentProducer: IntentProducer = ({ state, context }) => {
         type: "selectProjectileSlot",
         projectileSlotId: clickedSlotId,
       });
-    } else if (aim) {
+    } else if (
+      isRelockCameraButtonClickedAtCanvasPoint(
+        context.gameState,
+        context.gameViewport.width,
+        context.gameViewport.height,
+        pointerPoint.x,
+        pointerPoint.y,
+      )
+    ) {
+      if (context.gameState.match) {
+        (context.gameState.match as any).isCameraLocked = true;
+      }
+    } else if (
+      isFireButtonClickedAtCanvasPoint(
+        context.gameState,
+        context.gameViewport.width,
+        context.gameViewport.height,
+        pointerPoint.x,
+        pointerPoint.y,
+        activeTank,
+      )
+    ) {
       const projectileSlotId =
         activeTank.selectedProjectileSlotId ?? activeTank.loadout[0]?.id;
       if (projectileSlotId) {
         intents.push({
           type: "fire",
-          angle: aim.angle,
-          power: aim.power,
+          angle: aim ? aim.angle : activeTank.aimAngle,
+          power: aim ? aim.power : activeTank.power,
           projectileSlotId,
         });
       }
@@ -130,6 +180,7 @@ const pointerIntentProducer: IntentProducer = ({ state, context }) => {
 const defaultIntentProducers: IntentProducer[] = [
   movementIntentProducer,
   keyboardProjectileSlotIntentProducer,
+  spacebarFireIntentProducer,
   pointerIntentProducer,
 ];
 
@@ -148,6 +199,7 @@ export class CanvasInputSource {
   private pendingPointerDown: { clientX: number; clientY: number } | null =
     null;
   private pendingSlotNumber: number | null = null;
+  private pendingSpaceKey = false;
   private pointer = { clientX: 0, clientY: 0 };
   private active = true;
   private layout: CanvasInputLayout;
@@ -156,6 +208,10 @@ export class CanvasInputSource {
     this.pressedKeys.add(event.key);
     if (/^[1-5]$/.test(event.key)) {
       this.pendingSlotNumber = Number(event.key);
+    }
+    if (event.key === " " || event.code === "Space") {
+      event.preventDefault();
+      this.pendingSpaceKey = true;
     }
   };
 
@@ -210,6 +266,7 @@ export class CanvasInputSource {
         pointer: this.pointer,
         pendingPointerDown: this.pendingPointerDown,
         pendingSlotNumber: this.pendingSlotNumber,
+        pendingSpaceKey: this.pendingSpaceKey,
       },
       context: {
         gameState,
@@ -221,6 +278,7 @@ export class CanvasInputSource {
 
     this.pendingPointerDown = null;
     this.pendingSlotNumber = null;
+    this.pendingSpaceKey = false;
 
     return actions;
   }

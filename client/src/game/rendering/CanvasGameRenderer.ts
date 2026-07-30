@@ -49,6 +49,10 @@ export class CanvasGameRenderer {
         draw: (ctx, gameState) => this.drawTerrain(ctx, gameState),
       },
       {
+        name: "decors",
+        draw: (ctx, gameState) => this.drawDecors(ctx, gameState),
+      },
+      {
         name: "lootCrates",
         draw: (ctx, gameState) => this.drawLootCrates(ctx, gameState),
       },
@@ -136,7 +140,7 @@ export class CanvasGameRenderer {
       0,
     );
     ctx.clearRect(0, 0, this.gameViewport.width, this.gameViewport.height);
-    this.drawSky(ctx);
+    this.drawSky(ctx, gameState);
 
     const renderContext = {
       gameViewport: this.gameViewport,
@@ -157,34 +161,138 @@ export class CanvasGameRenderer {
   }
 
   private updateCamera(gameState: GameState): void {
-    const activeTank = gameState.tanks.find(
-      (entry) => entry.playerId === gameState.match.activePlayerId,
-    )!;
-    const focusX =
-      gameState.projectiles[0]?.position.x ?? activeTank?.position.x ?? 0;
-    const maxCameraX = Math.max(
-      0,
-      gameState.terrain.width - this.gameViewport.width,
-    );
-    const targetCameraX = Math.max(
-      0,
-      Math.min(maxCameraX, focusX - this.gameViewport.width * 0.5),
-    );
-    this.cameraX += (targetCameraX - this.cameraX) * 0.12;
+    const isLocked = gameState.match.isCameraLocked !== false;
+    if (isLocked) {
+      const activeTank = gameState.tanks.find(
+        (entry) => entry.playerId === gameState.match.activePlayerId,
+      )!;
+      const focusX =
+        gameState.projectiles[0]?.position.x ?? activeTank?.position.x ?? 0;
+      const maxCameraX = Math.max(
+        0,
+        gameState.terrain.width - this.gameViewport.width,
+      );
+      const targetCameraX = Math.max(
+        0,
+        Math.min(maxCameraX, focusX - this.gameViewport.width * 0.5),
+      );
+      this.cameraX += (targetCameraX - this.cameraX) * 0.12;
+    } else if (typeof gameState.match.cameraX === "number") {
+      this.cameraX = gameState.match.cameraX;
+    }
   }
 
-  private drawSky(ctx: CanvasRenderingContext2D): void {
-    const gradient = ctx.createLinearGradient(
-      0,
-      0,
-      0,
-      this.gameViewport.height,
-    );
-    gradient.addColorStop(0, "#101827");
-    gradient.addColorStop(0.58, "#26374a");
-    gradient.addColorStop(1, "#0b0c10");
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, this.gameViewport.width, this.gameViewport.height);
+  private drawSky(ctx: CanvasRenderingContext2D, gameState: GameState): void {
+    const biome = gameState.match.biome ?? "forest";
+    const width = this.gameViewport.width;
+    const height = this.gameViewport.height;
+
+    // 1. Sky Gradient
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, height);
+    if (biome === "desert") {
+      skyGrad?.addColorStop?.(0, "#1e0b12");
+      skyGrad?.addColorStop?.(0.35, "#3b132b");
+      skyGrad?.addColorStop?.(0.7, "#9a3412");
+      skyGrad?.addColorStop?.(1, "#ea580c");
+    } else if (biome === "ice") {
+      skyGrad?.addColorStop?.(0, "#030712");
+      skyGrad?.addColorStop?.(0.35, "#082f49");
+      skyGrad?.addColorStop?.(0.7, "#0e7490");
+      skyGrad?.addColorStop?.(1, "#155e75");
+    } else {
+      skyGrad?.addColorStop?.(0, "#0b091a");
+      skyGrad?.addColorStop?.(0.35, "#1e0b36");
+      skyGrad?.addColorStop?.(0.7, "#4c1d95");
+      skyGrad?.addColorStop?.(1, "#831843");
+    }
+    if (skyGrad) ctx.fillStyle = skyGrad;
+    ctx.fillRect(0, 0, width, height);
+
+    // 2. Sun Orb
+    ctx.save();
+    const sunX = width * 0.5;
+    const sunY = height * 0.28;
+    const sunGrad = ctx.createRadialGradient(sunX, sunY, 10, sunX, sunY, 160);
+    if (biome === "desert") {
+      sunGrad?.addColorStop?.(0, "rgba(253, 224, 71, 0.95)");
+      sunGrad?.addColorStop?.(0.4, "rgba(249, 115, 22, 0.5)");
+      sunGrad?.addColorStop?.(1, "rgba(234, 88, 12, 0)");
+    } else if (biome === "ice") {
+      sunGrad?.addColorStop?.(0, "rgba(224, 242, 254, 0.9)");
+      sunGrad?.addColorStop?.(0.4, "rgba(56, 189, 248, 0.4)");
+      sunGrad?.addColorStop?.(1, "rgba(14, 116, 144, 0)");
+    } else {
+      sunGrad?.addColorStop?.(0, "rgba(251, 146, 60, 0.9)");
+      sunGrad?.addColorStop?.(0.4, "rgba(244, 63, 94, 0.4)");
+      sunGrad?.addColorStop?.(1, "rgba(131, 24, 67, 0)");
+    }
+    if (sunGrad) ctx.fillStyle = sunGrad;
+    ctx.beginPath();
+    ctx.arc(sunX, sunY, 160, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // 3. Star Field
+    ctx.save();
+    ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
+    for (let i = 0; i < 70; i++) {
+      const sx = (Math.sin(i * 999) * 0.5 + 0.5) * (width + 200) - 100;
+      const sy = (Math.cos(i * 333) * 0.5 + 0.5) * (height * 0.45);
+      ctx.beginPath();
+      ctx.arc(sx, sy, Math.sin(Date.now() * 0.003 + i) * 0.8 + 1.2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+
+    // 4. Parallax Mountains Silhouette
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(-40, height);
+    const mountainBaseY = height * 0.65;
+    for (let x = -40; x <= width + 40; x += 40) {
+      const mY =
+        mountainBaseY +
+        Math.sin((x + this.cameraX * 0.3) * 0.006) * 50 +
+        Math.cos((x + this.cameraX * 0.3) * 0.015) * 35;
+      ctx.lineTo(x, mY);
+    }
+    ctx.lineTo(width + 40, height);
+    ctx.closePath();
+    ctx.fillStyle =
+      biome === "desert"
+        ? "rgba(67, 20, 7, 0.65)"
+        : biome === "ice"
+        ? "rgba(12, 74, 110, 0.65)"
+        : "rgba(30, 11, 54, 0.65)";
+    ctx.fill();
+    ctx.restore();
+
+    // 5. Moving Clouds
+    if (gameState.clouds) {
+      gameState.clouds.forEach((cloud) => {
+        const screenX = cloud.x - this.cameraX * 0.5;
+        ctx.save();
+        ctx.fillStyle = `rgba(255, 255, 255, ${cloud.opacity * 0.25})`;
+        ctx.beginPath();
+        ctx.arc(screenX, cloud.y, 25 * cloud.scale, 0, Math.PI * 2);
+        ctx.arc(
+          screenX + 20 * cloud.scale,
+          cloud.y - 10 * cloud.scale,
+          30 * cloud.scale,
+          0,
+          Math.PI * 2,
+        );
+        ctx.arc(
+          screenX + 45 * cloud.scale,
+          cloud.y,
+          22 * cloud.scale,
+          0,
+          Math.PI * 2,
+        );
+        ctx.fill();
+        ctx.restore();
+      });
+    }
   }
 
   private drawTerrain(
@@ -192,6 +300,7 @@ export class CanvasGameRenderer {
     gameState: GameState,
   ): void {
     if (gameState.terrain.kind !== "heightmap") return;
+    const biome = gameState.match.biome ?? "forest";
 
     ctx.beginPath();
     ctx.moveTo(0, this.gameViewport.height + 80);
@@ -203,14 +312,137 @@ export class CanvasGameRenderer {
 
     const gradient = ctx.createLinearGradient(
       0,
-      this.gameViewport.height * 0.5,
+      this.gameViewport.height * 0.3,
       0,
       this.gameViewport.height,
     );
-    gradient.addColorStop(0, "#47724a");
-    gradient.addColorStop(1, "#1d3221");
-    ctx.fillStyle = gradient;
+    if (biome === "desert") {
+      gradient?.addColorStop?.(0, "#d97706");
+      gradient?.addColorStop?.(0.2, "#b45309");
+      gradient?.addColorStop?.(0.5, "#78350f");
+      gradient?.addColorStop?.(1, "#451a03");
+    } else if (biome === "ice") {
+      gradient?.addColorStop?.(0, "#0284c7");
+      gradient?.addColorStop?.(0.2, "#0369a1");
+      gradient?.addColorStop?.(0.5, "#075985");
+      gradient?.addColorStop?.(1, "#0c4a6e");
+    } else {
+      gradient?.addColorStop?.(0, "#15803d");
+      gradient?.addColorStop?.(0.2, "#166534");
+      gradient?.addColorStop?.(0.5, "#14532d");
+      gradient?.addColorStop?.(1, "#052e16");
+    }
+    if (gradient) ctx.fillStyle = gradient;
     ctx.fill();
+
+    ctx.lineWidth = 4;
+    ctx.strokeStyle =
+      biome === "desert" ? "#fbbf24" : biome === "ice" ? "#38bdf8" : "#4ade80";
+    ctx.shadowColor =
+      biome === "desert" ? "#f59e0b" : biome === "ice" ? "#0284c7" : "#22c55e";
+    ctx.shadowBlur = 10;
+    ctx.stroke();
+  }
+
+  private drawDecors(
+    ctx: CanvasRenderingContext2D,
+    gameState: GameState,
+  ): void {
+    if (!gameState.decors) return;
+    const biome = gameState.match.biome ?? "forest";
+
+    gameState.decors.forEach((dec) => {
+      ctx.save();
+      ctx.translate(dec.x, dec.y);
+      ctx.rotate(dec.rotation);
+      ctx.scale(dec.scale, dec.scale);
+
+      if (dec.destroyed) {
+        ctx.fillStyle = "#1c1917";
+        ctx.fillRect(-6, -8, 12, 8);
+        ctx.beginPath();
+        ctx.arc(0, -8, 5, 0, Math.PI * 2);
+        ctx.fillStyle = "#ef444455";
+        ctx.fill();
+      } else if (dec.type === "tree") {
+        ctx.fillStyle = biome === "desert" ? "#92400e" : "#78350f";
+        ctx.fillRect(-4, -12, 8, 12);
+        ctx.beginPath();
+        ctx.moveTo(0, -40);
+        ctx.lineTo(-18, -20);
+        ctx.lineTo(18, -20);
+        ctx.closePath();
+        ctx.fillStyle =
+          biome === "desert"
+            ? "#d97706"
+            : biome === "ice"
+            ? "#38bdf8"
+            : "#16a34a";
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.moveTo(0, -28);
+        ctx.lineTo(-22, -10);
+        ctx.lineTo(22, -10);
+        ctx.closePath();
+        ctx.fillStyle =
+          biome === "desert"
+            ? "#b45309"
+            : biome === "ice"
+            ? "#0284c7"
+            : "#15803d";
+        ctx.fill();
+      } else if (dec.type === "rock") {
+        ctx.beginPath();
+        ctx.moveTo(-12, 0);
+        ctx.lineTo(-10, -14);
+        ctx.lineTo(4, -18);
+        ctx.lineTo(14, -8);
+        ctx.lineTo(10, 0);
+        ctx.closePath();
+        ctx.fillStyle =
+          biome === "desert"
+            ? "#78350f"
+            : biome === "ice"
+            ? "#0284c7"
+            : "#64748b";
+        ctx.fill();
+        ctx.strokeStyle =
+          biome === "desert"
+            ? "#d97706"
+            : biome === "ice"
+            ? "#bae6fd"
+            : "#94a3b8";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      } else if (dec.type === "bunker") {
+        ctx.beginPath();
+        ctx.roundRect(-16, -14, 32, 14, 3);
+        ctx.fillStyle = "#475569";
+        ctx.fill();
+        ctx.strokeStyle = "#94a3b8";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.fillStyle = "#0f172a";
+        ctx.fillRect(-10, -10, 20, 4);
+      } else {
+        ctx.strokeStyle =
+          biome === "desert"
+            ? "#f59e0b"
+            : biome === "ice"
+            ? "#38bdf8"
+            : "#4ade80";
+        ctx.lineWidth = 2;
+        for (let g = -8; g <= 8; g += 4) {
+          ctx.beginPath();
+          ctx.moveTo(g, 0);
+          ctx.lineTo(g * 1.3, -10);
+          ctx.stroke();
+        }
+      }
+
+      ctx.restore();
+    });
   }
 
   private drawTanks(ctx: CanvasRenderingContext2D, gameState: GameState): void {
@@ -845,7 +1077,63 @@ export class CanvasGameRenderer {
       );
     }
 
+    if (gameState.match.isCameraLocked === false) {
+      ctx.save();
+      const relockX = this.gameViewport.width / 2 - 60;
+      const relockY = 65;
+      ctx.fillStyle = "rgba(15, 23, 42, 0.9)";
+      ctx.strokeStyle = "#ebc80e";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.roundRect(relockX, relockY, 120, 28, 6);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = "#ebc80e";
+      ctx.font = "700 11px Inter, sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("🔒 RELOCK CAMERA", this.gameViewport.width / 2, relockY + 18);
+      ctx.restore();
+    }
+
     ctx.restore();
     ctx.textAlign = "start";
+
+    // Draw FIRE button
+    const totalWidth =
+      activeTank.loadout.length * layout.slotSize +
+      Math.max(0, activeTank.loadout.length - 1) * layout.gap;
+    const fireX = layout.x + totalWidth + 12;
+    const fireY = layout.y;
+    const fireW = 76;
+    const fireH = layout.slotSize;
+
+    const currentSlotId =
+      activeTank.selectedProjectileSlotId ?? activeTank.loadout[0]?.id;
+    const currentAmmo = currentSlotId
+      ? activeTank.weaponAmmo?.[currentSlotId] ?? 1
+      : 0;
+    const canFire = currentAmmo !== 0 && gameState.match.phase === "thinking";
+
+    ctx.save();
+    const fireGrad = ctx.createLinearGradient(fireX, fireY, fireX, fireY + fireH);
+    fireGrad?.addColorStop?.(0, canFire ? "#ef4444" : "#475569");
+    fireGrad?.addColorStop?.(1, canFire ? "#991b1b" : "#1e293b");
+    if (fireGrad) ctx.fillStyle = fireGrad;
+    ctx.strokeStyle = canFire ? "#f87171" : "#64748b";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.roundRect(fireX, fireY, fireW, fireH, 9);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "700 13px Orbitron, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("FIRE", fireX + fireW / 2, fireY + fireH / 2 + 2);
+    ctx.font = "700 9px Inter, sans-serif";
+    ctx.fillStyle = canFire ? "#fca5a5" : "#94a3b8";
+    ctx.fillText("[Space]", fireX + fireW / 2, fireY + fireH - 6);
+    ctx.restore();
   }
 }

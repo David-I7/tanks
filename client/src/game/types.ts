@@ -229,6 +229,28 @@ export type FloatingText = {
   maxLife: number;
 };
 
+export type MapBiome = "forest" | "desert" | "ice";
+
+export type DecorType = "tree" | "rock" | "bunker" | "grass";
+
+export type DecorObject = {
+  id: string;
+  type: DecorType;
+  x: number;
+  y: number;
+  scale: number;
+  rotation: number;
+  destroyed: boolean;
+};
+
+export type Cloud = {
+  x: number;
+  y: number;
+  speed: number;
+  scale: number;
+  opacity: number;
+};
+
 export type MatchState = {
   mode: GameMode;
   phase: TurnPhase;
@@ -239,6 +261,9 @@ export type MatchState = {
   matchTimeRemaining: number;
   wind: number;
   winnerPlayerId: number | null;
+  biome?: MapBiome;
+  isCameraLocked?: boolean;
+  cameraX?: number;
 };
 
 export type HeightmapTerrainSnapshot = {
@@ -277,6 +302,8 @@ export type LocalSimulationState = DeepReadonly<{
   lootCrates?: LootCrate[];
   particles?: Particle[];
   floatingTexts?: FloatingText[];
+  decors?: DecorObject[];
+  clouds?: Cloud[];
 }>;
 
 export type GameState = DeepReadonly<{
@@ -301,6 +328,8 @@ export type GameState = DeepReadonly<{
   lootCrates?: LootCrate[];
   particles?: Particle[];
   floatingTexts?: FloatingText[];
+  decors?: DecorObject[];
+  clouds?: Cloud[];
 }>;
 
 export type GameAssets = {
