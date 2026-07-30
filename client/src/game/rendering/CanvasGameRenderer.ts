@@ -314,12 +314,15 @@ export class CanvasGameRenderer {
 
     // 3. Star Field
     ctx.save();
-    ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
-    for (let i = 0; i < 70; i++) {
-      const sx = (Math.sin(i * 999) * 0.5 + 0.5) * (width + 200) - 100;
-      const sy = (Math.cos(i * 333) * 0.5 + 0.5) * (height * 0.45);
+    ctx.fillStyle = "rgba(255, 255, 255, 0.75)";
+    for (let i = 0; i < 60; i++) {
+      const rawX = Math.sin(i * 12.9898) * 43758.5453;
+      const rawY = Math.cos(i * 78.233) * 43758.5453;
+      const sx = (rawX - Math.floor(rawX)) * (width + 200) - 100;
+      const sy = (rawY - Math.floor(rawY)) * (height * 0.45);
+      const starSize = (Math.sin(i * 3.7) * 0.5 + 0.5) * 0.8 + 0.8;
       ctx.beginPath();
-      ctx.arc(sx, sy, Math.sin(Date.now() * 0.003 + i) * 0.8 + 1.2, 0, Math.PI * 2);
+      ctx.arc(sx, sy, starSize, 0, Math.PI * 2);
       ctx.fill();
     }
     ctx.restore();
@@ -379,10 +382,8 @@ export class CanvasGameRenderer {
     if (gradient) ctx.fillStyle = gradient;
     ctx.fill();
 
-    ctx.lineWidth = 4;
+    ctx.lineWidth = 3;
     ctx.strokeStyle = theme.terrainStroke;
-    ctx.shadowColor = theme.terrainShadow;
-    ctx.shadowBlur = 10;
     ctx.stroke();
   }
 
@@ -901,13 +902,13 @@ export class CanvasGameRenderer {
     const leftTank = aliveTanks[0];
     const rightTank = aliveTanks[1];
     if (leftTank) {
-      this.drawHeaderHealthCard(ctx, leftTank, 24, 14, "left", gameState);
+      this.drawHeaderHealthCard(ctx, leftTank, 14, 14, "left", gameState);
     }
     if (rightTank) {
       this.drawHeaderHealthCard(
         ctx,
         rightTank,
-        this.gameViewport.width - 284,
+        this.gameViewport.width - 224,
         14,
         "right",
         gameState,
@@ -923,10 +924,10 @@ export class CanvasGameRenderer {
     align: "left" | "right",
     gameState: GameState,
   ): void {
-    const width = 260;
+    const width = 210;
     const ratio = Math.max(0, entry.health / entry.maxHealth);
     const selected = entry.playerId === gameState.match.activePlayerId;
-    const name = `${entry.displayName} - ${entry.tankName}`;
+    const name = `${entry.displayName}`;
 
     ctx.fillStyle = selected
       ? "rgba(235, 200, 14, 0.14)"
@@ -941,36 +942,37 @@ export class CanvasGameRenderer {
     ctx.fillStyle = entry.alive ? "#10b981" : "#ef4444";
     ctx.beginPath();
     ctx.arc(
-      align === "left" ? x + 20 : x + width - 20,
+      align === "left" ? x + 16 : x + width - 16,
       y + 22,
-      10,
+      7,
       0,
       Math.PI * 2,
     );
     ctx.fill();
 
     ctx.fillStyle = "#f8fafc";
-    ctx.font = "700 13px Inter, sans-serif";
+    ctx.font = "700 12px Inter, sans-serif";
     ctx.textAlign = align;
-    ctx.fillText(name, align === "left" ? x + 38 : x + width - 38, y + 17, 178);
+    ctx.fillText(name, align === "left" ? x + 30 : x + width - 30, y + 17, 140);
 
-    const barX = align === "left" ? x + 38 : x + width - 218;
+    const barX = align === "left" ? x + 30 : x + width - 170;
     const barY = y + 26;
+    const barW = 140;
     ctx.fillStyle = "rgba(15, 23, 42, 0.9)";
-    ctx.fillRect(barX, barY, 180, 8);
+    ctx.fillRect(barX, barY, barW, 8);
     ctx.fillStyle =
       ratio > 0.5 ? "#39ff14" : ratio > 0.25 ? "#facc15" : "#ff3131";
-    ctx.fillRect(barX, barY, 180 * ratio, 8);
+    ctx.fillRect(barX, barY, barW * ratio, 8);
     ctx.strokeStyle = "rgba(255, 255, 255, 0.28)";
-    ctx.strokeRect(barX, barY, 180, 8);
+    ctx.strokeRect(barX, barY, barW, 8);
 
     ctx.fillStyle = "#cbd5e1";
-    ctx.font = "11px 'Share Tech Mono', monospace";
+    ctx.font = "10px 'Share Tech Mono', monospace";
     ctx.textAlign = align === "left" ? "right" : "left";
     ctx.fillText(
       `${Math.ceil(entry.health)}/${entry.maxHealth}`,
-      align === "left" ? x + width - 12 : x + 12,
-      y + 36,
+      align === "left" ? x + width - 10 : x + 10,
+      y + 35,
     );
     ctx.textAlign = "start";
   }
