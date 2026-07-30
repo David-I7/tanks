@@ -492,33 +492,14 @@ export class CanvasGameRenderer {
       ctx.translate(entry.position.x, entry.position.y);
       ctx.rotate(entry.bodyAngle);
 
-      // Active player highlight aura & turn pointer
+      // Clean subtle indicator for active tank
       if (isActive) {
         ctx.save();
-        const pulse = 22 + Math.sin(Date.now() * 0.006) * 4;
         ctx.beginPath();
-        ctx.ellipse(0, 0, pulse, pulse * 0.35, 0, 0, Math.PI * 2);
-        ctx.fillStyle = `${mainColor}33`;
+        ctx.ellipse(0, 0, 22, 7, 0, 0, Math.PI * 2);
+        ctx.fillStyle = `${mainColor}22`;
         ctx.fill();
         ctx.strokeStyle = mainColor;
-        ctx.lineWidth = 2;
-        ctx.shadowColor = mainColor;
-        ctx.shadowBlur = 10;
-        ctx.stroke();
-        ctx.restore();
-
-        ctx.save();
-        ctx.rotate(-entry.bodyAngle);
-        const bounceY = -52 + Math.sin(Date.now() * 0.006) * 6;
-        ctx.translate(0, bounceY);
-        ctx.beginPath();
-        ctx.moveTo(-8, -10);
-        ctx.lineTo(8, -10);
-        ctx.lineTo(0, 0);
-        ctx.closePath();
-        ctx.fillStyle = "#fbbf24";
-        ctx.fill();
-        ctx.strokeStyle = "#f59e0b";
         ctx.lineWidth = 1.5;
         ctx.stroke();
         ctx.restore();
@@ -811,31 +792,27 @@ export class CanvasGameRenderer {
 
     const lastPoint = points[points.length - 1];
     if (lastPoint) {
-      const pulse = 10 + Math.sin(Date.now() * 0.01) * 3;
       ctx.save();
-      ctx.translate(lastPoint.x, lastPoint.y);
+      let targetY = lastPoint.y;
+      if (gameState.terrain.kind === "heightmap") {
+        const clampedX = Math.max(
+          0,
+          Math.min(gameState.terrain.width - 1, Math.floor(lastPoint.x)),
+        );
+        const surfaceY = gameState.terrain.surface[clampedX] ?? lastPoint.y;
+        targetY = Math.min(lastPoint.y, surfaceY - 2);
+      }
+
+      ctx.translate(lastPoint.x, targetY);
 
       ctx.beginPath();
-      ctx.arc(0, 0, pulse, 0, Math.PI * 2);
+      ctx.arc(0, 0, 8, 0, Math.PI * 2);
       ctx.strokeStyle = "#00f0ff";
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 1.5;
       ctx.stroke();
 
       ctx.beginPath();
-      ctx.moveTo(-pulse - 4, 0);
-      ctx.lineTo(-pulse + 4, 0);
-      ctx.moveTo(pulse - 4, 0);
-      ctx.lineTo(pulse + 4, 0);
-      ctx.moveTo(0, -pulse - 4);
-      ctx.lineTo(0, -pulse + 4);
-      ctx.moveTo(0, pulse - 4);
-      ctx.lineTo(0, pulse + 4);
-      ctx.strokeStyle = "#facc15";
-      ctx.lineWidth = 2;
-      ctx.stroke();
-
-      ctx.beginPath();
-      ctx.arc(0, 0, 2.5, 0, Math.PI * 2);
+      ctx.arc(0, 0, 3, 0, Math.PI * 2);
       ctx.fillStyle = "#ffffff";
       ctx.fill();
 

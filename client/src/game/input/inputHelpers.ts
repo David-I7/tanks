@@ -35,11 +35,8 @@ export function calculateAimIntent(
   const originX = activeTank.position.x;
   const originY = activeTank.position.y - 22;
 
-  const dx = worldX - originX;
-  const dy = worldY - originY;
-
-  const angle = Math.atan2(dy, dx);
-  const distance = Math.hypot(dx, dy);
+  const d = worldX - originX;
+  const h = originY - worldY;
 
   const slot = activeTank.loadout.find(
     (entry) => entry.id === activeTank.selectedProjectileSlotId,
@@ -50,8 +47,23 @@ export function calculateAimIntent(
   const muzzleVelocityScale =
     projectileDefinition?.physics.muzzleVelocityScale ?? 1;
 
-  const rawPower = (distance * 1.5) / muzzleVelocityScale;
-  const power = Math.max(120, Math.min(rawPower, 680));
+  let angle: number;
+  let power: number;
+
+  const GRAVITY = 520;
+  if (h > 5 && Math.abs(d) > 5) {
+    angle = Math.atan2(-2 * h, d);
+    const v0 = Math.sqrt(GRAVITY * ((d * d) / (2 * h) + 2 * h));
+    const rawPower = v0 / muzzleVelocityScale;
+    power = Math.max(120, Math.min(rawPower, 680));
+  } else {
+    const dx = d;
+    const dy = worldY - originY;
+    angle = Math.atan2(dy, dx);
+    const distance = Math.hypot(dx, dy);
+    const rawPower = (distance * 1.5) / muzzleVelocityScale;
+    power = Math.max(120, Math.min(rawPower, 680));
+  }
 
   return {
     type: "aim",
