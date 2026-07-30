@@ -260,13 +260,22 @@ export class CanvasInputSource {
   };
 
   private readonly onWheel = (event: WheelEvent) => {
+    event.preventDefault();
     if (event.shiftKey || Math.abs(event.deltaX) > 0 || Math.abs(event.deltaY) > 0) {
       this.pendingPanDelta += event.deltaX || event.deltaY;
     }
   };
 
+  private readonly onTouchStart = (event: TouchEvent) => {
+    if (event.touches.length >= 2) {
+      event.preventDefault();
+      this.lastTouchX = (event.touches[0].clientX + event.touches[1].clientX) / 2;
+    }
+  };
+
   private readonly onTouchMove = (event: TouchEvent) => {
-    if (event.touches.length === 2) {
+    if (event.touches.length >= 2) {
+      event.preventDefault();
       const currentX = (event.touches[0].clientX + event.touches[1].clientX) / 2;
       if (this.lastTouchX !== 0) {
         const dx = currentX - this.lastTouchX;
@@ -300,6 +309,7 @@ export class CanvasInputSource {
     window.addEventListener("pointerup", this.onPointerUp);
     canvas.addEventListener("pointerdown", this.onPointerDown);
     canvas.addEventListener("wheel", this.onWheel, { passive: false });
+    canvas.addEventListener("touchstart", this.onTouchStart, { passive: false });
     canvas.addEventListener("touchmove", this.onTouchMove, { passive: false });
     canvas.addEventListener("touchend", this.onTouchEnd);
   }
@@ -349,6 +359,7 @@ export class CanvasInputSource {
     window.removeEventListener("pointerup", this.onPointerUp);
     this.canvas.removeEventListener("pointerdown", this.onPointerDown);
     this.canvas.removeEventListener("wheel", this.onWheel);
+    this.canvas.removeEventListener("touchstart", this.onTouchStart);
     this.canvas.removeEventListener("touchmove", this.onTouchMove);
     this.canvas.removeEventListener("touchend", this.onTouchEnd);
   }

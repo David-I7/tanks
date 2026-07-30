@@ -324,25 +324,7 @@ export class CanvasGameRenderer {
     }
     ctx.restore();
 
-    // 4. Parallax Mountains Silhouette
-    ctx.save();
-    ctx.beginPath();
-    ctx.moveTo(-40, height);
-    const mountainBaseY = height * 0.65;
-    for (let x = -40; x <= width + 40; x += 40) {
-      const mY =
-        mountainBaseY +
-        Math.sin((x + this.cameraX * 0.3) * 0.006) * 50 +
-        Math.cos((x + this.cameraX * 0.3) * 0.015) * 35;
-      ctx.lineTo(x, mY);
-    }
-    ctx.lineTo(width + 40, height);
-    ctx.closePath();
-    ctx.fillStyle = theme.mountainFill;
-    ctx.fill();
-    ctx.restore();
-
-    // 5. Moving Clouds
+    // 4. Moving Clouds
     if (gameState.clouds) {
       gameState.clouds.forEach((cloud) => {
         const screenX = cloud.x - this.cameraX * 0.5;
@@ -800,19 +782,34 @@ export class CanvasGameRenderer {
           Math.min(gameState.terrain.width - 1, Math.floor(lastPoint.x)),
         );
         const surfaceY = gameState.terrain.surface[clampedX] ?? lastPoint.y;
-        targetY = Math.min(lastPoint.y, surfaceY - 2);
+        targetY = surfaceY;
       }
 
       ctx.translate(lastPoint.x, targetY);
 
+      // Target Crosshair at terrain level
+      const radius = 10;
       ctx.beginPath();
-      ctx.arc(0, 0, 8, 0, Math.PI * 2);
+      ctx.arc(0, 0, radius, 0, Math.PI * 2);
       ctx.strokeStyle = "#00f0ff";
       ctx.lineWidth = 1.5;
       ctx.stroke();
 
       ctx.beginPath();
-      ctx.arc(0, 0, 3, 0, Math.PI * 2);
+      ctx.moveTo(-radius - 3, 0);
+      ctx.lineTo(-radius + 3, 0);
+      ctx.moveTo(radius - 3, 0);
+      ctx.lineTo(radius + 3, 0);
+      ctx.moveTo(0, -radius - 3);
+      ctx.lineTo(0, -radius + 3);
+      ctx.moveTo(0, radius - 3);
+      ctx.lineTo(0, radius + 3);
+      ctx.strokeStyle = "#facc15";
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.arc(0, 0, 2.5, 0, Math.PI * 2);
       ctx.fillStyle = "#ffffff";
       ctx.fill();
 
@@ -824,11 +821,6 @@ export class CanvasGameRenderer {
     const headerHeight = 74;
     ctx.fillStyle = "rgba(6, 6, 8, 0.78)";
     ctx.fillRect(0, 0, this.gameViewport.width, headerHeight);
-    ctx.strokeStyle = "rgba(0, 240, 255, 0.28)";
-    ctx.beginPath();
-    ctx.moveTo(0, headerHeight);
-    ctx.lineTo(this.gameViewport.width, headerHeight);
-    ctx.stroke();
 
     this.drawHeaderTankStatus(ctx, gameState);
     this.drawPowerAngleReadout(ctx, gameState);

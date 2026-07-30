@@ -77,13 +77,17 @@ export function simulateTrajectoryPreview(
     ) {
       break;
     }
-    points.push({ x, y });
-
     const surfaceY =
       snapshot.terrain.surface[
         Math.max(0, Math.min(snapshot.terrain.width - 1, Math.floor(x)))
       ] ?? Infinity;
-    if (y + physics.radius >= surfaceY) break;
+
+    if (y >= surfaceY) {
+      points.push({ x, y: surfaceY });
+      break;
+    }
+
+    points.push({ x, y });
   }
 
   return points;
