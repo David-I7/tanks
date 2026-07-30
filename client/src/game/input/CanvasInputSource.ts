@@ -2,6 +2,7 @@ import type { GameAction, GameState } from "../types";
 import {
   calculateAimIntent,
   findProjectileSlotAtCanvasPoint,
+  getProjectileSelectorLayout,
 } from "./inputHelpers";
 import type { DomCanvasRect, GameViewport } from "../world/worldSizing";
 import { domPointToGameViewportPoint } from "../world/worldSizing";
@@ -82,7 +83,13 @@ const pointerIntentProducer: IntentProducer = ({ state, context }) => {
       })
     : null;
 
-  if (pointerPoint) {
+  const layout = getProjectileSelectorLayout(
+    context.gameViewport.width,
+    context.gameViewport.height,
+    activeTank.loadout.length,
+  );
+
+  if (pointerPoint && pointerPoint.y >= layout.y - 35) {
     const selectedSlotId = findProjectileSlotAtCanvasPoint(
       context.gameState,
       context.gameViewport.width,
@@ -96,8 +103,8 @@ const pointerIntentProducer: IntentProducer = ({ state, context }) => {
         type: "selectProjectileSlot",
         projectileSlotId: selectedSlotId,
       });
-      return intents;
     }
+    return intents;
   }
 
   const aim = calculateAimIntent({
@@ -113,17 +120,9 @@ const pointerIntentProducer: IntentProducer = ({ state, context }) => {
   intents.push(aim);
 
   if (pointerPoint) {
-    const clickedSlotId = findProjectileSlotAtCanvasPoint(
-      context.gameState,
-      context.gameViewport.width,
-      context.gameViewport.height,
-      pointerPoint.x,
-      pointerPoint.y,
-      activeTank,
-    );
     const projectileSlotId =
       activeTank.selectedProjectileSlotId ?? activeTank.loadout[0]?.id;
-    if (projectileSlotId && !clickedSlotId) {
+    if (projectileSlotId) {
       intents.push({
         type: "fire",
         angle: aim.angle,
@@ -172,7 +171,7 @@ export class CanvasInputSource {
     this.pressedKeys.delete(event.key);
   };
 
-  private readonly onPointerMove = (event: PointerEvent) => {
+  private readonly onPointerMove = (event: MouseEvent | PointerEvent) => {
     this.pointer = {
       clientX: event.clientX,
       clientY: event.clientY,
@@ -201,7 +200,8 @@ export class CanvasInputSource {
     this.layout = initialLayout;
     window.addEventListener("keydown", this.onKeyDown);
     window.addEventListener("keyup", this.onKeyUp);
-    canvas.addEventListener("pointermove", this.onPointerMove);
+    window.addEventListener("pointermove", this.onPointerMove);
+    window.addEventListener("mousemove", this.onPointerMove);
     canvas.addEventListener("pointerdown", this.onPointerDown);
   }
 
@@ -240,7 +240,8 @@ export class CanvasInputSource {
   destroy(): void {
     window.removeEventListener("keydown", this.onKeyDown);
     window.removeEventListener("keyup", this.onKeyUp);
-    this.canvas.removeEventListener("pointermove", this.onPointerMove);
+    window.removeEventListener("pointermove", this.onPointerMove);
+    window.removeEventListener("mousemove", this.onPointerMove);
     this.canvas.removeEventListener("pointerdown", this.onPointerDown);
   }
 }
