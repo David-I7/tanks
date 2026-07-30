@@ -181,10 +181,10 @@ export function isRelockCameraButtonClickedAtCanvasPoint(
 ): boolean {
   if (gameState.match.isCameraLocked !== false) return false;
 
-  const btnX = canvasWidth / 2 - 60;
-  const btnY = 65;
-  const btnW = 120;
-  const btnH = 28;
+  const btnX = canvasWidth / 2 - 65;
+  const btnY = 84;
+  const btnW = 130;
+  const btnH = 30;
 
   return (
     canvasX >= btnX &&

@@ -14,6 +14,7 @@ export type CanvasInteractionState = {
   pendingSlotNumber: number | null;
   pendingSpaceKey: boolean;
   pendingPanDelta: number;
+  isPointerDown: boolean;
   pointer: { clientX: number; clientY: number };
 };
 
@@ -29,7 +30,7 @@ export type CanvasInputLayout = {
   domCanvasRect: DomCanvasRect;
 };
 
-export type IntentProducer = (input: {
+export type IntentProducer = (context: {
   state: CanvasInteractionState;
   context: CanvasInteractionContext;
 }) => GameAction[];
@@ -71,28 +72,25 @@ const keyboardProjectileSlotIntentProducer: IntentProducer = ({
     : [];
 };
 
-const spacebarFireIntentProducer: IntentProducer = ({ state, context }) => {
-  if (!state.pendingSpaceKey && !state.pressedKeys.has(" ") && !state.pressedKeys.has("Space")) {
-    return [];
-  }
-  if (context.gameState.match.phase !== "thinking") return [];
+const spacebarFireIntentProducer: IntentProducer = ({
+  state,
+  context,
+}) => {
+  if (!state.pendingSpaceKey) return [];
 
   const activeTank = getActiveTank(context.gameState);
   if (!activeTank) return [];
 
-  const slotId =
+  const projectileSlotId =
     activeTank.selectedProjectileSlotId ?? activeTank.loadout[0]?.id;
-  if (!slotId) return [];
-
-  const ammo = activeTank.weaponAmmo?.[slotId] ?? 1;
-  if (ammo === 0) return [];
+  if (!projectileSlotId) return [];
 
   return [
     {
       type: "fire",
       angle: activeTank.aimAngle,
       power: activeTank.power,
-      projectileSlotId: slotId,
+      projectileSlotId,
     },
   ];
 };
@@ -112,17 +110,20 @@ const pointerIntentProducer: IntentProducer = ({ state, context }) => {
       })
     : null;
 
-  const aim = calculateAimIntent({
-    ...state.pointer,
-    domCanvasRect: context.domCanvasRect,
-    gameViewport: context.gameViewport,
-    cameraX: context.cameraX,
-    gameState: context.gameState,
-    activeTank,
-  });
+  const isDraggingToAim = state.isPointerDown && !state.pressedKeys.has("Shift");
+  if (isDraggingToAim) {
+    const aim = calculateAimIntent({
+      ...state.pointer,
+      domCanvasRect: context.domCanvasRect,
+      gameViewport: context.gameViewport,
+      cameraX: context.cameraX,
+      gameState: context.gameState,
+      activeTank,
+    });
 
-  if (aim) {
-    intents.push(aim);
+    if (aim) {
+      intents.push(aim);
+    }
   }
 
   if (pointerPoint) {
@@ -165,8 +166,8 @@ const pointerIntentProducer: IntentProducer = ({ state, context }) => {
       if (projectileSlotId) {
         intents.push({
           type: "fire",
-          angle: aim ? aim.angle : activeTank.aimAngle,
-          power: aim ? aim.power : activeTank.power,
+          angle: activeTank.aimAngle,
+          power: activeTank.power,
           projectileSlotId,
         });
       }
@@ -177,7 +178,7 @@ const pointerIntentProducer: IntentProducer = ({ state, context }) => {
 };
 
 const cameraPanIntentProducer: IntentProducer = ({ state }) => {
-  return state.pendingPanDelta !== 0
+  return state.pendingPanDelta && state.pendingPanDelta !== 0
     ? [{ type: "panCamera", deltaX: state.pendingPanDelta }]
     : [];
 };
@@ -314,6 +315,7 @@ export class CanvasInputSource {
         pendingSlotNumber: this.pendingSlotNumber,
         pendingSpaceKey: this.pendingSpaceKey,
         pendingPanDelta: this.pendingPanDelta,
+        isPointerDown: this.isPointerDown,
       },
       context: {
         gameState,

@@ -382,6 +382,8 @@ async function expectSharedSimulationManagerSelection(
       pointer: { clientX: 480, clientY: 280 },
       pendingPointerDown: null,
       pendingSlotNumber: 2,
+      pendingPanDelta: 0,
+      isPointerDown: true,
     },
     context: canvasInteractionContext(toGameState(state, localGameContent.projectiles)),
   });
@@ -422,6 +424,8 @@ async function expectSharedSimulationManagerSelection(
       },
       pendingPointerDown: null,
       pendingSlotNumber: 2,
+      pendingPanDelta: 0,
+      isPointerDown: true,
     },
     context: canvasInteractionContext(gameState),
   });

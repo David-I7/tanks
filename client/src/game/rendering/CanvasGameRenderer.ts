@@ -263,24 +263,25 @@ export class CanvasGameRenderer {
   }
 
   private updateCamera(gameState: GameState): void {
+    const maxCameraX = Math.max(
+      0,
+      gameState.terrain.width - this.gameViewport.width,
+    );
     const isLocked = gameState.match.isCameraLocked !== false;
     if (isLocked) {
       const activeTank = gameState.tanks.find(
         (entry) => entry.playerId === gameState.match.activePlayerId,
-      )!;
+      );
       const focusX =
         gameState.projectiles[0]?.position.x ?? activeTank?.position.x ?? 0;
-      const maxCameraX = Math.max(
-        0,
-        gameState.terrain.width - this.gameViewport.width,
-      );
       const targetCameraX = Math.max(
         0,
         Math.min(maxCameraX, focusX - this.gameViewport.width * 0.5),
       );
       this.cameraX += (targetCameraX - this.cameraX) * 0.12;
+      this.cameraX = Math.max(0, Math.min(maxCameraX, this.cameraX));
     } else if (typeof gameState.match.cameraX === "number") {
-      this.cameraX = gameState.match.cameraX;
+      this.cameraX = Math.max(0, Math.min(maxCameraX, gameState.match.cameraX));
     }
   }
 
@@ -856,6 +857,27 @@ export class CanvasGameRenderer {
     this.drawPowerAngleReadout(ctx, gameState);
     this.drawProjectileSelector(ctx, gameState);
 
+    if (gameState.match.isCameraLocked === false) {
+      ctx.save();
+      const relockX = this.gameViewport.width / 2 - 65;
+      const relockY = 84;
+      const relockW = 130;
+      const relockH = 30;
+      ctx.fillStyle = "rgba(15, 23, 42, 0.92)";
+      ctx.strokeStyle = "#ebc80e";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.roundRect(relockX, relockY, relockW, relockH, 6);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = "#ebc80e";
+      ctx.font = "700 11px Inter, sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("🔒 RELOCK CAMERA", this.gameViewport.width / 2, relockY + 19);
+      ctx.restore();
+    }
+
     const matchMin = Math.floor((gameState.match.matchTimeRemaining ?? 180) / 60);
     const matchSec = Math.floor((gameState.match.matchTimeRemaining ?? 180) % 60);
     const matchTimeStr = `${String(matchMin).padStart(2, "0")}:${String(matchSec).padStart(2, "0")}`;
@@ -1109,25 +1131,6 @@ export class CanvasGameRenderer {
         x + layout.slotSize / 2,
         y + layout.slotSize - 9,
       );
-    }
-
-    if (gameState.match.isCameraLocked === false) {
-      ctx.save();
-      const relockX = this.gameViewport.width / 2 - 60;
-      const relockY = 65;
-      ctx.fillStyle = "rgba(15, 23, 42, 0.9)";
-      ctx.strokeStyle = "#ebc80e";
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.roundRect(relockX, relockY, 120, 28, 6);
-      ctx.fill();
-      ctx.stroke();
-
-      ctx.fillStyle = "#ebc80e";
-      ctx.font = "700 11px Inter, sans-serif";
-      ctx.textAlign = "center";
-      ctx.fillText("🔒 RELOCK CAMERA", this.gameViewport.width / 2, relockY + 18);
-      ctx.restore();
     }
 
     ctx.restore();

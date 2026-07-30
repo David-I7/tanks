@@ -117,6 +117,7 @@ export class LocalSimulation {
 
       this.fireWeaponPattern(tank, projectileDefinition, position.x, position.y);
       this.world.match.phase = "ballistics";
+      this.world.match.isCameraLocked = true;
       this.world.match.turnTimeRemaining = 0;
     }
 
