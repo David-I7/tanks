@@ -96,6 +96,7 @@ const pointerIntentProducer: IntentProducer = ({ state, context }) => {
         type: "selectProjectileSlot",
         projectileSlotId: selectedSlotId,
       });
+      return intents;
     }
   }
 

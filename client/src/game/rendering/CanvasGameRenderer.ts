@@ -109,8 +109,15 @@ export class CanvasGameRenderer {
     if (currentImpactCount > this.lastImpactCount) {
       const lastEvent = gameState.impactEvents[gameState.impactEvents.length - 1];
       const isSignature =
-        lastEvent?.animationId === "nuke" ||
-        lastEvent?.visual?.label?.includes("NUKE");
+        Boolean(lastEvent) &&
+        (lastEvent.animationId === "nuke" ||
+          lastEvent.animationId === "red-slam" ||
+          lastEvent.animationId === "purple-burst" ||
+          lastEvent.animationId === "cyan-beam" ||
+          (lastEvent.visual?.label &&
+            ["NUKE", "PLS", "CLU", "TOX", "G-SHT", "S-VLY", "AUTO"].some((l) =>
+              lastEvent.visual?.label?.includes(l),
+            )));
       this.screenShakeIntensity = isSignature ? 22 : 12;
     }
     this.lastImpactCount = currentImpactCount;

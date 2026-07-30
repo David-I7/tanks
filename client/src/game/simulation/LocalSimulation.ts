@@ -138,11 +138,15 @@ export class LocalSimulation {
         this.spawnLootCrate();
       }
       if (
-        this.world.match.matchTimeRemaining <= 0.001 &&
+        this.world.match.matchTimeRemaining <= 30.001 &&
         !this.cratesSpawned.minute3
       ) {
         this.cratesSpawned.minute3 = true;
         this.spawnLootCrate();
+      }
+      if (
+        this.world.match.matchTimeRemaining <= 0.001
+      ) {
         this.handleMatchTimeout();
       }
     }

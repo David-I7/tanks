@@ -400,6 +400,28 @@ export const localGameContent: GameContent = {
         { id: "needle", projectileDefinitionId: "needle", label: "Spk", maxAmmo: 1 },
       ],
     },
+    vanguard: {
+      id: "vanguard",
+      name: "Vanguard Cyber",
+      maxHealth: 110,
+      maxFuel: 240,
+      movementQuantum: 8,
+      fuelRate: 1,
+      climbCapability: 5,
+      collisionRadius: 32,
+      halfWidth: 16,
+      trackGroundOffset: 0,
+      muzzleForwardOffset: 18,
+      muzzleVerticalOffset: 24,
+      visual: { fill: "#06b6d4", stroke: "#155e75", accent: "#a5f3fc" },
+      loadout: [
+        { id: "standard", projectileDefinitionId: "basicShell", label: "Std", maxAmmo: -1 },
+        { id: "mortar", projectileDefinitionId: "mortar", label: "Auto", maxAmmo: 1 },
+        { id: "heavy", projectileDefinitionId: "heavyShell", label: "Pls", maxAmmo: 1 },
+        { id: "cluster", projectileDefinitionId: "cluster", label: "Clu", maxAmmo: 1 },
+        { id: "needle", projectileDefinitionId: "needle", label: "Spk", maxAmmo: 1 },
+      ],
+    },
     specter: {
       id: "specter",
       name: "Specter",
@@ -423,10 +445,5 @@ export const localGameContent: GameContent = {
       ],
     },
   },
-};
-
-localGameContent.tanks.vanguard = {
-  ...localGameContent.tanks["vanguard-cyber"]!,
-  id: "vanguard",
 };
 

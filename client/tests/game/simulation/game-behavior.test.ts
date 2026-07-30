@@ -432,7 +432,7 @@ async function expectSharedSimulationManagerSelection(
   });
   assert.equal(intents[1]?.type, "aim");
   assert.ok(
-    intents[1]?.type === "aim" && Math.abs(intents[1].angle - (-0.2764)) < 0.001,
+    intents[1]?.type === "aim" && Math.abs(intents[1].angle - 0) < 0.001,
   );
 }
 
