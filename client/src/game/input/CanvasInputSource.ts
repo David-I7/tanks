@@ -13,6 +13,7 @@ export type CanvasInteractionState = {
   pendingPointerDown: { clientX: number; clientY: number } | null;
   pendingSlotNumber: number | null;
   pendingSpaceKey: boolean;
+  pendingPanDelta: number;
   pointer: { clientX: number; clientY: number };
 };
 
@@ -148,9 +149,7 @@ const pointerIntentProducer: IntentProducer = ({ state, context }) => {
         pointerPoint.y,
       )
     ) {
-      if (context.gameState.match) {
-        (context.gameState.match as any).isCameraLocked = true;
-      }
+      intents.push({ type: "relockCamera" });
     } else if (
       isFireButtonClickedAtCanvasPoint(
         context.gameState,
@@ -177,11 +176,18 @@ const pointerIntentProducer: IntentProducer = ({ state, context }) => {
   return intents;
 };
 
+const cameraPanIntentProducer: IntentProducer = ({ state }) => {
+  return state.pendingPanDelta !== 0
+    ? [{ type: "panCamera", deltaX: state.pendingPanDelta }]
+    : [];
+};
+
 const defaultIntentProducers: IntentProducer[] = [
   movementIntentProducer,
   keyboardProjectileSlotIntentProducer,
   spacebarFireIntentProducer,
   pointerIntentProducer,
+  cameraPanIntentProducer,
 ];
 
 function getActiveTank(
@@ -200,6 +206,10 @@ export class CanvasInputSource {
     null;
   private pendingSlotNumber: number | null = null;
   private pendingSpaceKey = false;
+  private pendingPanDelta = 0;
+  private isPointerDown = false;
+  private lastPointerX = 0;
+  private lastTouchX = 0;
   private pointer = { clientX: 0, clientY: 0 };
   private active = true;
   private layout: CanvasInputLayout;
@@ -220,6 +230,11 @@ export class CanvasInputSource {
   };
 
   private readonly onPointerMove = (event: MouseEvent | PointerEvent) => {
+    if (this.isPointerDown && event.shiftKey) {
+      const dx = event.clientX - this.lastPointerX;
+      this.pendingPanDelta -= dx;
+    }
+    this.lastPointerX = event.clientX;
     this.pointer = {
       clientX: event.clientX,
       clientY: event.clientY,
@@ -227,6 +242,8 @@ export class CanvasInputSource {
   };
 
   private readonly onPointerDown = (event: PointerEvent) => {
+    this.isPointerDown = true;
+    this.lastPointerX = event.clientX;
     this.pointer = {
       clientX: event.clientX,
       clientY: event.clientY,
@@ -235,6 +252,31 @@ export class CanvasInputSource {
       clientX: event.clientX,
       clientY: event.clientY,
     };
+  };
+
+  private readonly onPointerUp = () => {
+    this.isPointerDown = false;
+  };
+
+  private readonly onWheel = (event: WheelEvent) => {
+    if (event.shiftKey || Math.abs(event.deltaX) > 0 || Math.abs(event.deltaY) > 0) {
+      this.pendingPanDelta += event.deltaX || event.deltaY;
+    }
+  };
+
+  private readonly onTouchMove = (event: TouchEvent) => {
+    if (event.touches.length === 2) {
+      const currentX = (event.touches[0].clientX + event.touches[1].clientX) / 2;
+      if (this.lastTouchX !== 0) {
+        const dx = currentX - this.lastTouchX;
+        this.pendingPanDelta -= dx;
+      }
+      this.lastTouchX = currentX;
+    }
+  };
+
+  private readonly onTouchEnd = () => {
+    this.lastTouchX = 0;
   };
 
   constructor(
@@ -254,7 +296,11 @@ export class CanvasInputSource {
     window.addEventListener("keyup", this.onKeyUp);
     window.addEventListener("pointermove", this.onPointerMove);
     window.addEventListener("mousemove", this.onPointerMove);
+    window.addEventListener("pointerup", this.onPointerUp);
     canvas.addEventListener("pointerdown", this.onPointerDown);
+    canvas.addEventListener("wheel", this.onWheel, { passive: false });
+    canvas.addEventListener("touchmove", this.onTouchMove, { passive: false });
+    canvas.addEventListener("touchend", this.onTouchEnd);
   }
 
   poll(cameraX: number, gameState: GameState): GameAction[] {
@@ -267,6 +313,7 @@ export class CanvasInputSource {
         pendingPointerDown: this.pendingPointerDown,
         pendingSlotNumber: this.pendingSlotNumber,
         pendingSpaceKey: this.pendingSpaceKey,
+        pendingPanDelta: this.pendingPanDelta,
       },
       context: {
         gameState,
@@ -279,6 +326,7 @@ export class CanvasInputSource {
     this.pendingPointerDown = null;
     this.pendingSlotNumber = null;
     this.pendingSpaceKey = false;
+    this.pendingPanDelta = 0;
 
     return actions;
   }
@@ -296,6 +344,10 @@ export class CanvasInputSource {
     window.removeEventListener("keyup", this.onKeyUp);
     window.removeEventListener("pointermove", this.onPointerMove);
     window.removeEventListener("mousemove", this.onPointerMove);
+    window.removeEventListener("pointerup", this.onPointerUp);
     this.canvas.removeEventListener("pointerdown", this.onPointerDown);
+    this.canvas.removeEventListener("wheel", this.onWheel);
+    this.canvas.removeEventListener("touchmove", this.onTouchMove);
+    this.canvas.removeEventListener("touchend", this.onTouchEnd);
   }
 }

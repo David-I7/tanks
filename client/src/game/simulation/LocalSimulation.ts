@@ -49,6 +49,16 @@ export class LocalSimulation {
   ) {}
 
   submitPlayerAction(playerId: number, action: GameAction): boolean {
+    if (action.type === "panCamera") {
+      this.panCamera(action.deltaX);
+      return true;
+    }
+
+    if (action.type === "relockCamera") {
+      this.relockCamera();
+      return true;
+    }
+
     if (this.world.match.phase !== "thinking" || this.damageTrails.length > 0) {
       return false;
     }
@@ -238,11 +248,12 @@ export class LocalSimulation {
     this.world.match.isCameraLocked = locked;
   }
 
-  panCamera(deltaX: number): void {
+  panCamera(deltaX: number, viewportWidth = 960): void {
     this.world.match.isCameraLocked = false;
+    const maxCameraX = Math.max(0, this.terrain.width - viewportWidth);
     this.world.match.cameraX = Math.max(
       0,
-      Math.min(this.terrain.width - 800, (this.world.match.cameraX ?? 0) + deltaX),
+      Math.min(maxCameraX, (this.world.match.cameraX ?? 0) + deltaX),
     );
   }
 

@@ -87,17 +87,16 @@ function makeSimulation(biome?: MapBiome) {
   const state = toGameState(sim.getState(), localGameContent.projectiles);
   assert.equal(state.match.isCameraLocked, true, "Camera starts locked on active tank");
 
-  // Unlock camera
-  sim.setCameraLocked(false);
-  sim.panCamera(150);
+  // Unlock camera via pan action
+  sim.submitPlayerAction(0, { type: "panCamera", deltaX: 150 });
   const unLockState = toGameState(sim.getState(), localGameContent.projectiles);
-  assert.equal(unLockState.match.isCameraLocked, false, "Camera becomes unlocked after manual pan");
+  assert.equal(unLockState.match.isCameraLocked, false, "Camera becomes unlocked after pan action");
   assert.equal(unLockState.match.cameraX, 150, "Camera position updates after panning");
 
-  // Relock camera
-  sim.relockCamera();
+  // Relock camera via relock action
+  sim.submitPlayerAction(0, { type: "relockCamera" });
   const relockedState = toGameState(sim.getState(), localGameContent.projectiles);
-  assert.equal(relockedState.match.isCameraLocked, true, "Relock camera restores isCameraLocked to true");
+  assert.equal(relockedState.match.isCameraLocked, true, "Relock camera action restores isCameraLocked to true");
 }
 
 console.log("All biomes, decor, and camera control tests passed!");

@@ -23,6 +23,108 @@ type RenderPass = {
   ): void;
 };
 
+type BiomeTheme = {
+  skyStops: [number, string][];
+  sunStops: [number, string][];
+  mountainFill: string;
+  terrainStops: [number, string][];
+  terrainStroke: string;
+  terrainShadow: string;
+  treeTrunk: string;
+  treeCanopy1: string;
+  treeCanopy2: string;
+  rockFill: string;
+  rockStroke: string;
+  grassStroke: string;
+};
+
+const BIOME_THEMES: Record<"forest" | "desert" | "ice", BiomeTheme> = {
+  forest: {
+    skyStops: [
+      [0, "#0b091a"],
+      [0.35, "#1e0b36"],
+      [0.7, "#4c1d95"],
+      [1, "#831843"],
+    ],
+    sunStops: [
+      [0, "rgba(251, 146, 60, 0.9)"],
+      [0.4, "rgba(244, 63, 94, 0.4)"],
+      [1, "rgba(131, 24, 67, 0)"],
+    ],
+    mountainFill: "rgba(30, 11, 54, 0.65)",
+    terrainStops: [
+      [0, "#15803d"],
+      [0.2, "#166534"],
+      [0.5, "#14532d"],
+      [1, "#052e16"],
+    ],
+    terrainStroke: "#4ade80",
+    terrainShadow: "#22c55e",
+    treeTrunk: "#78350f",
+    treeCanopy1: "#16a34a",
+    treeCanopy2: "#15803d",
+    rockFill: "#64748b",
+    rockStroke: "#94a3b8",
+    grassStroke: "#4ade80",
+  },
+  desert: {
+    skyStops: [
+      [0, "#1e0b12"],
+      [0.35, "#3b132b"],
+      [0.7, "#9a3412"],
+      [1, "#ea580c"],
+    ],
+    sunStops: [
+      [0, "rgba(253, 224, 71, 0.95)"],
+      [0.4, "rgba(249, 115, 22, 0.5)"],
+      [1, "rgba(234, 88, 12, 0)"],
+    ],
+    mountainFill: "rgba(67, 20, 7, 0.65)",
+    terrainStops: [
+      [0, "#d97706"],
+      [0.2, "#b45309"],
+      [0.5, "#78350f"],
+      [1, "#451a03"],
+    ],
+    terrainStroke: "#fbbf24",
+    terrainShadow: "#f59e0b",
+    treeTrunk: "#92400e",
+    treeCanopy1: "#d97706",
+    treeCanopy2: "#b45309",
+    rockFill: "#78350f",
+    rockStroke: "#d97706",
+    grassStroke: "#f59e0b",
+  },
+  ice: {
+    skyStops: [
+      [0, "#030712"],
+      [0.35, "#082f49"],
+      [0.7, "#0e7490"],
+      [1, "#155e75"],
+    ],
+    sunStops: [
+      [0, "rgba(224, 242, 254, 0.9)"],
+      [0.4, "rgba(56, 189, 248, 0.4)"],
+      [1, "rgba(14, 116, 144, 0)"],
+    ],
+    mountainFill: "rgba(12, 74, 110, 0.65)",
+    terrainStops: [
+      [0, "#0284c7"],
+      [0.2, "#0369a1"],
+      [0.5, "#075985"],
+      [1, "#0c4a6e"],
+    ],
+    terrainStroke: "#38bdf8",
+    terrainShadow: "#0284c7",
+    treeTrunk: "#78350f",
+    treeCanopy1: "#38bdf8",
+    treeCanopy2: "#0284c7",
+    rockFill: "#0284c7",
+    rockStroke: "#bae6fd",
+    grassStroke: "#38bdf8",
+  },
+};
+
 export class CanvasGameRenderer {
   private cameraX = 0;
   private gameViewport: GameViewport;
@@ -183,27 +285,14 @@ export class CanvasGameRenderer {
   }
 
   private drawSky(ctx: CanvasRenderingContext2D, gameState: GameState): void {
-    const biome = gameState.match.biome ?? "forest";
+    const theme = BIOME_THEMES[gameState.match.biome ?? "forest"] ?? BIOME_THEMES.forest;
     const width = this.gameViewport.width;
     const height = this.gameViewport.height;
 
     // 1. Sky Gradient
     const skyGrad = ctx.createLinearGradient(0, 0, 0, height);
-    if (biome === "desert") {
-      skyGrad?.addColorStop?.(0, "#1e0b12");
-      skyGrad?.addColorStop?.(0.35, "#3b132b");
-      skyGrad?.addColorStop?.(0.7, "#9a3412");
-      skyGrad?.addColorStop?.(1, "#ea580c");
-    } else if (biome === "ice") {
-      skyGrad?.addColorStop?.(0, "#030712");
-      skyGrad?.addColorStop?.(0.35, "#082f49");
-      skyGrad?.addColorStop?.(0.7, "#0e7490");
-      skyGrad?.addColorStop?.(1, "#155e75");
-    } else {
-      skyGrad?.addColorStop?.(0, "#0b091a");
-      skyGrad?.addColorStop?.(0.35, "#1e0b36");
-      skyGrad?.addColorStop?.(0.7, "#4c1d95");
-      skyGrad?.addColorStop?.(1, "#831843");
+    for (const [stop, color] of theme.skyStops) {
+      skyGrad?.addColorStop?.(stop, color);
     }
     if (skyGrad) ctx.fillStyle = skyGrad;
     ctx.fillRect(0, 0, width, height);
@@ -213,18 +302,8 @@ export class CanvasGameRenderer {
     const sunX = width * 0.5;
     const sunY = height * 0.28;
     const sunGrad = ctx.createRadialGradient(sunX, sunY, 10, sunX, sunY, 160);
-    if (biome === "desert") {
-      sunGrad?.addColorStop?.(0, "rgba(253, 224, 71, 0.95)");
-      sunGrad?.addColorStop?.(0.4, "rgba(249, 115, 22, 0.5)");
-      sunGrad?.addColorStop?.(1, "rgba(234, 88, 12, 0)");
-    } else if (biome === "ice") {
-      sunGrad?.addColorStop?.(0, "rgba(224, 242, 254, 0.9)");
-      sunGrad?.addColorStop?.(0.4, "rgba(56, 189, 248, 0.4)");
-      sunGrad?.addColorStop?.(1, "rgba(14, 116, 144, 0)");
-    } else {
-      sunGrad?.addColorStop?.(0, "rgba(251, 146, 60, 0.9)");
-      sunGrad?.addColorStop?.(0.4, "rgba(244, 63, 94, 0.4)");
-      sunGrad?.addColorStop?.(1, "rgba(131, 24, 67, 0)");
+    for (const [stop, color] of theme.sunStops) {
+      sunGrad?.addColorStop?.(stop, color);
     }
     if (sunGrad) ctx.fillStyle = sunGrad;
     ctx.beginPath();
@@ -258,12 +337,7 @@ export class CanvasGameRenderer {
     }
     ctx.lineTo(width + 40, height);
     ctx.closePath();
-    ctx.fillStyle =
-      biome === "desert"
-        ? "rgba(67, 20, 7, 0.65)"
-        : biome === "ice"
-        ? "rgba(12, 74, 110, 0.65)"
-        : "rgba(30, 11, 54, 0.65)";
+    ctx.fillStyle = theme.mountainFill;
     ctx.fill();
     ctx.restore();
 
@@ -300,7 +374,7 @@ export class CanvasGameRenderer {
     gameState: GameState,
   ): void {
     if (gameState.terrain.kind !== "heightmap") return;
-    const biome = gameState.match.biome ?? "forest";
+    const theme = BIOME_THEMES[gameState.match.biome ?? "forest"] ?? BIOME_THEMES.forest;
 
     ctx.beginPath();
     ctx.moveTo(0, this.gameViewport.height + 80);
@@ -316,30 +390,15 @@ export class CanvasGameRenderer {
       0,
       this.gameViewport.height,
     );
-    if (biome === "desert") {
-      gradient?.addColorStop?.(0, "#d97706");
-      gradient?.addColorStop?.(0.2, "#b45309");
-      gradient?.addColorStop?.(0.5, "#78350f");
-      gradient?.addColorStop?.(1, "#451a03");
-    } else if (biome === "ice") {
-      gradient?.addColorStop?.(0, "#0284c7");
-      gradient?.addColorStop?.(0.2, "#0369a1");
-      gradient?.addColorStop?.(0.5, "#075985");
-      gradient?.addColorStop?.(1, "#0c4a6e");
-    } else {
-      gradient?.addColorStop?.(0, "#15803d");
-      gradient?.addColorStop?.(0.2, "#166534");
-      gradient?.addColorStop?.(0.5, "#14532d");
-      gradient?.addColorStop?.(1, "#052e16");
+    for (const [stop, color] of theme.terrainStops) {
+      gradient?.addColorStop?.(stop, color);
     }
     if (gradient) ctx.fillStyle = gradient;
     ctx.fill();
 
     ctx.lineWidth = 4;
-    ctx.strokeStyle =
-      biome === "desert" ? "#fbbf24" : biome === "ice" ? "#38bdf8" : "#4ade80";
-    ctx.shadowColor =
-      biome === "desert" ? "#f59e0b" : biome === "ice" ? "#0284c7" : "#22c55e";
+    ctx.strokeStyle = theme.terrainStroke;
+    ctx.shadowColor = theme.terrainShadow;
     ctx.shadowBlur = 10;
     ctx.stroke();
   }
@@ -349,7 +408,7 @@ export class CanvasGameRenderer {
     gameState: GameState,
   ): void {
     if (!gameState.decors) return;
-    const biome = gameState.match.biome ?? "forest";
+    const theme = BIOME_THEMES[gameState.match.biome ?? "forest"] ?? BIOME_THEMES.forest;
 
     gameState.decors.forEach((dec) => {
       ctx.save();
@@ -365,19 +424,14 @@ export class CanvasGameRenderer {
         ctx.fillStyle = "#ef444455";
         ctx.fill();
       } else if (dec.type === "tree") {
-        ctx.fillStyle = biome === "desert" ? "#92400e" : "#78350f";
+        ctx.fillStyle = theme.treeTrunk;
         ctx.fillRect(-4, -12, 8, 12);
         ctx.beginPath();
         ctx.moveTo(0, -40);
         ctx.lineTo(-18, -20);
         ctx.lineTo(18, -20);
         ctx.closePath();
-        ctx.fillStyle =
-          biome === "desert"
-            ? "#d97706"
-            : biome === "ice"
-            ? "#38bdf8"
-            : "#16a34a";
+        ctx.fillStyle = theme.treeCanopy1;
         ctx.fill();
 
         ctx.beginPath();
@@ -385,12 +439,7 @@ export class CanvasGameRenderer {
         ctx.lineTo(-22, -10);
         ctx.lineTo(22, -10);
         ctx.closePath();
-        ctx.fillStyle =
-          biome === "desert"
-            ? "#b45309"
-            : biome === "ice"
-            ? "#0284c7"
-            : "#15803d";
+        ctx.fillStyle = theme.treeCanopy2;
         ctx.fill();
       } else if (dec.type === "rock") {
         ctx.beginPath();
@@ -400,19 +449,9 @@ export class CanvasGameRenderer {
         ctx.lineTo(14, -8);
         ctx.lineTo(10, 0);
         ctx.closePath();
-        ctx.fillStyle =
-          biome === "desert"
-            ? "#78350f"
-            : biome === "ice"
-            ? "#0284c7"
-            : "#64748b";
+        ctx.fillStyle = theme.rockFill;
         ctx.fill();
-        ctx.strokeStyle =
-          biome === "desert"
-            ? "#d97706"
-            : biome === "ice"
-            ? "#bae6fd"
-            : "#94a3b8";
+        ctx.strokeStyle = theme.rockStroke;
         ctx.lineWidth = 1.5;
         ctx.stroke();
       } else if (dec.type === "bunker") {
@@ -426,12 +465,7 @@ export class CanvasGameRenderer {
         ctx.fillStyle = "#0f172a";
         ctx.fillRect(-10, -10, 20, 4);
       } else {
-        ctx.strokeStyle =
-          biome === "desert"
-            ? "#f59e0b"
-            : biome === "ice"
-            ? "#38bdf8"
-            : "#4ade80";
+        ctx.strokeStyle = theme.grassStroke;
         ctx.lineWidth = 2;
         for (let g = -8; g <= 8; g += 4) {
           ctx.beginPath();

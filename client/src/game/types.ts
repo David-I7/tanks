@@ -13,7 +13,9 @@ export type GameAction =
       angle: number;
       power: number;
       projectileSlotId: string;
-    };
+    }
+  | { type: "panCamera"; deltaX: number }
+  | { type: "relockCamera" };
 
 export type RemoteGameAction = {
   playerId: number;
