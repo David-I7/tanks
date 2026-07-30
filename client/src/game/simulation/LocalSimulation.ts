@@ -173,6 +173,26 @@ export class LocalSimulation {
       }
     }
 
+    if (this.world.match.isCameraLocked !== false) {
+      const activeTankEntityId = this.world.tankEntitiesByPlayer.get(
+        this.world.match.activePlayerId,
+      );
+      const pos = activeTankEntityId
+        ? this.world.positions.get(activeTankEntityId)
+        : null;
+      const activeProjId = [...this.world.projectiles.keys()][0];
+      const projPos =
+        activeProjId !== undefined
+          ? this.world.positions.get(activeProjId)
+          : null;
+      const focusX = projPos?.x ?? pos?.x ?? 0;
+      const maxCameraX = Math.max(0, this.terrain.width - 960);
+      this.world.match.cameraX = Math.max(
+        0,
+        Math.min(maxCameraX, focusX - 960 * 0.5),
+      );
+    }
+
     this.screenShake *= 0.85;
     if (this.screenShake < 0.1) this.screenShake = 0;
 
@@ -250,8 +270,23 @@ export class LocalSimulation {
   }
 
   panCamera(deltaX: number, viewportWidth = 960): void {
-    this.world.match.isCameraLocked = false;
     const maxCameraX = Math.max(0, this.terrain.width - viewportWidth);
+    if (this.world.match.isCameraLocked !== false) {
+      const activeTankEntityId = this.world.tankEntitiesByPlayer.get(
+        this.world.match.activePlayerId,
+      );
+      const pos = activeTankEntityId
+        ? this.world.positions.get(activeTankEntityId)
+        : null;
+      if (pos) {
+        this.world.match.cameraX = Math.max(
+          0,
+          Math.min(maxCameraX, pos.x - viewportWidth * 0.5),
+        );
+      }
+      this.world.match.isCameraLocked = false;
+    }
+
     this.world.match.cameraX = Math.max(
       0,
       Math.min(maxCameraX, (this.world.match.cameraX ?? 0) + deltaX),
@@ -260,6 +295,19 @@ export class LocalSimulation {
 
   relockCamera(): void {
     this.world.match.isCameraLocked = true;
+    const activeTankEntityId = this.world.tankEntitiesByPlayer.get(
+      this.world.match.activePlayerId,
+    );
+    const pos = activeTankEntityId
+      ? this.world.positions.get(activeTankEntityId)
+      : null;
+    if (pos) {
+      const maxCameraX = Math.max(0, this.terrain.width - 960);
+      this.world.match.cameraX = Math.max(
+        0,
+        Math.min(maxCameraX, pos.x - 960 * 0.5),
+      );
+    }
   }
 
   private fireWeaponPattern(
