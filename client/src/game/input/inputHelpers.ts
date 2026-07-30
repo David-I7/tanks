@@ -109,17 +109,24 @@ export function findProjectileSlotAtCanvasPoint(
     targetTank.loadout.length,
   );
 
-  if (canvasY >= layout.y - 35 && canvasY <= canvasHeight) {
-    for (let index = 0; index < targetTank.loadout.length; index += 1) {
-      const slot = targetTank.loadout[index];
-      if (!slot) continue;
-      const slotX = layout.x + index * (layout.slotSize + layout.gap);
-      if (
-        canvasX >= slotX - layout.gap / 2 &&
-        canvasX <= slotX + layout.slotSize + layout.gap / 2
-      ) {
-        return slot.id;
-      }
+  for (let index = 0; index < targetTank.loadout.length; index += 1) {
+    const slot = targetTank.loadout[index];
+    if (!slot) continue;
+    const slotX = layout.x + index * (layout.slotSize + layout.gap);
+    const slotY = layout.y;
+
+    const minX = slotX - 10;
+    const maxX = slotX + layout.slotSize + 10;
+    const minY = slotY - 20;
+    const maxY = canvasHeight;
+
+    if (
+      canvasX >= minX &&
+      canvasX <= maxX &&
+      canvasY >= minY &&
+      canvasY <= maxY
+    ) {
+      return slot.id;
     }
   }
 

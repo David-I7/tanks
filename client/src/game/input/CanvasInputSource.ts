@@ -2,7 +2,6 @@ import type { GameAction, GameState } from "../types";
 import {
   calculateAimIntent,
   findProjectileSlotAtCanvasPoint,
-  getProjectileSelectorLayout,
 } from "./inputHelpers";
 import type { DomCanvasRect, GameViewport } from "../world/worldSizing";
 import { domPointToGameViewportPoint } from "../world/worldSizing";
@@ -83,30 +82,6 @@ const pointerIntentProducer: IntentProducer = ({ state, context }) => {
       })
     : null;
 
-  const layout = getProjectileSelectorLayout(
-    context.gameViewport.width,
-    context.gameViewport.height,
-    activeTank.loadout.length,
-  );
-
-  if (pointerPoint && pointerPoint.y >= layout.y - 35) {
-    const selectedSlotId = findProjectileSlotAtCanvasPoint(
-      context.gameState,
-      context.gameViewport.width,
-      context.gameViewport.height,
-      pointerPoint.x,
-      pointerPoint.y,
-      activeTank,
-    );
-    if (selectedSlotId) {
-      intents.push({
-        type: "selectProjectileSlot",
-        projectileSlotId: selectedSlotId,
-      });
-    }
-    return intents;
-  }
-
   const aim = calculateAimIntent({
     ...state.pointer,
     domCanvasRect: context.domCanvasRect,
@@ -116,19 +91,36 @@ const pointerIntentProducer: IntentProducer = ({ state, context }) => {
     activeTank,
   });
 
-  if (!aim) return intents;
-  intents.push(aim);
+  if (aim) {
+    intents.push(aim);
+  }
 
   if (pointerPoint) {
-    const projectileSlotId =
-      activeTank.selectedProjectileSlotId ?? activeTank.loadout[0]?.id;
-    if (projectileSlotId) {
+    const clickedSlotId = findProjectileSlotAtCanvasPoint(
+      context.gameState,
+      context.gameViewport.width,
+      context.gameViewport.height,
+      pointerPoint.x,
+      pointerPoint.y,
+      activeTank,
+    );
+
+    if (clickedSlotId) {
       intents.push({
-        type: "fire",
-        angle: aim.angle,
-        power: aim.power,
-        projectileSlotId,
+        type: "selectProjectileSlot",
+        projectileSlotId: clickedSlotId,
       });
+    } else if (aim) {
+      const projectileSlotId =
+        activeTank.selectedProjectileSlotId ?? activeTank.loadout[0]?.id;
+      if (projectileSlotId) {
+        intents.push({
+          type: "fire",
+          angle: aim.angle,
+          power: aim.power,
+          projectileSlotId,
+        });
+      }
     }
   }
 
@@ -179,6 +171,10 @@ export class CanvasInputSource {
   };
 
   private readonly onPointerDown = (event: PointerEvent) => {
+    this.pointer = {
+      clientX: event.clientX,
+      clientY: event.clientY,
+    };
     this.pendingPointerDown = {
       clientX: event.clientX,
       clientY: event.clientY,
