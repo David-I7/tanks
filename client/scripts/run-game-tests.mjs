@@ -17,6 +17,7 @@ const tests = [
   "tests/game/online/online-client-state-projection.test.ts",
   "tests/game/online/authoritative-online-gameplay.test.ts",
   "tests/game/simulation/procedural-tanks-weapons-ballistics.test.ts",
+  "tests/game/simulation/timers-crates-wind-visuals.test.ts",
 ];
 
 for (const test of tests) {

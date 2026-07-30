@@ -220,7 +220,7 @@ function updateUntil(
 
   const impact = updateUntil(
     manager,
-    (state) => state.impactEvents.length > 0,
+    (state) => state.impactEvents.length > 0 && state.projectiles.length === 0,
     240,
   );
   assert.ok(impact.impactEvents.length > 0);

@@ -193,6 +193,42 @@ export type LifetimeComponent = {
   active: boolean;
 };
 
+export type LootCrateType = "hp" | "fuel" | "ammo";
+
+export type LootCrate = {
+  id: string;
+  type: LootCrateType;
+  x: number;
+  y: number;
+  groundY: number;
+  falling: boolean;
+  collected: boolean;
+  value: number;
+};
+
+export type Particle = {
+  id: string;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  color: string;
+  size: number;
+  life: number;
+  maxLife: number;
+};
+
+export type FloatingText = {
+  id: string;
+  text: string;
+  color: string;
+  x: number;
+  y: number;
+  vy: number;
+  life: number;
+  maxLife: number;
+};
+
 export type MatchState = {
   mode: GameMode;
   phase: TurnPhase;
@@ -200,6 +236,8 @@ export type MatchState = {
   playerCount: number;
   turnNumber: number;
   turnTimeRemaining: number;
+  matchTimeRemaining: number;
+  wind: number;
   winnerPlayerId: number | null;
 };
 
@@ -236,6 +274,9 @@ export type LocalSimulationState = DeepReadonly<{
   }>;
   impactEvents: ImpactEvent[];
   damageTrails?: DamageTrail[];
+  lootCrates?: LootCrate[];
+  particles?: Particle[];
+  floatingTexts?: FloatingText[];
 }>;
 
 export type GameState = DeepReadonly<{
@@ -257,6 +298,9 @@ export type GameState = DeepReadonly<{
   >;
   impactEvents: ImpactEvent[];
   damageTrails?: DamageTrail[];
+  lootCrates?: LootCrate[];
+  particles?: Particle[];
+  floatingTexts?: FloatingText[];
 }>;
 
 export type GameAssets = {

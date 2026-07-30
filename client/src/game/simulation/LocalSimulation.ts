@@ -9,6 +9,10 @@ import {
   type ProjectileDefinition,
   type TankComponent,
   type DamageTrail,
+  type LootCrate,
+  type LootCrateType,
+  type Particle,
+  type FloatingText,
   MAX_TANK_FUEL,
   MAX_TURN_SECONDS,
   MOVE_FUEL_COST,
@@ -32,6 +36,11 @@ export class LocalSimulation {
     aimAngle: number;
   }> = [];
   private damageTrails: DamageTrail[] = [];
+  private lootCrates: LootCrate[] = [];
+  private particles: Particle[] = [];
+  private floatingTexts: FloatingText[] = [];
+  private screenShake = 0;
+  private cratesSpawned = { minute1: false, minute2: false, minute3: false };
 
   constructor(
     readonly world: LocalWorld,
@@ -105,6 +114,46 @@ export class LocalSimulation {
   }
 
   update(dt: number): void {
+    if (this.world.match.phase !== "gameOver") {
+      this.world.match.matchTimeRemaining = Math.max(
+        0,
+        this.world.match.matchTimeRemaining - dt,
+      );
+      if (this.world.match.matchTimeRemaining < 0.001) {
+        this.world.match.matchTimeRemaining = 0;
+      }
+
+      if (
+        this.world.match.matchTimeRemaining <= 120.001 &&
+        !this.cratesSpawned.minute1
+      ) {
+        this.cratesSpawned.minute1 = true;
+        this.spawnLootCrate();
+      }
+      if (
+        this.world.match.matchTimeRemaining <= 60.001 &&
+        !this.cratesSpawned.minute2
+      ) {
+        this.cratesSpawned.minute2 = true;
+        this.spawnLootCrate();
+      }
+      if (
+        this.world.match.matchTimeRemaining <= 0.001 &&
+        !this.cratesSpawned.minute3
+      ) {
+        this.cratesSpawned.minute3 = true;
+        this.spawnLootCrate();
+        this.handleMatchTimeout();
+      }
+    }
+
+    this.updateLootCrates(dt);
+    this.updateParticles(dt);
+    this.updateFloatingTexts(dt);
+
+    this.screenShake *= 0.85;
+    if (this.screenShake < 0.1) this.screenShake = 0;
+
     if (this.world.match.phase === "thinking") {
       if (this.updateTurnTimer(dt)) return;
     }
@@ -114,6 +163,14 @@ export class LocalSimulation {
 
     if (this.world.match.phase === "ballistics") {
       this.updateProjectiles(dt);
+      if (
+        this.world.projectiles.size === 0 &&
+        this.pendingProjectiles.length === 0 &&
+        this.damageTrails.length === 0
+      ) {
+        this.world.match.phase =
+          this.world.impactEvents.size > 0 ? "impact" : "transition";
+      }
     }
 
     if (this.world.match.phase === "impact") {
@@ -158,6 +215,9 @@ export class LocalSimulation {
         visual: { ...event.visual },
       })),
       damageTrails: this.damageTrails.map((t) => ({ ...t })),
+      lootCrates: this.lootCrates.map((c) => ({ ...c })),
+      particles: this.particles.map((p) => ({ ...p })),
+      floatingTexts: this.floatingTexts.map((ft) => ({ ...ft })),
     };
   }
 
@@ -332,7 +392,10 @@ export class LocalSimulation {
           },
           damageEffect: {
             type: "radial",
-            radius: 25,
+            radius:
+              projectile.damageEffect.type === "radial"
+                ? projectile.damageEffect.radius
+                : 25,
             damage: Math.ceil(
               projectile.damageEffect.type === "radial"
                 ? projectile.damageEffect.damage
@@ -373,6 +436,7 @@ export class LocalSimulation {
 
       velocity.x *= Math.max(0, 1 - projectile.physics.drag * dt);
       velocity.y *= Math.max(0, 1 - projectile.physics.drag * dt);
+      velocity.x += (this.world.match.wind ?? 0) * 14 * dt;
       velocity.y += GRAVITY * projectile.physics.gravityScale * dt;
       position.x += velocity.x * dt;
       position.y += velocity.y * dt;
@@ -390,7 +454,7 @@ export class LocalSimulation {
 
       if (hitTerrain && projectile.pattern?.kind === "bouncing") {
         const bounces = projectile.bouncesCount ?? 0;
-        if (bounces < projectile.pattern.maxBounces) {
+        if (bounces < projectile.pattern.maxBounces - 1) {
           const x = Math.max(
             1,
             Math.min(this.terrain.width - 2, Math.floor(position.x)),
@@ -475,6 +539,8 @@ export class LocalSimulation {
 
     this.world.createImpactEvent(x, y, projectile);
     this.applyDamageEffect(x, y, projectile.damageEffect);
+    this.spawnExplosionParticles(x, y);
+    this.screenShake = projectile.pattern?.kind === "nuke" ? 22 : 12;
 
     if (projectile.pattern?.kind === "damageTrail") {
       this.damageTrails.push({
@@ -510,11 +576,12 @@ export class LocalSimulation {
         damageEffect.type === "focused"
           ? Math.max(0, 1 - distance / damageRadius) ** 2
           : 1 - distance / damageRadius;
-      tank.health = Math.max(
-        0,
-        tank.health - Math.ceil(damageEffect.damage * falloff),
-      );
-      tank.alive = tank.health > 0;
+      const damageAmount = Math.ceil(damageEffect.damage * falloff);
+      if (damageAmount > 0) {
+        tank.health = Math.max(0, tank.health - damageAmount);
+        tank.alive = tank.health > 0;
+        this.spawnFloatingText(`-${damageAmount} HP`, "#ef4444", position.x, position.y - 30);
+      }
     }
   }
 
@@ -528,12 +595,31 @@ export class LocalSimulation {
   }
 
   private updateWinner(): void {
+    if (this.world.match.phase === "gameOver") return;
     const aliveTanks = [...this.world.tanks.values()].filter(
       (tank) => tank.alive,
     );
     if (aliveTanks.length === 1) {
       this.world.match.winnerPlayerId = aliveTanks[0]?.playerId ?? null;
       this.world.match.phase = "gameOver";
+    }
+  }
+
+  private handleMatchTimeout(): void {
+    this.world.match.phase = "gameOver";
+    const tanksByPlayer = new Map<number, number>();
+    for (const tank of this.world.tanks.values()) {
+      const current = tanksByPlayer.get(tank.playerId) ?? 0;
+      tanksByPlayer.set(tank.playerId, current + Math.max(0, tank.health));
+    }
+    const p0Hp = tanksByPlayer.get(0) ?? 0;
+    const p1Hp = tanksByPlayer.get(1) ?? 0;
+    if (p0Hp > p1Hp) {
+      this.world.match.winnerPlayerId = 0;
+    } else if (p1Hp > p0Hp) {
+      this.world.match.winnerPlayerId = 1;
+    } else {
+      this.world.match.winnerPlayerId = null;
     }
   }
 
@@ -550,6 +636,7 @@ export class LocalSimulation {
         this.world.match.activePlayerId = nextPlayerId;
         this.world.match.turnNumber += 1;
         this.world.match.turnTimeRemaining = MAX_TURN_SECONDS;
+        this.world.match.wind = Math.round((Math.random() * 14 - 7) * 10) / 10;
         nextTank.fuel = MAX_TANK_FUEL;
         this.world.match.phase = "thinking";
         return;
@@ -567,29 +654,7 @@ export class LocalSimulation {
 
     if (this.world.match.turnTimeRemaining > 0) return false;
 
-    const activeTankEntityId = this.world.getActiveTankEntity();
-    const tank = activeTankEntityId
-      ? this.world.tanks.get(activeTankEntityId)
-      : null;
-    const position = activeTankEntityId
-      ? this.world.positions.get(activeTankEntityId)
-      : null;
-
-    if (!tank || !position || !tank.alive) {
-      this.world.match.phase = "transition";
-      return true;
-    }
-
-    const projectileDefinition = this.resolveProjectileDefinition(
-      tank,
-      tank.selectedProjectileSlotId,
-    );
-    if (!projectileDefinition) {
-      this.world.match.phase = "transition";
-      return true;
-    }
-    this.fireWeaponPattern(tank, projectileDefinition, position.x, position.y);
-    this.world.match.phase = "ballistics";
+    this.world.match.phase = "transition";
     return true;
   }
 
@@ -608,6 +673,144 @@ export class LocalSimulation {
       if (event.age >= event.duration) {
         this.world.impactEvents.delete(id);
       }
+    }
+  }
+
+  private spawnLootCrate(): void {
+    const x = Math.floor(100 + Math.random() * (this.terrain.width - 200));
+    const types: LootCrateType[] = ["hp", "fuel", "ammo"];
+    const type = types[Math.floor(Math.random() * types.length)] ?? "hp";
+    const groundY = this.terrain.getSurfaceY(x);
+    this.lootCrates.push({
+      id: `crate-${Date.now()}-${Math.random()}`,
+      type,
+      x,
+      y: -40,
+      groundY,
+      falling: true,
+      collected: false,
+      value: type === "hp" ? 35 : type === "fuel" ? 60 : 1,
+    });
+  }
+
+  private updateLootCrates(dt: number): void {
+    const activeTankId = this.world.tankEntitiesByPlayer.get(this.world.match.activePlayerId);
+    const activeTank = activeTankId ? this.world.tanks.get(activeTankId) : null;
+    const activePos = activeTankId ? this.world.positions.get(activeTankId) : null;
+
+    const remainingCrates: LootCrate[] = [];
+    for (const crate of this.lootCrates) {
+      if (crate.collected) continue;
+
+      crate.groundY = this.terrain.getSurfaceY(crate.x);
+      const targetY = crate.groundY - 14;
+
+      if (crate.falling) {
+        crate.y += 50 * dt;
+        if (crate.y >= targetY) {
+          crate.y = targetY;
+          crate.falling = false;
+        }
+      } else {
+        crate.y = targetY;
+      }
+
+      if (activeTank && activePos && activeTank.alive) {
+        const dist = Math.hypot(crate.x - activePos.x, crate.y - (activePos.y - 14));
+        if (dist <= 36) {
+          crate.collected = true;
+          if (crate.type === "hp") {
+            activeTank.health = Math.min(activeTank.maxHealth, activeTank.health + 35);
+            this.spawnFloatingText("+35 HP", "#22c55e", activePos.x, activePos.y - 36);
+          } else if (crate.type === "fuel") {
+            activeTank.fuel = Math.min(activeTank.maxFuel, activeTank.fuel + 60);
+            this.spawnFloatingText("+60 Fuel", "#f59e0b", activePos.x, activePos.y - 36);
+          } else if (crate.type === "ammo") {
+            const uniqueSlots = activeTank.loadout.filter((s) => s.id !== "standard" && s.projectileDefinitionId !== "basicShell");
+            if (uniqueSlots.length > 0) {
+              const slot = uniqueSlots[Math.floor(Math.random() * uniqueSlots.length)];
+              if (slot) {
+                activeTank.weaponAmmo[slot.id] = (activeTank.weaponAmmo[slot.id] ?? 1) + 1;
+              }
+            }
+            this.spawnFloatingText("+1 Ammo", "#a855f7", activePos.x, activePos.y - 36);
+          }
+        }
+      }
+
+      if (!crate.collected) {
+        remainingCrates.push(crate);
+      }
+    }
+    this.lootCrates = remainingCrates;
+  }
+
+  private spawnExplosionParticles(x: number, y: number): void {
+    const colors = ["#fbbf24", "#f97316", "#ef4444", "#78716c", "#44403c"];
+    for (let i = 0; i < 18; i += 1) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 40 + Math.random() * 160;
+      this.particles.push({
+        id: `particle-${Date.now()}-${Math.random()}`,
+        x,
+        y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - 60,
+        color: colors[Math.floor(Math.random() * colors.length)] ?? "#fbbf24",
+        size: 2 + Math.random() * 3,
+        life: 1.0,
+        maxLife: 1.0,
+      });
+    }
+  }
+
+  private updateParticles(dt: number): void {
+    const next: Particle[] = [];
+    for (const p of this.particles) {
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.vy += 300 * dt;
+      p.life -= dt;
+      if (p.life > 0) {
+        next.push(p);
+      }
+    }
+    this.particles = next;
+  }
+
+  private spawnFloatingText(text: string, color: string, x: number, y: number): void {
+    this.floatingTexts.push({
+      id: `text-${Date.now()}-${Math.random()}`,
+      text,
+      color,
+      x,
+      y,
+      vy: -60,
+      life: 1.0,
+      maxLife: 1.0,
+    });
+  }
+
+  private updateFloatingTexts(dt: number): void {
+    const next: FloatingText[] = [];
+    for (const ft of this.floatingTexts) {
+      ft.y += ft.vy * dt;
+      ft.life -= dt;
+      if (ft.life > 0) {
+        next.push(ft);
+      }
+    }
+    this.floatingTexts = next;
+  }
+
+  addTankAmmo(playerId: number, slotId: string, amount: number = 1): void {
+    const entityId = this.world.tankEntitiesByPlayer.get(playerId);
+    if (!entityId) return;
+    const tank = this.world.tanks.get(entityId);
+    if (!tank) return;
+    const current = tank.weaponAmmo[slotId];
+    if (current !== undefined && current !== -1) {
+      tank.weaponAmmo[slotId] = current + amount;
     }
   }
 }

@@ -2,7 +2,7 @@ import type {
   OnlineGameStateSnapshotResponse,
   OnlineTerrainSnapshotResponse,
 } from "../../api/ws/dto/gameplay/onlineGameplayProtocol";
-import { localGameContent, type GameContent } from "../content/localGameContent";
+import { localGameContent, createInitialWeaponAmmo, type GameContent } from "../content/localGameContent";
 import type {
   GameState,
   ImpactEvent,
@@ -58,16 +58,15 @@ export function onlineSnapshotToGameState(
       turnNumber: snapshot.match.turnNumber,
       turnTimeRemaining:
         snapshot.match.turnTimeRemainingTicks / content.world.tickRateHz,
+      matchTimeRemaining: (snapshot.match as any).matchTimeRemaining ?? 180,
+      wind: (snapshot.match as any).wind ?? 0,
       winnerPlayerId: snapshot.match.winnerPlayerId,
     },
     terrain: mapOnlineTerrain(snapshot.terrain),
     projectileDefinitions: content.projectiles,
     tanks: snapshot.tanks.map((tank) => {
       const tankDefinition = content.tanks[tank.tankDefinitionId];
-      const weaponAmmo: Record<string, number> = {};
-      for (const slot of tank.loadout) {
-        weaponAmmo[slot.id] = (slot as any).ammo ?? (slot.projectileDefinitionId === "basicShell" || slot.id === "standard" ? -1 : 1);
-      }
+      const weaponAmmo = createInitialWeaponAmmo(tank.loadout);
       return {
         entityId: tank.entityId,
         playerId: tank.playerId,

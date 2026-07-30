@@ -27,6 +27,9 @@ export class CanvasGameRenderer {
   private cameraX = 0;
   private gameViewport: GameViewport;
   private dpiViewport: DpiViewport;
+  private localPlayerId?: number;
+  private screenShakeIntensity = 0;
+  private lastImpactCount = 0;
   private readonly worldPasses: RenderPass[];
   private readonly overlayPasses: RenderPass[];
 
@@ -35,34 +38,52 @@ export class CanvasGameRenderer {
     private readonly assets: RendererAssets,
     gameViewport: GameViewport,
     dpiViewport: DpiViewport,
+    localPlayerId?: number,
   ) {
     this.gameViewport = gameViewport;
     this.dpiViewport = dpiViewport;
+    this.localPlayerId = localPlayerId;
     this.worldPasses = [
       {
         name: "terrain",
         draw: (ctx, gameState) => this.drawTerrain(ctx, gameState),
       },
       {
-        name: "trajectoryPreview",
-        draw: (ctx, gameState) => this.drawTrajectoryPreview(ctx, gameState),
+        name: "lootCrates",
+        draw: (ctx, gameState) => this.drawLootCrates(ctx, gameState),
       },
       {
-        name: "impactEvents",
-        draw: (ctx, gameState) => this.drawImpactEvents(ctx, gameState),
+        name: "tanks",
+        draw: (ctx, gameState) => this.drawTanks(ctx, gameState),
       },
       {
         name: "projectiles",
         draw: (ctx, gameState) => this.drawProjectiles(ctx, gameState),
       },
       {
-        name: "tanks",
-        draw: (ctx, gameState) => this.drawTanks(ctx, gameState),
+        name: "impactEvents",
+        draw: (ctx, gameState) => this.drawImpactEvents(ctx, gameState),
+      },
+      {
+        name: "particles",
+        draw: (ctx, gameState) => this.drawParticles(ctx, gameState),
+      },
+      {
+        name: "floatingTexts",
+        draw: (ctx, gameState) => this.drawFloatingTexts(ctx, gameState),
+      },
+      {
+        name: "trajectoryPreview",
+        draw: (ctx, gameState) => this.drawTrajectoryPreview(ctx, gameState),
       },
     ];
     this.overlayPasses = [
       { name: "hud", draw: (ctx, gameState) => this.drawHud(ctx, gameState) },
     ];
+  }
+
+  setLocalPlayerId(localPlayerId?: number): void {
+    this.localPlayerId = localPlayerId;
   }
 
   setSizing(gameViewport: GameViewport, dpiViewport: DpiViewport): void {
@@ -84,6 +105,21 @@ export class CanvasGameRenderer {
 
     this.updateCamera(gameState);
 
+    const currentImpactCount = gameState.impactEvents.length;
+    if (currentImpactCount > this.lastImpactCount) {
+      const lastEvent = gameState.impactEvents[gameState.impactEvents.length - 1];
+      const isSignature =
+        lastEvent?.animationId === "nuke" ||
+        lastEvent?.visual?.label?.includes("NUKE");
+      this.screenShakeIntensity = isSignature ? 22 : 12;
+    }
+    this.lastImpactCount = currentImpactCount;
+
+    const shakeX = (Math.random() * 2 - 1) * this.screenShakeIntensity;
+    const shakeY = (Math.random() * 2 - 1) * this.screenShakeIntensity;
+    this.screenShakeIntensity *= 0.85;
+    if (this.screenShakeIntensity < 0.1) this.screenShakeIntensity = 0;
+
     ctx.setTransform(
       this.dpiViewport.width / this.gameViewport.width,
       0,
@@ -102,7 +138,7 @@ export class CanvasGameRenderer {
     };
 
     ctx.save();
-    ctx.translate(-this.cameraX, 0);
+    ctx.translate(-this.cameraX + shakeX, shakeY);
     for (const pass of this.worldPasses) {
       pass.draw(ctx, gameState, renderContext);
     }
@@ -364,6 +400,105 @@ export class CanvasGameRenderer {
     }
   }
 
+  private drawLootCrates(
+    ctx: CanvasRenderingContext2D,
+    gameState: GameState,
+  ): void {
+    if (!gameState.lootCrates) return;
+
+    for (const crate of gameState.lootCrates) {
+      if (crate.collected) continue;
+
+      ctx.save();
+      ctx.translate(crate.x, crate.y);
+
+      if (crate.falling) {
+        ctx.beginPath();
+        ctx.arc(0, -22, 18, Math.PI, 0);
+        ctx.fillStyle = "rgba(244, 63, 94, 0.85)";
+        ctx.fill();
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(-18, -22);
+        ctx.lineTo(-8, -10);
+        ctx.moveTo(18, -22);
+        ctx.lineTo(8, -10);
+        ctx.moveTo(0, -22);
+        ctx.lineTo(0, -10);
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.6)";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+
+      const color =
+        crate.type === "hp"
+          ? "#22c55e"
+          : crate.type === "fuel"
+          ? "#f59e0b"
+          : "#a855f7";
+
+      ctx.fillStyle = "#1e293b";
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.roundRect(-12, -12, 24, 24, 4);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = color;
+      ctx.font = "bold 11px Inter, sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText(
+        crate.type === "hp" ? "HP" : crate.type === "fuel" ? "F" : "A",
+        0,
+        4,
+      );
+
+      ctx.restore();
+    }
+  }
+
+  private drawParticles(
+    ctx: CanvasRenderingContext2D,
+    gameState: GameState,
+  ): void {
+    if (!gameState.particles) return;
+
+    for (const p of gameState.particles) {
+      const alpha = Math.max(0, p.life / p.maxLife);
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  private drawFloatingTexts(
+    ctx: CanvasRenderingContext2D,
+    gameState: GameState,
+  ): void {
+    if (!gameState.floatingTexts) return;
+
+    for (const ft of gameState.floatingTexts) {
+      const alpha = Math.max(0, ft.life / ft.maxLife);
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = ft.color;
+      ctx.shadowColor = "#000000";
+      ctx.shadowBlur = 6;
+      ctx.font = "700 16px Inter, sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText(ft.text, ft.x, ft.y);
+      ctx.restore();
+    }
+  }
+
   private drawTrajectoryPreview(
     ctx: CanvasRenderingContext2D,
     gameState: GameState,
@@ -372,18 +507,65 @@ export class CanvasGameRenderer {
       return;
     }
 
-    const points = simulateTrajectoryPreview(
-      gameState,
-      gameState.match.activePlayerId,
+    const activePlayerId = gameState.match.activePlayerId;
+    const activeTank = gameState.tanks.find(
+      (t) => t.playerId === activePlayerId && t.alive,
     );
-    ctx.fillStyle = "rgba(255, 255, 255, 0.52)";
 
-    for (let i = 0; i < points.length; i += 3) {
+    if (
+      this.localPlayerId !== undefined &&
+      activePlayerId !== this.localPlayerId
+    ) {
+      return;
+    }
+    if (activeTank && activeTank.controllerKind === "remote") {
+      return;
+    }
+
+    const points = simulateTrajectoryPreview(gameState, activePlayerId);
+    if (points.length === 0) return;
+
+    ctx.fillStyle = "rgba(255, 255, 255, 0.65)";
+
+    for (let i = 0; i < points.length; i += 2) {
       const point = points[i];
       if (!point) continue;
       ctx.beginPath();
       ctx.arc(point.x, point.y, 3, 0, Math.PI * 2);
       ctx.fill();
+    }
+
+    const lastPoint = points[points.length - 1];
+    if (lastPoint) {
+      const pulse = 10 + Math.sin(Date.now() * 0.01) * 3;
+      ctx.save();
+      ctx.translate(lastPoint.x, lastPoint.y);
+
+      ctx.beginPath();
+      ctx.arc(0, 0, pulse, 0, Math.PI * 2);
+      ctx.strokeStyle = "#00f0ff";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(-pulse - 4, 0);
+      ctx.lineTo(-pulse + 4, 0);
+      ctx.moveTo(pulse - 4, 0);
+      ctx.lineTo(pulse + 4, 0);
+      ctx.moveTo(0, -pulse - 4);
+      ctx.lineTo(0, -pulse + 4);
+      ctx.moveTo(0, pulse - 4);
+      ctx.lineTo(0, pulse + 4);
+      ctx.strokeStyle = "#facc15";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.arc(0, 0, 2.5, 0, Math.PI * 2);
+      ctx.fillStyle = "#ffffff";
+      ctx.fill();
+
+      ctx.restore();
     }
   }
 
@@ -401,28 +583,43 @@ export class CanvasGameRenderer {
     this.drawPowerAngleReadout(ctx, gameState);
     this.drawProjectileSelector(ctx, gameState);
 
-    ctx.fillStyle = "#f3f4f6";
-    ctx.font = "15px 'Share Tech Mono', monospace";
-    ctx.textAlign = "center";
+    const matchMin = Math.floor((gameState.match.matchTimeRemaining ?? 180) / 60);
+    const matchSec = Math.floor((gameState.match.matchTimeRemaining ?? 180) % 60);
+    const matchTimeStr = `${String(matchMin).padStart(2, "0")}:${String(matchSec).padStart(2, "0")}`;
+
+    const wind = gameState.match.wind ?? 0;
+    const windDirection = wind >= 0 ? "→" : "←";
+    const windStr = `WIND ${windDirection} ${Math.abs(wind).toFixed(1)} mph`;
+
+    const seconds = Math.ceil(gameState.match.turnTimeRemaining);
     const activeTank = gameState.tanks.find(
       (entry) => entry.playerId === gameState.match.activePlayerId,
     );
-    const seconds = Math.ceil(gameState.match.turnTimeRemaining);
+
+    ctx.fillStyle = "#f3f4f6";
+    ctx.font = "14px 'Share Tech Mono', monospace";
+    ctx.textAlign = "center";
     ctx.fillText(
-      `${gameState.match.mode} | Player ${gameState.match.activePlayerId + 1} | ${gameState.match.phase} | ${seconds}s | Fuel ${Math.ceil(activeTank?.fuel ?? 0)}`,
+      `${matchTimeStr} | ${windStr} | TURN ${seconds}s | Fuel ${Math.ceil(activeTank?.fuel ?? 0)}`,
       this.gameViewport.width / 2,
       47,
     );
     ctx.textAlign = "start";
 
     if (gameState.match.phase === "gameOver") {
-      ctx.fillStyle = "rgba(0, 0, 0, 0.62)";
+      ctx.fillStyle = "rgba(0, 0, 0, 0.72)";
       ctx.fillRect(0, 0, this.gameViewport.width, this.gameViewport.height);
       ctx.fillStyle = "#ebc80e";
       ctx.font = "700 36px Orbitron, sans-serif";
       ctx.textAlign = "center";
+
+      const winnerText =
+        gameState.match.winnerPlayerId !== null
+          ? `PLAYER ${gameState.match.winnerPlayerId + 1} WINS!`
+          : `DRAW! MATCH TIME EXPIRED`;
+
       ctx.fillText(
-        `PLAYER ${(gameState.match.winnerPlayerId ?? 0) + 1} WINS`,
+        winnerText,
         this.gameViewport.width / 2,
         this.gameViewport.height / 2,
       );
@@ -593,9 +790,20 @@ export class CanvasGameRenderer {
       const size = layout.slotSize + (selected ? 10 : 0);
       const offset = selected ? -5 : 0;
 
-      ctx.fillStyle = selected ? "#facc15" : "rgba(15, 23, 42, 0.88)";
-      ctx.strokeStyle = selected ? "#7c3aed" : "rgba(148, 163, 184, 0.35)";
-      ctx.lineWidth = selected ? 4 : 2;
+      const ammo = activeTank.weaponAmmo?.[slot.id] ?? (slot.maxAmmo ?? 1);
+      const isDepleted = ammo === 0;
+
+      ctx.fillStyle = isDepleted
+        ? "rgba(30, 41, 59, 0.45)"
+        : selected
+        ? "#facc15"
+        : "rgba(15, 23, 42, 0.88)";
+      ctx.strokeStyle = isDepleted
+        ? "rgba(71, 85, 105, 0.4)"
+        : selected
+        ? "#7c3aed"
+        : "rgba(148, 163, 184, 0.35)";
+      ctx.lineWidth = selected && !isDepleted ? 4 : 2;
       ctx.beginPath();
       ctx.roundRect(x + offset, y + offset, size, size, 9);
       ctx.fill();
@@ -608,6 +816,7 @@ export class CanvasGameRenderer {
       const iconWidth = layout.slotSize * 0.55;
       const iconHeight = layout.slotSize * 0.32;
       if (projImage && typeof projImage === "object" && "nodeName" in projImage) {
+        ctx.globalAlpha = isDepleted ? 0.35 : 1.0;
         ctx.drawImage(
           projImage,
           x + layout.slotSize / 2 - iconWidth / 2,
@@ -615,13 +824,15 @@ export class CanvasGameRenderer {
           iconWidth,
           iconHeight,
         );
+        ctx.globalAlpha = 1.0;
       }
 
-      ctx.fillStyle = selected ? "#111827" : "#cbd5e1";
+      const ammoText = ammo === -1 ? "∞" : `${ammo}`;
+      ctx.fillStyle = isDepleted ? "#64748b" : selected ? "#111827" : "#cbd5e1";
       ctx.font = "700 10px Inter, sans-serif";
       ctx.textAlign = "center";
       ctx.fillText(
-        slot.label,
+        `${slot.label} (${ammoText})`,
         x + layout.slotSize / 2,
         y + layout.slotSize - 9,
       );

@@ -1,5 +1,15 @@
 import type { ProjectileDefinition, TankDefinition } from "../types";
 
+export function createInitialWeaponAmmo(loadout: Array<{ id: string; projectileDefinitionId: string; maxAmmo?: number }>): Record<string, number> {
+  const weaponAmmo: Record<string, number> = {};
+  for (const slot of loadout) {
+    weaponAmmo[slot.id] = slot.maxAmmo !== undefined
+      ? slot.maxAmmo
+      : (slot.projectileDefinitionId === "basicShell" || slot.id === "standard" ? -1 : 1);
+  }
+  return weaponAmmo;
+}
+
 export type GameContent = {
   version: string;
   world: {
@@ -219,7 +229,7 @@ export const localGameContent: GameContent = {
       damageEffect: { type: "radial", radius: 78, damage: 30 },
       impactAnimationId: "spark-burst",
       impactDuration: 0.48,
-      pattern: { kind: "standard" },
+      pattern: { kind: "cluster", count: 3, splitAtApex: true },
       maxAmmo: 1,
       visual: { fill: "#8b5cf6", stroke: "#6d28d9" },
     },
@@ -390,28 +400,6 @@ export const localGameContent: GameContent = {
         { id: "needle", projectileDefinitionId: "needle", label: "Spk", maxAmmo: 1 },
       ],
     },
-    vanguard: {
-      id: "vanguard",
-      name: "Vanguard Cyber",
-      maxHealth: 110,
-      maxFuel: 240,
-      movementQuantum: 8,
-      fuelRate: 1,
-      climbCapability: 5,
-      collisionRadius: 32,
-      halfWidth: 16,
-      trackGroundOffset: 0,
-      muzzleForwardOffset: 18,
-      muzzleVerticalOffset: 24,
-      visual: { fill: "#06b6d4", stroke: "#155e75", accent: "#a5f3fc" },
-      loadout: [
-        { id: "standard", projectileDefinitionId: "basicShell", label: "Std", maxAmmo: -1 },
-        { id: "mortar", projectileDefinitionId: "mortar", label: "Auto", maxAmmo: 1 },
-        { id: "heavy", projectileDefinitionId: "heavyShell", label: "Pls", maxAmmo: 1 },
-        { id: "cluster", projectileDefinitionId: "cluster", label: "Clu", maxAmmo: 1 },
-        { id: "needle", projectileDefinitionId: "needle", label: "Spk", maxAmmo: 1 },
-      ],
-    },
     specter: {
       id: "specter",
       name: "Specter",
@@ -436,3 +424,9 @@ export const localGameContent: GameContent = {
     },
   },
 };
+
+localGameContent.tanks.vanguard = {
+  ...localGameContent.tanks["vanguard-cyber"]!,
+  id: "vanguard",
+};
+

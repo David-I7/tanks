@@ -68,6 +68,7 @@ export function createLocalInitialWorld(
 ): LocalInitialWorld {
   const terrainSize = deriveLocalTerrainSize(initialGameViewport);
   const terrain = new LocalTerrainModel(terrainSize.width, terrainSize.height);
+  const initialWind = Math.round((Math.random() * 14 - 7) * 10) / 10;
   const world = new LocalWorld({
     mode: setup.mode,
     phase: "thinking",
@@ -75,6 +76,8 @@ export function createLocalInitialWorld(
     playerCount: setup.players.length,
     turnNumber: 1,
     turnTimeRemaining: MAX_TURN_SECONDS,
+    matchTimeRemaining: 180,
+    wind: initialWind,
     winnerPlayerId: null,
   });
 

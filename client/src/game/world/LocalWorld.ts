@@ -1,3 +1,4 @@
+import { createInitialWeaponAmmo } from "../content/localGameContent";
 import {
   type EntityId,
   type LifetimeComponent,
@@ -53,12 +54,7 @@ export class LocalWorld {
     if (!defaultSlot) {
       throw new Error(`Tank definition "${tankDefinition.id}" has no projectile slots`);
     }
-    const weaponAmmo: Record<string, number> = {};
-    for (const slot of tankDefinition.loadout) {
-      weaponAmmo[slot.id] = slot.maxAmmo !== undefined
-        ? slot.maxAmmo
-        : (slot.projectileDefinitionId === "basicShell" || slot.id === "standard" ? -1 : 1);
-    }
+    const weaponAmmo = createInitialWeaponAmmo(tankDefinition.loadout);
     this.tanks.set(entityId, {
       playerId: player.id,
       displayName: player.displayName,

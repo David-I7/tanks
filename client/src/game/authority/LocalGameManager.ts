@@ -149,6 +149,9 @@ export function toGameState(
     })),
     impactEvents: state.impactEvents,
     damageTrails: state.damageTrails,
+    lootCrates: state.lootCrates,
+    particles: state.particles,
+    floatingTexts: state.floatingTexts,
   };
 }
 
