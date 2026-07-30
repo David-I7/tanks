@@ -299,32 +299,22 @@ export class CanvasGameRenderer {
     if (skyGrad) ctx.fillStyle = skyGrad;
     ctx.fillRect(0, 0, width, height);
 
-    // 2. Sun Orb
-    ctx.save();
-    const sunX = width * 0.5;
-    const sunY = height * 0.28;
-    const sunGrad = ctx.createRadialGradient(sunX, sunY, 10, sunX, sunY, 160);
-    for (const [stop, color] of theme.sunStops) {
-      sunGrad?.addColorStop?.(stop, color);
-    }
-    if (sunGrad) ctx.fillStyle = sunGrad;
-    ctx.beginPath();
-    ctx.arc(sunX, sunY, 160, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-
-    // 3. Dynamic Twinkling & Glowing Star Field
+    // 2. Dynamic Twinkling & Glowing Star Field (world-space, behind sun)
     ctx.save();
     const now = Date.now();
+    const worldWidth = gameState.terrain.kind === "heightmap" ? gameState.terrain.width : 2400;
+    const starParallax = this.cameraX * 0.25;
     for (let i = 0; i < 65; i++) {
       const hashX = Math.sin(i * 12.9898 + 1.5) * 43758.5453;
       const hashY = Math.cos(i * 78.233 + 3.1) * 43758.5453;
-      const baseX = (hashX - Math.floor(hashX)) * (width + 300) - 150;
+      const worldX = (hashX - Math.floor(hashX)) * worldWidth;
       const baseY = (hashY - Math.floor(hashY)) * (height * 0.5);
 
       const driftX = Math.sin(now * 0.00015 + i * 1.7) * 4;
-      const sx = (baseX + driftX + width + 300) % (width + 300) - 150;
+      const sx = worldX + driftX - starParallax;
       const sy = baseY + Math.cos(now * 0.0002 + i * 2.1) * 2;
+
+      if (sx < -20 || sx > width + 20) continue;
 
       const pulse = Math.sin(now * 0.0025 + i * 1.3);
       const alpha = 0.35 + (pulse * 0.5 + 0.5) * 0.55;
@@ -342,6 +332,22 @@ export class CanvasGameRenderer {
       ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
       ctx.fill();
     }
+    ctx.restore();
+
+    // 3. Sun Orb (world-space, in front of stars)
+    ctx.save();
+    const sunWorldX = worldWidth * 0.5;
+    const sunParallax = this.cameraX * 0.15;
+    const sunScreenX = sunWorldX - sunParallax;
+    const sunY = height * 0.28;
+    const sunGrad = ctx.createRadialGradient(sunScreenX, sunY, 10, sunScreenX, sunY, 160);
+    for (const [stop, color] of theme.sunStops) {
+      sunGrad?.addColorStop?.(stop, color);
+    }
+    if (sunGrad) ctx.fillStyle = sunGrad;
+    ctx.beginPath();
+    ctx.arc(sunScreenX, sunY, 160, 0, Math.PI * 2);
+    ctx.fill();
     ctx.restore();
 
     // 4. Moving Clouds
