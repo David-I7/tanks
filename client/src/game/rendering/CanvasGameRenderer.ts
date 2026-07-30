@@ -268,21 +268,22 @@ export class CanvasGameRenderer {
       gameState.terrain.width - this.gameViewport.width,
     );
     const isLocked = gameState.match.isCameraLocked !== false;
+    let targetCameraX: number;
+
     if (isLocked) {
       const activeTank = gameState.tanks.find(
         (entry) => entry.playerId === gameState.match.activePlayerId,
       );
       const focusX =
         gameState.projectiles[0]?.position.x ?? activeTank?.position.x ?? 0;
-      const targetCameraX = Math.max(
-        0,
-        Math.min(maxCameraX, focusX - this.gameViewport.width * 0.5),
-      );
-      this.cameraX += (targetCameraX - this.cameraX) * 0.12;
-      this.cameraX = Math.max(0, Math.min(maxCameraX, this.cameraX));
-    } else if (typeof gameState.match.cameraX === "number") {
-      this.cameraX = Math.max(0, Math.min(maxCameraX, gameState.match.cameraX));
+      targetCameraX = focusX - this.gameViewport.width * 0.5;
+    } else {
+      targetCameraX = gameState.match.cameraX ?? this.cameraX;
     }
+
+    targetCameraX = Math.max(0, Math.min(maxCameraX, targetCameraX));
+    this.cameraX += (targetCameraX - this.cameraX) * 0.15;
+    this.cameraX = Math.max(0, Math.min(maxCameraX, this.cameraX));
   }
 
   private drawSky(ctx: CanvasRenderingContext2D, gameState: GameState): void {
@@ -312,17 +313,33 @@ export class CanvasGameRenderer {
     ctx.fill();
     ctx.restore();
 
-    // 3. Star Field
+    // 3. Dynamic Twinkling & Glowing Star Field
     ctx.save();
-    ctx.fillStyle = "rgba(255, 255, 255, 0.75)";
-    for (let i = 0; i < 60; i++) {
-      const rawX = Math.sin(i * 12.9898) * 43758.5453;
-      const rawY = Math.cos(i * 78.233) * 43758.5453;
-      const sx = (rawX - Math.floor(rawX)) * (width + 200) - 100;
-      const sy = (rawY - Math.floor(rawY)) * (height * 0.45);
-      const starSize = (Math.sin(i * 3.7) * 0.5 + 0.5) * 0.8 + 0.8;
+    const now = Date.now();
+    for (let i = 0; i < 65; i++) {
+      const hashX = Math.sin(i * 12.9898 + 1.5) * 43758.5453;
+      const hashY = Math.cos(i * 78.233 + 3.1) * 43758.5453;
+      const baseX = (hashX - Math.floor(hashX)) * (width + 300) - 150;
+      const baseY = (hashY - Math.floor(hashY)) * (height * 0.5);
+
+      const driftX = Math.sin(now * 0.00015 + i * 1.7) * 4;
+      const sx = (baseX + driftX + width + 300) % (width + 300) - 150;
+      const sy = baseY + Math.cos(now * 0.0002 + i * 2.1) * 2;
+
+      const pulse = Math.sin(now * 0.0025 + i * 1.3);
+      const alpha = 0.35 + (pulse * 0.5 + 0.5) * 0.55;
+      const coreSize = 1.0 + (pulse * 0.5 + 0.5) * 0.8;
+
+      if (i % 3 === 0) {
+        ctx.beginPath();
+        ctx.arc(sx, sy, coreSize * 2.4, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(224, 242, 254, ${alpha * 0.25})`;
+        ctx.fill();
+      }
+
       ctx.beginPath();
-      ctx.arc(sx, sy, starSize, 0, Math.PI * 2);
+      ctx.arc(sx, sy, coreSize, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
       ctx.fill();
     }
     ctx.restore();
