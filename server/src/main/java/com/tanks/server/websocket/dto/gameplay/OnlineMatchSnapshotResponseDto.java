@@ -1,5 +1,9 @@
 package com.tanks.server.websocket.dto.gameplay;
 
+import lombok.Builder;
+
+@Builder
+
 public record OnlineMatchSnapshotResponseDto(
                 MatchPhase phase,
                 long activePlayerId,

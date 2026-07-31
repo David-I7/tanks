@@ -23,7 +23,10 @@ import com.tanks.server.websocket.services.ClaimService;
 import com.tanks.server.websocket.services.UserSessionService;
 import com.tanks.server.websocket.exceptions.StompErrorHandler;
 import com.tanks.server.websocket.exceptions.WebSocketExceptionHandler;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.doNothing;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
@@ -81,6 +84,14 @@ public class WebSocketControllerTest {
 
     @Autowired
     private ChatController chatController;
+
+    @BeforeEach
+    public void setupMocks() {
+        lenient().when(claimService.claimSocket(any(Long.class), anyString())).thenReturn(true);
+        lenient().when(claimService.consumeUserSessionReloadRequired(any(Long.class))).thenReturn(false);
+        lenient().when(claimService.getSocketLock(any(Long.class))).thenReturn(new ReentrantLock());
+        lenient().doNothing().when(claimService).releaseSocket(any(Long.class), anyString());
+    }
 
     @EnableAutoConfiguration(exclude = {
             org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration.class,

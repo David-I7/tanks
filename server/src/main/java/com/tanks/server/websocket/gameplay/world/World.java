@@ -11,7 +11,12 @@ public class World {
     public World() {
         tanks = new LinkedHashMap<>();
         projectiles = new LinkedHashMap<>();
-        match = new WorldMatchState(1, 1, 0, null);
+        match = WorldMatchState.builder()
+                .activePlayerId(1)
+                .turnNumber(1)
+                .turnEndsAtServerTick(0)
+                .winnerPlayerId(null)
+                .build();
     }
 
     public World(World other) {

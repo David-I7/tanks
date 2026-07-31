@@ -51,7 +51,7 @@ export default function usePrivateLobby() {
   const user = useAuthStore((state) => state.user);
   const { data: tanks } = useAssetQuery();
   const selectedTankId = useAssetStore((state) => state.selectedTankId);
-  const selectedTank = tanks?.find((t) => t.id === selectedTankId) || null;
+  const selectedTank = tanks!.find((t) => t.id === selectedTankId)!;
 
   const navigate = useNavigate();
   const { id: urlLobbyId } = useParams();

@@ -6,13 +6,6 @@ type TankSelectorProps = {
   label?: string;
 };
 
-const TANK_DEFAULT_COLORS: Record<string, string> = {
-  "heavy-armor": "#ef4444",
-  "desert-striker": "#eab308",
-  "vanguard-cyber": "#06b6d4",
-  specter: "#a855f7",
-};
-
 export default function TankSelector({
   onTankSelect,
   label = "Select Your Tank",
@@ -39,7 +32,7 @@ export default function TankSelector({
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         {tanks.map((tank) => {
           const isSelected = tank.id === selectedTankId;
-          const tankColor = tank.color || TANK_DEFAULT_COLORS[tank.id] || "#a855f7";
+          const tankColor = tank.color;
 
           return (
             <button

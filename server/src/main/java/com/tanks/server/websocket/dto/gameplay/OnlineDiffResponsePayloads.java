@@ -1,18 +1,22 @@
 package com.tanks.server.websocket.dto.gameplay;
 
 import java.util.List;
+import lombok.Builder;
 
 public final class OnlineDiffResponsePayloads {
 
         private OnlineDiffResponsePayloads() {
         }
 
+        @Builder
         public record InitialState(long expectedNextDiffSequence, long localPlayerId, OnlineGameStateSnapshotResponseDto state) {
         }
 
+        @Builder
         public record ResyncState(long replacesSequence, ResyncReason reason, long localPlayerId, OnlineGameStateSnapshotResponseDto state) {
         }
 
+        @Builder
         public record MovementSegment(
                         String intentId,
                         long playerId,
@@ -29,6 +33,7 @@ public final class OnlineDiffResponsePayloads {
                         long durationTicks) {
         }
 
+        @Builder
         public record ProjectileResolution(
                         String intentId,
                         long projectileEntityId,
@@ -42,9 +47,11 @@ public final class OnlineDiffResponsePayloads {
                         List<OnlineTankDamageResponseDto> damagedTanks) {
         }
 
+        @Builder
         public record TerrainPatch(List<OnlineTerrainPatchResponseDto> patches) {
         }
 
+        @Builder
         public record IntentRejection(
                         String rejectedIntentId,
                         long playerId,
@@ -53,6 +60,7 @@ public final class OnlineDiffResponsePayloads {
                         long authoritativeServerTick) {
         }
 
+        @Builder
         public record TurnTransition(
                         long previousPlayerId,
                         long activePlayerId,
@@ -71,6 +79,7 @@ public final class OnlineDiffResponsePayloads {
                 }
         }
 
+        @Builder
         public record TerminalGame(
                         Long winnerPlayerId,
                         TerminalGameReason reason,

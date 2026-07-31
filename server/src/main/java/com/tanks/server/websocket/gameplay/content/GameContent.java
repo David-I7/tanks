@@ -1,6 +1,9 @@
 package com.tanks.server.websocket.gameplay.content;
 
 import java.util.Map;
+import lombok.Builder;
+
+@Builder
 
 public record GameContent(
         String version,

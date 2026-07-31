@@ -4,6 +4,7 @@ import com.tanks.server.dto.UserDto;
 import com.tanks.server.websocket.dto.game.GameEventResponseDto;
 import com.tanks.server.websocket.dto.game.GameEventType;
 import com.tanks.server.websocket.dto.game.GameEventPayload;
+import com.tanks.server.websocket.dto.gameplay.OnlineDiffResponsePayloads;
 import com.tanks.server.websocket.dto.lobby.LobbyEventResponseDto;
 import com.tanks.server.websocket.dto.lobby.LobbyEventType;
 import com.tanks.server.websocket.dto.lobby.LobbyEventPayload;
@@ -163,10 +164,13 @@ public class WebSocketEventListeners {
                     )
             );
 
-            if (gameSession.getConnectedPlayerCount() == 2 && gameSession.getState().equals(GameSessionState.CREATED)) {
-                gameSessionService.startGame(gameSession);
+            if (gameSession.getState().equals(GameSessionState.CREATED)) {
+                gameSessionService.sendInitialStateToPlayer(gameSession, userDto.username());
+                if (gameSession.getConnectedPlayerCount() == 2) {
+                    gameSessionService.startGame(gameSession);
+                }
             } else if (gameSession.getState().equals(GameSessionState.STARTED)) {
-                gameSessionService.sendResyncStateToPlayer(gameId, userDto.username(), com.tanks.server.websocket.dto.gameplay.OnlineDiffResponsePayloads.ResyncReason.RECONNECT);
+                gameSessionService.sendResyncStateToPlayer(gameId, userDto.username(), OnlineDiffResponsePayloads.ResyncReason.RECONNECT);
             }
         }
     }
