@@ -1,14 +1,12 @@
 import { ArrowLeft } from "lucide-react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useRef } from "react";
 import Loader from "../../components/misc/Loader";
 import { GameEngine } from "../../game";
-import type { RendererAssets } from "../../game/rendering/CanvasGameRenderer";
 import IconButton from "../../components/buttons/IconButton";
 import useGameSession from "./useGameSession";
 import UiError from "../../errors/UiError";
 import { useUserStatusQuery } from "../../hooks/useUserStatusQuery";
-import { useAssetQuery } from "../../hooks/useAssetQuery";
 
 export default function GamePage() {
   const { id } = useParams();
@@ -56,32 +54,6 @@ function GameView({ gameSessionId }: { gameSessionId: string }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const engineRef = useRef<GameEngine | null>(null);
 
-  const { data: tanks } = useAssetQuery();
-
-  const rendererAssets = useMemo<RendererAssets>(() => {
-    const tankImages: Record<string, HTMLImageElement> = {};
-    const projectileImages: Record<string, HTMLImageElement> = {};
-
-    if (tanks) {
-      tanks.forEach((t) => {
-        if (t.image) {
-          tankImages[t.id] = t.image;
-        }
-        t.projectiles?.forEach((p) => {
-          if (p.image) {
-            projectileImages[p.id] = p.image;
-          }
-        });
-      });
-    }
-
-    return {
-      tankImages,
-      projectileImages,
-      tankImage: Object.values(tankImages)[0],
-    };
-  }, [tanks]);
-
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || sessionStatus !== "in_game" || !gameManager) return;
@@ -90,7 +62,6 @@ function GameView({ gameSessionId }: { gameSessionId: string }) {
     const engine = new GameEngine({
       canvas,
       gameManager,
-      rendererAssets,
     });
 
     engineRef.current = engine;
@@ -108,7 +79,7 @@ function GameView({ gameSessionId }: { gameSessionId: string }) {
         engineRef.current = null;
       }
     };
-  }, [sessionStatus, gameManager, rendererAssets]);
+  }, [sessionStatus, gameManager]);
 
   return (
     <main className="relative z-10 flex min-h-screen flex-col bg-background p-4 text-text-body-high">

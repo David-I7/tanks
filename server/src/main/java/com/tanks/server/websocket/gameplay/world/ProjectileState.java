@@ -1,7 +1,9 @@
 package com.tanks.server.websocket.gameplay.world;
 
 import com.tanks.server.websocket.dto.gameplay.OnlineVec2Dto;
+import lombok.Builder;
 
+@Builder
 public record ProjectileState(long entityId, long ownerPlayerId, String definitionId,
         OnlineVec2Dto position, OnlineVec2Dto velocity) {
     public ProjectileState(ProjectileState other) {

@@ -1,3 +1,4 @@
+import { createInitialWeaponAmmo } from "../content/localGameContent";
 import {
   type EntityId,
   type LifetimeComponent,
@@ -10,6 +11,9 @@ import {
   type MatchSetupPlayer,
   type ImpactEvent,
   type VelocityComponent,
+  type DecorObject,
+  type Cloud,
+  type MapBiome,
 } from "../types";
 
 export class LocalWorld {
@@ -22,9 +26,22 @@ export class LocalWorld {
   readonly impactEvents = new Map<number, ImpactEvent>();
 
   readonly tankEntitiesByPlayer = new Map<number, EntityId>();
+  readonly decors: DecorObject[] = [];
+  readonly clouds: Cloud[] = [];
   private nextImpactEventId = 1;
 
-  constructor(public match: MatchState) {}
+  constructor(public match: MatchState) {
+    if (!this.match.biome) {
+      const BIOMES: MapBiome[] = ["forest", "desert", "ice"];
+      this.match.biome = BIOMES[Math.floor(Math.random() * BIOMES.length)];
+    }
+    if (this.match.isCameraLocked === undefined) {
+      this.match.isCameraLocked = true;
+    }
+    if (this.match.cameraX === undefined) {
+      this.match.cameraX = 0;
+    }
+  }
 
   createEntity(): EntityId {
     const entityId = this.nextEntityId;
@@ -53,12 +70,7 @@ export class LocalWorld {
     if (!defaultSlot) {
       throw new Error(`Tank definition "${tankDefinition.id}" has no projectile slots`);
     }
-    const weaponAmmo: Record<string, number> = {};
-    for (const slot of tankDefinition.loadout) {
-      weaponAmmo[slot.id] = slot.maxAmmo !== undefined
-        ? slot.maxAmmo
-        : (slot.projectileDefinitionId === "basicShell" || slot.id === "standard" ? -1 : 1);
-    }
+    const weaponAmmo = createInitialWeaponAmmo(tankDefinition.loadout);
     this.tanks.set(entityId, {
       playerId: player.id,
       displayName: player.displayName,

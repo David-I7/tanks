@@ -54,7 +54,10 @@ export type OnlineStateDiffResponse =
   | OnlineTerrainPatchResponse
   | OnlineIntentRejectionResponse
   | OnlineTurnTransitionResponse
-  | OnlineTerminalGameResponse;
+  | OnlineTerminalGameResponse
+  | OnlineCrateSpawnedResponse
+  | OnlineTurnStartedResponse
+  | OnlineProjectileResolvedResponse;
 
 const ONLINE_STATE_DIFF_TYPES = new Set([
   "INITIAL_STATE",
@@ -65,6 +68,9 @@ const ONLINE_STATE_DIFF_TYPES = new Set([
   "INTENT_REJECTION",
   "TURN_TRANSITION",
   "TERMINAL_GAME",
+  "CRATE_SPAWNED",
+  "TURN_STARTED",
+  "PROJECTILE_RESOLVED",
 ]);
 
 export type OnlineDiffResponseDto<
@@ -204,6 +210,67 @@ export type OnlineTerminalGameResponse = {
   };
 };
 
+export type OnlineCrateSpawnedResponse = {
+  type: "CRATE_SPAWNED";
+  payload: {
+    crateId: string;
+    crateType: "hp" | "fuel" | "ammo";
+    dropX: number;
+    targetY: number;
+    value?: number;
+  };
+};
+
+export type OnlineTurnStartedResponse = {
+  type: "TURN_STARTED";
+  payload: {
+    previousPlayerId: PlayerId;
+    activePlayerId: PlayerId;
+    turnNumber: number;
+    phase: "AIMING";
+    turnEndsAtServerTick: ServerTick;
+    wind: number;
+  };
+};
+
+export type OnlineBaseProjectileImpact = {
+  projectileDefinitionId: string;
+  projectileRenderAssetId: string;
+  impactRenderAssetId: string;
+  launch: OnlineVec2;
+  trajectory: OnlineVec2[];
+  impact: OnlineVec2;
+  damagedTanks: OnlineTankDamageResponse[];
+};
+
+export type OnlineSubMunitionTrajectory = OnlineBaseProjectileImpact;
+
+export type OnlineProjectileResolvedResponse = {
+  type: "PROJECTILE_RESOLVED";
+  payload: OnlineBaseProjectileImpact & {
+    intentId: IntentId;
+    projectileEntityId: EntityId;
+    ownerPlayerId: PlayerId;
+    subMunitions: OnlineSubMunitionTrajectory[];
+    craterEvents: OnlineCraterEvent[];
+    damageTrailEvents: OnlineDamageTrailEvent[];
+  };
+};
+
+export type OnlineCraterEvent = {
+  position: OnlineVec2;
+  radius: number;
+};
+
+export type OnlineDamageTrailEvent = {
+  id: string;
+  position: OnlineVec2;
+  radius: number;
+  durationSeconds: number;
+  damagePerSecond: number;
+  ownerPlayerId: PlayerId;
+};
+
 export type OnlineVec2 = {
   x: number;
   y: number;
@@ -216,6 +283,17 @@ export type OnlineTankDamageResponse = {
   remainingHealth: number;
 };
 
+export type OnlineLootCrateSnapshot = {
+  crateId: string;
+  crateType: "hp" | "fuel" | "ammo";
+  x: number;
+  y: number;
+  targetY: number;
+  isLanding: boolean;
+  collected: boolean;
+  value?: number;
+};
+
 export type OnlineGameStateSnapshotResponse = {
   gameContentVersion: string;
   gameContent: GameContentResponseDto;
@@ -226,10 +304,13 @@ export type OnlineGameStateSnapshotResponse = {
     turnNumber: number;
     turnTimeRemainingTicks: number;
     winnerPlayerId: PlayerId | null;
+    wind?: number;
+    matchTimeRemainingTicks?: number;
   };
   terrain: OnlineTerrainSnapshotResponse;
   tanks: OnlineTankSnapshotResponse[];
   projectiles: OnlineProjectileSnapshotResponse[];
+  lootCrates?: OnlineLootCrateSnapshot[];
 };
 
 export type OnlineTerrainSnapshotResponse = {
@@ -250,7 +331,6 @@ export type GameContentResponseDto = {
   world: {
     width: number;
     height: number;
-    bedrockDepth: number;
     tickRateHz: number;
     gravity: number;
     projectileTimeStepSeconds: number;
@@ -342,7 +422,6 @@ const exampleState: OnlineGameStateSnapshotResponse = {
     world: {
       width: 4,
       height: 3,
-      bedrockDepth: 1,
       tickRateHz: 30,
       gravity: 500,
       projectileTimeStepSeconds: 1 / 30,

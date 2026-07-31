@@ -164,7 +164,8 @@ public class GameSessionService {
     public boolean sendResyncStateToPlayer(UUID gameSessionId, String username,
             OnlineDiffResponsePayloads.ResyncReason reason) {
         GameSession gameSession = findById(gameSessionId);
-        if (!GameSessionState.STARTED.equals(gameSession.getState())
+        if (!GameSessionState.CREATED.equals(gameSession.getState())
+                && !GameSessionState.STARTED.equals(gameSession.getState())
                 && !GameSessionState.ENDED.equals(gameSession.getState())) {
             return false;
         }
@@ -467,25 +468,27 @@ public class GameSessionService {
         gameSession.setNextDiffSequence(sequence + 1);
         gameSession.setLastDiffServerTick(gameSession.getServerTick());
 
-        OnlineDiffResponseDto<OnlineDiffResponsePayloads.IntentRejection> diff = new OnlineDiffResponseDto<>(
-                OnlineGameplayProtocolVersion.V1,
-                gameSession.getId().toString(),
-                sequence,
-                gameSession.getServerTick(),
-                OnlineStateDiffResponseType.INTENT_REJECTION,
-                intent.intentId(),
-                new OnlineDiffResponsePayloads.IntentRejection(
-                        intent.intentId(),
-                        intent.playerId(),
-                        reason,
-                        gameSession.getNextDiffSequence(),
-                        gameSession.getServerTick()));
+        OnlineDiffResponseDto<OnlineDiffResponsePayloads.IntentRejection> dto = OnlineDiffResponseDto.<OnlineDiffResponsePayloads.IntentRejection>builder()
+                .protocolVersion(OnlineGameplayProtocolVersion.V1)
+                .gameSessionId(gameSession.getId().toString())
+                .sequence(sequence)
+                .serverTick(gameSession.getServerTick())
+                .type(OnlineStateDiffResponseType.INTENT_REJECTION)
+                .intentId(intent.intentId())
+                .payload(OnlineDiffResponsePayloads.IntentRejection.builder()
+                        .rejectedIntentId(intent.intentId())
+                        .playerId(intent.playerId())
+                        .reason(reason)
+                        .authoritativeSequence(gameSession.getNextDiffSequence())
+                        .authoritativeServerTick(gameSession.getServerTick())
+                        .build())
+                .build();
 
         eventPublisher.publishEvent(new OnlineGameplayEvent(
                 this,
                 null,
                 "/topic/game/" + gameSession.getId(),
-                diff));
+                dto));
     }
 
     private OnlineDiffResponsePayloads.IntentRejectionReason movementRejectionReason(
@@ -577,10 +580,11 @@ public class GameSessionService {
                     OnlineStateDiffResponseType.TERMINAL_GAME,
                     intent.intentId(),
                     gameSession.getServerTick(),
-                    new OnlineDiffResponsePayloads.TerminalGame(
-                            firingPlayerId,
-                            OnlineDiffResponsePayloads.TerminalGameReason.LAST_TANK_STANDING,
-                            initialStateFactory.createStateSnapshot(gameSession)));
+                    OnlineDiffResponsePayloads.TerminalGame.builder()
+                            .winnerPlayerId(firingPlayerId)
+                            .reason(OnlineDiffResponsePayloads.TerminalGameReason.LAST_TANK_STANDING)
+                            .finalState(initialStateFactory.createStateSnapshot(gameSession))
+                            .build());
         }
     }
 
@@ -638,13 +642,14 @@ public class GameSessionService {
                 OnlineStateDiffResponseType.TURN_TRANSITION,
                 intentId,
                 gameSession.getServerTick(),
-                new OnlineDiffResponsePayloads.TurnTransition(
-                        previousPlayerId,
-                        activePlayerId,
-                        gameSession.getWorld().match().turnNumber(),
-                        OnlineDiffResponsePayloads.TurnPhase.AIMING,
-                        gameSession.getWorld().match().turnEndsAtServerTick(),
-                        gameSession.getMatchEndsAtServerTick()));
+                OnlineDiffResponsePayloads.TurnTransition.builder()
+                        .previousPlayerId(previousPlayerId)
+                        .activePlayerId(activePlayerId)
+                        .turnNumber(gameSession.getWorld().match().turnNumber())
+                        .phase(OnlineDiffResponsePayloads.TurnPhase.AIMING)
+                        .turnEndsAtServerTick(gameSession.getWorld().match().turnEndsAtServerTick())
+                        .matchEndsAtServerTick(gameSession.getMatchEndsAtServerTick())
+                        .build());
         log.debug("Turn advanced after shot: {} -> {}", previousPlayerId, activePlayerId);
     }
 
@@ -655,10 +660,11 @@ public class GameSessionService {
                 OnlineStateDiffResponseType.TERMINAL_GAME,
                 null,
                 gameSession.getServerTick(),
-                new OnlineDiffResponsePayloads.TerminalGame(
-                        winnerPlayerId,
-                        OnlineDiffResponsePayloads.TerminalGameReason.MATCH_TIME_EXPIRED,
-                        initialStateFactory.createStateSnapshot(gameSession)));
+                OnlineDiffResponsePayloads.TerminalGame.builder()
+                        .winnerPlayerId(winnerPlayerId)
+                        .reason(OnlineDiffResponsePayloads.TerminalGameReason.MATCH_TIME_EXPIRED)
+                        .finalState(initialStateFactory.createStateSnapshot(gameSession))
+                        .build());
     }
 
     private long projectileEntityId(GameSession gameSession) {

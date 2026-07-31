@@ -1,7 +1,9 @@
 package com.tanks.server.websocket.dto.gameplay;
 
 import java.util.List;
+import lombok.Builder;
 
+@Builder
 public record OnlineTankSnapshotResponseDto(
                 long entityId,
                 long playerId,

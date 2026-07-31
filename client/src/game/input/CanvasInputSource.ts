@@ -2,6 +2,8 @@ import type { GameAction, GameState } from "../types";
 import {
   calculateAimIntent,
   findProjectileSlotAtCanvasPoint,
+  isFireButtonClickedAtCanvasPoint,
+  isRelockCameraButtonClickedAtCanvasPoint,
 } from "./inputHelpers";
 import type { DomCanvasRect, GameViewport } from "../world/worldSizing";
 import { domPointToGameViewportPoint } from "../world/worldSizing";
@@ -10,6 +12,9 @@ export type CanvasInteractionState = {
   pressedKeys: ReadonlySet<string>;
   pendingPointerDown: { clientX: number; clientY: number } | null;
   pendingSlotNumber: number | null;
+  pendingSpaceKey: boolean;
+  pendingPanDelta: number;
+  isPointerDown: boolean;
   pointer: { clientX: number; clientY: number };
 };
 
@@ -25,7 +30,7 @@ export type CanvasInputLayout = {
   domCanvasRect: DomCanvasRect;
 };
 
-export type IntentProducer = (input: {
+export type IntentProducer = (context: {
   state: CanvasInteractionState;
   context: CanvasInteractionContext;
 }) => GameAction[];
@@ -67,6 +72,29 @@ const keyboardProjectileSlotIntentProducer: IntentProducer = ({
     : [];
 };
 
+const spacebarFireIntentProducer: IntentProducer = ({
+  state,
+  context,
+}) => {
+  if (!state.pendingSpaceKey) return [];
+
+  const activeTank = getActiveTank(context.gameState);
+  if (!activeTank) return [];
+
+  const projectileSlotId =
+    activeTank.selectedProjectileSlotId ?? activeTank.loadout[0]?.id;
+  if (!projectileSlotId) return [];
+
+  return [
+    {
+      type: "fire",
+      angle: activeTank.aimAngle,
+      power: activeTank.power,
+      projectileSlotId,
+    },
+  ];
+};
+
 const pointerIntentProducer: IntentProducer = ({ state, context }) => {
   const intents: GameAction[] = [];
   const activeTank = getActiveTank(context.gameState);
@@ -82,34 +110,21 @@ const pointerIntentProducer: IntentProducer = ({ state, context }) => {
       })
     : null;
 
-  if (pointerPoint) {
-    const selectedSlotId = findProjectileSlotAtCanvasPoint(
-      context.gameState,
-      context.gameViewport.width,
-      context.gameViewport.height,
-      pointerPoint.x,
-      pointerPoint.y,
+  const isDraggingToAim = state.isPointerDown && !state.pressedKeys.has("Shift");
+  if (isDraggingToAim) {
+    const aim = calculateAimIntent({
+      ...state.pointer,
+      domCanvasRect: context.domCanvasRect,
+      gameViewport: context.gameViewport,
+      cameraX: context.cameraX,
+      gameState: context.gameState,
       activeTank,
-    );
-    if (selectedSlotId) {
-      intents.push({
-        type: "selectProjectileSlot",
-        projectileSlotId: selectedSlotId,
-      });
+    });
+
+    if (aim) {
+      intents.push(aim);
     }
   }
-
-  const aim = calculateAimIntent({
-    ...state.pointer,
-    domCanvasRect: context.domCanvasRect,
-    gameViewport: context.gameViewport,
-    cameraX: context.cameraX,
-    gameState: context.gameState,
-    activeTank,
-  });
-
-  if (!aim) return intents;
-  intents.push(aim);
 
   if (pointerPoint) {
     const clickedSlotId = findProjectileSlotAtCanvasPoint(
@@ -120,25 +135,60 @@ const pointerIntentProducer: IntentProducer = ({ state, context }) => {
       pointerPoint.y,
       activeTank,
     );
-    const projectileSlotId =
-      activeTank.selectedProjectileSlotId ?? activeTank.loadout[0]?.id;
-    if (projectileSlotId && !clickedSlotId) {
+
+    if (clickedSlotId) {
       intents.push({
-        type: "fire",
-        angle: aim.angle,
-        power: aim.power,
-        projectileSlotId,
+        type: "selectProjectileSlot",
+        projectileSlotId: clickedSlotId,
       });
+    } else if (
+      isRelockCameraButtonClickedAtCanvasPoint(
+        context.gameState,
+        context.gameViewport.width,
+        context.gameViewport.height,
+        pointerPoint.x,
+        pointerPoint.y,
+      )
+    ) {
+      intents.push({ type: "relockCamera" });
+    } else if (
+      isFireButtonClickedAtCanvasPoint(
+        context.gameState,
+        context.gameViewport.width,
+        context.gameViewport.height,
+        pointerPoint.x,
+        pointerPoint.y,
+        activeTank,
+      )
+    ) {
+      const projectileSlotId =
+        activeTank.selectedProjectileSlotId ?? activeTank.loadout[0]?.id;
+      if (projectileSlotId) {
+        intents.push({
+          type: "fire",
+          angle: activeTank.aimAngle,
+          power: activeTank.power,
+          projectileSlotId,
+        });
+      }
     }
   }
 
   return intents;
 };
 
+const cameraPanIntentProducer: IntentProducer = ({ state }) => {
+  return state.pendingPanDelta && state.pendingPanDelta !== 0
+    ? [{ type: "panCamera", deltaX: state.pendingPanDelta }]
+    : [];
+};
+
 const defaultIntentProducers: IntentProducer[] = [
   movementIntentProducer,
   keyboardProjectileSlotIntentProducer,
+  spacebarFireIntentProducer,
   pointerIntentProducer,
+  cameraPanIntentProducer,
 ];
 
 function getActiveTank(
@@ -156,6 +206,11 @@ export class CanvasInputSource {
   private pendingPointerDown: { clientX: number; clientY: number } | null =
     null;
   private pendingSlotNumber: number | null = null;
+  private pendingSpaceKey = false;
+  private pendingPanDelta = 0;
+  private isPointerDown = false;
+  private lastPointerX = 0;
+  private lastTouchX = 0;
   private pointer = { clientX: 0, clientY: 0 };
   private active = true;
   private layout: CanvasInputLayout;
@@ -165,13 +220,22 @@ export class CanvasInputSource {
     if (/^[1-5]$/.test(event.key)) {
       this.pendingSlotNumber = Number(event.key);
     }
+    if (event.key === " " || event.code === "Space") {
+      event.preventDefault();
+      this.pendingSpaceKey = true;
+    }
   };
 
   private readonly onKeyUp = (event: KeyboardEvent) => {
     this.pressedKeys.delete(event.key);
   };
 
-  private readonly onPointerMove = (event: PointerEvent) => {
+  private readonly onPointerMove = (event: MouseEvent | PointerEvent) => {
+    if (this.isPointerDown && event.shiftKey) {
+      const dx = event.clientX - this.lastPointerX;
+      this.pendingPanDelta -= dx;
+    }
+    this.lastPointerX = event.clientX;
     this.pointer = {
       clientX: event.clientX,
       clientY: event.clientY,
@@ -179,10 +243,50 @@ export class CanvasInputSource {
   };
 
   private readonly onPointerDown = (event: PointerEvent) => {
+    this.isPointerDown = true;
+    this.lastPointerX = event.clientX;
+    this.pointer = {
+      clientX: event.clientX,
+      clientY: event.clientY,
+    };
     this.pendingPointerDown = {
       clientX: event.clientX,
       clientY: event.clientY,
     };
+  };
+
+  private readonly onPointerUp = () => {
+    this.isPointerDown = false;
+  };
+
+  private readonly onWheel = (event: WheelEvent) => {
+    event.preventDefault();
+    if (event.shiftKey || Math.abs(event.deltaX) > 0 || Math.abs(event.deltaY) > 0) {
+      this.pendingPanDelta += event.deltaX || event.deltaY;
+    }
+  };
+
+  private readonly onTouchStart = (event: TouchEvent) => {
+    if (event.touches.length >= 2) {
+      event.preventDefault();
+      this.lastTouchX = (event.touches[0].clientX + event.touches[1].clientX) / 2;
+    }
+  };
+
+  private readonly onTouchMove = (event: TouchEvent) => {
+    if (event.touches.length >= 2) {
+      event.preventDefault();
+      const currentX = (event.touches[0].clientX + event.touches[1].clientX) / 2;
+      if (this.lastTouchX !== 0) {
+        const dx = currentX - this.lastTouchX;
+        this.pendingPanDelta -= dx;
+      }
+      this.lastTouchX = currentX;
+    }
+  };
+
+  private readonly onTouchEnd = () => {
+    this.lastTouchX = 0;
   };
 
   constructor(
@@ -200,8 +304,14 @@ export class CanvasInputSource {
     this.layout = initialLayout;
     window.addEventListener("keydown", this.onKeyDown);
     window.addEventListener("keyup", this.onKeyUp);
-    canvas.addEventListener("pointermove", this.onPointerMove);
+    window.addEventListener("pointermove", this.onPointerMove);
+    window.addEventListener("mousemove", this.onPointerMove);
+    window.addEventListener("pointerup", this.onPointerUp);
     canvas.addEventListener("pointerdown", this.onPointerDown);
+    canvas.addEventListener("wheel", this.onWheel, { passive: false });
+    canvas.addEventListener("touchstart", this.onTouchStart, { passive: false });
+    canvas.addEventListener("touchmove", this.onTouchMove, { passive: false });
+    canvas.addEventListener("touchend", this.onTouchEnd);
   }
 
   poll(cameraX: number, gameState: GameState): GameAction[] {
@@ -213,6 +323,9 @@ export class CanvasInputSource {
         pointer: this.pointer,
         pendingPointerDown: this.pendingPointerDown,
         pendingSlotNumber: this.pendingSlotNumber,
+        pendingSpaceKey: this.pendingSpaceKey,
+        pendingPanDelta: this.pendingPanDelta,
+        isPointerDown: this.isPointerDown,
       },
       context: {
         gameState,
@@ -224,6 +337,8 @@ export class CanvasInputSource {
 
     this.pendingPointerDown = null;
     this.pendingSlotNumber = null;
+    this.pendingSpaceKey = false;
+    this.pendingPanDelta = 0;
 
     return actions;
   }
@@ -239,7 +354,13 @@ export class CanvasInputSource {
   destroy(): void {
     window.removeEventListener("keydown", this.onKeyDown);
     window.removeEventListener("keyup", this.onKeyUp);
-    this.canvas.removeEventListener("pointermove", this.onPointerMove);
+    window.removeEventListener("pointermove", this.onPointerMove);
+    window.removeEventListener("mousemove", this.onPointerMove);
+    window.removeEventListener("pointerup", this.onPointerUp);
     this.canvas.removeEventListener("pointerdown", this.onPointerDown);
+    this.canvas.removeEventListener("wheel", this.onWheel);
+    this.canvas.removeEventListener("touchstart", this.onTouchStart);
+    this.canvas.removeEventListener("touchmove", this.onTouchMove);
+    this.canvas.removeEventListener("touchend", this.onTouchEnd);
   }
 }

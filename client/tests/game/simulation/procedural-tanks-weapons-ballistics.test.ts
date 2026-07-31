@@ -125,6 +125,38 @@ function makeSimulation(tankId = "heavy-armor") {
   const state = sim.getState();
   assert.equal(state.match.phase, "ballistics", "Damage trail should hold turn phase in ballistics");
   assert.equal(sim.submitPlayerAction(0, { type: "move", direction: 1 }), false, "Movement must be locked during damage trail hazard");
+
+  // Advance simulation past damage trail duration (5 seconds = ~160 ticks)
+  for (let i = 0; i < 180; i++) {
+    sim.update(1 / 30);
+  }
+  const stateAfter = sim.getState();
+  assert.notEqual(stateAfter.match.phase, "ballistics", "Game phase must transition out of ballistics after damage trail expires");
+}
+
+// 5. Supply Crate Ammo Stacking Above 1
+{
+  const sim = makeSimulation("heavy-armor");
+  const p1Tank = sim.getState().tanks[0]?.tank;
+  assert.ok(p1Tank);
+  const uniqueSlot = p1Tank.loadout.find((s) => s.id !== "standard");
+  assert.ok(uniqueSlot);
+  assert.equal(p1Tank.weaponAmmo[uniqueSlot.id], 1, "Starts at ammo 1");
+
+  sim.addTankAmmo(0, uniqueSlot.id, 2);
+  const updatedP1 = sim.getState().tanks[0]?.tank;
+  assert.equal(updatedP1?.weaponAmmo[uniqueSlot.id], 3, "Ammo should stack to 3 after crate pickups");
+}
+
+// 6. Vanguard Cyber Cluster Weapon Pattern
+{
+  const sim = makeSimulation("vanguard-cyber");
+  const p1Tank = sim.getState().tanks[0]?.tank;
+  assert.ok(p1Tank);
+  const clusterSlot = p1Tank.loadout.find((s) => s.id === "cluster");
+  assert.ok(clusterSlot, "Vanguard Cyber must have cluster weapon slot");
+  const def = localGameContent.projectiles[clusterSlot.projectileDefinitionId];
+  assert.equal(def?.pattern?.kind, "cluster", "Vanguard Cyber cluster weapon must have cluster pattern");
 }
 
 console.log("All procedural tanks & weapons tests passed!");

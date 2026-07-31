@@ -1,15 +1,23 @@
 package com.tanks.server.websocket.gameplay.world;
 
 import com.tanks.server.websocket.dto.gameplay.OnlineVec2Dto;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.NoArgsConstructor;
 
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
 public class TankState {
-    private final long entityId;
-    private final long playerId;
-    private final String displayName;
-    private final String definitionId;
+    private long entityId;
+    private long playerId;
+    private String displayName;
+    private String definitionId;
     private OnlineVec2Dto position;
     private int facing;
+    @Builder.Default
     private double aimAngle = 45;
+    @Builder.Default
     private double power = .5;
     private String selectedProjectileSlotId;
     private int health;

@@ -2,10 +2,11 @@ import type {
   OnlineGameStateSnapshotResponse,
   OnlineTerrainSnapshotResponse,
 } from "../../api/ws/dto/gameplay/onlineGameplayProtocol";
-import { localGameContent, type GameContent } from "../content/localGameContent";
+import { localGameContent, createInitialWeaponAmmo, type GameContent } from "../content/localGameContent";
 import type {
   GameState,
   ImpactEvent,
+  LootCrate,
   TerrainSnapshot,
   TurnPhase,
   VisualIdentity,
@@ -19,6 +20,7 @@ const DEFAULT_TANK_BODY_ANGLE = 0;
 const DEFAULT_PROJECTILE_POWER = 0;
 const DEFAULT_PROJECTILE_RADIUS = 4;
 const DEFAULT_IMPACT_DURATION_SECONDS = 0.4;
+const DEFAULT_MATCH_TIME_SECONDS = 180;
 
 const fallbackVisual: VisualIdentity = {
   fill: "#94a3b8",
@@ -35,8 +37,8 @@ export function toGameState(
 ): GameState {
   return onlineSnapshotToGameState(
     renderState,
-    content,
     confirmed.localPlayerId,
+    content,
     confirmed.impactEvents,
     monotonicNowMs,
   );
@@ -44,8 +46,8 @@ export function toGameState(
 
 export function onlineSnapshotToGameState(
   snapshot: OnlineGameStateSnapshotResponse,
-  content: GameContent = localGameContent,
   localPlayerId: number | null = null,
+  content: GameContent = localGameContent,
   impactEvents: OnlineImpactProjectionEvent[] = [],
   monotonicNowMs: number = performance.now(),
 ): GameState {
@@ -58,16 +60,17 @@ export function onlineSnapshotToGameState(
       turnNumber: snapshot.match.turnNumber,
       turnTimeRemaining:
         snapshot.match.turnTimeRemainingTicks / content.world.tickRateHz,
+      matchTimeRemaining: snapshot.match.matchTimeRemainingTicks != null
+        ? snapshot.match.matchTimeRemainingTicks / content.world.tickRateHz
+        : DEFAULT_MATCH_TIME_SECONDS,
+      wind: snapshot.match.wind ?? 0,
       winnerPlayerId: snapshot.match.winnerPlayerId,
     },
     terrain: mapOnlineTerrain(snapshot.terrain),
     projectileDefinitions: content.projectiles,
     tanks: snapshot.tanks.map((tank) => {
       const tankDefinition = content.tanks[tank.tankDefinitionId];
-      const weaponAmmo: Record<string, number> = {};
-      for (const slot of tank.loadout) {
-        weaponAmmo[slot.id] = (slot as any).ammo ?? (slot.projectileDefinitionId === "basicShell" || slot.id === "standard" ? -1 : 1);
-      }
+      const weaponAmmo = createInitialWeaponAmmo(tank.loadout);
       return {
         entityId: tank.entityId,
         playerId: tank.playerId,
@@ -129,6 +132,7 @@ export function onlineSnapshotToGameState(
       };
     }),
     impactEvents: mapOnlineImpactEvents(impactEvents, content, monotonicNowMs),
+    lootCrates: mapOnlineLootCrates(snapshot),
   };
 }
 
@@ -184,3 +188,23 @@ function namedFallbackVisual(displayName: string): VisualIdentity {
     label: displayName.slice(0, 1).toUpperCase(),
   };
 }
+
+function mapOnlineLootCrates(
+  snapshot: OnlineGameStateSnapshotResponse,
+): LootCrate[] | undefined {
+  if (!snapshot.lootCrates || snapshot.lootCrates.length === 0) {
+    return undefined;
+  }
+
+  return snapshot.lootCrates.map((crate) => ({
+    id: crate.crateId,
+    type: crate.crateType,
+    x: crate.x,
+    y: crate.y,
+    groundY: crate.targetY,
+    falling: crate.isLanding,
+    collected: crate.collected,
+    value: crate.value ?? 0,
+  }));
+}
+

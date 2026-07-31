@@ -13,7 +13,7 @@ const initial = {
     gameContentVersion: "game-content.v1",
     gameContent: {
       version: "game-content.v1",
-      world: { width: 100, height: 60, bedrockDepth: 5, tickRateHz: 30, gravity: 500,
+      world: { width: 100, height: 60, tickRateHz: 30, gravity: 500,
         projectileTimeStepSeconds: 1 / 30, maxProjectileSteps: 180, movementSegmentDurationTicks: 6,
         playerASpawnRegion: { minX: 10, maxX: 30 }, playerBSpawnRegion: { minX: 70, maxX: 90 } },
       tanks: { vanguard: { id: "vanguard", name: "Vanguard", renderAssetId: "tank.vanguard",

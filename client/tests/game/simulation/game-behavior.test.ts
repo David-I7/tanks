@@ -109,7 +109,7 @@ async function expectSharedSimulationManagerSelection(
   const simulation = makeSimulation();
   const state = simulation.getState();
   assert.equal(state.tanks.length, 2);
-  assert.equal(state.tanks[0]?.tank.tankDefinitionId, "vanguard");
+  assert.equal(state.tanks[0]?.tank.tankDefinitionId, "vanguard-cyber");
   assert.equal(state.tanks[1]?.tank.tankDefinitionId, "specter");
   assert.equal(state.tanks[0]?.tank.loadout.length, 5);
   assert.equal(state.tanks[0]?.tank.selectedProjectileSlotId, "standard");
@@ -382,6 +382,8 @@ async function expectSharedSimulationManagerSelection(
       pointer: { clientX: 480, clientY: 280 },
       pendingPointerDown: null,
       pendingSlotNumber: 2,
+      pendingPanDelta: 0,
+      isPointerDown: true,
     },
     context: canvasInteractionContext(toGameState(state, localGameContent.projectiles)),
   });
@@ -422,6 +424,8 @@ async function expectSharedSimulationManagerSelection(
       },
       pendingPointerDown: null,
       pendingSlotNumber: 2,
+      pendingPanDelta: 0,
+      isPointerDown: true,
     },
     context: canvasInteractionContext(gameState),
   });
@@ -432,7 +436,7 @@ async function expectSharedSimulationManagerSelection(
   });
   assert.equal(intents[1]?.type, "aim");
   assert.ok(
-    intents[1]?.type === "aim" && Math.abs(intents[1].angle - (-0.2764)) < 0.001,
+    intents[1]?.type === "aim" && Math.abs(intents[1].angle - 0) < 0.001,
   );
 }
 

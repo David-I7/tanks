@@ -82,7 +82,6 @@
                                                                         "world":  {
                                                                                       "width":  4,
                                                                                       "height":  3,
-                                                                                      "bedrockDepth":  1,
                                                                                       "tickRateHz":  30,
                                                                                       "gravity":  500,
                                                                                       "projectileTimeStepSeconds":  0.033333333333333333,
@@ -176,7 +175,6 @@
                                                                         "world":  {
                                                                                       "width":  4,
                                                                                       "height":  3,
-                                                                                      "bedrockDepth":  1,
                                                                                       "tickRateHz":  30,
                                                                                       "gravity":  500,
                                                                                       "projectileTimeStepSeconds":  0.033333333333333333,
@@ -400,7 +398,6 @@
                                                                              "world":  {
                                                                                            "width":  4,
                                                                                            "height":  3,
-                                                                                           "bedrockDepth":  1,
                                                                                            "tickRateHz":  30,
                                                                                            "gravity":  500,
                                                                                            "projectileTimeStepSeconds":  0.033333333333333333,

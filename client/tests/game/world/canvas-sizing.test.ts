@@ -112,7 +112,6 @@ function fakeCanvas(ctx: CanvasRenderingContext2D): HTMLCanvasElement {
   const canvas = fakeCanvas(ctx);
   const renderer = new CanvasGameRenderer(
     canvas,
-    {},
     { width: 500, height: 250 },
     { width: 1000, height: 500 },
   );

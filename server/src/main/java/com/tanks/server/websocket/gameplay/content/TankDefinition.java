@@ -1,6 +1,9 @@
 package com.tanks.server.websocket.gameplay.content;
 
 import java.util.List;
+import lombok.Builder;
+
+@Builder
 
 public record TankDefinition(
         String id,

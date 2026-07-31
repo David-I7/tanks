@@ -3,7 +3,7 @@ import type { GameContentResponseDto } from "../../src/api/ws/dto/gameplay/onlin
 export const onlineGameContentResponseFixture: GameContentResponseDto = {
   version: "game-content.v1",
   world: {
-    width: 960, height: 560, bedrockDepth: 40, tickRateHz: 30, gravity: 500,
+    width: 960, height: 560, tickRateHz: 30, gravity: 500,
     projectileTimeStepSeconds: 1 / 30, maxProjectileSteps: 180, movementSegmentDurationTicks: 6,
     playerASpawnRegion: { minX: 96, maxX: 320 }, playerBSpawnRegion: { minX: 640, maxX: 864 },
   },

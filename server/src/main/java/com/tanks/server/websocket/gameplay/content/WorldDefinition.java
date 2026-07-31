@@ -1,5 +1,9 @@
 package com.tanks.server.websocket.gameplay.content;
 
+import lombok.Builder;
+
+@Builder
+
 public record WorldDefinition(
         int width,
         int height,

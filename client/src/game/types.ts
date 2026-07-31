@@ -13,7 +13,9 @@ export type GameAction =
       angle: number;
       power: number;
       projectileSlotId: string;
-    };
+    }
+  | { type: "panCamera"; deltaX: number }
+  | { type: "relockCamera" };
 
 export type RemoteGameAction = {
   playerId: number;
@@ -193,6 +195,64 @@ export type LifetimeComponent = {
   active: boolean;
 };
 
+export type LootCrateType = "hp" | "fuel" | "ammo";
+
+export type LootCrate = {
+  id: string;
+  type: LootCrateType;
+  x: number;
+  y: number;
+  groundY: number;
+  falling: boolean;
+  collected: boolean;
+  value: number;
+};
+
+export type Particle = {
+  id: string;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  color: string;
+  size: number;
+  life: number;
+  maxLife: number;
+};
+
+export type FloatingText = {
+  id: string;
+  text: string;
+  color: string;
+  x: number;
+  y: number;
+  vy: number;
+  life: number;
+  maxLife: number;
+};
+
+export type MapBiome = "forest" | "desert" | "ice";
+
+export type DecorType = "tree" | "rock" | "bunker" | "grass";
+
+export type DecorObject = {
+  id: string;
+  type: DecorType;
+  x: number;
+  y: number;
+  scale: number;
+  rotation: number;
+  destroyed: boolean;
+};
+
+export type Cloud = {
+  x: number;
+  y: number;
+  speed: number;
+  scale: number;
+  opacity: number;
+};
+
 export type MatchState = {
   mode: GameMode;
   phase: TurnPhase;
@@ -200,7 +260,12 @@ export type MatchState = {
   playerCount: number;
   turnNumber: number;
   turnTimeRemaining: number;
+  matchTimeRemaining: number;
+  wind: number;
   winnerPlayerId: number | null;
+  biome?: MapBiome;
+  isCameraLocked?: boolean;
+  cameraX?: number;
 };
 
 export type HeightmapTerrainSnapshot = {
@@ -236,6 +301,11 @@ export type LocalSimulationState = DeepReadonly<{
   }>;
   impactEvents: ImpactEvent[];
   damageTrails?: DamageTrail[];
+  lootCrates?: LootCrate[];
+  particles?: Particle[];
+  floatingTexts?: FloatingText[];
+  decors?: DecorObject[];
+  clouds?: Cloud[];
 }>;
 
 export type GameState = DeepReadonly<{
@@ -257,6 +327,11 @@ export type GameState = DeepReadonly<{
   >;
   impactEvents: ImpactEvent[];
   damageTrails?: DamageTrail[];
+  lootCrates?: LootCrate[];
+  particles?: Particle[];
+  floatingTexts?: FloatingText[];
+  decors?: DecorObject[];
+  clouds?: Cloud[];
 }>;
 
 export type GameAssets = {

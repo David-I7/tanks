@@ -61,9 +61,21 @@ public class DefaultGameSimulation implements GameSimulation {
         state.position(to);
         state.fuel(fuelRemaining);
         long duration = content.world().movementSegmentDurationTicks();
-        return Optional.of(new OnlineDiffResponsePayloads.MovementSegment(intentId, playerId, state.entityId(),
-                from, to, List.copyOf(path), fuelBefore, fuelRemaining, fuelBefore - fuelRemaining,
-                completedColumns < tank.movementQuantum(), startedServerTick, startedServerTick + duration, duration));
+        return Optional.of(OnlineDiffResponsePayloads.MovementSegment.builder()
+                .intentId(intentId)
+                .playerId(playerId)
+                .tankEntityId(state.entityId())
+                .from(from)
+                .to(to)
+                .movementPath(List.copyOf(path))
+                .fuelBefore(fuelBefore)
+                .fuelAfter(fuelRemaining)
+                .fuelSpent(fuelBefore - fuelRemaining)
+                .partial(completedColumns < tank.movementQuantum())
+                .startedServerTick(startedServerTick)
+                .endedServerTick(startedServerTick + duration)
+                .durationTicks(duration)
+                .build());
     }
 
     @Override
@@ -78,9 +90,21 @@ public class DefaultGameSimulation implements GameSimulation {
                 OnlineVec2Dto to = new OnlineVec2Dto(from.x(), supportedY);
                 state.position(to);
                 long duration = content.world().movementSegmentDurationTicks();
-                segments.add(new OnlineDiffResponsePayloads.MovementSegment(null, state.playerId(), state.entityId(),
-                        from, to, List.of(from, to), state.fuel(), state.fuel(), 0, false,
-                        startedServerTick, startedServerTick + duration, duration));
+                segments.add(OnlineDiffResponsePayloads.MovementSegment.builder()
+                        .intentId(null)
+                        .playerId(state.playerId())
+                        .tankEntityId(state.entityId())
+                        .from(from)
+                        .to(to)
+                        .movementPath(List.of(from, to))
+                        .fuelBefore(state.fuel())
+                        .fuelAfter(state.fuel())
+                        .fuelSpent(0)
+                        .partial(false)
+                        .startedServerTick(startedServerTick)
+                        .endedServerTick(startedServerTick + duration)
+                        .durationTicks(duration)
+                        .build());
             }
         }
         return List.copyOf(segments);
@@ -184,17 +208,18 @@ public class DefaultGameSimulation implements GameSimulation {
                     healthAfter));
         }
 
-        return new ProjectileResolution(
-                intentId,
-                projectileEntityId,
-                playerId,
-                projectileDef.id(),
-                projectileDef.renderAssetId(),
-                projectileDef.impactRenderAssetId(),
-                launch,
-                List.copyOf(trajectory),
-                impact,
-                List.copyOf(damagedTanks));
+        return ProjectileResolution.builder()
+                .intentId(intentId)
+                .projectileEntityId(projectileEntityId)
+                .ownerPlayerId(playerId)
+                .projectileDefinitionId(projectileDef.id())
+                .projectileRenderAssetId(projectileDef.renderAssetId())
+                .impactRenderAssetId(projectileDef.impactRenderAssetId())
+                .launch(launch)
+                .trajectory(List.copyOf(trajectory))
+                .impact(impact)
+                .damagedTanks(List.copyOf(damagedTanks))
+                .build();
     }
 
     @Override

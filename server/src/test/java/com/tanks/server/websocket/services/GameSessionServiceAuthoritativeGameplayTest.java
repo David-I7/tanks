@@ -67,7 +67,7 @@ class GameSessionServiceAuthoritativeGameplayTest {
         boolean accepted = harness.service.acceptPlayerIntent("host", session.getId(),
                 new OnlinePlayerIntentRequestDto<>(OnlineGameplayProtocolVersion.V1, session.getId().toString(), 1,
                         "fire", 1, 0, OnlinePlayerIntentRequestType.FIRE,
-                        new OnlinePlayerIntentRequestPayloads.Fire(45, .5, "standard")));
+                        new OnlinePlayerIntentRequestPayloads.Fire(45, .5, "basicShell")));
         assertThat(accepted).isTrue();
         assertThat(session.getTerrainModel().surface()).isNotEqualTo(before);
         assertThat(harness.diffs()).extracting(OnlineDiffResponseDto::type)
@@ -81,8 +81,9 @@ class GameSessionServiceAuthoritativeGameplayTest {
         assertThat(recovered.state()).isEqualTo(expectedSnapshot);
         assertThat(((OnlineTerrainSnapshotResponseDto.Heightmap) recovered.state().terrain()).surface())
                 .isEqualTo(session.getTerrainModel().surface());
-        assertThat(recovered.state().tanks()).extracting(OnlineTankSnapshotResponseDto::position)
-                .containsExactlyElementsOf(session.getWorld().tanks().values().stream().map(tank -> tank.position()).toList());
+        var actualPositions = recovered.state().tanks().stream().map(OnlineTankSnapshotResponseDto::position).toList();
+        var expectedPositions = session.getWorld().tanks().values().stream().map(tank -> tank.position()).toList();
+        assertThat(actualPositions).containsExactlyElementsOf(expectedPositions);
     }
 
     @Test
@@ -180,6 +181,30 @@ class GameSessionServiceAuthoritativeGameplayTest {
         assertThat(session.getPendingIntents()).isEmpty();
         assertThat(harness.diffs()).hasSize(1);
         assertThat(harness.diffs().getFirst().type()).isEqualTo(OnlineStateDiffResponseType.MOVEMENT_SEGMENT);
+    }
+
+    @Test
+    @DisplayName("resyncState returns true and publishes resync diff when game state is CREATED")
+    void resyncStateAllowedDuringCreatedState() {
+        Harness harness = new Harness();
+        var initial = harness.worldFactory.create(harness.contentCatalog.current(), 1, "host", "opponent");
+        GameSession session = GameSession.builder()
+                .id(UUID.randomUUID())
+                .playerA("host")
+                .playerB("opponent")
+                .state(GameSessionState.CREATED)
+                .gameContentVersion(harness.contentCatalog.current().version())
+                .generationSeed(1L)
+                .world(initial.world())
+                .terrainModel(initial.terrainModel())
+                .build();
+        when(harness.gameRepository.findById(session.getId())).thenReturn(Optional.of(session));
+
+        boolean result = harness.service.sendResyncStateToPlayer(session.getId(), "host", OnlineDiffResponsePayloads.ResyncReason.RECONNECT);
+
+        assertThat(result).isTrue();
+        assertThat(harness.diffs()).hasSize(1);
+        assertThat(harness.diffs().getFirst().type()).isEqualTo(OnlineStateDiffResponseType.RESYNC_STATE);
     }
 
     private static class Harness {

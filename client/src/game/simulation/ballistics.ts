@@ -55,6 +55,7 @@ export function simulateTrajectoryPreview(
   };
   const points: TrajectoryPoint[] = [];
   const dt = 1 / 18;
+  const wind = snapshot.match.wind ?? 0;
   let x = muzzle.x;
   let y = muzzle.y;
   let vx = velocity.x;
@@ -63,6 +64,7 @@ export function simulateTrajectoryPreview(
   for (let i = 0; i < maxPoints; i += 1) {
     vx *= Math.max(0, 1 - physics.drag * dt);
     vy *= Math.max(0, 1 - physics.drag * dt);
+    vx += wind * 14 * dt;
     vy += GRAVITY * physics.gravityScale * dt;
     x += vx * dt;
     y += vy * dt;
@@ -75,13 +77,17 @@ export function simulateTrajectoryPreview(
     ) {
       break;
     }
-    points.push({ x, y });
-
     const surfaceY =
       snapshot.terrain.surface[
         Math.max(0, Math.min(snapshot.terrain.width - 1, Math.floor(x)))
       ] ?? Infinity;
-    if (y + physics.radius >= surfaceY) break;
+
+    if (y >= surfaceY) {
+      points.push({ x, y: surfaceY });
+      break;
+    }
+
+    points.push({ x, y });
   }
 
   return points;

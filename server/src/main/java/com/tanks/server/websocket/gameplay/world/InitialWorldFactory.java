@@ -37,8 +37,16 @@ public class InitialWorldFactory {
             long entityId, long playerId, String displayName, String definitionId, int facing, SpawnRegion region) {
         int x = random.nextInt(region.minX(), region.maxX() + 1);
         var definition = content.requireTank(definitionId);
-        world.tanks().put(entityId, new TankState(entityId, playerId, displayName, definitionId,
-                new OnlineVec2Dto(x, terrain.surfaceY(x) - definition.trackGroundOffset()), facing,
-                definition.loadout().getFirst().id(), definition.maxHealth(), definition.maxFuel()));
+        world.tanks().put(entityId, TankState.builder()
+                .entityId(entityId)
+                .playerId(playerId)
+                .displayName(displayName)
+                .definitionId(definitionId)
+                .position(new OnlineVec2Dto(x, terrain.surfaceY(x) - definition.trackGroundOffset()))
+                .facing(facing)
+                .selectedProjectileSlotId(definition.loadout().getFirst().id())
+                .health(definition.maxHealth())
+                .fuel(definition.maxFuel())
+                .build());
     }
 }
