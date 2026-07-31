@@ -51,7 +51,7 @@ export function createDefaultMatchSetup(
       {
         id: 0,
         ...getPlayerMatchConfig(mode, 0),
-        tankSelection: { tankDefinitionId: "vanguard" },
+        tankSelection: { tankDefinitionId: "vanguard-cyber" },
       },
       {
         id: 1,

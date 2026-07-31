@@ -109,7 +109,7 @@ async function expectSharedSimulationManagerSelection(
   const simulation = makeSimulation();
   const state = simulation.getState();
   assert.equal(state.tanks.length, 2);
-  assert.equal(state.tanks[0]?.tank.tankDefinitionId, "vanguard");
+  assert.equal(state.tanks[0]?.tank.tankDefinitionId, "vanguard-cyber");
   assert.equal(state.tanks[1]?.tank.tankDefinitionId, "specter");
   assert.equal(state.tanks[0]?.tank.loadout.length, 5);
   assert.equal(state.tanks[0]?.tank.selectedProjectileSlotId, "standard");

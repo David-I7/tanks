@@ -1,9 +1,5 @@
 import { create } from "zustand";
-import { type TankDefinitionIds, TANK_DEFINITIONS } from "../game/rendering/ResourceManager";
-import type { TankAsset } from "../hooks/useAssetQuery";
-
-export { TANK_DEFINITIONS };
-export type { TankAsset };
+import type { TankDefinitionIds } from "../game/rendering/ResourceManager";
 
 export type AssetStore = {
   selectedTankId: TankDefinitionIds | null;

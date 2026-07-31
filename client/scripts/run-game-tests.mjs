@@ -16,6 +16,7 @@ const tests = [
   "tests/game/online/online-initial-state.test.ts",
   "tests/game/online/online-client-state-projection.test.ts",
   "tests/game/online/authoritative-online-gameplay.test.ts",
+  "tests/game/online/online-protocol-synchronization.test.ts",
   "tests/game/simulation/procedural-tanks-weapons-ballistics.test.ts",
   "tests/game/simulation/timers-crates-wind-visuals.test.ts",
   "tests/game/simulation/biomes-decor-camera-controls.test.ts",

@@ -3,15 +3,9 @@ import { simulateTrajectoryPreview } from "../simulation/ballistics";
 import { getProjectileSelectorLayout } from "../input/inputHelpers";
 import type { DpiViewport, GameViewport } from "../world/worldSizing";
 
-export type RendererAssets = {
-  tankImages: Record<string, HTMLImageElement>;
-  projectileImages: Record<string, HTMLImageElement>;
-};
-
 type RenderContext = {
   gameViewport: GameViewport;
   cameraX: number;
-  assets: RendererAssets;
 };
 
 type RenderPass = {
@@ -137,7 +131,6 @@ export class CanvasGameRenderer {
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
-    private readonly assets: RendererAssets,
     gameViewport: GameViewport,
     dpiViewport: DpiViewport,
     localPlayerId?: number,
@@ -247,7 +240,6 @@ export class CanvasGameRenderer {
     const renderContext = {
       gameViewport: this.gameViewport,
       cameraX: this.cameraX,
-      assets: this.assets,
     };
 
     ctx.save();
@@ -1097,24 +1089,6 @@ export class CanvasGameRenderer {
       ctx.roundRect(x + offset, y + offset, size, size, 9);
       ctx.fill();
       ctx.stroke();
-
-      const projImage =
-        this.assets.projectileImages[slot.projectileDefinitionId] ??
-        Object.values(this.assets.projectileImages)[0];
-
-      const iconWidth = layout.slotSize * 0.55;
-      const iconHeight = layout.slotSize * 0.32;
-      if (projImage && typeof projImage === "object" && "nodeName" in projImage) {
-        ctx.globalAlpha = isDepleted ? 0.35 : 1.0;
-        ctx.drawImage(
-          projImage,
-          x + layout.slotSize / 2 - iconWidth / 2,
-          y + layout.slotSize / 2 - iconHeight / 2 - 4,
-          iconWidth,
-          iconHeight,
-        );
-        ctx.globalAlpha = 1.0;
-      }
 
       const ammoText = ammo === -1 ? "∞" : `${ammo}`;
       ctx.fillStyle = isDepleted ? "#64748b" : selected ? "#111827" : "#cbd5e1";

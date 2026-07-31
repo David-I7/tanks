@@ -9,7 +9,7 @@ function makeSimulation(biome?: MapBiome) {
   const setup: MatchSetup = {
     mode: "localTwoPlayer",
     players: [
-      { id: 0, displayName: "P1", controllerKind: "human", tankSelection: { tankDefinitionId: "vanguard" } },
+      { id: 0, displayName: "P1", controllerKind: "human", tankSelection: { tankDefinitionId: "vanguard-cyber" } },
       { id: 1, displayName: "P2", controllerKind: "human", tankSelection: { tankDefinitionId: "specter" } },
     ],
   };

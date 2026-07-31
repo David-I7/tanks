@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { useAssetStore, TANK_DEFINITIONS } from "../../src/store/useAssetStore";
+import { useAssetStore } from "../../src/store/useAssetStore";
+import { TANK_DEFINITIONS } from "../../src/game/rendering/ResourceManager";
 
 async function testAssetStoreInitialState() {
   const state = useAssetStore.getState();

@@ -7,19 +7,18 @@ import {
   localGameContent,
   type MatchSetup,
 } from "../../game";
-import type { RendererAssets } from "../../game/rendering/CanvasGameRenderer";
 import IconButton from "../../components/buttons/IconButton";
-import { useAssetQuery, type TankAsset } from "../../hooks/useAssetQuery";
+import type { TankDefinitionIds } from "../../game/rendering/ResourceManager";
 
 type LocationState = {
   mode: "playerVsAi" | "localTwoPlayer";
   player1Config: {
     name: string;
-    tankId: TankAsset["id"];
+    tankId: TankDefinitionIds;
   };
   player2Config: {
     name: string;
-    tankId: TankAsset["id"];
+    tankId: TankDefinitionIds;
   };
 };
 
@@ -43,33 +42,12 @@ export default function LocalGamePage() {
   const engineRef = useRef<GameEngine | null>(null);
   const location = useLocation();
   const state = location.state as LocationState | null;
-  const { data: tanks } = useAssetQuery();
 
-  if (!state || !isValidLocationState(state) || !tanks) {
+  if (!state || !isValidLocationState(state)) {
     throw new Error("Invalid state for local game setup");
   }
 
   const { mode, player1Config, player2Config } = state;
-
-  const rendererAssets = useMemo<RendererAssets>(() => {
-    const tankImages: Record<string, HTMLImageElement> = {};
-    const projectileImages: Record<string, HTMLImageElement> = {};
-    tanks.forEach((t) => {
-      if (t.image) {
-        tankImages[t.id] = t.image;
-        for (const p of t.projectiles) {
-          if (p.image) {
-            projectileImages[p.id] = p.image;
-          }
-        }
-      }
-    });
-
-    return {
-      tankImages,
-      projectileImages,
-    };
-  }, [tanks]);
 
   const matchSetup = useMemo<MatchSetup>(
     () => ({
@@ -106,7 +84,6 @@ export default function LocalGamePage() {
     const engine = new GameEngine({
       canvas,
       gameManager,
-      rendererAssets,
     });
 
     engineRef.current = engine;
@@ -124,7 +101,7 @@ export default function LocalGamePage() {
         engineRef.current = null;
       }
     };
-  }, [matchSetup, rendererAssets]);
+  }, [matchSetup]);
 
   const modeLabel = mode === "playerVsAi" ? "Player vs AI" : "Local Two-Player";
 

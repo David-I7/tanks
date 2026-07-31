@@ -10,7 +10,6 @@ export function onlineGameContentFromResponse(
     world: {
       width: response.world.width,
       height: response.world.height,
-      bedrockDepth: response.world.bedrockDepth,
       tickRateHz: response.world.tickRateHz,
       gravity: response.world.gravity,
       projectileTimeStepSeconds: response.world.projectileTimeStepSeconds,
