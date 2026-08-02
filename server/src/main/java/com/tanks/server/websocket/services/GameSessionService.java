@@ -676,7 +676,51 @@ public class GameSessionService {
                         .wind(wind)
                         .build());
         gameSession.setTurnStartDiffSequence(gameSession.getNextDiffSequence() - 1);
+        spawnLootCrate(gameSession);
         log.debug("Turn advanced after shot: {} -> {}", previousPlayerId, activePlayerId);
+    }
+
+    public void spawnLootCrate(GameSession gameSession) {
+        if (gameSession == null || gameSession.getWorld() == null || gameSession.getTerrainModel() == null) {
+            return;
+        }
+        var content = contentCatalog.require(gameSession.getGameContentVersion());
+        double minX = 100.0;
+        double maxX = content.world().width() - 100.0;
+        double dropX = Math.round((minX + java.util.concurrent.ThreadLocalRandom.current().nextDouble() * (maxX - minX)) * 1000.0) / 1000.0;
+        double targetY = gameSession.getTerrainModel().surfaceY(dropX);
+
+        String[] crateTypes = {"hp", "fuel", "ammo"};
+        String crateType = crateTypes[java.util.concurrent.ThreadLocalRandom.current().nextInt(crateTypes.length)];
+        int value = "hp".equals(crateType) ? 25 : 50;
+        String crateId = "crate-" + UUID.randomUUID().toString().substring(0, 8);
+
+        com.tanks.server.websocket.gameplay.world.LootCrateState crateState = com.tanks.server.websocket.gameplay.world.LootCrateState.builder()
+                .crateId(crateId)
+                .crateType(crateType)
+                .x(dropX)
+                .y(0.0)
+                .targetY(targetY)
+                .isLanding(true)
+                .collected(false)
+                .value(value)
+                .build();
+
+        gameSession.getWorld().lootCrates().add(crateState);
+
+        publishDiff(
+                gameSession,
+                OnlineStateDiffResponseType.CRATE_SPAWNED,
+                null,
+                gameSession.getServerTick(),
+                CrateSpawned.builder()
+                        .crateId(crateId)
+                        .crateType(crateType)
+                        .dropX(dropX)
+                        .targetY(targetY)
+                        .value(value)
+                        .build());
+        log.debug("Supply crate spawned: {} at x={}", crateId, dropX);
     }
 
     public void finalizeMatchTimeExpired(GameSession gameSession, Long winnerPlayerId) {

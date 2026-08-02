@@ -9,12 +9,14 @@ public class World {
     private final Map<Long, TankState> tanks;
     private final Map<Long, ProjectileState> projectiles;
     private final List<DamageTrailState> damageTrails;
+    private final List<LootCrateState> lootCrates;
     private WorldMatchState match;
 
     public World() {
         tanks = new LinkedHashMap<>();
         projectiles = new LinkedHashMap<>();
         damageTrails = new ArrayList<>();
+        lootCrates = new ArrayList<>();
         match = WorldMatchState.builder()
                 .activePlayerId(1)
                 .turnNumber(1)
@@ -32,12 +34,17 @@ public class World {
         if (other.damageTrails != null) {
             other.damageTrails.forEach(trail -> damageTrails.add(new DamageTrailState(trail)));
         }
+        lootCrates = new ArrayList<>();
+        if (other.lootCrates != null) {
+            other.lootCrates.forEach(crate -> lootCrates.add(new LootCrateState(crate)));
+        }
         match = new WorldMatchState(other.match);
     }
 
     public Map<Long, TankState> tanks() { return tanks; }
     public Map<Long, ProjectileState> projectiles() { return projectiles; }
     public List<DamageTrailState> damageTrails() { return damageTrails; }
+    public List<LootCrateState> lootCrates() { return lootCrates; }
     public WorldMatchState match() { return match; }
 
     public TankState requireTankByPlayer(long playerId) {

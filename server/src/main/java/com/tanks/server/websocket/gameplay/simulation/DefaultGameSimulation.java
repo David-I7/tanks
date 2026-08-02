@@ -68,6 +68,7 @@ public class DefaultGameSimulation implements GameSimulation {
             currentX = nextX;
             currentY = nextY;
             path.add(new OnlineVec2Dto(currentX, currentY));
+            checkLootCratePickup(world, content, state, tank, currentX, currentY);
             completedColumns++;
             if (ledge)
                 break;
@@ -139,6 +140,29 @@ public class DefaultGameSimulation implements GameSimulation {
 
     private static double round(double value) {
         return Math.round(value * 1000d) / 1000d;
+    }
+
+    public static void checkLootCratePickup(World world, GameContent content, TankState tankState, TankDefinition tankDef, double x, double y) {
+        if (world == null || world.lootCrates() == null || world.lootCrates().isEmpty()) return;
+        var iterator = world.lootCrates().iterator();
+        while (iterator.hasNext()) {
+            com.tanks.server.websocket.gameplay.world.LootCrateState crate = iterator.next();
+            if (crate.collected()) {
+                iterator.remove();
+                continue;
+            }
+            double dist = Math.hypot(x - crate.x(), y - crate.y());
+            if (dist <= 35.0) {
+                int val = crate.value() != null ? crate.value() : 25;
+                if ("hp".equalsIgnoreCase(crate.crateType())) {
+                    tankState.health(Math.min(tankDef.maxHealth(), tankState.health() + val));
+                } else if ("fuel".equalsIgnoreCase(crate.crateType()) || "ammo".equalsIgnoreCase(crate.crateType())) {
+                    tankState.fuel(Math.min(tankDef.maxFuel(), tankState.fuel() + val));
+                }
+                crate.collected(true);
+                iterator.remove();
+            }
+        }
     }
 
     @Override

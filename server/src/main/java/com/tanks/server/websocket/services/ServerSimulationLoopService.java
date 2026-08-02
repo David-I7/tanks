@@ -152,6 +152,7 @@ public class ServerSimulationLoopService implements ApplicationListener<ContextC
 
         if (gameSession.getWorld() != null) {
             tickDamageTrails(gameSession.getWorld());
+            tickLootCrates(gameSession);
         }
 
         if (gameSessionService != null && gameSession.getPendingTurnTransitionAtServerTick() > 0
@@ -170,6 +171,51 @@ public class ServerSimulationLoopService implements ApplicationListener<ContextC
         }
 
         gameRepository.save(gameSession);
+    }
+
+    public void tickLootCrates(GameSession gameSession) {
+        if (gameSession == null || gameSession.getWorld() == null || gameSession.getWorld().lootCrates() == null || gameSession.getWorld().lootCrates().isEmpty()) {
+            return;
+        }
+        var iterator = gameSession.getWorld().lootCrates().iterator();
+        while (iterator.hasNext()) {
+            com.tanks.server.websocket.gameplay.world.LootCrateState crate = iterator.next();
+            if (crate.collected()) {
+                iterator.remove();
+                continue;
+            }
+
+            if (crate.isLanding()) {
+                double dropSpeedPerTick = 150.0 / (double) TICKS_PER_SECOND;
+                double newY = crate.y() + dropSpeedPerTick;
+                if (newY >= crate.targetY()) {
+                    crate.y(crate.targetY());
+                    crate.isLanding(false);
+                } else {
+                    crate.y(newY);
+                }
+            }
+
+            for (com.tanks.server.websocket.gameplay.world.TankState tank : gameSession.getWorld().tanks().values()) {
+                if (!tank.alive()) continue;
+                double dist = Math.hypot(tank.position().x() - crate.x(), tank.position().y() - crate.y());
+                if (dist <= 35.0) {
+                    applyCrateRefill(tank, crate);
+                    crate.collected(true);
+                    iterator.remove();
+                    break;
+                }
+            }
+        }
+    }
+
+    private void applyCrateRefill(com.tanks.server.websocket.gameplay.world.TankState tank, com.tanks.server.websocket.gameplay.world.LootCrateState crate) {
+        int val = crate.value() != null ? crate.value() : 25;
+        if ("hp".equalsIgnoreCase(crate.crateType())) {
+            tank.health(tank.health() + val);
+        } else if ("fuel".equalsIgnoreCase(crate.crateType()) || "ammo".equalsIgnoreCase(crate.crateType())) {
+            tank.fuel(tank.fuel() + val);
+        }
     }
 
     public void tickDamageTrails(com.tanks.server.websocket.gameplay.world.World world) {

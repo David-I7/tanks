@@ -1,5 +1,6 @@
 package com.tanks.server.websocket.gameplay.simulation;
 
+import java.util.List;
 import org.springframework.stereotype.Service;
 import com.tanks.server.websocket.dto.gameplay.diffResponse.OnlineDiffResponseDto;
 import com.tanks.server.websocket.dto.gameplay.OnlineGameplayProtocolVersion;
@@ -91,6 +92,17 @@ public class GameStateResponseFactory {
                     return new OnlineProjectileSnapshotResponseDto(projectile.entityId(), projectile.ownerPlayerId(),
                             definition.id(), projectile.position(), projectile.velocity());
                 }).toList())
+                .lootCrates(session.getWorld().lootCrates() != null ? session.getWorld().lootCrates().stream()
+                        .map(crate -> new OnlineLootCrateSnapshotResponseDto(
+                                crate.crateId(),
+                                crate.crateType(),
+                                crate.x(),
+                                crate.y(),
+                                crate.targetY(),
+                                crate.isLanding(),
+                                crate.collected(),
+                                crate.value()))
+                        .toList() : List.of())
                 .build();
     }
 

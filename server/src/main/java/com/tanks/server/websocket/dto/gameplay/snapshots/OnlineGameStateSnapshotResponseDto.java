@@ -13,5 +13,6 @@ public record OnlineGameStateSnapshotResponseDto(
                 OnlineMatchSnapshotResponseDto match,
                 OnlineTerrainSnapshotResponseDto terrain,
                 List<OnlineTankSnapshotResponseDto> tanks,
-                List<OnlineProjectileSnapshotResponseDto> projectiles) {
+                List<OnlineProjectileSnapshotResponseDto> projectiles,
+                List<OnlineLootCrateSnapshotResponseDto> lootCrates) {
 }

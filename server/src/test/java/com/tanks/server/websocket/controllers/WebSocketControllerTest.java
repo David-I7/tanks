@@ -471,4 +471,43 @@ public class WebSocketControllerTest {
         assertTrue(tankB.health() < initialHp, "Damage trail ticking should reduce tank health in hazard area");
         assertTrue(worldSetup.world().damageTrails().isEmpty(), "Expired trail should be removed from world");
     }
+
+    @Test
+    public void testLootCrateSpawnAndPickupIntegration() {
+        var catalog = new com.tanks.server.websocket.gameplay.content.GameContentCatalog(new tools.jackson.databind.ObjectMapper());
+        catalog.init();
+        var content = catalog.current();
+        var factory = new com.tanks.server.websocket.gameplay.world.InitialWorldFactory();
+        var worldSetup = factory.create(content, 0, "p1", "p2");
+        var loopService = new com.tanks.server.websocket.services.ServerSimulationLoopService(null, null);
+
+        var session = com.tanks.server.websocket.entities.gameSession.GameSession.builder()
+                .id(UUID.randomUUID())
+                .gameContentVersion(content.version())
+                .world(worldSetup.world())
+                .terrainModel(worldSetup.terrainModel())
+                .state(GameSessionState.STARTED)
+                .build();
+
+        var tankA = worldSetup.world().requireTankByPlayer(1L);
+        tankA.health(40);
+
+        var crate = com.tanks.server.websocket.gameplay.world.LootCrateState.builder()
+                .crateId("c1")
+                .crateType("hp")
+                .x(tankA.position().x())
+                .y(tankA.position().y())
+                .targetY(tankA.position().y())
+                .isLanding(false)
+                .collected(false)
+                .value(25)
+                .build();
+
+        worldSetup.world().lootCrates().add(crate);
+        loopService.tickLootCrates(session);
+
+        assertEquals(65, tankA.health());
+        assertTrue(crate.collected());
+        assertTrue(worldSetup.world().lootCrates().isEmpty());
+    }
 }

@@ -9,5 +9,6 @@ public enum OnlineStateDiffResponseType {
         TERRAIN_PATCH,
         INTENT_REJECTION,
         TURN_TRANSITION,
-        TERMINAL_GAME
+        TERMINAL_GAME,
+        CRATE_SPAWNED
 }
