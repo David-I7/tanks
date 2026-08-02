@@ -4,7 +4,7 @@ import com.tanks.server.dto.UserDto;
 import com.tanks.server.websocket.dto.game.GameEventResponseDto;
 import com.tanks.server.websocket.dto.game.GameEventType;
 import com.tanks.server.websocket.dto.game.GameEventPayload;
-import com.tanks.server.websocket.dto.gameplay.OnlineDiffResponsePayloads;
+import com.tanks.server.websocket.dto.gameplay.diffResponse.enums.ResyncReason;
 import com.tanks.server.websocket.dto.lobby.LobbyEventResponseDto;
 import com.tanks.server.websocket.dto.lobby.LobbyEventType;
 import com.tanks.server.websocket.dto.lobby.LobbyEventPayload;
@@ -18,7 +18,6 @@ import com.tanks.server.websocket.security.entites.WebSocketPrincipal;
 import com.tanks.server.websocket.services.GameSessionService;
 import com.tanks.server.websocket.services.LobbyService;
 import com.tanks.server.websocket.services.UserSessionService;
-import com.tanks.server.websocket.services.ClaimService;
 import com.tanks.server.websocket.events.GameEvent;
 import com.tanks.server.websocket.events.LobbyEvent;
 import com.tanks.server.websocket.events.OnlineGameplayEvent;
@@ -170,7 +169,7 @@ public class WebSocketEventListeners {
                     gameSessionService.startGame(gameSession);
                 }
             } else if (gameSession.getState().equals(GameSessionState.STARTED)) {
-                gameSessionService.sendResyncStateToPlayer(gameId, userDto.username(), OnlineDiffResponsePayloads.ResyncReason.RECONNECT);
+                gameSessionService.sendResyncStateToPlayer(gameId, userDto.username(), ResyncReason.RECONNECT);
             }
         }
     }
@@ -224,24 +223,20 @@ public class WebSocketEventListeners {
     }
 
     private void handleLobbyLeave(UserSession userSession){
-        synchronized (userSession) {
-            if (userSession.getState() == UserSessionState.IN_LOBBY) {
-                lobbyService.removeUser(userSession);
-                removeUserSession(userSession);
-            }
+        if (userSession.getState() == UserSessionState.IN_LOBBY) {
+            lobbyService.removeUser(userSession);
+            removeUserSession(userSession);
         }
     }
 
     private void handleGameLeave(UserSession userSession){
-        synchronized (userSession) {
-            if (userSession.getState() == UserSessionState.IN_GAME) {
-                String gameTopic = "/topic/game/" + userSession.getGameSessionId();
-                userSession.setTopicSubscriptions(null);
-                userSession.setSocketSessionId(null);
-                userSessionService.save(userSession);
-                gameSessionService.removeConnectedUser(userSession.getGameSessionId(), userSession.getId());
-                simpMessagingTemplate.convertAndSend(gameTopic, new GameEventResponseDto(GameEventType.GAME_LEAVE, new GameEventPayload(userSession.getGameSessionId(), null, userSession.getUsername())));
-            }
+        if (userSession.getState() == UserSessionState.IN_GAME) {
+            String gameTopic = "/topic/game/" + userSession.getGameSessionId();
+            userSession.setTopicSubscriptions(null);
+            userSession.setSocketSessionId(null);
+            userSessionService.save(userSession);
+            gameSessionService.removeConnectedUser(userSession.getGameSessionId(), userSession.getId());
+            simpMessagingTemplate.convertAndSend(gameTopic, new GameEventResponseDto(GameEventType.GAME_LEAVE, new GameEventPayload(userSession.getGameSessionId(), null, userSession.getUsername())));
         }
     }
 

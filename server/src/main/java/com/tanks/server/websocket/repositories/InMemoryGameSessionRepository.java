@@ -21,7 +21,6 @@ public class InMemoryGameSessionRepository implements GameSessionRepository {
         }
         return store.values().stream()
                 .filter(gs -> state.equals(gs.getState()))
-                .map(GameSession::new)
                 .toList();
     }
 
@@ -30,8 +29,7 @@ public class InMemoryGameSessionRepository implements GameSessionRepository {
         if (entity == null || entity.getId() == null) {
             throw new IllegalArgumentException("Entity or ID cannot be null");
         }
-        GameSession copy = new GameSession(entity);
-        store.put(entity.getId(), copy);
+        store.put(entity.getId(), entity);
         return entity;
     }
 
@@ -48,8 +46,7 @@ public class InMemoryGameSessionRepository implements GameSessionRepository {
         if (id == null) {
             return Optional.empty();
         }
-        GameSession value = store.get(id);
-        return Optional.ofNullable(value).map(GameSession::new);
+        return Optional.ofNullable(store.get(id));
     }
 
     @Override
@@ -59,7 +56,7 @@ public class InMemoryGameSessionRepository implements GameSessionRepository {
 
     @Override
     public Iterable<GameSession> findAll() {
-        return store.values().stream().map(GameSession::new).toList();
+        return new java.util.ArrayList<>(store.values());
     }
 
     @Override

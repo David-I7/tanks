@@ -16,8 +16,7 @@ public class InMemoryUserSessionRepository implements UserSessionRepository {
         if (entity == null || entity.getId() == null) {
             throw new IllegalArgumentException("Entity or ID cannot be null");
         }
-        UserSession copy = new UserSession(entity);
-        store.put(entity.getId(), copy);
+        store.put(entity.getId(), entity);
         return entity;
     }
 
@@ -34,8 +33,7 @@ public class InMemoryUserSessionRepository implements UserSessionRepository {
         if (id == null) {
             return Optional.empty();
         }
-        UserSession value = store.get(id);
-        return Optional.ofNullable(value).map(UserSession::new);
+        return Optional.ofNullable(store.get(id));
     }
 
     @Override
@@ -45,7 +43,7 @@ public class InMemoryUserSessionRepository implements UserSessionRepository {
 
     @Override
     public Iterable<UserSession> findAll() {
-        return store.values().stream().map(UserSession::new).toList();
+        return new java.util.ArrayList<>(store.values());
     }
 
     @Override

@@ -36,10 +36,10 @@ public class JwtAuthenticationInterceptor implements ChannelInterceptor {
         StompHeaderAccessor accessor =
                 MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
 
-        Principal principal = accessor.getUser();
+        WebSocketAuthentication authentication = (WebSocketAuthentication) accessor.getUser();
 
         if (StompCommand.CONNECT.equals(accessor.getCommand())
-                || (principal == null && !StompCommand.DISCONNECT.equals(accessor.getCommand()))) {
+                || (authentication == null && !StompCommand.DISCONNECT.equals(accessor.getCommand()))) {
 
             String authHeader = accessor.getFirstNativeHeader("Authorization");
 

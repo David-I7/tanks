@@ -1,0 +1,23 @@
+package com.tanks.server.websocket.dto.gameplay.diffResponse.actions;
+
+import java.util.List;
+import com.tanks.server.websocket.dto.gameplay.OnlineVec2Dto;
+import com.tanks.server.websocket.dto.gameplay.diffResponse.OnlineDiffResponsePayload;
+import lombok.Builder;
+
+@Builder
+public record MovementSegment(
+        String intentId,
+        long playerId,
+        long tankEntityId,
+        OnlineVec2Dto from,
+        OnlineVec2Dto to,
+        List<OnlineVec2Dto> movementPath,
+        int fuelBefore,
+        int fuelAfter,
+        int fuelSpent,
+        boolean partial,
+        long startedServerTick,
+        long endedServerTick,
+        long durationTicks) implements OnlineDiffResponsePayload {
+}
