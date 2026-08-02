@@ -26,6 +26,7 @@ import com.tanks.server.websocket.entities.gameSession.GameSession;
 import com.tanks.server.websocket.entities.gameSession.GameSessionState;
 import com.tanks.server.websocket.events.OnlineGameplayEvent;
 import com.tanks.server.websocket.repositories.GameSessionRepository;
+import com.tanks.server.websocket.gameplay.content.GameContentCatalog;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -42,29 +43,37 @@ public class ServerSimulationLoopService implements ApplicationListener<ContextC
     private final GameSessionRepository gameRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final GameSessionService gameSessionService;
+    private final GameContentCatalog contentCatalog;
     private final ScheduledExecutorService executorService;
     private volatile boolean acceptingFrames = true;
 
     public ServerSimulationLoopService(GameSessionRepository gameRepository, ApplicationEventPublisher eventPublisher) {
-        this(gameRepository, eventPublisher, null, createDefaultExecutorService());
+        this(gameRepository, eventPublisher, null, null, createDefaultExecutorService());
+    }
+
+    public ServerSimulationLoopService(GameSessionRepository gameRepository, ApplicationEventPublisher eventPublisher, GameContentCatalog contentCatalog) {
+        this(gameRepository, eventPublisher, null, contentCatalog, createDefaultExecutorService());
     }
 
     @Autowired
     public ServerSimulationLoopService(
             GameSessionRepository gameRepository,
             ApplicationEventPublisher eventPublisher,
-            GameSessionService gameSessionService) {
-        this(gameRepository, eventPublisher, gameSessionService, createDefaultExecutorService());
+            GameSessionService gameSessionService,
+            GameContentCatalog contentCatalog) {
+        this(gameRepository, eventPublisher, gameSessionService, contentCatalog, createDefaultExecutorService());
     }
 
     public ServerSimulationLoopService(
             GameSessionRepository gameRepository,
             ApplicationEventPublisher eventPublisher,
             GameSessionService gameSessionService,
+            GameContentCatalog contentCatalog,
             ScheduledExecutorService executorService) {
         this.gameRepository = gameRepository;
         this.eventPublisher = eventPublisher;
         this.gameSessionService = gameSessionService;
+        this.contentCatalog = contentCatalog;
         this.executorService = executorService;
     }
 
@@ -74,7 +83,7 @@ public class ServerSimulationLoopService implements ApplicationListener<ContextC
     }
 
     @Scheduled(fixedRate = TICK_RATE_NANOS, timeUnit = TimeUnit.NANOSECONDS)
-    public void runFrame() {
+    public void runSimulationTick() {
         if (!acceptingFrames) {
             return;
         }
@@ -99,12 +108,12 @@ public class ServerSimulationLoopService implements ApplicationListener<ContextC
             }
         } catch (DataAccessException ex) {
             if (acceptingFrames) {
-                log.warn("Skipping server simulation frame because active sessions could not be loaded.", ex);
+                log.warn("Skipping server simulation tick because active sessions could not be loaded.", ex);
             } else {
-                log.debug("Skipping server simulation frame during shutdown.", ex);
+                log.debug("Skipping server simulation tick during shutdown.", ex);
             }
         } catch (Exception ex) {
-            log.error("Error executing simulation loop frame", ex);
+            log.error("Error executing simulation loop tick", ex);
         }
     }
 
@@ -153,6 +162,7 @@ public class ServerSimulationLoopService implements ApplicationListener<ContextC
         if (gameSession.getWorld() != null) {
             tickDamageTrails(gameSession.getWorld());
             tickLootCrates(gameSession);
+            checkDamageTrailKills(gameSession);
         }
 
         if (gameSessionService != null && gameSession.getPendingTurnTransitionAtServerTick() > 0
@@ -171,6 +181,17 @@ public class ServerSimulationLoopService implements ApplicationListener<ContextC
         }
 
         gameRepository.save(gameSession);
+    }
+
+    private void checkDamageTrailKills(GameSession gameSession) {
+        if (gameSession == null || gameSession.getWorld() == null || gameSession.getState() != GameSessionState.STARTED) {
+            return;
+        }
+        var tank1 = gameSession.getWorld().requireTankByPlayer(1L);
+        var tank2 = gameSession.getWorld().requireTankByPlayer(2L);
+        if ((!tank1.alive() || !tank2.alive()) && gameSessionService != null) {
+            gameSessionService.executePendingTurnTransition(gameSession);
+        }
     }
 
     public void tickLootCrates(GameSession gameSession) {
@@ -200,7 +221,7 @@ public class ServerSimulationLoopService implements ApplicationListener<ContextC
                 if (!tank.alive()) continue;
                 double dist = Math.hypot(tank.position().x() - crate.x(), tank.position().y() - crate.y());
                 if (dist <= 35.0) {
-                    applyCrateRefill(tank, crate);
+                    applyCrateRefill(tank, crate, gameSession);
                     crate.collected(true);
                     iterator.remove();
                     break;
@@ -209,12 +230,20 @@ public class ServerSimulationLoopService implements ApplicationListener<ContextC
         }
     }
 
-    private void applyCrateRefill(com.tanks.server.websocket.gameplay.world.TankState tank, com.tanks.server.websocket.gameplay.world.LootCrateState crate) {
+    private void applyCrateRefill(com.tanks.server.websocket.gameplay.world.TankState tank, com.tanks.server.websocket.gameplay.world.LootCrateState crate, GameSession session) {
         int val = crate.value() != null ? crate.value() : 25;
+        int maxHp = 100;
+        int maxFuel = 100;
+        if (contentCatalog != null && session != null && session.getGameContentVersion() != null) {
+            var content = contentCatalog.require(session.getGameContentVersion());
+            var tankDef = content.requireTank(tank.definitionId());
+            maxHp = tankDef.maxHealth();
+            maxFuel = tankDef.maxFuel();
+        }
         if ("hp".equalsIgnoreCase(crate.crateType())) {
-            tank.health(tank.health() + val);
+            tank.health(Math.min(maxHp, tank.health() + val));
         } else if ("fuel".equalsIgnoreCase(crate.crateType()) || "ammo".equalsIgnoreCase(crate.crateType())) {
-            tank.fuel(tank.fuel() + val);
+            tank.fuel(Math.min(maxFuel, tank.fuel() + val));
         }
     }
 
@@ -317,7 +346,15 @@ public class ServerSimulationLoopService implements ApplicationListener<ContextC
         gameSession.getWorld().match().turnNumber(gameSession.getWorld().match().turnNumber() + 1);
         gameSession.getWorld().match().turnEndsAtServerTick(gameSession.getServerTick() + TURN_TIMER_TICKS);
 
+        if (contentCatalog != null && gameSession.getGameContentVersion() != null) {
+            double wind = contentCatalog.require(gameSession.getGameContentVersion()).world().generateWind();
+            gameSession.getWorld().match().wind(wind);
+        }
+
         publishTurnTransition(gameSession, previousPlayerId, activePlayerId);
+        if (gameSessionService != null) {
+            gameSessionService.spawnLootCrate(gameSession);
+        }
     }
 
     private void publishTurnTransition(GameSession gameSession, long previousPlayerId, long activePlayerId) {

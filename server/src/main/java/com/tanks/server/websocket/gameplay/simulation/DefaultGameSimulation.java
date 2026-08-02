@@ -230,21 +230,37 @@ public class DefaultGameSimulation implements GameSimulation {
         }
 
         List<OnlineTankDamageResponseDto> damagedTanks = new ArrayList<>();
-        if (hitTankState != null) {
-            int damage = 50;
-            if (projectileDef.damageEffect() instanceof Radial radial) {
-                damage = (int) Math.round(radial.damage());
-            } else if (projectileDef.damageEffect() instanceof Focused focused) {
-                damage = (int) Math.round(focused.damage());
+        double blastRadius = projectileDef.radius();
+        int baseDamage = 50;
+        if (projectileDef.damageEffect() instanceof Radial radial) {
+            blastRadius = Math.max(blastRadius, radial.radius());
+            baseDamage = (int) Math.round(radial.damage());
+        } else if (projectileDef.damageEffect() instanceof Focused focused) {
+            baseDamage = (int) Math.round(focused.damage());
+        }
+
+        for (TankState tank : world.tanks().values()) {
+            if (!tank.alive()) continue;
+            double dist = Math.hypot(impact.x() - tank.position().x(), impact.y() - tank.position().y());
+            double tankCollisionRad = content.requireTank(tank.definitionId()).collisionRadius();
+            if (hitTankState != null && hitTankState.entityId() == tank.entityId()) {
+                int healthBefore = tank.health();
+                int healthAfter = Math.max(0, healthBefore - baseDamage);
+                tank.health(healthAfter);
+                damagedTanks.add(new OnlineTankDamageResponseDto(tank.entityId(), tank.playerId(), baseDamage, healthAfter));
+            } else if (dist <= blastRadius + tankCollisionRad) {
+                int damage = baseDamage;
+                if (projectileDef.damageEffect() instanceof Radial radial && radial.radius() > 0) {
+                    double factor = Math.max(0.0, 1.0 - (dist / radial.radius()));
+                    damage = (int) Math.round(baseDamage * factor);
+                }
+                if (damage > 0) {
+                    int healthBefore = tank.health();
+                    int healthAfter = Math.max(0, healthBefore - damage);
+                    tank.health(healthAfter);
+                    damagedTanks.add(new OnlineTankDamageResponseDto(tank.entityId(), tank.playerId(), damage, healthAfter));
+                }
             }
-            int healthBefore = hitTankState.health();
-            int healthAfter = Math.max(0, healthBefore - damage);
-            hitTankState.health(healthAfter);
-            damagedTanks.add(new OnlineTankDamageResponseDto(
-                    hitTankState.entityId(),
-                    hitTankState.playerId(),
-                    damage,
-                    healthAfter));
         }
 
         List<SubMunitionTrajectoryDto> subMunitions = new ArrayList<>();
@@ -257,7 +273,7 @@ public class DefaultGameSimulation implements GameSimulation {
             for (int i = 0; i < count; i++) {
                 double angleDeg = count == 1 ? 90.0 : (90.0 - (spreadAngle / 2.0) + i * (spreadAngle / (count - 1)));
                 double subAngleRad = Math.toRadians(angleDeg);
-                double subSpeed = 100.0 * subProjDef.baseVelocity() * subConfig.velocityScale();
+                double subSpeed = subProjDef.baseVelocity() * subConfig.velocityScale();
                 double subVx = subSpeed * Math.cos(subAngleRad);
                 double subVy = -subSpeed * Math.sin(subAngleRad);
                 double subG = content.world().gravity() * subProjDef.gravityScale();
