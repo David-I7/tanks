@@ -236,6 +236,7 @@ public class WebSocketEventListeners {
             userSession.setSocketSessionId(null);
             userSessionService.save(userSession);
             gameSessionService.removeConnectedUser(userSession.getGameSessionId(), userSession.getId());
+            gameSessionService.forfeitGame(userSession.getGameSessionId(), userSession.getUsername());
             simpMessagingTemplate.convertAndSend(gameTopic, new GameEventResponseDto(GameEventType.GAME_LEAVE, new GameEventPayload(userSession.getGameSessionId(), null, userSession.getUsername())));
         }
     }

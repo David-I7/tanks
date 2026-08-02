@@ -42,6 +42,14 @@ public class GameSessionController {
         gameSessionService.sendResyncStateToPlayer(id, authentication.getName(), ResyncReason.MISSED_DIFF);
     }
 
+    @MessageMapping("/game/{id}/forfeit")
+    @PreAuthorize("@gameAuthorizationService.canSendMessageToTopic(authentication, '/topic/game/' + #id)")
+    public void forfeitGame(
+            @DestinationVariable UUID id,
+            Authentication authentication) {
+        gameSessionService.forfeitGame(id, authentication.getName());
+    }
+
     @MessageMapping("/game/create")
     @PreAuthorize("@gameAuthorizationService.canCreateGame(authentication, '/game/create')")
     public void createGame(Authentication authentication){

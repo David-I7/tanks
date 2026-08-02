@@ -510,4 +510,53 @@ public class WebSocketControllerTest {
         assertTrue(crate.collected());
         assertTrue(worldSetup.world().lootCrates().isEmpty());
     }
+
+    @Test
+    public void testForfeitAndDrawIntegration() {
+        var catalog = new com.tanks.server.websocket.gameplay.content.GameContentCatalog(new tools.jackson.databind.ObjectMapper());
+        catalog.init();
+        var content = catalog.current();
+        var factory = new com.tanks.server.websocket.gameplay.world.InitialWorldFactory();
+        var worldSetup = factory.create(content, 0, "p1", "p2");
+
+        var session = com.tanks.server.websocket.entities.gameSession.GameSession.builder()
+                .id(UUID.randomUUID())
+                .playerA("p1")
+                .playerB("p2")
+                .gameContentVersion(content.version())
+                .world(worldSetup.world())
+                .terrainModel(worldSetup.terrainModel())
+                .state(GameSessionState.STARTED)
+                .build();
+
+        var mockUserRepo = mock(com.tanks.server.repositories.UserRepository.class);
+        var mockResultRepo = mock(com.tanks.server.repositories.GameResultRepository.class);
+        var mockSessionRepo = mock(com.tanks.server.websocket.repositories.GameSessionRepository.class);
+        var mockPublisher = mock(org.springframework.context.ApplicationEventPublisher.class);
+
+        when(mockUserRepo.findByUsername("p1")).thenReturn(java.util.Optional.of(com.tanks.server.entities.User.builder().id(1L).username("p1").email("p1@test.com").build()));
+        when(mockUserRepo.findByUsername("p2")).thenReturn(java.util.Optional.of(com.tanks.server.entities.User.builder().id(2L).username("p2").email("p2@test.com").build()));
+        when(mockSessionRepo.findById(session.getId())).thenReturn(java.util.Optional.of(session));
+
+        var stateResponseFactory = new com.tanks.server.websocket.gameplay.simulation.GameStateResponseFactory(catalog);
+        var sessionService = new GameSessionService(
+                mockSessionRepo,
+                null,
+                null,
+                null,
+                mockPublisher,
+                null,
+                catalog,
+                factory,
+                new com.tanks.server.websocket.gameplay.simulation.DefaultGameSimulation(),
+                stateResponseFactory,
+                mockResultRepo,
+                mockUserRepo
+        );
+
+        sessionService.forfeitGame(session.getId(), "p1");
+
+        assertEquals(GameSessionState.ENDED, session.getState());
+        assertEquals(2L, session.getWorld().match().winnerPlayerId());
+    }
 }

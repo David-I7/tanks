@@ -595,19 +595,98 @@ public class GameSessionService {
         long activePlayerId = previousPlayerId == 1 ? 2 : 1;
         advanceTurnAfterShot(gameSession, previousPlayerId, activePlayerId, intentId);
 
-        if (!gameSession.getWorld().requireTankByPlayer(activePlayerId).alive()) {
-            finalizeWinResult(gameSession, previousPlayerId);
+        com.tanks.server.websocket.gameplay.world.TankState tank1 = gameSession.getWorld().requireTankByPlayer(1L);
+        com.tanks.server.websocket.gameplay.world.TankState tank2 = gameSession.getWorld().requireTankByPlayer(2L);
+
+        boolean tank1Alive = tank1 != null && tank1.alive();
+        boolean tank2Alive = tank2 != null && tank2.alive();
+
+        if (!tank1Alive && !tank2Alive) {
+            finalizeDrawResult(gameSession);
             publishDiff(
                     gameSession,
                     OnlineStateDiffResponseType.TERMINAL_GAME,
                     intentId,
                     gameSession.getServerTick(),
                     TerminalGame.builder()
-                            .winnerPlayerId(previousPlayerId)
+                            .winnerPlayerId(null)
+                            .reason(TerminalGameReason.DRAW)
+                            .finalState(initialStateFactory.createStateSnapshot(gameSession))
+                            .build());
+        } else if (!tank1Alive) {
+            finalizeWinResult(gameSession, 2L);
+            publishDiff(
+                    gameSession,
+                    OnlineStateDiffResponseType.TERMINAL_GAME,
+                    intentId,
+                    gameSession.getServerTick(),
+                    TerminalGame.builder()
+                            .winnerPlayerId(2L)
+                            .reason(TerminalGameReason.LAST_TANK_STANDING)
+                            .finalState(initialStateFactory.createStateSnapshot(gameSession))
+                            .build());
+        } else if (!tank2Alive) {
+            finalizeWinResult(gameSession, 1L);
+            publishDiff(
+                    gameSession,
+                    OnlineStateDiffResponseType.TERMINAL_GAME,
+                    intentId,
+                    gameSession.getServerTick(),
+                    TerminalGame.builder()
+                            .winnerPlayerId(1L)
                             .reason(TerminalGameReason.LAST_TANK_STANDING)
                             .finalState(initialStateFactory.createStateSnapshot(gameSession))
                             .build());
         }
+    }
+
+    public void forfeitGame(UUID gameId, String forfeitingUsername) {
+        GameSession gameSession = gameRepository.findById(gameId).orElse(null);
+        if (gameSession == null || gameSession.getState() != GameSessionState.STARTED) {
+            return;
+        }
+
+        Long winnerPlayerId = null;
+        if (forfeitingUsername.equals(gameSession.getPlayerA())) {
+            winnerPlayerId = 2L;
+        } else if (forfeitingUsername.equals(gameSession.getPlayerB())) {
+            winnerPlayerId = 1L;
+        } else {
+            return;
+        }
+
+        finalizeWinResult(gameSession, winnerPlayerId);
+        publishDiff(
+                gameSession,
+                OnlineStateDiffResponseType.TERMINAL_GAME,
+                null,
+                gameSession.getServerTick(),
+                TerminalGame.builder()
+                        .winnerPlayerId(winnerPlayerId)
+                        .reason(TerminalGameReason.FORFEIT)
+                        .finalState(initialStateFactory.createStateSnapshot(gameSession))
+                        .build());
+        log.debug("Game {} forfeited by {}: winner={}", gameId, forfeitingUsername, winnerPlayerId);
+    }
+
+    private void finalizeDrawResult(GameSession gameSession) {
+        OffsetDateTime endedAt = OffsetDateTime.now();
+        User playerA = userByUsername(gameSession.getPlayerA());
+        User playerB = userByUsername(gameSession.getPlayerB());
+
+        gameResultRepository.save(GameResult.builder()
+                .playerA(playerA)
+                .playerB(playerB)
+                .winner(null)
+                .outcome(GameOutcome.DRAW)
+                .gameStartedAt(gameStartedAt(gameSession, endedAt))
+                .gameEndedAt(endedAt)
+                .build());
+
+        gameSession.setEndedAt(endedAt);
+        gameSession.setState(GameSessionState.ENDED);
+        gameSession.getWorld().match().winnerPlayerId(null);
+        log.debug("Game ended in DRAW: {} vs {}", playerA.getUsername(), playerB.getUsername());
     }
 
     private void finalizeWinResult(GameSession gameSession, long winnerPlayerId) {
