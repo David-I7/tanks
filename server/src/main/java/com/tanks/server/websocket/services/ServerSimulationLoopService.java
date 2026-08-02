@@ -3,9 +3,7 @@ package com.tanks.server.websocket.services;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -18,16 +16,18 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
-import com.tanks.server.websocket.dto.gameplay.OnlineDiffResponseDto;
-import com.tanks.server.websocket.dto.gameplay.OnlineDiffResponsePayloads;
+import com.tanks.server.websocket.dto.gameplay.diffResponse.OnlineDiffResponseDto;
+import com.tanks.server.websocket.dto.gameplay.diffResponse.actions.*;
+import com.tanks.server.websocket.dto.gameplay.diffResponse.enums.*;
+import com.tanks.server.websocket.dto.gameplay.diffResponse.states.*;
 import com.tanks.server.websocket.dto.gameplay.OnlineGameplayProtocolVersion;
-import com.tanks.server.websocket.dto.gameplay.OnlineStateDiffResponseType;
+import com.tanks.server.websocket.dto.gameplay.diffResponse.OnlineStateDiffResponseType;
 import com.tanks.server.websocket.entities.gameSession.GameSession;
 import com.tanks.server.websocket.entities.gameSession.GameSessionState;
 import com.tanks.server.websocket.events.OnlineGameplayEvent;
 import com.tanks.server.websocket.repositories.GameSessionRepository;
+import com.tanks.server.websocket.gameplay.content.GameContentCatalog;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 @Service
@@ -43,29 +43,37 @@ public class ServerSimulationLoopService implements ApplicationListener<ContextC
     private final GameSessionRepository gameRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final GameSessionService gameSessionService;
+    private final GameContentCatalog contentCatalog;
     private final ScheduledExecutorService executorService;
     private volatile boolean acceptingFrames = true;
 
     public ServerSimulationLoopService(GameSessionRepository gameRepository, ApplicationEventPublisher eventPublisher) {
-        this(gameRepository, eventPublisher, null, createDefaultExecutorService());
+        this(gameRepository, eventPublisher, null, null, createDefaultExecutorService());
+    }
+
+    public ServerSimulationLoopService(GameSessionRepository gameRepository, ApplicationEventPublisher eventPublisher, GameContentCatalog contentCatalog) {
+        this(gameRepository, eventPublisher, null, contentCatalog, createDefaultExecutorService());
     }
 
     @Autowired
     public ServerSimulationLoopService(
             GameSessionRepository gameRepository,
             ApplicationEventPublisher eventPublisher,
-            GameSessionService gameSessionService) {
-        this(gameRepository, eventPublisher, gameSessionService, createDefaultExecutorService());
+            GameSessionService gameSessionService,
+            GameContentCatalog contentCatalog) {
+        this(gameRepository, eventPublisher, gameSessionService, contentCatalog, createDefaultExecutorService());
     }
 
     public ServerSimulationLoopService(
             GameSessionRepository gameRepository,
             ApplicationEventPublisher eventPublisher,
             GameSessionService gameSessionService,
+            GameContentCatalog contentCatalog,
             ScheduledExecutorService executorService) {
         this.gameRepository = gameRepository;
         this.eventPublisher = eventPublisher;
         this.gameSessionService = gameSessionService;
+        this.contentCatalog = contentCatalog;
         this.executorService = executorService;
     }
 
@@ -75,7 +83,7 @@ public class ServerSimulationLoopService implements ApplicationListener<ContextC
     }
 
     @Scheduled(fixedRate = TICK_RATE_NANOS, timeUnit = TimeUnit.NANOSECONDS)
-    public void runFrame() {
+    public void runSimulationTick() {
         if (!acceptingFrames) {
             return;
         }
@@ -100,12 +108,12 @@ public class ServerSimulationLoopService implements ApplicationListener<ContextC
             }
         } catch (DataAccessException ex) {
             if (acceptingFrames) {
-                log.warn("Skipping server simulation frame because active sessions could not be loaded.", ex);
+                log.warn("Skipping server simulation tick because active sessions could not be loaded.", ex);
             } else {
-                log.debug("Skipping server simulation frame during shutdown.", ex);
+                log.debug("Skipping server simulation tick during shutdown.", ex);
             }
         } catch (Exception ex) {
-            log.error("Error executing simulation loop frame", ex);
+            log.error("Error executing simulation loop tick", ex);
         }
     }
 
@@ -148,12 +156,19 @@ public class ServerSimulationLoopService implements ApplicationListener<ContextC
     }
 
     void advance(GameSession gameSession) {
-        if (gameSessionService != null) {
-            gameSessionService.processPendingIntents(gameSession);
-        }
-
         long nextServerTick = gameSession.getServerTick() + 1;
         gameSession.setServerTick(nextServerTick);
+
+        if (gameSession.getWorld() != null) {
+            tickDamageTrails(gameSession.getWorld());
+            tickLootCrates(gameSession);
+            checkDamageTrailKills(gameSession);
+        }
+
+        if (gameSessionService != null && gameSession.getPendingTurnTransitionAtServerTick() > 0
+                && nextServerTick >= gameSession.getPendingTurnTransitionAtServerTick()) {
+            gameSessionService.executePendingTurnTransition(gameSession);
+        }
 
         if (gameSession.getMatchEndsAtServerTick() > 0 && nextServerTick >= gameSession.getMatchEndsAtServerTick()) {
             handleMatchExpiration(gameSession);
@@ -168,6 +183,101 @@ public class ServerSimulationLoopService implements ApplicationListener<ContextC
         gameRepository.save(gameSession);
     }
 
+    private void checkDamageTrailKills(GameSession gameSession) {
+        if (gameSession == null || gameSession.getWorld() == null || gameSession.getState() != GameSessionState.STARTED) {
+            return;
+        }
+        var tank1 = gameSession.getWorld().requireTankByPlayer(1L);
+        var tank2 = gameSession.getWorld().requireTankByPlayer(2L);
+        if ((!tank1.alive() || !tank2.alive()) && gameSessionService != null) {
+            gameSessionService.executePendingTurnTransition(gameSession);
+        }
+    }
+
+    public void tickLootCrates(GameSession gameSession) {
+        if (gameSession == null || gameSession.getWorld() == null || gameSession.getWorld().lootCrates() == null || gameSession.getWorld().lootCrates().isEmpty()) {
+            return;
+        }
+        var iterator = gameSession.getWorld().lootCrates().iterator();
+        while (iterator.hasNext()) {
+            com.tanks.server.websocket.gameplay.world.LootCrateState crate = iterator.next();
+            if (crate.collected()) {
+                iterator.remove();
+                continue;
+            }
+
+            if (crate.isLanding()) {
+                double dropSpeedPerTick = 150.0 / (double) TICKS_PER_SECOND;
+                double newY = crate.y() + dropSpeedPerTick;
+                if (newY >= crate.targetY()) {
+                    crate.y(crate.targetY());
+                    crate.isLanding(false);
+                } else {
+                    crate.y(newY);
+                }
+            }
+
+            for (com.tanks.server.websocket.gameplay.world.TankState tank : gameSession.getWorld().tanks().values()) {
+                if (!tank.alive()) continue;
+                double dist = Math.hypot(tank.position().x() - crate.x(), tank.position().y() - crate.y());
+                if (dist <= 35.0) {
+                    applyCrateRefill(tank, crate, gameSession);
+                    crate.collected(true);
+                    iterator.remove();
+                    break;
+                }
+            }
+        }
+    }
+
+    private void applyCrateRefill(com.tanks.server.websocket.gameplay.world.TankState tank, com.tanks.server.websocket.gameplay.world.LootCrateState crate, GameSession session) {
+        int val = crate.value() != null ? crate.value() : 25;
+        int maxHp = 100;
+        int maxFuel = 100;
+        if (contentCatalog != null && session != null && session.getGameContentVersion() != null) {
+            var content = contentCatalog.require(session.getGameContentVersion());
+            var tankDef = content.requireTank(tank.definitionId());
+            maxHp = tankDef.maxHealth();
+            maxFuel = tankDef.maxFuel();
+        }
+        if ("hp".equalsIgnoreCase(crate.crateType())) {
+            tank.health(Math.min(maxHp, tank.health() + val));
+        } else if ("fuel".equalsIgnoreCase(crate.crateType()) || "ammo".equalsIgnoreCase(crate.crateType())) {
+            tank.fuel(Math.min(maxFuel, tank.fuel() + val));
+        }
+    }
+
+    public void tickDamageTrails(com.tanks.server.websocket.gameplay.world.World world) {
+        if (world == null || world.damageTrails() == null || world.damageTrails().isEmpty()) {
+            return;
+        }
+        var iterator = world.damageTrails().iterator();
+        while (iterator.hasNext()) {
+            com.tanks.server.websocket.gameplay.world.DamageTrailState trail = iterator.next();
+            trail.remainingTicks(trail.remainingTicks() - 1);
+
+            double dpsPerTick = trail.damagePerSecond() / (double) TICKS_PER_SECOND;
+
+            for (com.tanks.server.websocket.gameplay.world.TankState tank : world.tanks().values()) {
+                if (!tank.alive()) continue;
+                double dist = Math.hypot(tank.position().x() - trail.position().x(), tank.position().y() - trail.position().y());
+                if (dist <= trail.radius()) {
+                    double currentBuffer = trail.damageBuffers().getOrDefault(tank.entityId(), 0.0) + dpsPerTick;
+                    if (currentBuffer >= 1.0) {
+                        int damageToApply = (int) Math.floor(currentBuffer);
+                        tank.health(tank.health() - damageToApply);
+                        currentBuffer -= damageToApply;
+                    }
+                    trail.damageBuffers().put(tank.entityId(), currentBuffer);
+                }
+            }
+
+            if (trail.remainingTicks() <= 0) {
+                iterator.remove();
+            }
+        }
+    }
+
     private void handleMatchExpiration(GameSession gameSession) {
         Long winnerPlayerId = evaluateWinnerOnExpiration(gameSession);
         if (gameSessionService != null) {
@@ -178,16 +288,16 @@ public class ServerSimulationLoopService implements ApplicationListener<ContextC
             if (gameSession.getWorld() != null) {
                 gameSession.getWorld().match().winnerPlayerId(winnerPlayerId);
             }
-            OnlineDiffResponseDto<OnlineDiffResponsePayloads.TerminalGame> diff = new OnlineDiffResponseDto<>(
+            OnlineDiffResponseDto diff = new OnlineDiffResponseDto(
                     OnlineGameplayProtocolVersion.V1,
                     gameSession.getId().toString(),
                     gameSession.getNextDiffSequence(),
                     gameSession.getServerTick(),
                     OnlineStateDiffResponseType.TERMINAL_GAME,
                     null,
-                    new OnlineDiffResponsePayloads.TerminalGame(
+                    new TerminalGame(
                             winnerPlayerId,
-                            OnlineDiffResponsePayloads.TerminalGameReason.MATCH_TIME_EXPIRED,
+                            TerminalGameReason.MATCH_TIME_EXPIRED,
                             null));
             gameSession.setNextDiffSequence(gameSession.getNextDiffSequence() + 1);
             gameSession.setLastDiffServerTick(gameSession.getServerTick());
@@ -236,26 +346,36 @@ public class ServerSimulationLoopService implements ApplicationListener<ContextC
         gameSession.getWorld().match().turnNumber(gameSession.getWorld().match().turnNumber() + 1);
         gameSession.getWorld().match().turnEndsAtServerTick(gameSession.getServerTick() + TURN_TIMER_TICKS);
 
+        if (contentCatalog != null && gameSession.getGameContentVersion() != null) {
+            double wind = contentCatalog.require(gameSession.getGameContentVersion()).world().generateWind();
+            gameSession.getWorld().match().wind(wind);
+        }
+
         publishTurnTransition(gameSession, previousPlayerId, activePlayerId);
+        if (gameSessionService != null) {
+            gameSessionService.spawnLootCrate(gameSession);
+        }
     }
 
     private void publishTurnTransition(GameSession gameSession, long previousPlayerId, long activePlayerId) {
-        OnlineDiffResponseDto<OnlineDiffResponsePayloads.TurnTransition> diff = new OnlineDiffResponseDto<>(
+        OnlineDiffResponseDto diff = new OnlineDiffResponseDto(
                 OnlineGameplayProtocolVersion.V1,
                 gameSession.getId().toString(),
                 gameSession.getNextDiffSequence(),
                 gameSession.getServerTick(),
                 OnlineStateDiffResponseType.TURN_TRANSITION,
                 null,
-                new OnlineDiffResponsePayloads.TurnTransition(
+                new TurnTransition(
                         previousPlayerId,
                         activePlayerId,
                         gameSession.getWorld().match().turnNumber(),
-                        OnlineDiffResponsePayloads.TurnPhase.AIMING,
+                        TurnPhase.AIMING,
                         gameSession.getWorld().match().turnEndsAtServerTick(),
-                        gameSession.getMatchEndsAtServerTick()));
+                        gameSession.getMatchEndsAtServerTick(),
+                        gameSession.getWorld() != null && gameSession.getWorld().match() != null ? gameSession.getWorld().match().wind() : 0.0));
 
         gameSession.setNextDiffSequence(gameSession.getNextDiffSequence() + 1);
+        gameSession.setTurnStartDiffSequence(gameSession.getNextDiffSequence() - 1);
         gameSession.setLastDiffServerTick(gameSession.getServerTick());
         eventPublisher.publishEvent(new OnlineGameplayEvent(
                 this,

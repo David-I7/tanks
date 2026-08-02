@@ -1,6 +1,6 @@
 package com.tanks.server.websocket.gameplay.validation;
 
-import com.tanks.server.websocket.gameplay.content.TankDefinition;
+import com.tanks.server.websocket.gameplay.content.definitions.TankDefinition;
 
 public final class MovementPathValidator {
     private MovementPathValidator() {}

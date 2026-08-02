@@ -1,9 +1,7 @@
 package com.tanks.server.websocket.gameplay.content;
 
 import java.util.Map;
-import lombok.Builder;
-
-@Builder
+import com.tanks.server.websocket.gameplay.content.definitions.*;
 
 public record GameContent(
         String version,
@@ -12,20 +10,15 @@ public record GameContent(
         Map<String, ProjectileDefinition> projectiles,
         ValidationRules validation) {
 
-    public GameContent {
-        tanks = Map.copyOf(tanks);
-        projectiles = Map.copyOf(projectiles);
-    }
-
     public TankDefinition requireTank(String id) {
-        var value = tanks.get(id);
-        if (value == null) throw new IllegalArgumentException("Unknown tank definition: " + id);
-        return value;
+        TankDefinition def = tanks.get(id);
+        if (def == null) throw new IllegalArgumentException("Unknown Tank Definition: " + id);
+        return def;
     }
 
     public ProjectileDefinition requireProjectile(String id) {
-        var value = projectiles.get(id);
-        if (value == null) throw new IllegalArgumentException("Unknown projectile definition: " + id);
-        return value;
+        ProjectileDefinition def = projectiles.get(id);
+        if (def == null) throw new IllegalArgumentException("Unknown Projectile Definition: " + id);
+        return def;
     }
 }

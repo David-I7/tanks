@@ -11,8 +11,6 @@ import java.time.OffsetDateTime;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import com.tanks.server.websocket.dto.gameplay.OnlinePlayerIntentRequestDto;
 import com.tanks.server.websocket.gameplay.world.TerrainModel;
 import com.tanks.server.websocket.gameplay.world.World;
 
@@ -42,19 +40,19 @@ public class GameSession {
 
     private long nextDiffSequence;
 
+    private long turnStartDiffSequence;
+
     private long lastDiffServerTick;
 
     private long matchEndsAtServerTick;
 
-    private String playerAUnresolvedIntentId;
+    private long pendingTurnTransitionAtServerTick;
 
-    private String playerBUnresolvedIntentId;
+    private String pendingTurnTransitionIntentId;
 
     private GameSessionState state;
 
     private String gameContentVersion;
-
-    private long generationSeed;
 
     private World world;
 
@@ -62,9 +60,6 @@ public class GameSession {
 
     @Builder.Default
     private Set<Long> connectedUserIds = ConcurrentHashMap.newKeySet();
-
-    @Builder.Default
-    private ConcurrentLinkedQueue<OnlinePlayerIntentRequestDto<?>> pendingIntents = new ConcurrentLinkedQueue<>();
 
     public int getConnectedPlayerCount() {
         return connectedUserIds != null ? connectedUserIds.size() : 0;
@@ -81,20 +76,17 @@ public class GameSession {
             this.createdAt = other.createdAt;
             this.serverTick = other.serverTick;
             this.nextDiffSequence = other.nextDiffSequence;
+            this.turnStartDiffSequence = other.turnStartDiffSequence;
             this.lastDiffServerTick = other.lastDiffServerTick;
             this.matchEndsAtServerTick = other.matchEndsAtServerTick;
-            this.playerAUnresolvedIntentId = other.playerAUnresolvedIntentId;
-            this.playerBUnresolvedIntentId = other.playerBUnresolvedIntentId;
             this.state = other.state;
             this.gameContentVersion = other.gameContentVersion;
-            this.generationSeed = other.generationSeed;
             this.world = other.world == null ? null : new World(other.world);
             this.terrainModel = other.terrainModel == null ? null : new TerrainModel(other.terrainModel);
             this.connectedUserIds = ConcurrentHashMap.newKeySet();
             if (other.connectedUserIds != null) {
                 this.connectedUserIds.addAll(other.connectedUserIds);
             }
-            this.pendingIntents = other.pendingIntents != null ? other.pendingIntents : new ConcurrentLinkedQueue<>();
         }
     }
 }

@@ -400,4 +400,163 @@ public class WebSocketControllerTest {
                 .topicSubscriptions(new HashMap<>())
                 .build();
     }
+
+    @Test
+    public void testWindTrajectoryOffsetIntegration() {
+        var catalog = new com.tanks.server.websocket.gameplay.content.GameContentCatalog(new tools.jackson.databind.ObjectMapper());
+        catalog.init();
+        var content = catalog.current();
+        var factory = new com.tanks.server.websocket.gameplay.world.InitialWorldFactory();
+        var worldSetup = factory.create(content, 0, "p1", "p2");
+        
+        var simulation = new com.tanks.server.websocket.gameplay.simulation.DefaultGameSimulation();
+        
+        var worldZeroWind = worldSetup.world();
+        worldZeroWind.match().wind(0.0);
+        var fireReq = new com.tanks.server.websocket.dto.gameplay.playerIntent.payloads.FireIntentIntentRequestPayload(45.0, 500.0);
+        var resZero = simulation.fire(content, worldZeroWind, worldSetup.terrainModel(), "i1", 1L, 1L, fireReq);
+        
+        var worldWind = new com.tanks.server.websocket.gameplay.world.World(worldZeroWind);
+        worldWind.match().wind(40.0);
+        var resWind = simulation.fire(content, worldWind, worldSetup.terrainModel(), "i2", 2L, 1L, fireReq);
+        
+        int mid = Math.min(resZero.trajectory().size(), resWind.trajectory().size()) / 2;
+        assertTrue(resWind.trajectory().get(mid).x() > resZero.trajectory().get(mid).x(),
+                "Wind should shift trajectory to the right");
+    }
+
+    @Test
+    public void testSubMunitionResolutionDtoIntegration() {
+        var catalog = new com.tanks.server.websocket.gameplay.content.GameContentCatalog(new tools.jackson.databind.ObjectMapper());
+        catalog.init();
+        var content = catalog.current();
+        var factory = new com.tanks.server.websocket.gameplay.world.InitialWorldFactory();
+        var worldSetup = factory.create(content, 0, "p1", "p2");
+        var simulation = new com.tanks.server.websocket.gameplay.simulation.DefaultGameSimulation();
+        
+        var tank = worldSetup.world().requireTankByPlayer(1L);
+        tank.selectedProjectileSlotId("cluster");
+        
+        var fireReq = new com.tanks.server.websocket.dto.gameplay.playerIntent.payloads.FireIntentIntentRequestPayload(50.0, 400.0);
+        var res = simulation.fire(content, worldSetup.world(), worldSetup.terrainModel(), "ic", 3L, 1L, fireReq);
+        
+        assertNotNull(res.subMunitions());
+        assertFalse(res.subMunitions().isEmpty());
+    }
+
+    @Test
+    public void testDamageTrailTickingIntegration() {
+        var catalog = new com.tanks.server.websocket.gameplay.content.GameContentCatalog(new tools.jackson.databind.ObjectMapper());
+        catalog.init();
+        var content = catalog.current();
+        var factory = new com.tanks.server.websocket.gameplay.world.InitialWorldFactory();
+        var worldSetup = factory.create(content, 0, "p1", "p2");
+        var loopService = new com.tanks.server.websocket.services.ServerSimulationLoopService(null, null);
+        
+        var tankB = worldSetup.world().requireTankByPlayer(2L);
+        int initialHp = tankB.health();
+        
+        var trail = com.tanks.server.websocket.gameplay.world.DamageTrailState.builder()
+                .id("t1")
+                .ownerPlayerId(1L)
+                .position(tankB.position())
+                .radius(50.0)
+                .damagePerSecond(30.0)
+                .remainingTicks(1)
+                .build();
+                
+        worldSetup.world().damageTrails().add(trail);
+        loopService.tickDamageTrails(worldSetup.world());
+        
+        assertTrue(tankB.health() < initialHp, "Damage trail ticking should reduce tank health in hazard area");
+        assertTrue(worldSetup.world().damageTrails().isEmpty(), "Expired trail should be removed from world");
+    }
+
+    @Test
+    public void testLootCrateSpawnAndPickupIntegration() {
+        var catalog = new com.tanks.server.websocket.gameplay.content.GameContentCatalog(new tools.jackson.databind.ObjectMapper());
+        catalog.init();
+        var content = catalog.current();
+        var factory = new com.tanks.server.websocket.gameplay.world.InitialWorldFactory();
+        var worldSetup = factory.create(content, 0, "p1", "p2");
+        var loopService = new com.tanks.server.websocket.services.ServerSimulationLoopService(null, null);
+
+        var session = com.tanks.server.websocket.entities.gameSession.GameSession.builder()
+                .id(UUID.randomUUID())
+                .gameContentVersion(content.version())
+                .world(worldSetup.world())
+                .terrainModel(worldSetup.terrainModel())
+                .state(GameSessionState.STARTED)
+                .build();
+
+        var tankA = worldSetup.world().requireTankByPlayer(1L);
+        tankA.health(40);
+
+        var crate = com.tanks.server.websocket.gameplay.world.LootCrateState.builder()
+                .crateId("c1")
+                .crateType("hp")
+                .x(tankA.position().x())
+                .y(tankA.position().y())
+                .targetY(tankA.position().y())
+                .isLanding(false)
+                .collected(false)
+                .value(25)
+                .build();
+
+        worldSetup.world().lootCrates().add(crate);
+        loopService.tickLootCrates(session);
+
+        assertEquals(65, tankA.health());
+        assertTrue(crate.collected());
+        assertTrue(worldSetup.world().lootCrates().isEmpty());
+    }
+
+    @Test
+    public void testForfeitAndDrawIntegration() {
+        var catalog = new com.tanks.server.websocket.gameplay.content.GameContentCatalog(new tools.jackson.databind.ObjectMapper());
+        catalog.init();
+        var content = catalog.current();
+        var factory = new com.tanks.server.websocket.gameplay.world.InitialWorldFactory();
+        var worldSetup = factory.create(content, 0, "p1", "p2");
+
+        var session = com.tanks.server.websocket.entities.gameSession.GameSession.builder()
+                .id(UUID.randomUUID())
+                .playerA("p1")
+                .playerB("p2")
+                .gameContentVersion(content.version())
+                .world(worldSetup.world())
+                .terrainModel(worldSetup.terrainModel())
+                .state(GameSessionState.STARTED)
+                .build();
+
+        var mockUserRepo = mock(com.tanks.server.repositories.UserRepository.class);
+        var mockResultRepo = mock(com.tanks.server.repositories.GameResultRepository.class);
+        var mockSessionRepo = mock(com.tanks.server.websocket.repositories.GameSessionRepository.class);
+        var mockPublisher = mock(org.springframework.context.ApplicationEventPublisher.class);
+
+        when(mockUserRepo.findByUsername("p1")).thenReturn(java.util.Optional.of(com.tanks.server.entities.User.builder().id(1L).username("p1").email("p1@test.com").build()));
+        when(mockUserRepo.findByUsername("p2")).thenReturn(java.util.Optional.of(com.tanks.server.entities.User.builder().id(2L).username("p2").email("p2@test.com").build()));
+        when(mockSessionRepo.findById(session.getId())).thenReturn(java.util.Optional.of(session));
+
+        var stateResponseFactory = new com.tanks.server.websocket.gameplay.simulation.GameStateResponseFactory(catalog);
+        var sessionService = new GameSessionService(
+                mockSessionRepo,
+                null,
+                null,
+                null,
+                mockPublisher,
+                null,
+                catalog,
+                factory,
+                new com.tanks.server.websocket.gameplay.simulation.DefaultGameSimulation(),
+                stateResponseFactory,
+                mockResultRepo,
+                mockUserRepo
+        );
+
+        sessionService.forfeitGame(session.getId(), "p1");
+
+        assertEquals(GameSessionState.ENDED, session.getState());
+        assertEquals(2L, session.getWorld().match().winnerPlayerId());
+    }
 }
