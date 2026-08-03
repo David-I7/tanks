@@ -1,6 +1,7 @@
 import type { GameAction, GameState } from "../types";
 import type { DomCanvasRect, GameViewport } from "../world/worldSizing";
 import { domPointToGameViewportPoint } from "../world/worldSizing";
+import { clampAimAngle } from "../simulation/ballistics";
 
 export type CanvasAimInput = {
   clientX: number;
@@ -60,7 +61,7 @@ export function calculateAimIntent(
 
   return {
     type: "aim",
-    angle,
+    angle: clampAimAngle(angle),
     power,
   };
 }

@@ -4,6 +4,26 @@ export const GRAVITY = 520;
 export const MUZZLE_OFFSET = 30;
 export const MUZZLE_Y_OFFSET = -22;
 
+export function clampAimAngle(angle: number): number {
+  if (Math.abs(angle) > 2 * Math.PI) {
+    if (angle < 0) {
+      const clamped = Math.max(-180, Math.min(angle, 0));
+      return (clamped * Math.PI) / 180;
+    } else {
+      const clamped = Math.max(0, Math.min(angle, 180));
+      return (-clamped * Math.PI) / 180;
+    }
+  }
+
+  if (angle > 0) {
+    return angle <= Math.PI / 2 ? 0 : -Math.PI;
+  }
+  if (angle < -Math.PI) {
+    return -Math.PI;
+  }
+  return angle;
+}
+
 export type TrajectoryPoint = {
   x: number;
   y: number;

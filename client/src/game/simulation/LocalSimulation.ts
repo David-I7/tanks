@@ -17,7 +17,7 @@ import {
   type GameMode,
 } from "../types";
 import type { GameContent } from "../content/localGameContent";
-import { GRAVITY, getMuzzlePosition } from "./ballistics";
+import { GRAVITY, getMuzzlePosition, clampAimAngle } from "./ballistics";
 import { ClientVisualSimulation } from "./ClientVisualSimulation";
 
 const TANK_HALF_WIDTH = 22;
@@ -99,7 +99,7 @@ export class LocalSimulation {
       return true;
     }
 
-    tank.aimAngle = action.angle;
+    tank.aimAngle = clampAimAngle(action.angle);
     tank.power = Math.max(120, Math.min(action.power, 680));
 
     if (action.type === "fire") {
