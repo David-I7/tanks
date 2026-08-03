@@ -69,10 +69,12 @@ public class UserSessionService {
     public void transitionToGame(UserSession userSession, UUID uuid) {
         userSession.setState(UserSessionState.IN_GAME);
         userSession.setGameSessionId(uuid);
-        var subscriptions =  userSession.getTopicSubscriptions();
-        subscriptions.remove("/topic/lobby/" + userSession.getLobbyId());
-        if (subscriptions.isEmpty()){
-            userSession.setTopicSubscriptions(null);
+        var subscriptions = userSession.getTopicSubscriptions();
+        if (subscriptions != null) {
+            subscriptions.remove("/topic/lobby/" + userSession.getLobbyId());
+            if (subscriptions.isEmpty()) {
+                userSession.setTopicSubscriptions(null);
+            }
         }
         userSession.setLobbyId(null);
     }

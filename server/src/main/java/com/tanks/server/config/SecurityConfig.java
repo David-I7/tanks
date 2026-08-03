@@ -52,6 +52,7 @@ public class SecurityConfig {
                                 "/api/v1/auth/refresh",
                                 "/api/v1/auth/oauth2/authorization/**",
                                 "/api/v1/auth/login/oauth2/callback/*",
+                                "/api/v1/test/**",
                                 "/ws")
                         .permitAll()
                         .anyRequest().authenticated())
