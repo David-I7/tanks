@@ -1,9 +1,9 @@
 package com.tanks.server.websocket.gameplay;
 
 import com.tanks.server.websocket.dto.gameplay.OnlineVec2Dto;
-import com.tanks.server.websocket.dto.gameplay.diffResponse.actions.ProjectileResolution;
-import com.tanks.server.websocket.dto.gameplay.diffResponse.actions.SubMunitionTrajectoryDto;
-import com.tanks.server.websocket.dto.gameplay.diffResponse.actions.TurnTransition;
+import com.tanks.server.websocket.dto.gameplay.diffResponse.payloads.ProjectileResolution;
+import com.tanks.server.websocket.dto.gameplay.diffResponse.SubMunitionTrajectoryDto;
+import com.tanks.server.websocket.dto.gameplay.diffResponse.payloads.TurnTransition;
 import com.tanks.server.websocket.dto.gameplay.diffResponse.enums.TurnPhase;
 import com.tanks.server.websocket.dto.gameplay.playerIntent.payloads.FireIntentIntentRequestPayload;
 import com.tanks.server.websocket.gameplay.content.GameContent;

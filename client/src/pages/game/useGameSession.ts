@@ -3,7 +3,6 @@ import { ApiError } from "../../errors/ApiError";
 import type WebSocketError from "../../errors/WebSocketError";
 import { useWebSocketStore } from "../../store/useWebSocketStore";
 import type ProblemDetailDto from "../../api/http/dto/ProblemDetailDto";
-import { useNavigate } from "react-router-dom";
 import {
   createOnlineGameManager,
   createOnlineGameplayTransport,
@@ -29,7 +28,6 @@ export default function useGameSession(gameSessionId: string) {
     disconnect,
     error: webSocketError,
   } = useWebSocketStore();
-  const navigate = useNavigate();
 
   const [sessionStatus, setSessionStatus] =
     useState<SessionStatus>("connecting_to_game");
@@ -41,12 +39,10 @@ export default function useGameSession(gameSessionId: string) {
   const [error, setError] = useState<ApiError | WebSocketError | null>(null);
 
   const forfitGame = () => {
-    disconnect();
     send({
       destination: `/app/game/:id/forfeit`,
       id: gameSessionId,
     });
-    navigate("/");
   };
 
   const retryJoin = () => {

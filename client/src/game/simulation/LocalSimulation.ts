@@ -11,8 +11,6 @@ import {
   type DamageTrail,
   type LootCrate,
   type LootCrateType,
-  type Particle,
-  type FloatingText,
   MAX_TANK_FUEL,
   MAX_TURN_SECONDS,
   MOVE_FUEL_COST,
@@ -20,6 +18,7 @@ import {
 } from "../types";
 import type { GameContent } from "../content/localGameContent";
 import { GRAVITY, getMuzzlePosition } from "./ballistics";
+import { ClientVisualSimulation } from "./ClientVisualSimulation";
 
 const TANK_HALF_WIDTH = 22;
 const TANK_MOVE_STEP = 2;
@@ -37,16 +36,20 @@ export class LocalSimulation {
   }> = [];
   private damageTrails: DamageTrail[] = [];
   private lootCrates: LootCrate[] = [];
-  private particles: Particle[] = [];
-  private floatingTexts: FloatingText[] = [];
   private screenShake = 0;
   private cratesSpawned = { minute1: false, minute2: false, minute3: false };
+  private visualSim: ClientVisualSimulation;
 
   constructor(
     readonly world: LocalWorld,
     readonly terrain: LocalTerrainModel,
     readonly content: GameContent,
-  ) {}
+  ) {
+    this.visualSim = new ClientVisualSimulation(
+      world.match.cameraX ?? 0,
+      terrain.width,
+    );
+  }
 
   submitPlayerAction(playerId: number, action: GameAction): boolean {
     if (action.type === "panCamera") {
@@ -163,35 +166,25 @@ export class LocalSimulation {
     }
 
     this.updateLootCrates(dt);
-    this.updateParticles(dt);
-    this.updateFloatingTexts(dt);
+    this.visualSim.updateEffects(dt, this.terrain.width);
 
-    for (const cloud of this.world.clouds) {
-      cloud.x += cloud.speed;
-      if (cloud.x > this.terrain.width + 100) {
-        cloud.x = -100;
-      }
-    }
-
-    if (this.world.match.isCameraLocked !== false) {
-      const activeTankEntityId = this.world.tankEntitiesByPlayer.get(
-        this.world.match.activePlayerId,
-      );
-      const pos = activeTankEntityId
-        ? this.world.positions.get(activeTankEntityId)
+    const activeTankEntityId = this.world.tankEntitiesByPlayer.get(
+      this.world.match.activePlayerId,
+    );
+    const pos = activeTankEntityId
+      ? this.world.positions.get(activeTankEntityId)
+      : null;
+    const activeProjId = [...this.world.projectiles.keys()][0];
+    const projPos =
+      activeProjId !== undefined
+        ? this.world.positions.get(activeProjId)
         : null;
-      const activeProjId = [...this.world.projectiles.keys()][0];
-      const projPos =
-        activeProjId !== undefined
-          ? this.world.positions.get(activeProjId)
-          : null;
-      const focusX = projPos?.x ?? pos?.x ?? 0;
-      const maxCameraX = Math.max(0, this.terrain.width - 960);
-      this.world.match.cameraX = Math.max(
-        0,
-        Math.min(maxCameraX, focusX - 960 * 0.5),
-      );
-    }
+    const focusX = projPos?.x ?? pos?.x ?? null;
+    this.visualSim.updateCamera(dt, focusX, 960, this.terrain.width);
+
+    const visState = this.visualSim.getState();
+    this.world.match.cameraX = visState.cameraX;
+    this.world.match.isCameraLocked = visState.isCameraLocked;
 
     this.screenShake *= 0.85;
     if (this.screenShake < 0.1) this.screenShake = 0;
@@ -235,8 +228,13 @@ export class LocalSimulation {
   }
 
   getState(): LocalSimulationState {
+    const visState = this.visualSim.getState();
     return {
-      match: { ...this.world.match },
+      match: {
+        ...this.world.match,
+        cameraX: visState.cameraX,
+        isCameraLocked: visState.isCameraLocked,
+      },
       terrain: this.terrain.snapshot(),
       tanks: [...this.world.tanks].map(([entityId, tank]) => ({
         entityId,
@@ -258,19 +256,20 @@ export class LocalSimulation {
       })),
       damageTrails: this.damageTrails.map((t) => ({ ...t })),
       lootCrates: this.lootCrates.map((c) => ({ ...c })),
-      particles: this.particles.map((p) => ({ ...p })),
-      floatingTexts: this.floatingTexts.map((ft) => ({ ...ft })),
+      particles: visState.particles,
+      floatingTexts: visState.floatingTexts,
       decors: this.world.decors.map((d) => ({ ...d })),
-      clouds: this.world.clouds.map((c) => ({ ...c })),
+      clouds: visState.clouds,
     };
   }
 
   setCameraLocked(locked: boolean): void {
-    this.world.match.isCameraLocked = locked;
+    if (locked) {
+      this.visualSim.relockCamera();
+    }
   }
 
   panCamera(deltaX: number, viewportWidth = 960): void {
-    const maxCameraX = Math.max(0, this.terrain.width - viewportWidth);
     if (this.world.match.isCameraLocked !== false) {
       const activeTankEntityId = this.world.tankEntitiesByPlayer.get(
         this.world.match.activePlayerId,
@@ -279,22 +278,18 @@ export class LocalSimulation {
         ? this.world.positions.get(activeTankEntityId)
         : null;
       if (pos) {
-        this.world.match.cameraX = Math.max(
-          0,
-          Math.min(maxCameraX, pos.x - viewportWidth * 0.5),
-        );
+        this.visualSim.setCameraPosition(pos.x - viewportWidth * 0.5, viewportWidth, this.terrain.width);
       }
-      this.world.match.isCameraLocked = false;
     }
 
-    this.world.match.cameraX = Math.max(
-      0,
-      Math.min(maxCameraX, (this.world.match.cameraX ?? 0) + deltaX),
-    );
+    this.visualSim.panCamera(deltaX, viewportWidth, this.terrain.width);
+    const visState = this.visualSim.getState();
+    this.world.match.cameraX = visState.cameraX;
+    this.world.match.isCameraLocked = visState.isCameraLocked;
   }
 
   relockCamera(): void {
-    this.world.match.isCameraLocked = true;
+    this.visualSim.relockCamera();
     const activeTankEntityId = this.world.tankEntitiesByPlayer.get(
       this.world.match.activePlayerId,
     );
@@ -302,12 +297,11 @@ export class LocalSimulation {
       ? this.world.positions.get(activeTankEntityId)
       : null;
     if (pos) {
-      const maxCameraX = Math.max(0, this.terrain.width - 960);
-      this.world.match.cameraX = Math.max(
-        0,
-        Math.min(maxCameraX, pos.x - 960 * 0.5),
-      );
+      this.visualSim.setCameraPosition(pos.x - 960 * 0.5, 960, this.terrain.width);
     }
+    const visState = this.visualSim.getState();
+    this.world.match.cameraX = visState.cameraX;
+    this.world.match.isCameraLocked = visState.isCameraLocked;
   }
 
   private fireWeaponPattern(
@@ -637,21 +631,17 @@ export class LocalSimulation {
     const activeTank = activeTankId ? this.world.tanks.get(activeTankId) : null;
     const activePos = activeTankId ? this.world.positions.get(activeTankId) : null;
 
+    for (const crate of this.lootCrates) {
+      crate.targetY = this.terrain.getSurfaceY(crate.x);
+    }
+    this.visualSim.updateLootCrates(dt, this.lootCrates);
+
     const remainingCrates: LootCrate[] = [];
     for (const crate of this.lootCrates) {
       if (crate.collected) continue;
 
-      crate.targetY = this.terrain.getSurfaceY(crate.x);
-      const targetY = crate.targetY - 14;
-
-      if (crate.isLanding) {
-        crate.y += 50 * dt;
-        if (crate.y >= targetY) {
-          crate.y = targetY;
-          crate.isLanding = false;
-        }
-      } else {
-        crate.y = targetY;
+      if (!crate.isLanding) {
+        crate.y = crate.targetY - 14;
       }
 
       if (activeTank && activePos && activeTank.alive) {
@@ -685,61 +675,11 @@ export class LocalSimulation {
   }
 
   private spawnExplosionParticles(x: number, y: number): void {
-    const colors = ["#fbbf24", "#f97316", "#ef4444", "#78716c", "#44403c"];
-    for (let i = 0; i < 18; i += 1) {
-      const angle = Math.random() * Math.PI * 2;
-      const speed = 40 + Math.random() * 160;
-      this.particles.push({
-        id: `particle-${Date.now()}-${Math.random()}`,
-        x,
-        y,
-        vx: Math.cos(angle) * speed,
-        vy: Math.sin(angle) * speed - 60,
-        color: colors[Math.floor(Math.random() * colors.length)] ?? "#fbbf24",
-        size: 2 + Math.random() * 3,
-        life: 1.0,
-        maxLife: 1.0,
-      });
-    }
-  }
-
-  private updateParticles(dt: number): void {
-    const next: Particle[] = [];
-    for (const p of this.particles) {
-      p.x += p.vx * dt;
-      p.y += p.vy * dt;
-      p.vy += 300 * dt;
-      p.life -= dt;
-      if (p.life > 0) {
-        next.push(p);
-      }
-    }
-    this.particles = next;
+    this.visualSim.spawnExplosionParticles(x, y);
   }
 
   private spawnFloatingText(text: string, color: string, x: number, y: number): void {
-    this.floatingTexts.push({
-      id: `text-${Date.now()}-${Math.random()}`,
-      text,
-      color,
-      x,
-      y,
-      vy: -60,
-      life: 1.0,
-      maxLife: 1.0,
-    });
-  }
-
-  private updateFloatingTexts(dt: number): void {
-    const next: FloatingText[] = [];
-    for (const ft of this.floatingTexts) {
-      ft.y += ft.vy * dt;
-      ft.life -= dt;
-      if (ft.life > 0) {
-        next.push(ft);
-      }
-    }
-    this.floatingTexts = next;
+    this.visualSim.spawnFloatingText(text, color, x, y);
   }
 
   addTankAmmo(playerId: number, slotId: string, amount = 1): void {

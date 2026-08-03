@@ -7,7 +7,7 @@ import com.tanks.server.repositories.GameResultRepository;
 import com.tanks.server.repositories.UserRepository;
 import com.tanks.server.websocket.dto.gameplay.diffResponse.OnlineDiffResponseDto;
 import com.tanks.server.websocket.dto.gameplay.diffResponse.enums.TerminalGameReason;
-import com.tanks.server.websocket.dto.gameplay.diffResponse.states.TerminalGame;
+import com.tanks.server.websocket.dto.gameplay.diffResponse.payloads.TerminalGame;
 import com.tanks.server.websocket.entities.gameSession.GameSession;
 import com.tanks.server.websocket.entities.gameSession.GameSessionState;
 import com.tanks.server.websocket.events.OnlineGameplayEvent;

@@ -1,8 +1,9 @@
-package com.tanks.server.websocket.dto.gameplay.diffResponse.actions;
+package com.tanks.server.websocket.dto.gameplay.diffResponse.payloads;
 
 import java.util.List;
 import com.tanks.server.websocket.dto.gameplay.OnlineVec2Dto;
 import com.tanks.server.websocket.dto.gameplay.diffResponse.OnlineDiffResponsePayload;
+import com.tanks.server.websocket.dto.gameplay.diffResponse.SubMunitionTrajectoryDto;
 import com.tanks.server.websocket.dto.gameplay.snapshots.OnlineTankDamageResponseDto;
 import lombok.Builder;
 

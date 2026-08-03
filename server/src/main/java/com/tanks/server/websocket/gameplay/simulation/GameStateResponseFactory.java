@@ -6,8 +6,8 @@ import com.tanks.server.websocket.dto.gameplay.diffResponse.OnlineDiffResponseDt
 import com.tanks.server.websocket.dto.gameplay.OnlineGameplayProtocolVersion;
 import com.tanks.server.websocket.dto.gameplay.diffResponse.OnlineStateDiffResponseType;
 import com.tanks.server.websocket.dto.gameplay.diffResponse.enums.ResyncReason;
-import com.tanks.server.websocket.dto.gameplay.diffResponse.states.InitialState;
-import com.tanks.server.websocket.dto.gameplay.diffResponse.states.ResyncState;
+import com.tanks.server.websocket.dto.gameplay.diffResponse.payloads.InitialState;
+import com.tanks.server.websocket.dto.gameplay.diffResponse.payloads.ResyncState;
 import com.tanks.server.websocket.dto.gameplay.gameContent.GameContentResponseDto;
 import com.tanks.server.websocket.dto.gameplay.match.OnlineMatchSnapshotResponseDto;
 import com.tanks.server.websocket.dto.gameplay.match.phases.MatchPhase;
