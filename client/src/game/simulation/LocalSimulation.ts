@@ -398,6 +398,10 @@ export class LocalSimulation {
       velocity.y += GRAVITY * projectile.physics.gravityScale * dt;
       position.x += velocity.x * dt;
       position.y += velocity.y * dt;
+      projectile.position.x = position.x;
+      projectile.position.y = position.y;
+      projectile.velocity.x = velocity.x;
+      projectile.velocity.y = velocity.y;
 
       const hitTankEntityId = this.findHitTank(entityId, projectile);
       const hitTerrain = this.terrain.intersectsCircle(
@@ -412,7 +416,7 @@ export class LocalSimulation {
 
       if (hitTankEntityId !== null || hitTerrain || outOfBounds) {
         if (!outOfBounds) {
-          this.resolveImpact(position.x, position.y, projectile);
+          this.resolveImpact(position.x, position.y, projectile, hitTankEntityId);
         }
         this.world.destroyEntity(entityId);
         if (
@@ -440,8 +444,8 @@ export class LocalSimulation {
       if (!tankPosition) continue;
 
       const dx = projectilePosition.x - tankPosition.x;
-      const dy = projectilePosition.y - (tankPosition.y - 20);
-      if (Math.sqrt(dx * dx + dy * dy) <= 28 + projectile.radius) {
+      const dy = projectilePosition.y - (tankPosition.y - 14);
+      if (Math.hypot(dx, dy) <= (tank.width ? tank.width * 0.5 : 18) + projectile.radius) {
         return tankEntityId;
       }
     }
@@ -453,10 +457,11 @@ export class LocalSimulation {
     x: number,
     y: number,
     projectile: ProjectileComponent,
+    directHitTankEntityId: EntityId | null = null,
   ): void {
     this.terrain.applyTerrainEffect(x, y, projectile.terrainEffect);
     this.world.createImpactEvent(x, y, projectile);
-    this.applyDamageEffect(x, y, projectile.damageEffect);
+    this.applyDamageEffect(x, y, projectile.damageEffect, directHitTankEntityId);
     this.spawnExplosionParticles(x, y);
     this.screenShake = 12;
 
@@ -490,6 +495,7 @@ export class LocalSimulation {
     x: number,
     y: number,
     damageEffect: DamageEffect,
+    directHitTankEntityId: EntityId | null = null,
   ): void {
     const damageRadius = damageEffect.radius;
 
@@ -498,15 +504,26 @@ export class LocalSimulation {
       const position = this.world.positions.get(entityId);
       if (!position) continue;
 
+      if (directHitTankEntityId !== null && directHitTankEntityId === entityId) {
+        const damageAmount = damageEffect.damage;
+        tank.health = Math.max(0, tank.health - damageAmount);
+        tank.alive = tank.health > 0;
+        this.spawnFloatingText(`-${damageAmount} HP`, "#ef4444", position.x, position.y - 30);
+        continue;
+      }
+
       const dx = x - position.x;
-      const dy = y - (position.y - 18);
-      const distance = Math.sqrt(dx * dx + dy * dy);
-      if (distance > damageRadius) continue;
+      const dy = y - (position.y - 12);
+      const distance = Math.hypot(dx, dy);
+      const tankCollisionRadius = (tank.width ?? 32) * 0.5;
+      const effectiveDistance = Math.max(0, distance - tankCollisionRadius);
+
+      if (effectiveDistance > damageRadius) continue;
 
       const falloff =
         damageEffect.type === "focused"
-          ? Math.max(0, 1 - distance / damageRadius) ** 2
-          : 1 - distance / damageRadius;
+          ? Math.max(0, 1 - effectiveDistance / damageRadius) ** 2
+          : 1 - effectiveDistance / damageRadius;
       const damageAmount = Math.ceil(damageEffect.damage * falloff);
       if (damageAmount > 0) {
         tank.health = Math.max(0, tank.health - damageAmount);
