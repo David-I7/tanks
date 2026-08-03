@@ -3,8 +3,8 @@ import { describe, it, expect, beforeEach } from "vitest";
 import {
   ClientVisualSimulation,
   type ActiveProjectileFlight,
-} from "./ClientVisualSimulation";
-import type { LootCrate } from "../types";
+} from "../../../src/game/simulation/ClientVisualSimulation";
+import type { LootCrate } from "../../../src/game/types";
 
 describe("ClientVisualSimulation", () => {
   let simulation: ClientVisualSimulation;
