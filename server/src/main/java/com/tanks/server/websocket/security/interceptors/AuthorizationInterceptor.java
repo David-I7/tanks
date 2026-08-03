@@ -58,15 +58,6 @@ public class AuthorizationInterceptor implements ChannelInterceptor {
             return;
         }
 
-        WebSocketAuthentication authentication = (WebSocketAuthentication) accessor.getUser();
-        WebSocketPrincipal principal = (WebSocketPrincipal) authentication.getPrincipal();
-        UserDto userDto = principal.getUserDto();
-        String sessionId = accessor.getSessionId();
-
-        if (StompCommand.DISCONNECT.equals(accessor.getCommand())) {
-            handlePostDisconnect(userDto.id(), sessionId);
-        }
-
         Map<String, Object> sessionAttributes = accessor.getSessionAttributes();
         if (sessionAttributes != null) {
             ReentrantLock lock = (ReentrantLock) sessionAttributes.remove("socketLock");
@@ -106,10 +97,13 @@ public class AuthorizationInterceptor implements ChannelInterceptor {
         if (userSession == null) return message;
 
         ReentrantLock lock = claimService.getSocketLock(userSession.getId());
+
         if (lock == null) {
             if (StompCommand.DISCONNECT.equals(accessor.getCommand())) {
+                log.debug("Ignoring DISCONNECT for already disconnected user {}", userSession.getUsername());
                 return message;
             }
+
             throw new ProblemDetailException(HttpStatus.BAD_REQUEST, "User disconnected");
         }
 
@@ -165,7 +159,7 @@ public class AuthorizationInterceptor implements ChannelInterceptor {
 
                 principal.setUserSession(userSession);
                 userSessionService.save(userSession);
-            }
+            }else throw ex;
         } catch (Exception e) {
             claimService.releaseSocket(userId, sessionId);
             throw e;
@@ -203,7 +197,4 @@ public class AuthorizationInterceptor implements ChannelInterceptor {
         log.debug("User {} is sending a request to {}", authentication.getName(),destination);
     }
 
-    private void handlePostDisconnect(Long userId,String sessionId){
-        claimService.releaseSocket(userId, sessionId);
-    }
 }

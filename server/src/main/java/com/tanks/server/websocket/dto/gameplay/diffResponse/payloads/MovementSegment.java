@@ -1,4 +1,4 @@
-package com.tanks.server.websocket.dto.gameplay.diffResponse.actions;
+package com.tanks.server.websocket.dto.gameplay.diffResponse.payloads;
 
 import java.util.List;
 import com.tanks.server.websocket.dto.gameplay.OnlineVec2Dto;

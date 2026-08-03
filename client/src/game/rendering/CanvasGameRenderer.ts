@@ -586,8 +586,8 @@ export class CanvasGameRenderer {
       ctx.rotate(angle);
 
       const radius = entry.radius || 4;
-      const mainColor = entry.visual?.fill ?? "#f59e0b";
-      const strokeColor = entry.visual?.stroke ?? "#d97706";
+      const mainColor = "#f59e0b";
+      const strokeColor = "#d97706";
 
       // Tail flame / glow
       ctx.beginPath();
@@ -614,7 +614,7 @@ export class CanvasGameRenderer {
     if (gameState.damageTrails) {
       for (const trail of gameState.damageTrails) {
         ctx.save();
-        ctx.translate(trail.x, trail.y);
+        ctx.translate(trail.position.x, trail.position.y);
         const pulse = Math.sin(Date.now() * 0.008) * 4;
         ctx.beginPath();
         ctx.arc(0, 0, trail.radius + pulse, 0, Math.PI * 2);
@@ -665,7 +665,7 @@ export class CanvasGameRenderer {
       ctx.save();
       ctx.translate(crate.x, crate.y);
 
-      if (crate.falling) {
+      if (crate.isLanding) {
         ctx.beginPath();
         ctx.arc(0, -22, 18, Math.PI, 0);
         ctx.fillStyle = "rgba(244, 63, 94, 0.85)";
@@ -687,9 +687,9 @@ export class CanvasGameRenderer {
       }
 
       const color =
-        crate.type === "hp"
+        crate.crateType === "hp"
           ? "#22c55e"
-          : crate.type === "fuel"
+          : crate.crateType === "fuel"
           ? "#f59e0b"
           : "#a855f7";
 
@@ -705,7 +705,7 @@ export class CanvasGameRenderer {
       ctx.font = "bold 11px Inter, sans-serif";
       ctx.textAlign = "center";
       ctx.fillText(
-        crate.type === "hp" ? "HP" : crate.type === "fuel" ? "F" : "A",
+        crate.crateType === "hp" ? "HP" : crate.crateType === "fuel" ? "F" : "A",
         0,
         4,
       );
@@ -1063,15 +1063,16 @@ export class CanvasGameRenderer {
     ctx.shadowOffsetY = 4;
 
     for (let index = 0; index < activeTank.loadout.length; index += 1) {
-      const slot = activeTank.loadout[index];
-      if (!slot) continue;
-      const selected = slot.id === activeTank.selectedProjectileSlotId;
+      const slotId = activeTank.loadout[index];
+      if (!slotId) continue;
+      const projDef = gameState.projectileDefinitions[slotId];
+      const selected = slotId === activeTank.selectedProjectileSlotId;
       const x = layout.x + index * (layout.slotSize + layout.gap);
       const y = layout.y + (selected ? -8 : 0);
       const size = layout.slotSize + (selected ? 10 : 0);
       const offset = selected ? -5 : 0;
 
-      const ammo = activeTank.weaponAmmo?.[slot.id] ?? (slot.maxAmmo ?? 1);
+      const ammo = activeTank.weaponAmmo?.[slotId] ?? -1;
       const isDepleted = ammo === 0;
 
       ctx.fillStyle = isDepleted
@@ -1095,7 +1096,7 @@ export class CanvasGameRenderer {
       ctx.font = "700 10px Inter, sans-serif";
       ctx.textAlign = "center";
       ctx.fillText(
-        `${slot.label} (${ammoText})`,
+        `${projDef?.label ?? slotId} (${ammoText})`,
         x + layout.slotSize / 2,
         y + layout.slotSize - 9,
       );
@@ -1114,7 +1115,7 @@ export class CanvasGameRenderer {
     const fireH = layout.slotSize;
 
     const currentSlotId =
-      activeTank.selectedProjectileSlotId ?? activeTank.loadout[0]?.id;
+      activeTank.selectedProjectileSlotId ?? activeTank.loadout[0];
     const currentAmmo = currentSlotId
       ? activeTank.weaponAmmo?.[currentSlotId] ?? 1
       : 0;

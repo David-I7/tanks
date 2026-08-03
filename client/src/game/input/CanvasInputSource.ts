@@ -66,9 +66,9 @@ const keyboardProjectileSlotIntentProducer: IntentProducer = ({
 }) => {
   const activeTank = getActiveTank(context.gameState);
   if (state.pendingSlotNumber === null || !activeTank) return [];
-  const slot = activeTank.loadout[state.pendingSlotNumber - 1];
-  return slot
-    ? [{ type: "selectProjectileSlot", projectileSlotId: slot.id }]
+  const slotId = activeTank.loadout[state.pendingSlotNumber - 1];
+  return slotId
+    ? [{ type: "selectProjectileSlot", projectileSlotId: slotId }]
     : [];
 };
 
@@ -82,7 +82,7 @@ const spacebarFireIntentProducer: IntentProducer = ({
   if (!activeTank) return [];
 
   const projectileSlotId =
-    activeTank.selectedProjectileSlotId ?? activeTank.loadout[0]?.id;
+    activeTank.selectedProjectileSlotId ?? activeTank.loadout[0];
   if (!projectileSlotId) return [];
 
   return [
@@ -110,21 +110,7 @@ const pointerIntentProducer: IntentProducer = ({ state, context }) => {
       })
     : null;
 
-  const isDraggingToAim = state.isPointerDown && !state.pressedKeys.has("Shift");
-  if (isDraggingToAim) {
-    const aim = calculateAimIntent({
-      ...state.pointer,
-      domCanvasRect: context.domCanvasRect,
-      gameViewport: context.gameViewport,
-      cameraX: context.cameraX,
-      gameState: context.gameState,
-      activeTank,
-    });
-
-    if (aim) {
-      intents.push(aim);
-    }
-  }
+  let clickedHud = false;
 
   if (pointerPoint) {
     const clickedSlotId = findProjectileSlotAtCanvasPoint(
@@ -137,6 +123,7 @@ const pointerIntentProducer: IntentProducer = ({ state, context }) => {
     );
 
     if (clickedSlotId) {
+      clickedHud = true;
       intents.push({
         type: "selectProjectileSlot",
         projectileSlotId: clickedSlotId,
@@ -150,6 +137,7 @@ const pointerIntentProducer: IntentProducer = ({ state, context }) => {
         pointerPoint.y,
       )
     ) {
+      clickedHud = true;
       intents.push({ type: "relockCamera" });
     } else if (
       isFireButtonClickedAtCanvasPoint(
@@ -161,8 +149,9 @@ const pointerIntentProducer: IntentProducer = ({ state, context }) => {
         activeTank,
       )
     ) {
+      clickedHud = true;
       const projectileSlotId =
-        activeTank.selectedProjectileSlotId ?? activeTank.loadout[0]?.id;
+        activeTank.selectedProjectileSlotId ?? activeTank.loadout[0];
       if (projectileSlotId) {
         intents.push({
           type: "fire",
@@ -170,6 +159,58 @@ const pointerIntentProducer: IntentProducer = ({ state, context }) => {
           power: activeTank.power,
           projectileSlotId,
         });
+      }
+    }
+  }
+
+  if (!clickedHud) {
+    const currentPointerPoint = domPointToGameViewportPoint({
+      clientX: state.pointer.clientX,
+      clientY: state.pointer.clientY,
+      domCanvasRect: context.domCanvasRect,
+      gameViewport: context.gameViewport,
+    });
+
+    const isPointerOverHud =
+      isFireButtonClickedAtCanvasPoint(
+        context.gameState,
+        context.gameViewport.width,
+        context.gameViewport.height,
+        currentPointerPoint.x,
+        currentPointerPoint.y,
+        activeTank,
+      ) ||
+      findProjectileSlotAtCanvasPoint(
+        context.gameState,
+        context.gameViewport.width,
+        context.gameViewport.height,
+        currentPointerPoint.x,
+        currentPointerPoint.y,
+        activeTank,
+      ) !== null ||
+      isRelockCameraButtonClickedAtCanvasPoint(
+        context.gameState,
+        context.gameViewport.width,
+        context.gameViewport.height,
+        currentPointerPoint.x,
+        currentPointerPoint.y,
+      );
+
+    const isDraggingToAim =
+      state.isPointerDown && !state.pressedKeys.has("Shift") && !isPointerOverHud;
+
+    if (isDraggingToAim) {
+      const aim = calculateAimIntent({
+        ...state.pointer,
+        domCanvasRect: context.domCanvasRect,
+        gameViewport: context.gameViewport,
+        cameraX: context.cameraX,
+        gameState: context.gameState,
+        activeTank,
+      });
+
+      if (aim) {
+        intents.push(aim);
       }
     }
   }

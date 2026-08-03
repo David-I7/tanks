@@ -1,4 +1,4 @@
-package com.tanks.server.websocket.dto.gameplay.diffResponse.actions;
+package com.tanks.server.websocket.dto.gameplay.diffResponse.payloads;
 
 import com.tanks.server.websocket.dto.gameplay.diffResponse.OnlineDiffResponsePayload;
 import com.tanks.server.websocket.dto.gameplay.diffResponse.enums.TurnPhase;

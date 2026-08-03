@@ -13,8 +13,10 @@ public class WorldMatchState {
     private long turnEndsAtServerTick;
     private Long winnerPlayerId;
     private double wind;
+    @Builder.Default
+    private String biome = "forest";
 
-    public WorldMatchState(WorldMatchState other) { this(other.activePlayerId, other.turnNumber, other.turnEndsAtServerTick, other.winnerPlayerId, other.wind); }
+    public WorldMatchState(WorldMatchState other) { this(other.activePlayerId, other.turnNumber, other.turnEndsAtServerTick, other.winnerPlayerId, other.wind, other.biome != null ? other.biome : "forest"); }
     public long activePlayerId() { return activePlayerId; }
     public void activePlayerId(long value) { activePlayerId = value; }
     public int turnNumber() { return turnNumber; }
@@ -25,4 +27,6 @@ public class WorldMatchState {
     public void winnerPlayerId(Long value) { winnerPlayerId = value; }
     public double wind() { return wind; }
     public void wind(double value) { wind = value; }
+    public String biome() { return biome != null ? biome : "forest"; }
+    public void biome(String value) { biome = value; }
 }

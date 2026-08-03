@@ -1,12 +1,14 @@
 import type {
   OnlineDiffResponseDto,
   OnlinePlayerIntentRequestDto,
+  OnlineProjectileResolutionResponse,
 } from "../../api/ws/dto/gameplay/onlineGameplayProtocol";
 import type { GameManager } from "./gameManager";
-import type { GameAction, GameState } from "../types";
+import type { GameAction, GameContext, GameState, Vec2 } from "../types";
 import type { OnlineGameplayTransport } from "../online/OnlineGameplayTransport";
 import { toGameState } from "../online/onlineGameState";
 import { onlineGameContentFromResponse } from "../online/onlineGameContent";
+import { ClientVisualSimulation } from "../simulation/ClientVisualSimulation";
 import {
   OnlineDiffSequenceError,
   applyOnlineStateDiffResponse,
@@ -20,8 +22,7 @@ import {
 
 export function createOnlineGameManager(options: {
   transport: OnlineGameplayTransport;
-  intentIdFactory?: () => string;
-  monotonicNowMs?: () => number;
+  ctx: GameContext;
 }): GameManager {
   return new TransportBackedOnlineGameManager(options);
 }
@@ -31,17 +32,14 @@ class TransportBackedOnlineGameManager implements GameManager {
   private readonly listeners = new Set<(state: GameState) => void>();
   private readonly unsubscribeTransport: () => void;
   private readonly transport: OnlineGameplayTransport;
-  private readonly intentIdFactory: () => string;
-  private readonly monotonicNowMs: () => number;
+  private readonly ctx: GameContext;
 
   constructor(options: {
     transport: OnlineGameplayTransport;
-    intentIdFactory?: () => string;
-    monotonicNowMs?: () => number;
+    ctx: GameContext;
   }) {
     this.transport = options.transport;
-    this.intentIdFactory = options.intentIdFactory ?? createIntentId;
-    this.monotonicNowMs = options.monotonicNowMs ?? (() => performance.now());
+    this.ctx = options.ctx;
     this.unsubscribeTransport = this.transport.subscribeToStateDiffs((diff) => {
       this.applyDiff(diff);
     });
@@ -52,8 +50,8 @@ class TransportBackedOnlineGameManager implements GameManager {
     return this.activeState.submitAction(action);
   }
 
-  update(): void {
-    this.activeState?.update();
+  update(dt: number = 1 / 60): void {
+    this.activeState?.update(dt);
   }
 
   getState(): GameState {
@@ -83,8 +81,7 @@ class TransportBackedOnlineGameManager implements GameManager {
       this.activeState = new ActiveOnlineGameManager(
         initializeOnlineConfirmedState(diff),
         this.transport,
-        this.intentIdFactory,
-        this.monotonicNowMs,
+        this.ctx,
         (state) => this.publishState(state),
       );
       this.publishState(this.activeState.getState());
@@ -96,8 +93,7 @@ class TransportBackedOnlineGameManager implements GameManager {
         this.activeState = new ActiveOnlineGameManager(
           initializeOnlineConfirmedStateFromResync(diff),
           this.transport,
-          this.intentIdFactory,
-          this.monotonicNowMs,
+          this.ctx,
           (state) => this.publishState(state),
         );
         this.publishState(this.activeState.getState());
@@ -117,26 +113,41 @@ class TransportBackedOnlineGameManager implements GameManager {
 
 class ActiveOnlineGameManager {
   private confirmedState: OnlineConfirmedState;
-  private currentState: GameState;
+  private currentState!: GameState;
+  private visualSim: ClientVisualSimulation;
+  private lastImpactX: number | null = null;
 
   constructor(
     initialState: OnlineConfirmedState,
     private readonly transport: OnlineGameplayTransport,
-    private readonly intentIdFactory: () => string,
-    private readonly monotonicNowMs: () => number,
+    private readonly ctx: GameContext,
     private readonly publish: (state: GameState) => void,
   ) {
     this.confirmedState = initialState;
-    const now = this.monotonicNowMs();
-    this.currentState = toGameState(
-      initialState,
-      projectOnlineRenderState(initialState, now),
-      onlineGameContentFromResponse(initialState.state.gameContent),
-      now,
+    this.visualSim = new ClientVisualSimulation(
+      0,
+      initialState.state.terrain.width,
     );
+    this.publishConfirmed(initialState);
   }
 
   submitAction(action: GameAction): boolean {
+    if (action.type === "panCamera") {
+      this.visualSim.panCamera(
+        action.deltaX,
+        960,
+        this.confirmedState.state.terrain.width,
+      );
+      this.publishConfirmed(this.confirmedState);
+      return true;
+    }
+
+    if (action.type === "relockCamera") {
+      this.visualSim.relockCamera();
+      this.publishConfirmed(this.confirmedState);
+      return true;
+    }
+
     if (
       this.confirmedState.state.match.activePlayerId !==
       this.confirmedState.localPlayerId
@@ -152,6 +163,10 @@ class ActiveOnlineGameManager {
         activeTank.aimAngle = action.angle;
         activeTank.power = action.power;
         this.publishConfirmed(this.confirmedState);
+      }
+      const envelope = this.createIntentEnvelope(action);
+      if (envelope) {
+        this.transport.sendPlayerIntent(envelope);
       }
       return true;
     }
@@ -174,8 +189,50 @@ class ActiveOnlineGameManager {
     return true;
   }
 
-  update(): void {
-    this.publishConfirmed(this.confirmedState);
+  private pendingImpactFx: {
+    impact: Vec2;
+    damagedTanks?: Array<{ tankEntityId: number; damage: number }>;
+    subMunitions?: Array<{
+      impact: Vec2;
+      damagedTanks: Array<{ tankEntityId: number; damage: number }>;
+    }>;
+  } | null = null;
+
+  update(dt: number = 1 / 60): void {
+    this.visualSim.updateEffects(dt, this.confirmedState.state.terrain.width);
+
+    if (this.confirmedState.state.lootCrates) {
+      this.visualSim.updateLootCrates(dt, this.confirmedState.state.lootCrates);
+    }
+
+    const flightRes = this.visualSim.updateProjectileFlight(dt);
+
+    if (this.pendingImpactFx && !this.visualSim.getState().activeFlight) {
+      const fx = this.pendingImpactFx;
+      this.pendingImpactFx = null;
+      this.lastImpactX = fx.impact.x;
+      this.visualSim.spawnExplosionParticles(fx.impact.x, fx.impact.y);
+      this.spawnDamageFloatingTexts(fx.damagedTanks);
+      if (fx.subMunitions) {
+        for (const sub of fx.subMunitions) {
+          this.visualSim.spawnExplosionParticles(sub.impact.x, sub.impact.y);
+          this.spawnDamageFloatingTexts(sub.damagedTanks);
+        }
+      }
+    }
+
+    const activeTank = this.confirmedState.state.tanks.find(
+      (tank) => tank.playerId === this.confirmedState.state.match.activePlayerId,
+    );
+    const focusX = flightRes?.position.x ?? this.lastImpactX ?? activeTank?.position.x ?? null;
+    this.visualSim.updateCamera(
+      dt,
+      focusX,
+      960,
+      this.confirmedState.state.terrain.width,
+    );
+
+    this.publishConfirmed(this.confirmedState, flightRes);
   }
 
   getState(): GameState {
@@ -183,12 +240,40 @@ class ActiveOnlineGameManager {
   }
 
   applyDiff(diff: OnlineDiffResponseDto): void {
+    if (diff.type === "TURN_TRANSITION") {
+      this.lastImpactX = null;
+    }
+
+    if (diff.type === "PROJECTILE_RESOLUTION") {
+      const payload = diff.payload as OnlineProjectileResolutionResponse["payload"];
+      const trajectory = payload.trajectory ?? [];
+      const tickRate = this.ctx.gameContent.world.tickRateHz || 30;
+      const stepSec =
+        this.ctx.gameContent.world.projectileTimeStepSeconds || 1 / tickRate;
+      const durationSeconds = Math.max(0.3, (trajectory.length - 1) * stepSec);
+
+      this.visualSim.startTrajectoryFlight({
+        projectileEntityId: payload.projectileEntityId,
+        ownerPlayerId: payload.ownerPlayerId,
+        projectileDefinitionId: payload.projectileDefinitionId,
+        trajectory,
+        durationSeconds,
+        elapsedSeconds: 0,
+      });
+
+      this.pendingImpactFx = {
+        impact: payload.impact,
+        damagedTanks: payload.damagedTanks,
+        subMunitions: payload.subMunitions,
+      };
+    }
+
     try {
       this.publishConfirmed(
         applyOnlineStateDiffResponse(
           this.confirmedState,
           diff,
-          this.monotonicNowMs,
+          this.ctx,
         ),
       );
     } catch (error) {
@@ -208,7 +293,7 @@ class ActiveOnlineGameManager {
   private createIntentEnvelope(
     action: GameAction,
   ): OnlinePlayerIntentRequestDto | null {
-    const intentId = this.intentIdFactory();
+    const intentId = this.ctx.generateIntentId();
     const common = {
       protocolVersion: "online-gameplay.v1" as const,
       gameSessionId: this.confirmedState.gameSessionId,
@@ -230,7 +315,7 @@ class ActiveOnlineGameManager {
         return {
           ...common,
           type: "SELECT_PROJECTILE_SLOT",
-          payload: { projectileSlotId: action.projectileSlotId },
+          payload: { slot: Number(action.projectileSlotId) || 0 },
         };
       case "fire":
         return {
@@ -239,35 +324,59 @@ class ActiveOnlineGameManager {
           payload: {
             angle: action.angle,
             power: action.power,
-            projectileSlotId: action.projectileSlotId,
           },
         };
       case "aim":
-        return null;
+        return {
+          ...common,
+          type: "AIM",
+          payload: {
+            angle: action.angle,
+            power: action.power,
+          },
+        };
     }
     return null;
   }
 
-  private publishConfirmed(state: OnlineConfirmedState): void {
+  private publishConfirmed(
+    state: OnlineConfirmedState,
+    flightRes?: { position: Vec2; velocity: Vec2 } | null,
+  ): void {
     this.confirmedState = state;
-    const now = this.monotonicNowMs();
+    const renderContent = onlineGameContentFromResponse(
+      state.state.gameContent,
+    );
+    const activeCtx: GameContext = {
+      ...this.ctx,
+      gameContent: renderContent,
+    };
     this.currentState = toGameState(
       state,
-      projectOnlineRenderState(state, now),
-      onlineGameContentFromResponse(state.state.gameContent),
-      now,
+      projectOnlineRenderState(state, activeCtx),
+      activeCtx,
+      this.visualSim.getState(),
+      flightRes,
     );
     this.publish(this.currentState);
   }
-}
 
-function createIntentId(): string {
-  if (
-    typeof crypto !== "undefined" &&
-    typeof crypto.randomUUID === "function"
-  ) {
-    return crypto.randomUUID();
+  private spawnDamageFloatingTexts(
+    damagedTanks?: Array<{ tankEntityId: number; damage: number }>,
+  ): void {
+    if (!damagedTanks) return;
+    for (const dtank of damagedTanks) {
+      const tank = this.confirmedState.state.tanks.find(
+        (t) => t.entityId === dtank.tankEntityId,
+      );
+      if (tank) {
+        this.visualSim.spawnFloatingText(
+          `-${dtank.damage} HP`,
+          "#ef4444",
+          tank.position.x,
+          tank.position.y - 30,
+        );
+      }
+    }
   }
-
-  return `intent-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }

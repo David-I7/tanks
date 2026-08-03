@@ -11,15 +11,14 @@ import {
   type DamageTrail,
   type LootCrate,
   type LootCrateType,
-  type Particle,
-  type FloatingText,
   MAX_TANK_FUEL,
   MAX_TURN_SECONDS,
   MOVE_FUEL_COST,
   type GameMode,
 } from "../types";
 import type { GameContent } from "../content/localGameContent";
-import { GRAVITY, getMuzzlePosition } from "./ballistics";
+import { GRAVITY, getMuzzlePosition, clampAimAngle } from "./ballistics";
+import { ClientVisualSimulation } from "./ClientVisualSimulation";
 
 const TANK_HALF_WIDTH = 22;
 const TANK_MOVE_STEP = 2;
@@ -37,16 +36,21 @@ export class LocalSimulation {
   }> = [];
   private damageTrails: DamageTrail[] = [];
   private lootCrates: LootCrate[] = [];
-  private particles: Particle[] = [];
-  private floatingTexts: FloatingText[] = [];
   private screenShake = 0;
   private cratesSpawned = { minute1: false, minute2: false, minute3: false };
+  private lastImpactX: number | null = null;
+  private visualSim: ClientVisualSimulation;
 
   constructor(
     readonly world: LocalWorld,
     readonly terrain: LocalTerrainModel,
     readonly content: GameContent,
-  ) {}
+  ) {
+    this.visualSim = new ClientVisualSimulation(
+      world.match.cameraX ?? 0,
+      terrain.width,
+    );
+  }
 
   submitPlayerAction(playerId: number, action: GameAction): boolean {
     if (action.type === "panCamera") {
@@ -96,7 +100,7 @@ export class LocalSimulation {
       return true;
     }
 
-    tank.aimAngle = action.angle;
+    tank.aimAngle = clampAimAngle(action.angle);
     tank.power = Math.max(120, Math.min(action.power, 680));
 
     if (action.type === "fire") {
@@ -163,35 +167,25 @@ export class LocalSimulation {
     }
 
     this.updateLootCrates(dt);
-    this.updateParticles(dt);
-    this.updateFloatingTexts(dt);
+    this.visualSim.updateEffects(dt, this.terrain.width);
 
-    for (const cloud of this.world.clouds) {
-      cloud.x += cloud.speed;
-      if (cloud.x > this.terrain.width + 100) {
-        cloud.x = -100;
-      }
-    }
-
-    if (this.world.match.isCameraLocked !== false) {
-      const activeTankEntityId = this.world.tankEntitiesByPlayer.get(
-        this.world.match.activePlayerId,
-      );
-      const pos = activeTankEntityId
-        ? this.world.positions.get(activeTankEntityId)
+    const activeTankEntityId = this.world.tankEntitiesByPlayer.get(
+      this.world.match.activePlayerId,
+    );
+    const pos = activeTankEntityId
+      ? this.world.positions.get(activeTankEntityId)
+      : null;
+    const activeProjId = [...this.world.projectiles.keys()][0];
+    const projPos =
+      activeProjId !== undefined
+        ? this.world.positions.get(activeProjId)
         : null;
-      const activeProjId = [...this.world.projectiles.keys()][0];
-      const projPos =
-        activeProjId !== undefined
-          ? this.world.positions.get(activeProjId)
-          : null;
-      const focusX = projPos?.x ?? pos?.x ?? 0;
-      const maxCameraX = Math.max(0, this.terrain.width - 960);
-      this.world.match.cameraX = Math.max(
-        0,
-        Math.min(maxCameraX, focusX - 960 * 0.5),
-      );
-    }
+    const focusX = projPos?.x ?? this.lastImpactX ?? pos?.x ?? null;
+    this.visualSim.updateCamera(dt, focusX, 960, this.terrain.width);
+
+    const visState = this.visualSim.getState();
+    this.world.match.cameraX = visState.cameraX;
+    this.world.match.isCameraLocked = visState.isCameraLocked;
 
     this.screenShake *= 0.85;
     if (this.screenShake < 0.1) this.screenShake = 0;
@@ -235,8 +229,13 @@ export class LocalSimulation {
   }
 
   getState(): LocalSimulationState {
+    const visState = this.visualSim.getState();
     return {
-      match: { ...this.world.match },
+      match: {
+        ...this.world.match,
+        cameraX: visState.cameraX,
+        isCameraLocked: visState.isCameraLocked,
+      },
       terrain: this.terrain.snapshot(),
       tanks: [...this.world.tanks].map(([entityId, tank]) => ({
         entityId,
@@ -258,19 +257,20 @@ export class LocalSimulation {
       })),
       damageTrails: this.damageTrails.map((t) => ({ ...t })),
       lootCrates: this.lootCrates.map((c) => ({ ...c })),
-      particles: this.particles.map((p) => ({ ...p })),
-      floatingTexts: this.floatingTexts.map((ft) => ({ ...ft })),
+      particles: visState.particles,
+      floatingTexts: visState.floatingTexts,
       decors: this.world.decors.map((d) => ({ ...d })),
-      clouds: this.world.clouds.map((c) => ({ ...c })),
+      clouds: visState.clouds,
     };
   }
 
   setCameraLocked(locked: boolean): void {
-    this.world.match.isCameraLocked = locked;
+    if (locked) {
+      this.visualSim.relockCamera();
+    }
   }
 
   panCamera(deltaX: number, viewportWidth = 960): void {
-    const maxCameraX = Math.max(0, this.terrain.width - viewportWidth);
     if (this.world.match.isCameraLocked !== false) {
       const activeTankEntityId = this.world.tankEntitiesByPlayer.get(
         this.world.match.activePlayerId,
@@ -279,22 +279,18 @@ export class LocalSimulation {
         ? this.world.positions.get(activeTankEntityId)
         : null;
       if (pos) {
-        this.world.match.cameraX = Math.max(
-          0,
-          Math.min(maxCameraX, pos.x - viewportWidth * 0.5),
-        );
+        this.visualSim.setCameraPosition(pos.x - viewportWidth * 0.5, viewportWidth, this.terrain.width);
       }
-      this.world.match.isCameraLocked = false;
     }
 
-    this.world.match.cameraX = Math.max(
-      0,
-      Math.min(maxCameraX, (this.world.match.cameraX ?? 0) + deltaX),
-    );
+    this.visualSim.panCamera(deltaX, viewportWidth, this.terrain.width);
+    const visState = this.visualSim.getState();
+    this.world.match.cameraX = visState.cameraX;
+    this.world.match.isCameraLocked = visState.isCameraLocked;
   }
 
   relockCamera(): void {
-    this.world.match.isCameraLocked = true;
+    this.visualSim.relockCamera();
     const activeTankEntityId = this.world.tankEntitiesByPlayer.get(
       this.world.match.activePlayerId,
     );
@@ -302,12 +298,11 @@ export class LocalSimulation {
       ? this.world.positions.get(activeTankEntityId)
       : null;
     if (pos) {
-      const maxCameraX = Math.max(0, this.terrain.width - 960);
-      this.world.match.cameraX = Math.max(
-        0,
-        Math.min(maxCameraX, pos.x - 960 * 0.5),
-      );
+      this.visualSim.setCameraPosition(pos.x - 960 * 0.5, 960, this.terrain.width);
     }
+    const visState = this.visualSim.getState();
+    this.world.match.cameraX = visState.cameraX;
+    this.world.match.isCameraLocked = visState.isCameraLocked;
   }
 
   private fireWeaponPattern(
@@ -316,78 +311,14 @@ export class LocalSimulation {
     tankX: number,
     tankY: number,
   ): void {
-    const pattern = projectileDefinition.pattern;
-    if (pattern?.kind === "autocannon") {
-      this.spawnProjectileWithAngle(
-        tank.playerId,
-        projectileDefinition,
-        tank.power,
-        tankX,
-        tankY,
-        tank.aimAngle,
-      );
-      for (let i = 1; i < pattern.count; i += 1) {
-        this.pendingProjectiles.push({
-          delayRemaining: i * pattern.delaySeconds,
-          ownerPlayerId: tank.playerId,
-          projectileDefinition,
-          power: tank.power,
-          tankX,
-          tankY,
-          aimAngle: tank.aimAngle,
-        });
-      }
-    } else if (pattern?.kind === "volley") {
-      const count = pattern.count;
-      const spreadRad = (pattern.spreadAngleDegrees * Math.PI) / 180;
-      for (let i = 0; i < count; i += 1) {
-        const offset = (i - (count - 1) / 2) * (spreadRad / (count - 1 || 1));
-        const angle = tank.aimAngle + offset;
-        if (i === 0) {
-          this.spawnProjectileWithAngle(
-            tank.playerId,
-            projectileDefinition,
-            tank.power,
-            tankX,
-            tankY,
-            angle,
-          );
-        } else {
-          this.pendingProjectiles.push({
-            delayRemaining: i * pattern.delaySeconds,
-            ownerPlayerId: tank.playerId,
-            projectileDefinition,
-            power: tank.power,
-            tankX,
-            tankY,
-            aimAngle: angle,
-          });
-        }
-      }
-    } else if (pattern?.kind === "shotgun") {
-      const count = pattern.count;
-      const spreadRad = (pattern.spreadAngleDegrees * Math.PI) / 180;
-      for (let i = 0; i < count; i += 1) {
-        const offset = (i - (count - 1) / 2) * (spreadRad / (count - 1 || 1));
-        this.spawnProjectileWithAngle(
-          tank.playerId,
-          projectileDefinition,
-          tank.power,
-          tankX,
-          tankY,
-          tank.aimAngle + offset,
-        );
-      }
-    } else {
-      this.spawnProjectileWithAngle(
-        tank.playerId,
-        projectileDefinition,
-        tank.power,
-        tankX,
-        tankY,
-        tank.aimAngle,
-      );
-    }
+    this.spawnProjectileWithAngle(
+      tank.playerId,
+      projectileDefinition,
+      tank.power,
+      tankX,
+      tankY,
+      tank.aimAngle,
+    );
   }
 
   private spawnProjectileWithAngle(
@@ -399,15 +330,14 @@ export class LocalSimulation {
     aimAngle: number,
   ): void {
     const muzzle = getMuzzlePosition(tankX, tankY, aimAngle);
-    const speedScale = projectileDefinition.physics.muzzleVelocityScale;
     this.world.createProjectile(
       ownerPlayerId,
       projectileDefinition,
       power,
       muzzle.x,
       muzzle.y,
-      Math.cos(aimAngle) * power * speedScale,
-      Math.sin(aimAngle) * power * speedScale,
+      Math.cos(aimAngle) * power,
+      Math.sin(aimAngle) * power,
     );
   }
 
@@ -442,7 +372,7 @@ export class LocalSimulation {
         if (!tank.alive) continue;
         const pos = this.world.positions.get(entityId);
         if (!pos) continue;
-        const dist = Math.hypot(pos.x - trail.x, pos.y - 18 - trail.y);
+        const dist = Math.hypot(pos.x - trail.position.x, pos.y - 18 - trail.position.y);
         if (dist <= trail.radius) {
           tank.health = Math.max(0, tank.health - damageThisTick);
           tank.alive = tank.health > 0;
@@ -463,72 +393,16 @@ export class LocalSimulation {
       const velocity = this.world.velocities.get(entityId);
       if (!position || !velocity) continue;
 
-      if (
-        projectile.pattern?.kind === "cluster" &&
-        !projectile.hasSplit &&
-        velocity.y >= 0
-      ) {
-        projectile.hasSplit = true;
-        this.world.destroyEntity(entityId);
-        const def =
-          this.content.projectiles[projectile.projectileDefinitionId] ??
-          projectile;
-        const subDef: ProjectileDefinition = {
-          ...def,
-          physics: {
-            ...def.physics,
-            radius: Math.max(2, def.physics.radius - 1),
-          },
-          damageEffect: {
-            type: "radial",
-            radius:
-              projectile.damageEffect.type === "radial"
-                ? projectile.damageEffect.radius
-                : 25,
-            damage: Math.ceil(
-              projectile.damageEffect.type === "radial"
-                ? projectile.damageEffect.damage
-                : 25,
-            ),
-          },
-          pattern: { kind: "standard" },
-        };
-        this.world.createProjectile(
-          projectile.ownerPlayerId,
-          subDef,
-          projectile.power,
-          position.x - 10,
-          position.y,
-          velocity.x - 40,
-          velocity.y + 10,
-        );
-        this.world.createProjectile(
-          projectile.ownerPlayerId,
-          subDef,
-          projectile.power,
-          position.x,
-          position.y,
-          velocity.x,
-          velocity.y + 10,
-        );
-        this.world.createProjectile(
-          projectile.ownerPlayerId,
-          subDef,
-          projectile.power,
-          position.x + 10,
-          position.y,
-          velocity.x + 40,
-          velocity.y + 10,
-        );
-        continue;
-      }
-
       velocity.x *= Math.max(0, 1 - projectile.physics.drag * dt);
       velocity.y *= Math.max(0, 1 - projectile.physics.drag * dt);
-      velocity.x += (this.world.match.wind ?? 0) * 14 * dt;
+      velocity.x += (this.world.match.wind ?? 0) * dt;
       velocity.y += GRAVITY * projectile.physics.gravityScale * dt;
       position.x += velocity.x * dt;
       position.y += velocity.y * dt;
+      projectile.position.x = position.x;
+      projectile.position.y = position.y;
+      projectile.velocity.x = velocity.x;
+      projectile.velocity.y = velocity.y;
 
       const hitTankEntityId = this.findHitTank(entityId, projectile);
       const hitTerrain = this.terrain.intersectsCircle(
@@ -541,32 +415,9 @@ export class LocalSimulation {
         position.x < 0 ||
         position.x > this.terrain.width;
 
-      if (hitTerrain && projectile.pattern?.kind === "bouncing") {
-        const bounces = projectile.bouncesCount ?? 0;
-        if (bounces < projectile.pattern.maxBounces - 1) {
-          const x = Math.max(
-            1,
-            Math.min(this.terrain.width - 2, Math.floor(position.x)),
-          );
-          const slope =
-            (this.terrain.getSurfaceY(x + 1) -
-              this.terrain.getSurfaceY(x - 1)) /
-            2;
-          const normLen = Math.hypot(slope, 1);
-          const nx = -slope / normLen;
-          const ny = -1 / normLen;
-          const dot = velocity.x * nx + velocity.y * ny;
-          velocity.x = (velocity.x - 2 * dot * nx) * 0.85;
-          velocity.y = (velocity.y - 2 * dot * ny) * 0.85;
-          position.y = this.terrain.getSurfaceY(x) - projectile.radius - 2;
-          projectile.bouncesCount = bounces + 1;
-          continue;
-        }
-      }
-
       if (hitTankEntityId !== null || hitTerrain || outOfBounds) {
         if (!outOfBounds) {
-          this.resolveImpact(position.x, position.y, projectile);
+          this.resolveImpact(position.x, position.y, projectile, hitTankEntityId);
         }
         this.world.destroyEntity(entityId);
         if (
@@ -594,8 +445,8 @@ export class LocalSimulation {
       if (!tankPosition) continue;
 
       const dx = projectilePosition.x - tankPosition.x;
-      const dy = projectilePosition.y - (tankPosition.y - 20);
-      if (Math.sqrt(dx * dx + dy * dy) <= 28 + projectile.radius) {
+      const dy = projectilePosition.y - (tankPosition.y - 14);
+      if (Math.hypot(dx, dy) <= (tank.width ? tank.width * 0.5 : 18) + projectile.radius) {
         return tankEntityId;
       }
     }
@@ -607,29 +458,14 @@ export class LocalSimulation {
     x: number,
     y: number,
     projectile: ProjectileComponent,
+    directHitTankEntityId: EntityId | null = null,
   ): void {
-    if (projectile.pattern?.kind === "laser") {
-      const depthMultiplier = projectile.pattern.depthMultiplier;
-      const effect =
-        projectile.terrainEffect.type === "drill"
-          ? {
-              ...projectile.terrainEffect,
-              depth: projectile.terrainEffect.depth * depthMultiplier,
-            }
-          : {
-              type: "drill" as const,
-              radius: projectile.radius * 3,
-              depth: 50 * depthMultiplier,
-            };
-      this.terrain.applyTerrainEffect(x, y, effect);
-    } else {
-      this.terrain.applyTerrainEffect(x, y, projectile.terrainEffect);
-    }
-
+    this.lastImpactX = x;
+    this.terrain.applyTerrainEffect(x, y, projectile.terrainEffect);
     this.world.createImpactEvent(x, y, projectile);
-    this.applyDamageEffect(x, y, projectile.damageEffect);
+    this.applyDamageEffect(x, y, projectile.damageEffect, directHitTankEntityId);
     this.spawnExplosionParticles(x, y);
-    this.screenShake = projectile.pattern?.kind === "nuke" ? 22 : 12;
+    this.screenShake = 12;
 
     const blastRadius = Math.max(
       30,
@@ -644,14 +480,14 @@ export class LocalSimulation {
       }
     }
 
-    if (projectile.pattern?.kind === "damageTrail") {
+    const projectileDef = this.content.projectiles[projectile.projectileDefinitionId];
+    if (projectileDef?.damageTrail) {
       this.damageTrails.push({
         id: `hazard-${Date.now()}-${Math.random()}`,
-        x,
-        y,
-        radius: projectile.pattern.radius,
-        damagePerSecond: projectile.pattern.damagePerSecond,
-        remainingDuration: projectile.pattern.durationSeconds,
+        position: { x, y },
+        radius: projectileDef.damageTrail.radius,
+        damagePerSecond: projectileDef.damageTrail.damagePerSecond,
+        remainingDuration: projectileDef.damageTrail.durationSeconds,
         ownerPlayerId: projectile.ownerPlayerId,
       });
     }
@@ -661,6 +497,7 @@ export class LocalSimulation {
     x: number,
     y: number,
     damageEffect: DamageEffect,
+    directHitTankEntityId: EntityId | null = null,
   ): void {
     const damageRadius = damageEffect.radius;
 
@@ -669,15 +506,26 @@ export class LocalSimulation {
       const position = this.world.positions.get(entityId);
       if (!position) continue;
 
+      if (directHitTankEntityId !== null && directHitTankEntityId === entityId) {
+        const damageAmount = damageEffect.damage;
+        tank.health = Math.max(0, tank.health - damageAmount);
+        tank.alive = tank.health > 0;
+        this.spawnFloatingText(`-${damageAmount} HP`, "#ef4444", position.x, position.y - 30);
+        continue;
+      }
+
       const dx = x - position.x;
-      const dy = y - (position.y - 18);
-      const distance = Math.sqrt(dx * dx + dy * dy);
-      if (distance > damageRadius) continue;
+      const dy = y - (position.y - 12);
+      const distance = Math.hypot(dx, dy);
+      const tankCollisionRadius = (tank.width ?? 32) * 0.5;
+      const effectiveDistance = Math.max(0, distance - tankCollisionRadius);
+
+      if (effectiveDistance > damageRadius) continue;
 
       const falloff =
         damageEffect.type === "focused"
-          ? Math.max(0, 1 - distance / damageRadius) ** 2
-          : 1 - distance / damageRadius;
+          ? Math.max(0, 1 - effectiveDistance / damageRadius) ** 2
+          : 1 - effectiveDistance / damageRadius;
       const damageAmount = Math.ceil(damageEffect.damage * falloff);
       if (damageAmount > 0) {
         tank.health = Math.max(0, tank.health - damageAmount);
@@ -730,6 +578,7 @@ export class LocalSimulation {
   }
 
   private advanceTurn(): void {
+    this.lastImpactX = null;
     for (let step = 1; step <= this.world.match.playerCount; step += 1) {
       const nextPlayerId =
         (this.world.match.activePlayerId + step) % this.world.match.playerCount;
@@ -765,12 +614,10 @@ export class LocalSimulation {
   }
 
   private resolveProjectileDefinition(
-    tank: TankComponent,
+    _tank: TankComponent,
     projectileSlotId: string,
   ): ProjectileDefinition | null {
-    const slot = tank.loadout.find((entry) => entry.id === projectileSlotId);
-    if (!slot) return null;
-    return this.content.projectiles[slot.projectileDefinitionId] ?? null;
+    return this.content.projectiles[projectileSlotId] ?? null;
   }
 
   private updateImpactEvents(dt: number): void {
@@ -786,14 +633,14 @@ export class LocalSimulation {
     const x = Math.floor(100 + Math.random() * (this.terrain.width - 200));
     const types: LootCrateType[] = ["hp", "fuel", "ammo"];
     const type = types[Math.floor(Math.random() * types.length)] ?? "hp";
-    const groundY = this.terrain.getSurfaceY(x);
+    const targetY = this.terrain.getSurfaceY(x);
     this.lootCrates.push({
-      id: `crate-${Date.now()}-${Math.random()}`,
-      type,
+      crateId: `crate-${Date.now()}-${Math.random()}`,
+      crateType: type,
       x,
       y: -40,
-      groundY,
-      falling: true,
+      targetY,
+      isLanding: true,
       collected: false,
       value: type === "hp" ? 35 : type === "fuel" ? 60 : 1,
     });
@@ -804,39 +651,35 @@ export class LocalSimulation {
     const activeTank = activeTankId ? this.world.tanks.get(activeTankId) : null;
     const activePos = activeTankId ? this.world.positions.get(activeTankId) : null;
 
+    for (const crate of this.lootCrates) {
+      crate.targetY = this.terrain.getSurfaceY(crate.x);
+    }
+    this.visualSim.updateLootCrates(dt, this.lootCrates);
+
     const remainingCrates: LootCrate[] = [];
     for (const crate of this.lootCrates) {
       if (crate.collected) continue;
 
-      crate.groundY = this.terrain.getSurfaceY(crate.x);
-      const targetY = crate.groundY - 14;
-
-      if (crate.falling) {
-        crate.y += 50 * dt;
-        if (crate.y >= targetY) {
-          crate.y = targetY;
-          crate.falling = false;
-        }
-      } else {
-        crate.y = targetY;
+      if (!crate.isLanding) {
+        crate.y = crate.targetY - 14;
       }
 
       if (activeTank && activePos && activeTank.alive) {
         const dist = Math.hypot(crate.x - activePos.x, crate.y - (activePos.y - 14));
         if (dist <= 36) {
           crate.collected = true;
-          if (crate.type === "hp") {
+          if (crate.crateType === "hp") {
             activeTank.health = Math.min(activeTank.maxHealth, activeTank.health + 35);
             this.spawnFloatingText("+35 HP", "#22c55e", activePos.x, activePos.y - 36);
-          } else if (crate.type === "fuel") {
+          } else if (crate.crateType === "fuel") {
             activeTank.fuel = Math.min(activeTank.maxFuel, activeTank.fuel + 60);
             this.spawnFloatingText("+60 Fuel", "#f59e0b", activePos.x, activePos.y - 36);
-          } else if (crate.type === "ammo") {
-            const uniqueSlots = activeTank.loadout.filter((s) => s.id !== "standard" && s.projectileDefinitionId !== "basicShell");
+          } else if (crate.crateType === "ammo") {
+            const uniqueSlots = activeTank.loadout.filter((s) => s !== "basicShell");
             if (uniqueSlots.length > 0) {
               const slot = uniqueSlots[Math.floor(Math.random() * uniqueSlots.length)];
               if (slot) {
-                activeTank.weaponAmmo[slot.id] = (activeTank.weaponAmmo[slot.id] ?? 1) + 1;
+                activeTank.weaponAmmo[slot] = (activeTank.weaponAmmo[slot] ?? 1) + 1;
               }
             }
             this.spawnFloatingText("+1 Ammo", "#a855f7", activePos.x, activePos.y - 36);
@@ -852,64 +695,14 @@ export class LocalSimulation {
   }
 
   private spawnExplosionParticles(x: number, y: number): void {
-    const colors = ["#fbbf24", "#f97316", "#ef4444", "#78716c", "#44403c"];
-    for (let i = 0; i < 18; i += 1) {
-      const angle = Math.random() * Math.PI * 2;
-      const speed = 40 + Math.random() * 160;
-      this.particles.push({
-        id: `particle-${Date.now()}-${Math.random()}`,
-        x,
-        y,
-        vx: Math.cos(angle) * speed,
-        vy: Math.sin(angle) * speed - 60,
-        color: colors[Math.floor(Math.random() * colors.length)] ?? "#fbbf24",
-        size: 2 + Math.random() * 3,
-        life: 1.0,
-        maxLife: 1.0,
-      });
-    }
-  }
-
-  private updateParticles(dt: number): void {
-    const next: Particle[] = [];
-    for (const p of this.particles) {
-      p.x += p.vx * dt;
-      p.y += p.vy * dt;
-      p.vy += 300 * dt;
-      p.life -= dt;
-      if (p.life > 0) {
-        next.push(p);
-      }
-    }
-    this.particles = next;
+    this.visualSim.spawnExplosionParticles(x, y);
   }
 
   private spawnFloatingText(text: string, color: string, x: number, y: number): void {
-    this.floatingTexts.push({
-      id: `text-${Date.now()}-${Math.random()}`,
-      text,
-      color,
-      x,
-      y,
-      vy: -60,
-      life: 1.0,
-      maxLife: 1.0,
-    });
+    this.visualSim.spawnFloatingText(text, color, x, y);
   }
 
-  private updateFloatingTexts(dt: number): void {
-    const next: FloatingText[] = [];
-    for (const ft of this.floatingTexts) {
-      ft.y += ft.vy * dt;
-      ft.life -= dt;
-      if (ft.life > 0) {
-        next.push(ft);
-      }
-    }
-    this.floatingTexts = next;
-  }
-
-  addTankAmmo(playerId: number, slotId: string, amount: number = 1): void {
+  addTankAmmo(playerId: number, slotId: string, amount = 1): void {
     const entityId = this.world.tankEntitiesByPlayer.get(playerId);
     if (!entityId) return;
     const tank = this.world.tanks.get(entityId);

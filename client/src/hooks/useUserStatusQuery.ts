@@ -12,6 +12,6 @@ export function useUserStatusQuery() {
       return await status().then((res) => res.userSessionStatus);
     },
     enabled: user !== null,
-    staleTime: 10_000, // 10 seconds
+    staleTime: 1000 * 60 * 10, // 10 minutes
   });
 }

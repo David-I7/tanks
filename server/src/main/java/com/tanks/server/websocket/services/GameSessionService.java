@@ -9,9 +9,8 @@ import com.tanks.server.utils.IdFactory;
 import com.tanks.server.websocket.dto.gameplay.diffResponse.OnlineDiffResponseDto;
 import com.tanks.server.websocket.dto.gameplay.diffResponse.OnlineDiffResponsePayload;
 import com.tanks.server.websocket.dto.gameplay.OnlineGameplayProtocolVersion;
-import com.tanks.server.websocket.dto.gameplay.diffResponse.actions.*;
 import com.tanks.server.websocket.dto.gameplay.diffResponse.enums.*;
-import com.tanks.server.websocket.dto.gameplay.diffResponse.states.*;
+import com.tanks.server.websocket.dto.gameplay.diffResponse.payloads.*;
 import com.tanks.server.websocket.dto.gameplay.playerIntent.*;
 import com.tanks.server.websocket.dto.gameplay.playerIntent.payloads.*;
 import com.tanks.server.websocket.dto.gameplay.diffResponse.OnlineStateDiffResponseType;
@@ -851,21 +850,5 @@ public class GameSessionService {
         } catch (RuntimeException cleanupEx) {
             log.warn("Failed to clean up game session '{}' after failed operation", gameSession.getId(), cleanupEx);
         }
-    }
-
-    private void saveUserSessionQuietly(UserSession userSession) {
-        try {
-            userSessionService.save(userSession);
-        } catch (RuntimeException restoreEx) {
-            log.warn("Failed to restore user session '{}' after failed game creation", userSession.getId(), restoreEx);
-        }
-    }
-
-    private void restoreUserSession(UserSession target, UserSession source) {
-        target.setState(source.getState());
-        target.setGameSessionId(source.getGameSessionId());
-        target.setLobbyId(source.getLobbyId());
-        target.setSocketSessionId(source.getSocketSessionId());
-        target.setTopicSubscriptions(source.getTopicSubscriptions());
     }
 }

@@ -6,8 +6,8 @@ import com.tanks.server.websocket.dto.gameplay.diffResponse.OnlineDiffResponseDt
 import com.tanks.server.websocket.dto.gameplay.OnlineGameplayProtocolVersion;
 import com.tanks.server.websocket.dto.gameplay.diffResponse.OnlineStateDiffResponseType;
 import com.tanks.server.websocket.dto.gameplay.diffResponse.enums.ResyncReason;
-import com.tanks.server.websocket.dto.gameplay.diffResponse.states.InitialState;
-import com.tanks.server.websocket.dto.gameplay.diffResponse.states.ResyncState;
+import com.tanks.server.websocket.dto.gameplay.diffResponse.payloads.InitialState;
+import com.tanks.server.websocket.dto.gameplay.diffResponse.payloads.ResyncState;
 import com.tanks.server.websocket.dto.gameplay.gameContent.GameContentResponseDto;
 import com.tanks.server.websocket.dto.gameplay.match.OnlineMatchSnapshotResponseDto;
 import com.tanks.server.websocket.dto.gameplay.match.phases.MatchPhase;
@@ -79,6 +79,7 @@ public class GameStateResponseFactory {
                         .winnerPlayerId(winnerPlayerId(session))
                         .matchEndsAtServerTick(session.getMatchEndsAtServerTick())
                         .wind(session.getWorld().match().wind())
+                        .biome(session.getWorld().match().biome() != null ? session.getWorld().match().biome() : (content.world().biome() != null ? content.world().biome() : "forest"))
                         .build())
                 .terrain(new Heightmap(TerrainSnapshotKind.HEIGHTMAP,
                         session.getTerrainModel().width(), session.getTerrainModel().height(), session.getTerrainModel().surface()))
@@ -102,6 +103,15 @@ public class GameStateResponseFactory {
                                 crate.isLanding(),
                                 crate.collected(),
                                 crate.value()))
+                        .toList() : List.of())
+                .damageTrails(session.getWorld().damageTrails() != null ? session.getWorld().damageTrails().stream()
+                        .map(trail -> new OnlineDamageTrailSnapshotResponseDto(
+                                trail.id(),
+                                trail.ownerPlayerId(),
+                                trail.position(),
+                                trail.radius(),
+                                trail.damagePerSecond(),
+                                trail.remainingTicks() / (double) content.world().tickRateHz()))
                         .toList() : List.of())
                 .build();
     }

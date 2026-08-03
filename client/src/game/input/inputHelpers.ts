@@ -1,6 +1,7 @@
 import type { GameAction, GameState } from "../types";
 import type { DomCanvasRect, GameViewport } from "../world/worldSizing";
 import { domPointToGameViewportPoint } from "../world/worldSizing";
+import { clampAimAngle } from "../simulation/ballistics";
 
 export type CanvasAimInput = {
   clientX: number;
@@ -38,14 +39,7 @@ export function calculateAimIntent(
   const d = worldX - originX;
   const h = originY - worldY;
 
-  const slot = activeTank.loadout.find(
-    (entry) => entry.id === activeTank.selectedProjectileSlotId,
-  );
-  const projectileDefinition = slot
-    ? input.gameState.projectileDefinitions[slot.projectileDefinitionId]
-    : null;
-  const muzzleVelocityScale =
-    projectileDefinition?.physics.muzzleVelocityScale ?? 1;
+  const muzzleVelocityScale = 1;
 
   let angle: number;
   let power: number;
@@ -67,7 +61,7 @@ export function calculateAimIntent(
 
   return {
     type: "aim",
-    angle,
+    angle: clampAimAngle(angle),
     power,
   };
 }
@@ -122,8 +116,8 @@ export function findProjectileSlotAtCanvasPoint(
   );
 
   for (let index = 0; index < targetTank.loadout.length; index += 1) {
-    const slot = targetTank.loadout[index];
-    if (!slot) continue;
+    const slotId = targetTank.loadout[index];
+    if (!slotId) continue;
     const slotX = layout.x + index * (layout.slotSize + layout.gap);
     const slotY = layout.y;
 
@@ -138,7 +132,7 @@ export function findProjectileSlotAtCanvasPoint(
       canvasY >= minY &&
       canvasY <= maxY
     ) {
-      return slot.id;
+      return slotId;
     }
   }
 

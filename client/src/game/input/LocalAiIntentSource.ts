@@ -41,7 +41,7 @@ export class LocalAiIntentSource {
     const projectileSlotId =
       self.loadout[
         Math.min(self.loadout.length - 1, gameState.match.turnNumber % 3)
-      ]?.id ?? self.selectedProjectileSlotId;
+      ] ?? self.selectedProjectileSlotId;
 
     return [
       { type: "selectProjectileSlot", projectileSlotId },

@@ -157,13 +157,15 @@ public class LobbyService {
     }
 
     private boolean isFullLobby(Lobby lobby) {
-        return (lobby.getHost().getId() != null)
-                && (lobby.getOpponent().getId() != null);
+        return (lobby.getHost() != null)
+                && (lobby.getOpponent() != null);
     }
 
     private boolean isConnectedUser(Lobby lobby, Long userId) {
-        return userId.equals(lobby.getOpponent().getId())
-                || userId.equals(lobby.getHost().getId());
+        LobbyPlayerConfig opponent = lobby.getOpponent();
+        LobbyPlayerConfig host = lobby.getHost();
+        return userId.equals(opponent != null ? opponent.getId() : null)
+                || userId.equals(host != null ? host.getId() : null);
     }
 
     private void cleanupLobby(Lobby lobby) {

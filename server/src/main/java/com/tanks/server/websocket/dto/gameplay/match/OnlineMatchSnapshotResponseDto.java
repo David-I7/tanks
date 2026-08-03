@@ -12,7 +12,8 @@ public record OnlineMatchSnapshotResponseDto(
         long turnTimeRemainingTicks,
         Long winnerPlayerId,
         Long matchEndsAtServerTick,
-        Double wind) {
+        Double wind,
+        String biome) {
 
     public OnlineMatchSnapshotResponseDto(
             MatchPhase phase,
@@ -21,6 +22,6 @@ public record OnlineMatchSnapshotResponseDto(
             int turnNumber,
             long turnTimeRemainingTicks,
             Long winnerPlayerId) {
-        this(phase, activePlayerId, playerCount, turnNumber, turnTimeRemainingTicks, winnerPlayerId, null, null);
+        this(phase, activePlayerId, playerCount, turnNumber, turnTimeRemainingTicks, winnerPlayerId, null, null, "forest");
     }
 }

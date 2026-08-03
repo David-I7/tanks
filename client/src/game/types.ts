@@ -1,3 +1,5 @@
+import type { GameContent } from "./content/localGameContent";
+
 export type EntityId = number;
 
 export type GameMode = "online" | "localTwoPlayer" | "playerVsAi";
@@ -35,10 +37,10 @@ export type Vec2 = {
 };
 
 export type VisualIdentity = {
-  fill?: string;
-  stroke?: string;
-  accent?: string;
-  label?: string;
+  fill: string;
+  stroke: string;
+  accent: string;
+  label: string;
 };
 
 export type ProjectilePhysics = {
@@ -48,27 +50,6 @@ export type ProjectilePhysics = {
   muzzleVelocityScale: number;
 };
 
-export type ProjectilePattern =
-  | { kind: "standard" }
-  | { kind: "bouncing"; maxBounces: number }
-  | {
-      kind: "damageTrail";
-      durationSeconds: number;
-      damagePerSecond: number;
-      radius: number;
-    }
-  | { kind: "autocannon"; count: number; delaySeconds: number }
-  | {
-      kind: "volley";
-      count: number;
-      delaySeconds: number;
-      spreadAngleDegrees: number;
-    }
-  | { kind: "shotgun"; count: number; spreadAngleDegrees: number }
-  | { kind: "cluster"; count: number; splitAtApex: boolean }
-  | { kind: "laser"; depthMultiplier: number }
-  | { kind: "nuke"; screenShake: number };
-
 export type TerrainEffect =
   | { type: "crater"; radius: number }
   | { type: "drill"; radius: number; depth: number };
@@ -77,24 +58,41 @@ export type DamageEffect =
   | { type: "radial"; radius: number; damage: number }
   | { type: "focused"; radius: number; damage: number };
 
+export type SubMunitionConfig = {
+  count: number;
+  projectileDefinitionId: string;
+  spreadAngleDegrees: number;
+  velocityScale: number;
+};
+
+export type DamageTrailConfig = {
+  radius: number;
+  damagePerSecond: number;
+  durationSeconds: number;
+};
+
 export type ProjectileDefinition = {
   id: string;
   name: string;
-  physics: ProjectilePhysics;
-  terrainEffect: TerrainEffect;
-  damageEffect: DamageEffect;
-  impactAnimationId: string;
-  impactDuration: number;
-  pattern?: ProjectilePattern;
-  maxAmmo?: number;
-  visual?: VisualIdentity;
+  label: string;
+  radius: number;
+  baseVelocity: number;
+  gravityScale: number;
+  drag: number;
+  terrainEffectType: "CRATER" | "DRILL";
+  terrainRadius: number;
+  terrainDepth: number;
+  damageEffectType: "RADIAL" | "FOCUSED";
+  damageRadius: number;
+  damage: number;
+  subMunitions: SubMunitionConfig | null;
+  damageTrail: DamageTrailConfig | null;
 };
 
 export type ProjectileSlot = {
   id: string;
   projectileDefinitionId: string;
   label: string;
-  maxAmmo?: number;
 };
 
 export type TankDefinition = {
@@ -105,13 +103,10 @@ export type TankDefinition = {
   movementQuantum: number;
   fuelRate: number;
   climbCapability: number;
-  collisionRadius: number;
-  halfWidth: number;
-  trackGroundOffset: number;
-  muzzleForwardOffset: number;
-  muzzleVerticalOffset: number;
-  loadout: ProjectileSlot[];
-  visual?: VisualIdentity;
+  width: number;
+  height: number;
+  visual: VisualIdentity;
+  loadout: string[];
 };
 
 export type TankSelection = {
@@ -140,7 +135,9 @@ export type TankComponent = {
   controllerKind: ControllerKind;
   tankDefinitionId: string;
   tankName: string;
-  loadout: ProjectileSlot[];
+  width: number;
+  height: number;
+  loadout: string[];
   selectedProjectileSlotId: string;
   weaponAmmo: Record<string, number>;
   maxHealth: number;
@@ -152,7 +149,7 @@ export type TankComponent = {
   maxFuel: number;
   fuel: number;
   alive: boolean;
-  visual?: VisualIdentity;
+  visual: VisualIdentity;
 };
 
 export type ProjectileComponent = {
@@ -164,18 +161,13 @@ export type ProjectileComponent = {
   physics: ProjectilePhysics;
   terrainEffect: TerrainEffect;
   damageEffect: DamageEffect;
-  impactAnimationId: string;
-  impactDuration: number;
-  pattern?: ProjectilePattern;
-  bouncesCount?: number;
-  hasSplit?: boolean;
-  visual?: VisualIdentity;
+  position: Vec2;
+  velocity: Vec2;
 };
 
 export type DamageTrail = {
   id: string;
-  x: number;
-  y: number;
+  position: Vec2;
   radius: number;
   damagePerSecond: number;
   remainingDuration: number;
@@ -198,12 +190,12 @@ export type LifetimeComponent = {
 export type LootCrateType = "hp" | "fuel" | "ammo";
 
 export type LootCrate = {
-  id: string;
-  type: LootCrateType;
+  crateId: string;
+  crateType: LootCrateType;
   x: number;
   y: number;
-  groundY: number;
-  falling: boolean;
+  targetY: number;
+  isLanding: boolean;
   collected: boolean;
   value: number;
 };
@@ -263,9 +255,9 @@ export type MatchState = {
   matchTimeRemaining: number;
   wind: number;
   winnerPlayerId: number | null;
-  biome?: MapBiome;
-  isCameraLocked?: boolean;
-  cameraX?: number;
+  biome: MapBiome;
+  isCameraLocked: boolean;
+  cameraX: number;
 };
 
 export type HeightmapTerrainSnapshot = {
@@ -300,12 +292,12 @@ export type LocalSimulationState = DeepReadonly<{
     projectile: ProjectileComponent;
   }>;
   impactEvents: ImpactEvent[];
-  damageTrails?: DamageTrail[];
-  lootCrates?: LootCrate[];
-  particles?: Particle[];
-  floatingTexts?: FloatingText[];
-  decors?: DecorObject[];
-  clouds?: Cloud[];
+  damageTrails: DamageTrail[];
+  lootCrates: LootCrate[];
+  particles: Particle[];
+  floatingTexts: FloatingText[];
+  decors: DecorObject[];
+  clouds: Cloud[];
 }>;
 
 export type GameState = DeepReadonly<{
@@ -326,13 +318,19 @@ export type GameState = DeepReadonly<{
     }
   >;
   impactEvents: ImpactEvent[];
-  damageTrails?: DamageTrail[];
-  lootCrates?: LootCrate[];
-  particles?: Particle[];
-  floatingTexts?: FloatingText[];
-  decors?: DecorObject[];
-  clouds?: Cloud[];
+  damageTrails: DamageTrail[];
+  lootCrates: LootCrate[];
+  particles: Particle[];
+  floatingTexts: FloatingText[];
+  decors: DecorObject[];
+  clouds: Cloud[];
 }>;
+
+export type GameContext = {
+  clock: () => number;
+  generateIntentId: () => string;
+  gameContent: GameContent;
+};
 
 export const MAX_TURN_SECONDS = 30;
 export const MAX_TANK_FUEL = 240;

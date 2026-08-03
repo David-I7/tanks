@@ -5,9 +5,9 @@ import java.util.List;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
 import com.tanks.server.websocket.dto.gameplay.OnlineVec2Dto;
-import com.tanks.server.websocket.dto.gameplay.diffResponse.actions.MovementSegment;
-import com.tanks.server.websocket.dto.gameplay.diffResponse.actions.ProjectileResolution;
-import com.tanks.server.websocket.dto.gameplay.diffResponse.actions.TerrainPatch;
+import com.tanks.server.websocket.dto.gameplay.diffResponse.payloads.MovementSegment;
+import com.tanks.server.websocket.dto.gameplay.diffResponse.payloads.ProjectileResolution;
+import com.tanks.server.websocket.dto.gameplay.diffResponse.payloads.TerrainPatch;
 import com.tanks.server.websocket.dto.gameplay.playerIntent.payloads.FireIntentIntentRequestPayload;
 import com.tanks.server.websocket.dto.gameplay.playerIntent.payloads.MoveIntentRequestPayload;
 import com.tanks.server.websocket.dto.gameplay.snapshots.OnlineTankDamageResponseDto;
@@ -24,7 +24,7 @@ import com.tanks.server.websocket.gameplay.world.TankState;
 import com.tanks.server.websocket.gameplay.world.TerrainModel;
 import com.tanks.server.websocket.gameplay.world.World;
 
-import com.tanks.server.websocket.dto.gameplay.diffResponse.actions.SubMunitionTrajectoryDto;
+import com.tanks.server.websocket.dto.gameplay.diffResponse.SubMunitionTrajectoryDto;
 import com.tanks.server.websocket.gameplay.content.definitions.DamageTrailConfig;
 import com.tanks.server.websocket.gameplay.content.definitions.SubMunitionConfig;
 import com.tanks.server.websocket.gameplay.world.DamageTrailState;
@@ -33,9 +33,15 @@ import java.util.UUID;
 @Service
 public class DefaultGameSimulation implements GameSimulation {
     @Override
-    public Optional<MovementSegment> move(GameContent content, World world,
-            TerrainModel terrain, String intentId, long playerId, MoveIntentRequestPayload request,
-            long startedServerTick) {
+    public Optional<MovementSegment> move(
+            GameContent content,
+            World world,
+            TerrainModel terrain,
+            String intentId,
+            long playerId,
+            MoveIntentRequestPayload request,
+            long startedServerTick
+    ) {
         if (request.getDirection() != -1 && request.getDirection() != 1)
             return Optional.empty();
         TankState state = world.requireTankByPlayer(playerId);

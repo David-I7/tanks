@@ -14,5 +14,6 @@ public record OnlineGameStateSnapshotResponseDto(
                 OnlineTerrainSnapshotResponseDto terrain,
                 List<OnlineTankSnapshotResponseDto> tanks,
                 List<OnlineProjectileSnapshotResponseDto> projectiles,
-                List<OnlineLootCrateSnapshotResponseDto> lootCrates) {
+                List<OnlineLootCrateSnapshotResponseDto> lootCrates,
+                List<OnlineDamageTrailSnapshotResponseDto> damageTrails) {
 }

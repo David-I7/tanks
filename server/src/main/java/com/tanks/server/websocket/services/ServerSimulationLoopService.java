@@ -8,6 +8,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
+import com.tanks.server.websocket.dto.gameplay.diffResponse.payloads.TerminalGame;
+import com.tanks.server.websocket.dto.gameplay.diffResponse.payloads.TurnTransition;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationListener;
 import org.springframework.context.ApplicationEventPublisher;
@@ -17,9 +19,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import com.tanks.server.websocket.dto.gameplay.diffResponse.OnlineDiffResponseDto;
-import com.tanks.server.websocket.dto.gameplay.diffResponse.actions.*;
 import com.tanks.server.websocket.dto.gameplay.diffResponse.enums.*;
-import com.tanks.server.websocket.dto.gameplay.diffResponse.states.*;
 import com.tanks.server.websocket.dto.gameplay.OnlineGameplayProtocolVersion;
 import com.tanks.server.websocket.dto.gameplay.diffResponse.OnlineStateDiffResponseType;
 import com.tanks.server.websocket.entities.gameSession.GameSession;

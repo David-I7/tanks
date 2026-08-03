@@ -1,6 +1,7 @@
 package com.tanks.server.websocket.gameplay.content.definitions;
 
 public record WorldDefinition(
+        String biome,
         int width,
         int height,
         int tickRateHz,
