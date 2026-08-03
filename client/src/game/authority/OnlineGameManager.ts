@@ -115,6 +115,7 @@ class ActiveOnlineGameManager {
   private confirmedState: OnlineConfirmedState;
   private currentState!: GameState;
   private visualSim: ClientVisualSimulation;
+  private lastImpactX: number | null = null;
 
   constructor(
     initialState: OnlineConfirmedState,
@@ -209,6 +210,7 @@ class ActiveOnlineGameManager {
     if (this.pendingImpactFx && !this.visualSim.getState().activeFlight) {
       const fx = this.pendingImpactFx;
       this.pendingImpactFx = null;
+      this.lastImpactX = fx.impact.x;
       this.visualSim.spawnExplosionParticles(fx.impact.x, fx.impact.y);
       this.spawnDamageFloatingTexts(fx.damagedTanks);
       if (fx.subMunitions) {
@@ -222,7 +224,7 @@ class ActiveOnlineGameManager {
     const activeTank = this.confirmedState.state.tanks.find(
       (tank) => tank.playerId === this.confirmedState.state.match.activePlayerId,
     );
-    const focusX = flightRes?.position.x ?? activeTank?.position.x ?? null;
+    const focusX = flightRes?.position.x ?? this.lastImpactX ?? activeTank?.position.x ?? null;
     this.visualSim.updateCamera(
       dt,
       focusX,
@@ -238,6 +240,10 @@ class ActiveOnlineGameManager {
   }
 
   applyDiff(diff: OnlineDiffResponseDto): void {
+    if (diff.type === "TURN_TRANSITION") {
+      this.lastImpactX = null;
+    }
+
     if (diff.type === "PROJECTILE_RESOLUTION") {
       const payload = diff.payload as OnlineProjectileResolutionResponse["payload"];
       const trajectory = payload.trajectory ?? [];

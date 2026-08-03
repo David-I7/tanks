@@ -38,6 +38,7 @@ export class LocalSimulation {
   private lootCrates: LootCrate[] = [];
   private screenShake = 0;
   private cratesSpawned = { minute1: false, minute2: false, minute3: false };
+  private lastImpactX: number | null = null;
   private visualSim: ClientVisualSimulation;
 
   constructor(
@@ -179,7 +180,7 @@ export class LocalSimulation {
       activeProjId !== undefined
         ? this.world.positions.get(activeProjId)
         : null;
-    const focusX = projPos?.x ?? pos?.x ?? null;
+    const focusX = projPos?.x ?? this.lastImpactX ?? pos?.x ?? null;
     this.visualSim.updateCamera(dt, focusX, 960, this.terrain.width);
 
     const visState = this.visualSim.getState();
@@ -459,6 +460,7 @@ export class LocalSimulation {
     projectile: ProjectileComponent,
     directHitTankEntityId: EntityId | null = null,
   ): void {
+    this.lastImpactX = x;
     this.terrain.applyTerrainEffect(x, y, projectile.terrainEffect);
     this.world.createImpactEvent(x, y, projectile);
     this.applyDamageEffect(x, y, projectile.damageEffect, directHitTankEntityId);
@@ -576,6 +578,7 @@ export class LocalSimulation {
   }
 
   private advanceTurn(): void {
+    this.lastImpactX = null;
     for (let step = 1; step <= this.world.match.playerCount; step += 1) {
       const nextPlayerId =
         (this.world.match.activePlayerId + step) % this.world.match.playerCount;
