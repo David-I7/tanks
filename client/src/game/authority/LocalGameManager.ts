@@ -5,7 +5,6 @@ import {
 import {
   createCanvasSizing,
   readDomCanvasRect,
-  type GameViewport,
 } from "../world/worldSizing";
 import { createDefaultMatchSetup } from "../world/createInitialWorld";
 import { LocalAiIntentSource } from "../input/LocalAiIntentSource";

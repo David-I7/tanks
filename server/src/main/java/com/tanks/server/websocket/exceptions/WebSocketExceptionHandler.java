@@ -3,6 +3,7 @@ package com.tanks.server.websocket.exceptions;
 import com.tanks.server.dto.validation.ConstraintValidationDto;
 import com.tanks.server.mappers.validation.ObjectErrorToConstraintValidationDto;
 import com.tanks.server.utils.ProblemDetailWriter;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.messaging.handler.annotation.MessageExceptionHandler;
@@ -16,6 +17,7 @@ import java.net.URI;
 import java.util.List;
 
 @ControllerAdvice
+@Slf4j
 public class WebSocketExceptionHandler {
 
     private ObjectErrorToConstraintValidationDto constraintValidationDtoMapper= new ObjectErrorToConstraintValidationDto();
@@ -50,12 +52,14 @@ public class WebSocketExceptionHandler {
 
         problemDetail.setProperty("errors",validationDtos);
 
+        log.error("Validation error: {}", problemDetail);
         return problemDetail;
     }
 
     @MessageExceptionHandler(ProblemDetailException.class)
     @SendToUser("/queue/errors")
     public ProblemDetail handleProblemDetailException(ProblemDetailException ex){
+        log.error("Problem detail exception", ex);
         return problemDetailWriter.createProblemDetail(ex);
     }
 
@@ -67,6 +71,7 @@ public class WebSocketExceptionHandler {
         problemDetail.setTitle(HttpStatus.INTERNAL_SERVER_ERROR.toString());
         problemDetail.setDetail("An unexpected server error occurred.");
 
+        log.error("Unexpected error", ex);
         return problemDetail;
     }
 }

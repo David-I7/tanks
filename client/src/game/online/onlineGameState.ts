@@ -2,11 +2,13 @@ import type {
   OnlineGameStateSnapshotResponse,
   OnlineTerrainSnapshotResponse,
 } from "../../api/ws/dto/gameplay/onlineGameplayProtocol";
-import { localGameContent, createInitialWeaponAmmo, type GameContent } from "../content/localGameContent";
+import { createInitialWeaponAmmo } from "../rendering/ResourceManager";
 import type {
+  GameContext,
   GameState,
   ImpactEvent,
   LootCrate,
+  DamageTrail,
   TerrainSnapshot,
   TurnPhase,
   VisualIdentity,
@@ -18,9 +20,7 @@ import type {
 
 const DEFAULT_TANK_BODY_ANGLE = 0;
 const DEFAULT_PROJECTILE_POWER = 0;
-const DEFAULT_PROJECTILE_RADIUS = 4;
 const DEFAULT_IMPACT_DURATION_SECONDS = 0.4;
-const DEFAULT_MATCH_TIME_SECONDS = 180;
 
 const fallbackVisual: VisualIdentity = {
   fill: "#94a3b8",
@@ -32,25 +32,24 @@ const fallbackVisual: VisualIdentity = {
 export function toGameState(
   confirmed: OnlineConfirmedState,
   renderState: OnlineGameStateSnapshotResponse,
-  content: GameContent = localGameContent,
-  monotonicNowMs: number = performance.now(),
+  ctx: GameContext,
 ): GameState {
   return onlineSnapshotToGameState(
     renderState,
     confirmed.localPlayerId,
-    content,
     confirmed.impactEvents,
-    monotonicNowMs,
+    ctx,
   );
 }
 
 export function onlineSnapshotToGameState(
   snapshot: OnlineGameStateSnapshotResponse,
-  localPlayerId: number | null = null,
-  content: GameContent = localGameContent,
-  impactEvents: OnlineImpactProjectionEvent[] = [],
-  monotonicNowMs: number = performance.now(),
+  localPlayerId: number | null,
+  impactEvents: OnlineImpactProjectionEvent[],
+  ctx: GameContext,
 ): GameState {
+  const content = ctx.gameContent;
+
   return {
     match: {
       mode: "online",
@@ -60,17 +59,28 @@ export function onlineSnapshotToGameState(
       turnNumber: snapshot.match.turnNumber,
       turnTimeRemaining:
         snapshot.match.turnTimeRemainingTicks / content.world.tickRateHz,
-      matchTimeRemaining: snapshot.match.matchTimeRemainingTicks != null
-        ? snapshot.match.matchTimeRemainingTicks / content.world.tickRateHz
-        : DEFAULT_MATCH_TIME_SECONDS,
-      wind: snapshot.match.wind ?? 0,
+      matchTimeRemaining:
+        snapshot.match.matchTimeRemainingTicks / content.world.tickRateHz,
+      wind: snapshot.match.wind,
       winnerPlayerId: snapshot.match.winnerPlayerId,
+      biome: snapshot.match.biome,
+      isCameraLocked: true,
+      cameraX: 0,
     },
     terrain: mapOnlineTerrain(snapshot.terrain),
     projectileDefinitions: content.projectiles,
     tanks: snapshot.tanks.map((tank) => {
       const tankDefinition = content.tanks[tank.tankDefinitionId];
       const weaponAmmo = createInitialWeaponAmmo(tank.loadout);
+      const visual: VisualIdentity = tank.visual
+        ? {
+            fill: tank.visual.fillStyle,
+            stroke: tank.visual.strokeStyle,
+            accent: tank.visual.accentColor,
+            label: tank.visual.label,
+          }
+        : tankDefinition?.visual ?? namedFallbackVisual(tank.displayName);
+
       return {
         entityId: tank.entityId,
         playerId: tank.playerId,
@@ -78,13 +88,10 @@ export function onlineSnapshotToGameState(
         controllerKind: tank.playerId === localPlayerId ? "human" : "remote",
         tankDefinitionId: tank.tankDefinitionId,
         tankName: tankDefinition?.name ?? tank.tankDefinitionId,
-        visual: tankDefinition?.visual ?? namedFallbackVisual(tank.displayName),
-        loadout: tank.loadout.map((slot) => ({
-          id: slot.id,
-          projectileDefinitionId: slot.projectileDefinitionId,
-          label: slot.label,
-          renderAssetId: slot.renderAssetId,
-        })),
+        width: tank.width ?? tankDefinition?.width ?? 32,
+        height: tank.height ?? tankDefinition?.height ?? 24,
+        visual,
+        loadout: tank.loadout,
         selectedProjectileSlotId: tank.selectedProjectileSlotId,
         weaponAmmo,
         maxHealth: tank.maxHealth,
@@ -107,49 +114,63 @@ export function onlineSnapshotToGameState(
         projectileDefinitionId: projectile.projectileDefinitionId,
         name: definition?.name ?? projectile.projectileDefinitionId,
         power: DEFAULT_PROJECTILE_POWER,
-        radius: definition?.physics.radius ?? DEFAULT_PROJECTILE_RADIUS,
-        physics: definition?.physics ?? {
-          radius: DEFAULT_PROJECTILE_RADIUS,
-          gravityScale: 1,
-          drag: 0,
+        radius: definition?.radius ?? 4,
+        physics: {
+          radius: definition?.radius ?? 4,
+          gravityScale: definition?.gravityScale ?? 1,
+          drag: definition?.drag ?? 0,
           muzzleVelocityScale: 1,
         },
-        terrainEffect: definition?.terrainEffect ?? {
-          type: "crater",
-          radius: 24,
-        },
-        damageEffect: definition?.damageEffect ?? {
-          type: "radial",
-          radius: 24,
-          damage: 20,
-        },
-        impactAnimationId: definition?.impactAnimationId ?? "online-impact",
-        impactDuration:
-          definition?.impactDuration ?? DEFAULT_IMPACT_DURATION_SECONDS,
-        visual: definition?.visual ?? fallbackVisual,
+        terrainEffect:
+          definition?.terrainEffectType === "DRILL"
+            ? {
+                type: "drill",
+                radius: definition.terrainRadius,
+                depth: definition.terrainDepth,
+              }
+            : {
+                type: "crater",
+                radius: definition?.terrainRadius ?? 24,
+              },
+        damageEffect:
+          definition?.damageEffectType === "FOCUSED"
+            ? {
+                type: "focused",
+                radius: definition.damageRadius,
+                damage: definition.damage,
+              }
+            : {
+                type: "radial",
+                radius: definition?.damageRadius ?? 24,
+                damage: definition?.damage ?? 20,
+              },
         position: { ...projectile.position },
         velocity: { ...projectile.velocity },
       };
     }),
-    impactEvents: mapOnlineImpactEvents(impactEvents, content, monotonicNowMs),
+    impactEvents: mapOnlineImpactEvents(impactEvents, ctx),
     lootCrates: mapOnlineLootCrates(snapshot),
+    damageTrails: mapOnlineDamageTrails(snapshot),
+    particles: [],
+    floatingTexts: [],
+    decors: [],
+    clouds: [],
   };
 }
 
 function mapOnlineImpactEvents(
   events: OnlineImpactProjectionEvent[],
-  content: GameContent,
-  monotonicNowMs: number,
+  ctx: GameContext,
 ): ImpactEvent[] {
+  const monotonicNowMs = ctx.clock();
   return events.map((event) => {
-    const definition = content.projectiles[event.projectileDefinitionId];
     return {
       id: event.id,
       position: { ...event.position },
       animationId: event.animationId,
       age: Math.max(0, (monotonicNowMs - event.createdAtMonotonicMs) / 1000),
-      duration: definition?.impactDuration ?? DEFAULT_IMPACT_DURATION_SECONDS,
-      visual: definition?.visual ?? fallbackVisual,
+      duration: DEFAULT_IMPACT_DURATION_SECONDS,
+      visual: fallbackVisual,
     };
   });
 }
@@ -191,20 +212,30 @@ function namedFallbackVisual(displayName: string): VisualIdentity {
 
 function mapOnlineLootCrates(
   snapshot: OnlineGameStateSnapshotResponse,
-): LootCrate[] | undefined {
-  if (!snapshot.lootCrates || snapshot.lootCrates.length === 0) {
-    return undefined;
-  }
-
+): LootCrate[] {
+  if (!snapshot.lootCrates) return [];
   return snapshot.lootCrates.map((crate) => ({
-    id: crate.crateId,
-    type: crate.crateType,
+    crateId: crate.crateId,
+    crateType: crate.crateType,
     x: crate.x,
     y: crate.y,
-    groundY: crate.targetY,
-    falling: crate.isLanding,
+    targetY: crate.targetY,
+    isLanding: crate.isLanding,
     collected: crate.collected,
-    value: crate.value ?? 0,
+    value: crate.value,
   }));
 }
 
+function mapOnlineDamageTrails(
+  snapshot: OnlineGameStateSnapshotResponse,
+): DamageTrail[] {
+  if (!snapshot.damageTrails) return [];
+  return snapshot.damageTrails.map((trail) => ({
+    id: trail.id,
+    position: { ...trail.position },
+    radius: trail.radius,
+    damagePerSecond: trail.damagePerSecond,
+    remainingDuration: trail.durationSeconds,
+    ownerPlayerId: trail.ownerPlayerId,
+  }));
+}

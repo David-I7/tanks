@@ -7,6 +7,7 @@ import { useNavigate } from "react-router-dom";
 import {
   createOnlineGameManager,
   createOnlineGameplayTransport,
+  localGameContent,
   type GameManager,
   type OnlineGameplayTransport,
 } from "../../game";
@@ -32,7 +33,8 @@ export default function useGameSession(gameSessionId: string) {
 
   const [sessionStatus, setSessionStatus] =
     useState<SessionStatus>("connecting_to_game");
-  const [opponentDisconnected, setOpponentDisconnected] = useState<boolean>(false);
+  const [opponentDisconnected, setOpponentDisconnected] =
+    useState<boolean>(false);
   const [gameManager, setGameManager] = useState<GameManager | null>(null);
   const [gameplayTransport, setGameplayTransport] =
     useState<OnlineGameplayTransport | null>(null);
@@ -40,6 +42,10 @@ export default function useGameSession(gameSessionId: string) {
 
   const forfitGame = () => {
     disconnect();
+    send({
+      destination: `/app/game/:id/forfeit`,
+      id: gameSessionId,
+    });
     navigate("/");
   };
 
@@ -82,6 +88,15 @@ export default function useGameSession(gameSessionId: string) {
 
     const manager = createOnlineGameManager({
       transport,
+      ctx: {
+        clock: () => performance.now(),
+        generateIntentId: () =>
+          typeof crypto !== "undefined" &&
+          typeof crypto.randomUUID === "function"
+            ? crypto.randomUUID()
+            : `intent-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        gameContent: localGameContent,
+      },
     });
 
     setGameplayTransport(transport);

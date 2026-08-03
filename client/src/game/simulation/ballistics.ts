@@ -31,16 +31,16 @@ export function simulateTrajectoryPreview(
     activeTank.position.y,
     activeTank.aimAngle,
   );
-  const slot = activeTank.loadout.find(
-    (entry) => entry.id === activeTank.selectedProjectileSlotId,
+  const slotId = activeTank.loadout.find(
+    (id) => id === activeTank.selectedProjectileSlotId,
   );
-  const projectileDefinition = slot
-    ? snapshot.projectileDefinitions[slot.projectileDefinitionId]
+  const projectileDefinition = slotId
+    ? snapshot.projectileDefinitions[slotId]
     : null;
-  const physics = projectileDefinition?.physics ?? {
-    radius: 4,
-    gravityScale: 1,
-    drag: 0,
+  const physics = {
+    radius: projectileDefinition?.radius ?? 4,
+    gravityScale: projectileDefinition?.gravityScale ?? 1,
+    drag: projectileDefinition?.drag ?? 0,
     muzzleVelocityScale: 1,
   };
   const velocity = {

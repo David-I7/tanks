@@ -4,6 +4,7 @@ import com.tanks.server.websocket.gameplay.content.definitions.SpawnRegion;
 import com.tanks.server.websocket.gameplay.content.definitions.WorldDefinition;
 
 public record WorldDefinitionResponseDto(
+        String biome,
         int width,
         int height,
         int tickRateHz,
@@ -18,6 +19,7 @@ public record WorldDefinitionResponseDto(
 
     public static WorldDefinitionResponseDto from(WorldDefinition value) {
         return new WorldDefinitionResponseDto(
+                value.biome() != null ? value.biome() : "forest",
                 value.width(),
                 value.height(),
                 value.tickRateHz(),

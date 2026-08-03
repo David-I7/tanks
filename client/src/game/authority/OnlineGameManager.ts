@@ -3,7 +3,7 @@ import type {
   OnlinePlayerIntentRequestDto,
 } from "../../api/ws/dto/gameplay/onlineGameplayProtocol";
 import type { GameManager } from "./gameManager";
-import type { GameAction, GameState } from "../types";
+import type { GameAction, GameContext, GameState } from "../types";
 import type { OnlineGameplayTransport } from "../online/OnlineGameplayTransport";
 import { toGameState } from "../online/onlineGameState";
 import { onlineGameContentFromResponse } from "../online/onlineGameContent";
@@ -20,8 +20,7 @@ import {
 
 export function createOnlineGameManager(options: {
   transport: OnlineGameplayTransport;
-  intentIdFactory?: () => string;
-  monotonicNowMs?: () => number;
+  ctx: GameContext;
 }): GameManager {
   return new TransportBackedOnlineGameManager(options);
 }
@@ -31,17 +30,14 @@ class TransportBackedOnlineGameManager implements GameManager {
   private readonly listeners = new Set<(state: GameState) => void>();
   private readonly unsubscribeTransport: () => void;
   private readonly transport: OnlineGameplayTransport;
-  private readonly intentIdFactory: () => string;
-  private readonly monotonicNowMs: () => number;
+  private readonly ctx: GameContext;
 
   constructor(options: {
     transport: OnlineGameplayTransport;
-    intentIdFactory?: () => string;
-    monotonicNowMs?: () => number;
+    ctx: GameContext;
   }) {
     this.transport = options.transport;
-    this.intentIdFactory = options.intentIdFactory ?? createIntentId;
-    this.monotonicNowMs = options.monotonicNowMs ?? (() => performance.now());
+    this.ctx = options.ctx;
     this.unsubscribeTransport = this.transport.subscribeToStateDiffs((diff) => {
       this.applyDiff(diff);
     });
@@ -83,8 +79,7 @@ class TransportBackedOnlineGameManager implements GameManager {
       this.activeState = new ActiveOnlineGameManager(
         initializeOnlineConfirmedState(diff),
         this.transport,
-        this.intentIdFactory,
-        this.monotonicNowMs,
+        this.ctx,
         (state) => this.publishState(state),
       );
       this.publishState(this.activeState.getState());
@@ -96,8 +91,7 @@ class TransportBackedOnlineGameManager implements GameManager {
         this.activeState = new ActiveOnlineGameManager(
           initializeOnlineConfirmedStateFromResync(diff),
           this.transport,
-          this.intentIdFactory,
-          this.monotonicNowMs,
+          this.ctx,
           (state) => this.publishState(state),
         );
         this.publishState(this.activeState.getState());
@@ -122,17 +116,21 @@ class ActiveOnlineGameManager {
   constructor(
     initialState: OnlineConfirmedState,
     private readonly transport: OnlineGameplayTransport,
-    private readonly intentIdFactory: () => string,
-    private readonly monotonicNowMs: () => number,
+    private readonly ctx: GameContext,
     private readonly publish: (state: GameState) => void,
   ) {
     this.confirmedState = initialState;
-    const now = this.monotonicNowMs();
+    const renderContent = onlineGameContentFromResponse(
+      initialState.state.gameContent,
+    );
+    const activeCtx: GameContext = {
+      ...this.ctx,
+      gameContent: renderContent,
+    };
     this.currentState = toGameState(
       initialState,
-      projectOnlineRenderState(initialState, now),
-      onlineGameContentFromResponse(initialState.state.gameContent),
-      now,
+      projectOnlineRenderState(initialState, activeCtx),
+      activeCtx,
     );
   }
 
@@ -188,7 +186,7 @@ class ActiveOnlineGameManager {
         applyOnlineStateDiffResponse(
           this.confirmedState,
           diff,
-          this.monotonicNowMs,
+          this.ctx,
         ),
       );
     } catch (error) {
@@ -208,7 +206,7 @@ class ActiveOnlineGameManager {
   private createIntentEnvelope(
     action: GameAction,
   ): OnlinePlayerIntentRequestDto | null {
-    const intentId = this.intentIdFactory();
+    const intentId = this.ctx.generateIntentId();
     const common = {
       protocolVersion: "online-gameplay.v1" as const,
       gameSessionId: this.confirmedState.gameSessionId,
@@ -250,24 +248,18 @@ class ActiveOnlineGameManager {
 
   private publishConfirmed(state: OnlineConfirmedState): void {
     this.confirmedState = state;
-    const now = this.monotonicNowMs();
+    const renderContent = onlineGameContentFromResponse(
+      state.state.gameContent,
+    );
+    const activeCtx: GameContext = {
+      ...this.ctx,
+      gameContent: renderContent,
+    };
     this.currentState = toGameState(
       state,
-      projectOnlineRenderState(state, now),
-      onlineGameContentFromResponse(state.state.gameContent),
-      now,
+      projectOnlineRenderState(state, activeCtx),
+      activeCtx,
     );
     this.publish(this.currentState);
   }
-}
-
-function createIntentId(): string {
-  if (
-    typeof crypto !== "undefined" &&
-    typeof crypto.randomUUID === "function"
-  ) {
-    return crypto.randomUUID();
-  }
-
-  return `intent-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }

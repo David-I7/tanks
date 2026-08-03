@@ -79,6 +79,7 @@ public class GameStateResponseFactory {
                         .winnerPlayerId(winnerPlayerId(session))
                         .matchEndsAtServerTick(session.getMatchEndsAtServerTick())
                         .wind(session.getWorld().match().wind())
+                        .biome(session.getWorld().match().biome() != null ? session.getWorld().match().biome() : (content.world().biome() != null ? content.world().biome() : "forest"))
                         .build())
                 .terrain(new Heightmap(TerrainSnapshotKind.HEIGHTMAP,
                         session.getTerrainModel().width(), session.getTerrainModel().height(), session.getTerrainModel().surface()))
@@ -102,6 +103,15 @@ public class GameStateResponseFactory {
                                 crate.isLanding(),
                                 crate.collected(),
                                 crate.value()))
+                        .toList() : List.of())
+                .damageTrails(session.getWorld().damageTrails() != null ? session.getWorld().damageTrails().stream()
+                        .map(trail -> new OnlineDamageTrailSnapshotResponseDto(
+                                trail.id(),
+                                trail.ownerPlayerId(),
+                                trail.position(),
+                                trail.radius(),
+                                trail.damagePerSecond(),
+                                trail.remainingTicks() / (double) content.world().tickRateHz()))
                         .toList() : List.of())
                 .build();
     }

@@ -852,20 +852,4 @@ public class GameSessionService {
             log.warn("Failed to clean up game session '{}' after failed operation", gameSession.getId(), cleanupEx);
         }
     }
-
-    private void saveUserSessionQuietly(UserSession userSession) {
-        try {
-            userSessionService.save(userSession);
-        } catch (RuntimeException restoreEx) {
-            log.warn("Failed to restore user session '{}' after failed game creation", userSession.getId(), restoreEx);
-        }
-    }
-
-    private void restoreUserSession(UserSession target, UserSession source) {
-        target.setState(source.getState());
-        target.setGameSessionId(source.getGameSessionId());
-        target.setLobbyId(source.getLobbyId());
-        target.setSocketSessionId(source.getSocketSessionId());
-        target.setTopicSubscriptions(source.getTopicSubscriptions());
-    }
 }

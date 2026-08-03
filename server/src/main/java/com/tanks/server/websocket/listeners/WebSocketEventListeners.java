@@ -15,6 +15,7 @@ import com.tanks.server.websocket.entities.userSession.UserSession;
 import com.tanks.server.websocket.entities.userSession.UserSessionState;
 import com.tanks.server.websocket.security.entites.WebSocketAuthentication;
 import com.tanks.server.websocket.security.entites.WebSocketPrincipal;
+import com.tanks.server.websocket.services.ClaimService;
 import com.tanks.server.websocket.services.GameSessionService;
 import com.tanks.server.websocket.services.LobbyService;
 import com.tanks.server.websocket.services.UserSessionService;
@@ -31,6 +32,7 @@ import org.springframework.web.socket.messaging.*;
 
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.locks.ReentrantLock;
 
 @Component
 @Slf4j
@@ -52,12 +54,15 @@ public class WebSocketEventListeners {
 
     private final UserSessionService userSessionService;
 
+    private final ClaimService claimService;
 
-    public WebSocketEventListeners(GameSessionService gameSessionService, LobbyService lobbyService, UserSessionService userSessionService, SimpMessagingTemplate simpMessagingTemplate){
+
+    public WebSocketEventListeners(GameSessionService gameSessionService, LobbyService lobbyService, UserSessionService userSessionService, SimpMessagingTemplate simpMessagingTemplate, ClaimService claimService){
         this.lobbyService = lobbyService;
         this.gameSessionService = gameSessionService;
         this.userSessionService = userSessionService;
         this.simpMessagingTemplate = simpMessagingTemplate;
+        this.claimService = claimService;
     }
 
     @EventListener
@@ -101,6 +106,8 @@ public class WebSocketEventListeners {
         // UserSession is null if the user failed inside authorization interceptor
         if(userSession == null) return;
 
+        claimLockIfNotHeld(userSession.getId(), accessor);
+
         if (userSession.getState() == UserSessionState.IN_LOBBY) {
             // notify lobby that the user left
             log.debug("User {} left lobby {}", user.username(),userSession.getLobbyId());
@@ -114,6 +121,7 @@ public class WebSocketEventListeners {
             log.debug("User {} disconnected", user.username());
         }
 
+        releaseLockIfHeld(userSession.getId(), accessor);
     }
 
     @EventListener
@@ -185,47 +193,63 @@ public class WebSocketEventListeners {
 
         if(userSession == null) return;
 
-        synchronized (userSession) {
-            String subscriptionId = accessor.getSubscriptionId();
+        String subscriptionId = accessor.getSubscriptionId();
 
-            Map<String, String> topics = userSession.getTopicSubscriptions();
-            if(topics == null || topics.isEmpty()) return;
+        Map<String, String> topics = userSession.getTopicSubscriptions();
+        if(topics == null || topics.isEmpty()) return;
 
-            var topicEntry =  topics.entrySet().stream()
-                    .filter(entry -> entry.getValue().equals(subscriptionId))
-                    .findFirst().orElse(null);
+        var topicEntry =  topics.entrySet().stream()
+                .filter(entry -> entry.getValue().equals(subscriptionId))
+                .findFirst().orElse(null);
 
-            if(topicEntry == null) return;
+        if(topicEntry == null) return;
 
-            String topic = topicEntry.getKey();
+        String topic = topicEntry.getKey();
 
-            if(topic.startsWith(TOPIC_LOBBY)){
-                log.debug("User {} unsubscribed from lobby {}", userSession.getUsername(), userSession.getLobbyId());
-                handleLobbyUnsubscribe(userSession);
-            } else if (topic.startsWith(TOPIC_GAME)) {
-                log.debug("User {} unsubscribed from game {}", userSession.getUsername(), userSession.getLobbyId());
-                handleGameUnsubscribe(userSession);
-            }else if (topic.startsWith(TOPIC_USER_ERRORS)) {
-                log.debug("USER ERRORS UNSUBSCRIBE");
-                handleUserErrorsUnsubscribe(userSession);
-            }else if (topic.startsWith(TOPIC_USER_REPLIES)) {
-                log.debug("USER REPLIES UNSUBSCRIBE");
-                handleUserRepliesUnsubscribe(userSession);
+        if(topic.startsWith(TOPIC_LOBBY)){
+            log.debug("User {} unsubscribed from lobby {}", userSession.getUsername(), userSession.getLobbyId());
+            handleLobbyUnsubscribe(userSession);
+        } else if (topic.startsWith(TOPIC_GAME)) {
+            log.debug("User {} unsubscribed from game {}", userSession.getUsername(), userSession.getLobbyId());
+            handleGameUnsubscribe(userSession);
+        }else if (topic.startsWith(TOPIC_USER_ERRORS)) {
+            log.debug("USER ERRORS UNSUBSCRIBE");
+            handleUserErrorsUnsubscribe(userSession);
+        }else if (topic.startsWith(TOPIC_USER_REPLIES)) {
+            log.debug("USER REPLIES UNSUBSCRIBE");
+            handleUserRepliesUnsubscribe(userSession);
+        }
+
+    }
+
+    private void claimLockIfNotHeld(Long userId, StompHeaderAccessor accessor){
+        Map<String, Object> sessionAttributes = accessor.getSessionAttributes();
+        if (sessionAttributes != null) {
+            ReentrantLock lock = (ReentrantLock) sessionAttributes.get("socketLock");
+            if (lock != null && !lock.isHeldByCurrentThread()) {
+                lock.lock();
             }
         }
     }
 
-    private void removeUserSession(UserSession userSession){
-        userSession.setState(null);
-        userSession.setLobbyId(null);
-        userSession.setSocketSessionId(null);
-        userSession.setTopicSubscriptions(null);
+    private void releaseLockIfHeld(Long userId, StompHeaderAccessor accessor){
+        String sessionId = accessor.getSessionId();
+
+        claimService.releaseSocket(userId, sessionId);
+
+        Map<String, Object> sessionAttributes = accessor.getSessionAttributes();
+        if (sessionAttributes != null) {
+            ReentrantLock lock = (ReentrantLock) sessionAttributes.remove("socketLock");
+            if (lock != null && lock.isHeldByCurrentThread()) {
+                lock.unlock();
+            }
+        }
     }
 
     private void handleLobbyLeave(UserSession userSession){
         if (userSession.getState() == UserSessionState.IN_LOBBY) {
             lobbyService.removeUser(userSession);
-            removeUserSession(userSession);
+            userSessionService.delete(userSession);
         }
     }
 
@@ -236,7 +260,6 @@ public class WebSocketEventListeners {
             userSession.setSocketSessionId(null);
             userSessionService.save(userSession);
             gameSessionService.removeConnectedUser(userSession.getGameSessionId(), userSession.getId());
-            gameSessionService.forfeitGame(userSession.getGameSessionId(), userSession.getUsername());
             simpMessagingTemplate.convertAndSend(gameTopic, new GameEventResponseDto(GameEventType.GAME_LEAVE, new GameEventPayload(userSession.getGameSessionId(), null, userSession.getUsername())));
         }
     }

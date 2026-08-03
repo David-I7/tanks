@@ -19,7 +19,7 @@ import type {
   OnlineMoveRequest,
   ServerTick,
 } from "../../api/ws/dto/gameplay/onlineGameplayProtocol";
-import type { Vec2 } from "../types";
+import type { GameContext, Vec2 } from "../types";
 
 export type OnlinePendingPrediction = {
   intentId: string;
@@ -140,8 +140,9 @@ export function initializeOnlineConfirmedStateFromResync(
 export function applyOnlineStateDiffResponse(
   confirmed: OnlineConfirmedState,
   diff: OnlineDiffResponseDto,
-  monotonicNowMs: () => number = () => performance.now(),
+  ctx: GameContext,
 ): OnlineConfirmedState {
+  const monotonicNowMs = ctx.clock;
   if (diff.type === "RESYNC_STATE") {
     if (
       isStaleResyncDiff(
@@ -241,18 +242,19 @@ export function predictOnlineMovement(
   let y = tank.position.y;
   let completedColumns = 0;
   const movementQuantum = definition.movementQuantum;
+  const halfWidth = Math.floor(definition.width / 2);
   for (let step = 0; step < movementQuantum; step += 1) {
     const nextX = Math.round(x) + move.direction;
     if (
-      nextX - definition.halfWidth < 0 ||
-      nextX + definition.halfWidth >= confirmed.state.gameContent.world.width
+      nextX - halfWidth < 0 ||
+      nextX + halfWidth >= confirmed.state.gameContent.world.width
     )
       break;
     const surfaceY =
       confirmed.state.terrain.surface[
         Math.max(0, Math.min(confirmed.state.terrain.surface.length - 1, nextX))
       ];
-    const nextY = (surfaceY ?? y) - definition.trackGroundOffset;
+    const nextY = surfaceY ?? y;
     if (y - nextY > definition.climbCapability) break;
     const ledge = nextY - y > definition.climbCapability;
     const cost = Math.ceil(
@@ -303,12 +305,12 @@ export function predictOnlineMovement(
 
 export function projectOnlineRenderState(
   confirmed: OnlineConfirmedState,
-  monotonicNowMs: number = performance.now(),
+  ctx: GameContext,
 ): OnlineGameStateSnapshotResponse {
   const interpolatedState = applyMovementInterpolation(
     confirmed.state,
     confirmed.confirmedMovementSegments,
-    monotonicNowMs,
+    ctx.clock(),
   );
 
   return confirmed.pendingPredictions.reduce(

@@ -217,7 +217,7 @@ export type OnlineCrateSpawnedResponse = {
     crateType: "hp" | "fuel" | "ammo";
     dropX: number;
     targetY: number;
-    value?: number;
+    value: number;
   };
 };
 
@@ -291,7 +291,7 @@ export type OnlineLootCrateSnapshot = {
   targetY: number;
   isLanding: boolean;
   collected: boolean;
-  value?: number;
+  value: number;
 };
 
 export type OnlineGameStateSnapshotResponse = {
@@ -304,13 +304,15 @@ export type OnlineGameStateSnapshotResponse = {
     turnNumber: number;
     turnTimeRemainingTicks: number;
     winnerPlayerId: PlayerId | null;
-    wind?: number;
-    matchTimeRemainingTicks?: number;
+    wind: number;
+    matchTimeRemainingTicks: number;
+    biome: "forest" | "desert" | "ice";
   };
   terrain: OnlineTerrainSnapshotResponse;
   tanks: OnlineTankSnapshotResponse[];
   projectiles: OnlineProjectileSnapshotResponse[];
-  lootCrates?: OnlineLootCrateSnapshot[];
+  lootCrates: OnlineLootCrateSnapshot[];
+  damageTrails: OnlineDamageTrailEvent[];
 };
 
 export type OnlineTerrainSnapshotResponse = {
@@ -329,6 +331,7 @@ export type OnlineTerrainPatchResponseDto = {
 export type GameContentResponseDto = {
   version: string;
   world: {
+    biome: "forest" | "desert" | "ice";
     width: number;
     height: number;
     tickRateHz: number;
@@ -338,24 +341,23 @@ export type GameContentResponseDto = {
     movementSegmentDurationTicks: number;
     playerASpawnRegion: { minX: number; maxX: number };
     playerBSpawnRegion: { minX: number; maxX: number };
+    minWind: number;
+    maxWind: number;
   };
   tanks: Record<
     string,
     {
       id: string;
       name: string;
-      renderAssetId: string;
       maxHealth: number;
       maxFuel: number;
       movementQuantum: number;
       fuelRate: number;
       climbCapability: number;
-      collisionRadius: number;
-      halfWidth: number;
-      trackGroundOffset: number;
-      muzzleForwardOffset: number;
-      muzzleVerticalOffset: number;
-      loadout: OnlineProjectileSlotSnapshotResponse[];
+      width: number;
+      height: number;
+      visual: { fillStyle: string; strokeStyle: string; accentColor: string; label: string };
+      loadout: string[];
     }
   >;
   projectiles: Record<
@@ -363,20 +365,19 @@ export type GameContentResponseDto = {
     {
       id: string;
       name: string;
-      renderAssetId: string;
+      label: string;
       radius: number;
       baseVelocity: number;
       gravityScale: number;
       drag: number;
-      muzzleVelocityScale: number;
       terrainEffectType: "CRATER" | "DRILL";
       terrainRadius: number;
       terrainDepth: number;
       damageEffectType: "RADIAL" | "FOCUSED";
       damageRadius: number;
       damage: number;
-      impactRenderAssetId: string;
-      impactDuration: number;
+      subMunitions: { count: number; projectileDefinitionId: string; spreadAngleDegrees: number; velocityScale: number } | null;
+      damageTrail: { radius: number; damagePerSecond: number; durationSeconds: number } | null;
     }
   >;
 };
@@ -386,13 +387,15 @@ export type OnlineTankSnapshotResponse = {
   playerId: PlayerId;
   displayName: string;
   tankDefinitionId: string;
-  renderAssetId: string;
+  width: number;
+  height: number;
+  visual: { fillStyle: string; strokeStyle: string; accentColor: string; label: string };
   position: OnlineVec2;
   facing: 1 | -1;
   aimAngle: number;
   power: number;
   selectedProjectileSlotId: string;
-  loadout: OnlineProjectileSlotSnapshotResponse[];
+  loadout: string[];
   health: number;
   maxHealth: number;
   fuel: number;
@@ -403,14 +406,12 @@ export type OnlineProjectileSlotSnapshotResponse = {
   id: string;
   projectileDefinitionId: string;
   label: string;
-  renderAssetId: string;
 };
 
 export type OnlineProjectileSnapshotResponse = {
   entityId: EntityId;
   ownerPlayerId: PlayerId;
   projectileDefinitionId: string;
-  renderAssetId: string;
   position: OnlineVec2;
   velocity: OnlineVec2;
 };
@@ -420,6 +421,7 @@ const exampleState: OnlineGameStateSnapshotResponse = {
   gameContent: {
     version: "game-content.v1",
     world: {
+      biome: "forest",
       width: 4,
       height: 3,
       tickRateHz: 30,
@@ -429,6 +431,8 @@ const exampleState: OnlineGameStateSnapshotResponse = {
       movementSegmentDurationTicks: 6,
       playerASpawnRegion: { minX: 0, maxX: 1 },
       playerBSpawnRegion: { minX: 2, maxX: 3 },
+      minWind: -50,
+      maxWind: 50,
     },
     tanks: {},
     projectiles: {},
@@ -440,6 +444,9 @@ const exampleState: OnlineGameStateSnapshotResponse = {
     turnNumber: 1,
     turnTimeRemainingTicks: 900,
     winnerPlayerId: null,
+    wind: 0,
+    matchTimeRemainingTicks: 5400,
+    biome: "forest",
   },
   terrain: {
     kind: "HEIGHTMAP",
@@ -453,20 +460,20 @@ const exampleState: OnlineGameStateSnapshotResponse = {
       playerId: 1,
       displayName: "Player 1",
       tankDefinitionId: "vanguard",
-      renderAssetId: "tank.vanguard",
+      width: 32,
+      height: 24,
+      visual: {
+        fillStyle: "#22c55e",
+        strokeStyle: "#14532d",
+        accentColor: "#bbf7d0",
+        label: "V",
+      },
       position: { x: 50, y: 120 },
       facing: 1,
       aimAngle: 45,
       power: 0.5,
       selectedProjectileSlotId: "standard",
-      loadout: [
-        {
-          id: "standard",
-          projectileDefinitionId: "basicShell",
-          label: "Std",
-          renderAssetId: "projectile-slot.standard",
-        },
-      ],
+      loadout: ["standard"],
       health: 110,
       maxHealth: 110,
       fuel: 100,
@@ -474,6 +481,8 @@ const exampleState: OnlineGameStateSnapshotResponse = {
     },
   ],
   projectiles: [],
+  lootCrates: [],
+  damageTrails: [],
 };
 
 export const onlineGameplayProtocolExamples = {

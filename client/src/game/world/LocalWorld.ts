@@ -13,7 +13,6 @@ import {
   type VelocityComponent,
   type DecorObject,
   type Cloud,
-  type MapBiome,
 } from "../types";
 
 export class LocalWorld {
@@ -30,18 +29,7 @@ export class LocalWorld {
   readonly clouds: Cloud[] = [];
   private nextImpactEventId = 1;
 
-  constructor(public match: MatchState) {
-    if (!this.match.biome) {
-      const BIOMES: MapBiome[] = ["forest", "desert", "ice"];
-      this.match.biome = BIOMES[Math.floor(Math.random() * BIOMES.length)];
-    }
-    if (this.match.isCameraLocked === undefined) {
-      this.match.isCameraLocked = true;
-    }
-    if (this.match.cameraX === undefined) {
-      this.match.cameraX = 0;
-    }
-  }
+  constructor(public match: MatchState) {}
 
   createEntity(): EntityId {
     const entityId = this.nextEntityId;
@@ -68,7 +56,7 @@ export class LocalWorld {
     this.positions.set(entityId, { x, y });
     const defaultSlot = tankDefinition.loadout[0];
     if (!defaultSlot) {
-      throw new Error(`Tank definition "${tankDefinition.id}" has no projectile slots`);
+      throw new Error(`Tank definition "${tankDefinition.id}" has no loadout slots`);
     }
     const weaponAmmo = createInitialWeaponAmmo(tankDefinition.loadout);
     this.tanks.set(entityId, {
@@ -77,9 +65,11 @@ export class LocalWorld {
       controllerKind: player.controllerKind,
       tankDefinitionId: tankDefinition.id,
       tankName: tankDefinition.name,
+      width: tankDefinition.width,
+      height: tankDefinition.height,
       visual: { ...tankDefinition.visual },
-      loadout: tankDefinition.loadout.map((slot) => ({ ...slot })),
-      selectedProjectileSlotId: defaultSlot.id,
+      loadout: [...tankDefinition.loadout],
+      selectedProjectileSlotId: defaultSlot,
       weaponAmmo,
       maxHealth: tankDefinition.maxHealth,
       health: tankDefinition.maxHealth,
@@ -104,16 +94,23 @@ export class LocalWorld {
       projectileDefinitionId: projectileDefinition.id,
       name: projectileDefinition.name,
       power,
-      radius: projectileDefinition.physics.radius,
-      physics: { ...projectileDefinition.physics },
-      terrainEffect: { ...projectileDefinition.terrainEffect },
-      damageEffect: { ...projectileDefinition.damageEffect },
-      impactAnimationId: projectileDefinition.impactAnimationId,
-      impactDuration: projectileDefinition.impactDuration,
-      pattern: projectileDefinition.pattern ? { ...projectileDefinition.pattern } : undefined,
-      bouncesCount: 0,
-      hasSplit: false,
-      visual: { ...projectileDefinition.visual },
+      radius: projectileDefinition.radius,
+      physics: {
+        radius: projectileDefinition.radius,
+        gravityScale: projectileDefinition.gravityScale,
+        drag: projectileDefinition.drag,
+        muzzleVelocityScale: 1,
+      },
+      terrainEffect:
+        projectileDefinition.terrainEffectType === "DRILL"
+          ? { type: "drill", radius: projectileDefinition.terrainRadius, depth: projectileDefinition.terrainDepth }
+          : { type: "crater", radius: projectileDefinition.terrainRadius },
+      damageEffect:
+        projectileDefinition.damageEffectType === "FOCUSED"
+          ? { type: "focused", radius: projectileDefinition.damageRadius, damage: projectileDefinition.damage }
+          : { type: "radial", radius: projectileDefinition.damageRadius, damage: projectileDefinition.damage },
+      position: { x, y },
+      velocity: { x: vx, y: vy },
     });
     this.lifetimes.set(entityId, { active: true });
     return entityId;
@@ -122,17 +119,17 @@ export class LocalWorld {
   createImpactEvent(
     x: number,
     y: number,
-    projectile: ProjectileComponent,
+    _projectile: ProjectileComponent,
   ): void {
     const id = this.nextImpactEventId;
     this.nextImpactEventId += 1;
     this.impactEvents.set(id, {
       id,
       position: { x, y },
-      animationId: projectile.impactAnimationId,
+      animationId: "orange-pop",
       age: 0,
-      duration: projectile.impactDuration,
-      visual: { ...projectile.visual },
+      duration: 0.4,
+      visual: { fill: "#f97316", stroke: "#c2410c", accent: "#fed7aa", label: "!" },
     });
   }
 

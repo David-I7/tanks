@@ -17,15 +17,5 @@ public record ProjectileResolution(
         OnlineVec2Dto impact,
         List<OnlineTankDamageResponseDto> damagedTanks,
         List<SubMunitionTrajectoryDto> subMunitions) implements OnlineDiffResponsePayload {
-    public ProjectileResolution(
-            String intentId,
-            long projectileEntityId,
-            long ownerPlayerId,
-            String projectileDefinitionId,
-            OnlineVec2Dto launch,
-            List<OnlineVec2Dto> trajectory,
-            OnlineVec2Dto impact,
-            List<OnlineTankDamageResponseDto> damagedTanks) {
-        this(intentId, projectileEntityId, ownerPlayerId, projectileDefinitionId, launch, trajectory, impact, damagedTanks, List.of());
-    }
+
 }

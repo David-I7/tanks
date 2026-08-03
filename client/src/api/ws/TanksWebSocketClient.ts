@@ -31,6 +31,7 @@ export type PublishParams =
         | "/app/game/:id/intent"
         | "/app/game/:id/send"
         | "/app/game/:id/resync"
+        | "/app/game/:id/forfeit"
         | "/app/lobby/join/private/:id";
 
       id: string | number;
@@ -123,7 +124,9 @@ export default class TanksWSClient {
     if (!this.client.active) {
       this.client.onStompError = async (err) => {
         try {
-          const contentType = err.headers ? err.headers["content-type"] : undefined;
+          const contentType = err.headers
+            ? err.headers["content-type"]
+            : undefined;
           if (contentType && contentType.includes("json")) {
             const problemDetail = JSON.parse(err.body) as ProblemDetailDto;
 

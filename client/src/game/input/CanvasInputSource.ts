@@ -66,9 +66,9 @@ const keyboardProjectileSlotIntentProducer: IntentProducer = ({
 }) => {
   const activeTank = getActiveTank(context.gameState);
   if (state.pendingSlotNumber === null || !activeTank) return [];
-  const slot = activeTank.loadout[state.pendingSlotNumber - 1];
-  return slot
-    ? [{ type: "selectProjectileSlot", projectileSlotId: slot.id }]
+  const slotId = activeTank.loadout[state.pendingSlotNumber - 1];
+  return slotId
+    ? [{ type: "selectProjectileSlot", projectileSlotId: slotId }]
     : [];
 };
 
@@ -82,7 +82,7 @@ const spacebarFireIntentProducer: IntentProducer = ({
   if (!activeTank) return [];
 
   const projectileSlotId =
-    activeTank.selectedProjectileSlotId ?? activeTank.loadout[0]?.id;
+    activeTank.selectedProjectileSlotId ?? activeTank.loadout[0];
   if (!projectileSlotId) return [];
 
   return [
@@ -162,7 +162,7 @@ const pointerIntentProducer: IntentProducer = ({ state, context }) => {
       )
     ) {
       const projectileSlotId =
-        activeTank.selectedProjectileSlotId ?? activeTank.loadout[0]?.id;
+        activeTank.selectedProjectileSlotId ?? activeTank.loadout[0];
       if (projectileSlotId) {
         intents.push({
           type: "fire",
