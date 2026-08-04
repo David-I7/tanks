@@ -34,51 +34,51 @@ public class MockGameTestController {
     private final GameSessionService gameSessionService;
     private final JwtSessionService jwtSessionService;
 
-    @PostMapping("/start")
-    public ResponseEntity<MockGameSetupResponseDto> startMockGame() {
-        User userA = getOrCreateUser("test_player_a", "player_a@test.com");
-        User userB = getOrCreateUser("test_player_b", "player_b@test.com");
+    @PostMapping("/create")
+    public ResponseEntity<MockGameSetupResponseDto> createMockGame() {
+        User userA = getOrCreateUser("tt1", "test@gmail.com");
+        User userB = getOrCreateUser("tt2", "test2@gmail.com");
+        User userC = getOrCreateUser("tt3", "test3@gmail.com");
 
         UserSession sessionA = getOrCreateUserSession(userA);
         UserSession sessionB = getOrCreateUserSession(userB);
+        UserSession sessionC = getOrCreateUserSession(userC);
 
-        UUID lobbyId = IdFactory.randomUUID();
-        Lobby lobby = Lobby.builder()
-                .id(lobbyId)
-                .host(LobbyPlayerConfig.builder()
-                        .id(sessionA.getId())
-                        .username(sessionA.getUsername())
-                        .tankDefinitionId("standard")
-                        .build())
-                .opponent(LobbyPlayerConfig.builder()
-                        .id(sessionB.getId())
-                        .username(sessionB.getUsername())
-                        .tankDefinitionId("standard")
-                        .build())
-                .type(LobbyType.PRIVATE)
-                .status(LobbyStatus.READY)
-                .build();
-
-        lobbyRepository.save(lobby);
-
-        GameSession gameSession = gameSessionService.create(lobby);
-        gameSessionService.startGame(gameSession);
+        resetUserSession(sessionA);
+        resetUserSession(sessionB);
+        resetUserSession(sessionC);
 
         String tokenA = jwtSessionService.createSession(userA).accessToken();
         String tokenB = jwtSessionService.createSession(userB).accessToken();
+        String tokenC = jwtSessionService.createSession(userC).accessToken();
 
         MockGameSetupResponseDto response = MockGameSetupResponseDto.builder()
-                .gameSessionId(gameSession.getId())
                 .playerAToken(tokenA)
                 .playerBToken(tokenB)
+                .playerCToken(tokenC)
                 .playerAUsername(userA.getUsername())
                 .playerBUsername(userB.getUsername())
-                .playerAId(1L)
-                .playerBId(2L)
-                .activePlayerId(gameSession.getWorld().match().activePlayerId())
+                .playerCUsername(userC.getUsername())
+                .playerAId(userA.getId())
+                .playerBId(userB.getId())
+                .playerCId(userC.getId())
                 .build();
 
         return ResponseEntity.ok(response);
+    }
+
+    private void resetUserSession(UserSession session) {
+        if (session.getLobbyId() != null) {
+            try {
+                lobbyRepository.findById(session.getLobbyId()).ifPresent(lobbyRepository::delete);
+            } catch (Exception ignored) {
+            }
+        }
+        session.setState(UserSessionState.IDLE);
+        session.setLobbyId(null);
+        session.setGameSessionId(null);
+        session.setTopicSubscriptions(null);
+        userSessionService.save(session);
     }
 
     private User getOrCreateUser(String username, String email) {
