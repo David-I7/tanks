@@ -1,14 +1,15 @@
-import { Client } from '@stomp/stompjs';
+import { Client } from "@stomp/stompjs";
 
 export interface MockGameResponse {
-  gameSessionId: string;
   playerAToken: string;
   playerBToken: string;
+  playerCtoken: string;
   playerAUsername: string;
   playerBUsername: string;
+  playerCUsername: string;
   playerAId: number;
   playerBId: number;
-  activePlayerId: number;
+  playerCId: number;
 }
 
 export interface PlayerClient {
@@ -17,24 +18,33 @@ export interface PlayerClient {
   playerId: number;
   receivedDiffs: any[];
   receivedReplies: any[];
+  subscriptions: Map<string, any>;
 }
 
-const SERVER_HTTP_URL = process.env.SERVER_HTTP_URL || 'http://localhost:8080';
-const SERVER_WS_URL = process.env.SERVER_WS_URL || 'ws://localhost:8080/ws';
+const SERVER_HTTP_URL = process.env.SERVER_HTTP_URL || "http://localhost:8080";
+const SERVER_WS_URL = process.env.SERVER_WS_URL || "ws://localhost:8080/ws";
 
-export async function startMockGame(): Promise<MockGameResponse> {
-  const res = await fetch(`${SERVER_HTTP_URL}/api/v1/test/mock-game/start`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+export async function createMockGame(): Promise<MockGameResponse> {
+  const res = await fetch(`${SERVER_HTTP_URL}/api/v1/test/mock-game/create`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
   });
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`Failed to start mock game: ${res.status} ${res.statusText} - ${text}`);
+    throw new Error(
+      `Failed to setup test authentication: ${res.status} ${res.statusText} - ${text}`,
+    );
   }
   return (await res.json()) as MockGameResponse;
 }
 
-export function createStompClient(token: string, username: string, playerId: number): Promise<PlayerClient> {
+export const startMockGame = createMockGame;
+
+export function createStompClient(
+  token: string,
+  username: string,
+  playerId: number,
+): Promise<PlayerClient> {
   return new Promise((resolve, reject) => {
     const playerClient: PlayerClient = {
       client: null!,
@@ -42,6 +52,7 @@ export function createStompClient(token: string, username: string, playerId: num
       playerId,
       receivedDiffs: [],
       receivedReplies: [],
+      subscriptions: new Map(),
     };
 
     const client = new Client({
@@ -57,8 +68,12 @@ export function createStompClient(token: string, username: string, playerId: num
         resolve(playerClient);
       },
       onStompError: (frame) => {
-        console.error(`[STOMP ERROR ${username}]`, frame.headers['message'], frame.body);
-        reject(new Error(frame.headers['message'] || 'STOMP error'));
+        console.error(
+          `[STOMP ERROR ${username}]`,
+          frame.headers["message"],
+          frame.body,
+        );
+        reject(new Error(frame.headers["message"] || "STOMP error"));
       },
       onWebSocketError: (event) => {
         console.error(`[WS ERROR ${username}]`, event);
@@ -66,7 +81,10 @@ export function createStompClient(token: string, username: string, playerId: num
       },
     });
 
-    if (typeof window === 'undefined' && typeof globalThis.WebSocket !== 'undefined') {
+    if (
+      typeof window === "undefined" &&
+      typeof globalThis.WebSocket !== "undefined"
+    ) {
       client.webSocketFactory = () => new globalThis.WebSocket(SERVER_WS_URL);
     }
 

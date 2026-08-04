@@ -1,5 +1,6 @@
 package com.tanks.server.dto.test;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -11,13 +12,16 @@ import java.util.UUID;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class MockGameSetupResponseDto {
-    private UUID gameSessionId;
     private String playerAToken;
     private String playerBToken;
+    private String playerCToken;
     private String playerAUsername;
     private String playerBUsername;
-    private long playerAId;
-    private long playerBId;
-    private long activePlayerId;
+    private String playerCUsername;
+    private Long playerAId;
+    private Long playerBId;
+    private Long playerCId;
 }
+
