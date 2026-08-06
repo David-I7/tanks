@@ -26,11 +26,13 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     private final AuthorizationInterceptor authorizationInterceptor;
 
+    private final StompReceiptInterceptor stompReceiptInterceptor;
+
     private final StompErrorHandler stompErrorHandler;
 
     @Override
     public void configureClientInboundChannel(ChannelRegistration registration) {
-        registration.interceptors(jwtAuthenticationInterceptor, userSessionReloadInterceptor, authorizationInterceptor);
+        registration.interceptors(jwtAuthenticationInterceptor, userSessionReloadInterceptor, authorizationInterceptor, stompReceiptInterceptor);
     }
 
     @Override

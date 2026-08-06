@@ -18,8 +18,7 @@ public class ServerApplication {
 	@Bean
 	CommandLineRunner commandLineRunner(PasswordEncoder passwordEncoder ) {
 		return (args) -> {
-			System.out.println("ENCODED PASSWORD:");
-			System.out.println(passwordEncoder.encode("12345678"));
+
 		};
 	}
 

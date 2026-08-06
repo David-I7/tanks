@@ -140,7 +140,7 @@ public class GameSessionService {
         gameSession.getWorld().match().wind(contentCatalog.require(gameSession.getGameContentVersion()).world().generateWind());
         gameSession.setMatchEndsAtServerTick(gameSession.getServerTick() + 5400L);
         gameSession.setNextDiffSequence(2);
-        gameSession.setTurnStartDiffSequence(2);
+        gameSession.setTurnStartDiffSequence(1);
         gameSession.setLastDiffServerTick(0);
         gameSession.setState(GameSessionState.STARTED);
         gameRepository.save(gameSession);
@@ -204,11 +204,9 @@ public class GameSessionService {
         if (rejectionReason != null) {
             log.info("Intent rejected reason={} intent={}", rejectionReason, intent);
             if (rejectionReason == IntentRejectionReason.INVALID_PAYLOAD) {
-                log.debug("Invalid intent payload: {}", intent);
                 return false;
             }
             publishIntentRejection(gameSession, intent, rejectionReason);
-            log.debug("Intent rejected: {}", intent);
             return false;
         }
 
@@ -480,7 +478,7 @@ public class GameSessionService {
                 .gameSessionId(gameSession.getId().toString())
                 .sequence(sequence)
                 .serverTick(gameSession.getServerTick())
-                .type(OnlineStateDiffResponseType.INTENT_REJECTION)
+                    .type(OnlineStateDiffResponseType.INTENT_REJECTION)
                 .intentId(intent.intentId())
                 .payload(IntentRejection.builder()
                         .rejectedIntentId(intent.intentId())
