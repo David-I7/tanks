@@ -29,6 +29,9 @@ public class LobbyController {
     public void createLobby(Authentication authentication, @Payload LobbyJoinOrCreateRequestDto request) {
         WebSocketPrincipal principal = (WebSocketPrincipal) authentication.getPrincipal();
         UserSession userSession = principal.getUserSession();
+        if (request == null || request.tankId() == null || request.tankId().isBlank()) {
+            throw new com.tanks.server.websocket.exceptions.ProblemDetailException(org.springframework.http.HttpStatus.BAD_REQUEST, "tankId is required", java.net.URI.create("/lobby/create/private"));
+        }
         lobbyService.create(userSession, LobbyType.PRIVATE, request.tankId());
     }
 
@@ -37,6 +40,9 @@ public class LobbyController {
     public void joinPrivateLobby(@DestinationVariable UUID id, Authentication authentication, @Payload LobbyJoinOrCreateRequestDto request) {
         WebSocketPrincipal principal = (WebSocketPrincipal) authentication.getPrincipal();
         UserSession userSession = principal.getUserSession();
+        if (request == null || request.tankId() == null || request.tankId().isBlank()) {
+            throw new com.tanks.server.websocket.exceptions.ProblemDetailException(org.springframework.http.HttpStatus.BAD_REQUEST, "tankId is required", java.net.URI.create("/lobby/join/private/" + id));
+        }
         lobbyService.join(id, userSession, request.tankId());
     }
 
@@ -45,6 +51,9 @@ public class LobbyController {
     public void joinQuickMatch(Authentication authentication, @Payload LobbyJoinOrCreateRequestDto request) {
         WebSocketPrincipal principal = (WebSocketPrincipal) authentication.getPrincipal();
         UserSession userSession = principal.getUserSession();
+        if (request == null || request.tankId() == null || request.tankId().isBlank()) {
+            throw new com.tanks.server.websocket.exceptions.ProblemDetailException(org.springframework.http.HttpStatus.BAD_REQUEST, "tankId is required", java.net.URI.create("/lobby/quick-match"));
+        }
         lobbyService.joinQuickMatch(userSession,request.tankId());
     }
 

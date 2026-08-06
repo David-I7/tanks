@@ -7,8 +7,7 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "test": "vitest run",
-    "diagnose": "vitest run"
+    "test": "vitest run --reporter=verbose"
   },
   "devDependencies": {
     "@types/node": "^26.1.2",

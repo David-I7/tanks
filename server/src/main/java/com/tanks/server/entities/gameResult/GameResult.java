@@ -7,6 +7,8 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import org.hibernate.annotations.JdbcType;
+import org.hibernate.dialect.type.PostgreSQLEnumJdbcType;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
@@ -35,7 +37,8 @@ public class GameResult {
     private User winner;
 
     @Enumerated(value = EnumType.STRING)
-    @Column(nullable = false)
+    @Column(columnDefinition = "game_outcome", nullable = false)
+    @JdbcType(PostgreSQLEnumJdbcType.class)
     private GameOutcome outcome;
 
     @Column(nullable = false, name = "game_started_at")

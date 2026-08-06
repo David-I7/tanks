@@ -1,17 +1,20 @@
 import { describe, it, expect } from "vitest";
-import { createIsolatedTestContext, teardownTestContext, sleep } from "../../harnessUtils";
+import {
+  createIsolatedTestContext,
+  teardownTestContext,
+  waitForReply,
+} from "../harnessUtils";
 
-describe("[GAME] Game Disconnect / Resync", () => {
+describe("Game Disconnect / Resync", () => {
   it("handles player resync request", async () => {
-    const ctx = await createIsolatedTestContext({ game: true });
+    const ctx = await createIsolatedTestContext({ setupType: "game" });
     try {
       expect(ctx.gameSessionId).toBeDefined();
-      ctx.clientA!.client.publish({
+      ctx.hostClient!.client.publish({
         destination: `/app/game/${ctx.gameSessionId}/resync`,
         body: JSON.stringify({}),
       });
-      await sleep(500);
-      expect(ctx.clientA).toBeDefined();
+      await waitForReply(ctx.hostClient!, "RESYNC_STATE");
     } finally {
       teardownTestContext(ctx);
     }

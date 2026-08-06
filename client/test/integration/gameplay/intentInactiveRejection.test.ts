@@ -1,21 +1,29 @@
 import { describe, it, expect } from "vitest";
-import { createIsolatedTestContext, teardownTestContext, sendIntent, waitForReply } from "../../harnessUtils";
+import {
+  createIsolatedTestContext,
+  teardownTestContext,
+  sendIntent,
+  waitForReply,
+} from "../harnessUtils";
 
-describe("[GAMEPLAY] Inactive Player Intent Rejection", () => {
+describe("Inactive Player Intent Rejection", () => {
   it("rejects intent sent by inactive player", async () => {
-    const ctx = await createIsolatedTestContext({ game: true });
+    const ctx = await createIsolatedTestContext({ setupType: "game" });
     try {
       sendIntent(ctx.inactiveClient!, ctx.gameSessionId!, {
         intentId: `test-inactive-${Date.now()}`,
-        type: 'MOVE',
+        type: "MOVE",
         playerId: 2,
         lastConfirmedDiffSequence: 2,
         lastConfirmedDiffServerTick: 0,
         payload: { direction: 1 },
       });
-      const rejection = await waitForReply(ctx.inactiveClient!, 'INTENT_REJECTION');
+      const rejection = await waitForReply(
+        ctx.inactiveClient!,
+        "INTENT_REJECTION",
+      );
       expect(rejection).toBeDefined();
-      expect(rejection.type).toBe('INTENT_REJECTION');
+      expect(rejection.type).toBe("INTENT_REJECTION");
     } finally {
       teardownTestContext(ctx);
     }

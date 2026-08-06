@@ -3,6 +3,7 @@ import type {
   OnlineTerrainSnapshotResponse,
 } from "../../api/ws/dto/gameplay/onlineGameplayProtocol";
 import { createInitialWeaponAmmo } from "../rendering/ResourceManager";
+import { defaultWorldCoordinateMapper } from "./onlineWorldMapper";
 import type { ClientVisualState } from "../simulation/ClientVisualSimulation";
 import type {
   GameContext,
@@ -105,13 +106,20 @@ export function onlineSnapshotToGameState(
         maxHealth: tank.maxHealth,
         health: tank.health,
         facing: tank.facing,
-        bodyAngle: DEFAULT_TANK_BODY_ANGLE,
+        bodyAngle: computeSlopeAngleFromSurface(
+          snapshot.terrain.surface,
+          tank.position.x,
+          tank.width,
+        ),
         aimAngle: tank.aimAngle,
         power: tank.power,
         maxFuel: tankDefinition?.maxFuel ?? tank.fuel,
         fuel: tank.fuel,
         alive: tank.alive,
-        position: { ...tank.position },
+        position: {
+          x: defaultWorldCoordinateMapper.serverToClientX(tank.position.x),
+          y: tank.position.y,
+        },
       };
     }),
     projectiles:
@@ -241,11 +249,12 @@ function mapOnlinePhase(
 function mapOnlineTerrain(
   terrain: OnlineTerrainSnapshotResponse,
 ): TerrainSnapshot {
+  const mapped = defaultWorldCoordinateMapper.mapSurface(terrain.surface);
   return {
     kind: "heightmap",
-    width: terrain.width,
+    width: mapped.width,
     height: terrain.height,
-    surface: [...terrain.surface],
+    surface: mapped.surface,
   };
 }
 
@@ -284,4 +293,18 @@ function mapOnlineDamageTrails(
     remainingDuration: trail.durationSeconds,
     ownerPlayerId: trail.ownerPlayerId,
   }));
+}
+
+function computeSlopeAngleFromSurface(
+  surface: number[],
+  x: number,
+  tankWidth: number = 32,
+): number {
+  if (!surface || surface.length === 0) return 0;
+  const halfWidth = Math.max(1, Math.floor(tankWidth / 2));
+  const leftX = Math.max(0, Math.min(surface.length - 1, Math.floor(x - halfWidth)));
+  const rightX = Math.max(0, Math.min(surface.length - 1, Math.floor(x + halfWidth)));
+  const leftY = surface[leftX] ?? 0;
+  const rightY = surface[rightX] ?? 0;
+  return Math.atan2(rightY - leftY, rightX - leftX);
 }

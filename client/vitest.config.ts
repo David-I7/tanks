@@ -5,6 +5,8 @@ export default defineConfig({
     environment: "node",
     include: ["test/**/*.test.ts"],
     fileParallelism: false,
-    testTimeout: 15000,
+    testTimeout: 10000,
+    reporters: ["verbose"],
+    silent: process.env.VITE_DEBUG_TESTS !== "true",
   },
 });
