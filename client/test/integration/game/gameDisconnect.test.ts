@@ -7,7 +7,10 @@ import {
 
 describe("Game Disconnect / Resync", () => {
   it("handles player resync request", async () => {
-    const ctx = await createIsolatedTestContext({ setupType: "game" });
+    const ctx = await createIsolatedTestContext({
+      setupType: "game",
+      playerCount: 2,
+    });
     try {
       expect(ctx.gameSessionId).toBeDefined();
       ctx.hostClient!.client.publish({

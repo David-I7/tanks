@@ -54,8 +54,8 @@ public class ProblemDetailWriter {
         problemDetail.setInstance(ex.getInstance());
 
         byte[] problemDetailBytes = objectMapper.writeValueAsString(problemDetail).getBytes();
-
         accessor.setContentLength(problemDetailBytes.length);
+
 
         return MessageBuilder.createMessage(
                 problemDetailBytes,

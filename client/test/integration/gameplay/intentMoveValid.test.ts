@@ -9,7 +9,10 @@ import {
 
 describe("Valid MOVE Intent", () => {
   it("processes MOVE intent for active player", async () => {
-    const ctx = await createIsolatedTestContext({ setupType: "game" });
+    const ctx = await createIsolatedTestContext({
+      setupType: "game",
+      playerCount: 2,
+    });
     try {
       sendIntent(ctx.activeClient!, ctx.gameSessionId!, {
         intentId: `test-move-${Date.now()}`,

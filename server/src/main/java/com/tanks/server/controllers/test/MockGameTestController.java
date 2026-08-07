@@ -20,6 +20,7 @@ import com.tanks.server.websocket.services.GameSessionService;
 import com.tanks.server.websocket.services.UserSessionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
@@ -35,9 +36,16 @@ public class MockGameTestController {
     private final UserRepository userRepository;
     private final UserSessionService userSessionService;
     private final JwtService jwtService;
+    private final PasswordEncoder passwordEncoder;
+
+    @PostMapping("/cleanup-game")
+    public ResponseEntity<Void> cleanupMockGame(@RequestParam String gameSessionId) {
+        // Implementation for cleanup
+        return ResponseEntity.ok().build();
+    }
 
     @PostMapping("/create")
-    public ResponseEntity<MockGameSetupResponseDto> createMockGame(@RequestParam(defaultValue = "3") int playerCount) {
+    public ResponseEntity<MockGameSetupResponseDto> createMockGame(@RequestParam int playerCount) {
 
         List<MockPlayer> players = new ArrayList<>();
 
@@ -62,7 +70,7 @@ public class MockGameTestController {
                 .orElseGet(() -> userRepository.save(User.builder()
                         .username(username)
                         .email(email)
-                        .password("Password123!")
+                        .password(passwordEncoder.encode("12345678"))
                         .build()));
     }
 

@@ -1,4 +1,5 @@
 import { Client } from "@stomp/stompjs";
+import ProblemDetailDto from "../../src/api/http/dto/ProblemDetailDto";
 
 export interface MockPlayer {
   username: string;
@@ -17,6 +18,11 @@ export interface PlayerClient {
   receivedTopicMessages: any[];
   receivedReplies: any[];
   receivedErrors: any[];
+  lifecycleEvents: {
+    stompError: ProblemDetailDto | null;
+    webSocketError: Event | null;
+    webSocketClose: CloseEvent | null;
+  };
   subscriptions: Map<string, any>;
 }
 
@@ -46,7 +52,6 @@ export function createStompClient(
   token: string,
   username: string,
   playerId: number,
-  debug = false,
 ): Promise<PlayerClient> {
   return new Promise((resolve, reject) => {
     const playerClient: PlayerClient = {
@@ -57,9 +62,12 @@ export function createStompClient(
       receivedReplies: [],
       receivedErrors: [],
       subscriptions: new Map(),
+      lifecycleEvents: {
+        stompError: null,
+        webSocketError: null,
+        webSocketClose: null,
+      },
     };
-
-    let resolved = false;
 
     const client = new Client({
       brokerURL: SERVER_WS_URL,
@@ -70,33 +78,31 @@ export function createStompClient(
         // debug logging if needed
       },
       onConnect: () => {
-        resolved = true;
         resolve(playerClient);
       },
       onStompError: (frame) => {
-        if (debug) {
-          console.error(
-            `STOMP error for ${username}: ${safeParseJsonMessage(frame.body)}`,
-          );
+        let bodyStr: string = frame.body;
+        if (frame.isBinaryBody) {
+          const rawBinary = (frame as any)._binaryBody || frame.binaryBody;
+          if (rawBinary) {
+            const decoder = new TextDecoder("utf-8");
+            bodyStr = decoder.decode(rawBinary);
+          }
         }
-        if (resolved) return;
-        resolved = true;
-        reject(new Error(frame.headers["message"] || "STOMP error"));
+        const problemDetail = safeParseJsonMessage(bodyStr) || frame.headers;
+
+        playerClient.lifecycleEvents.stompError = problemDetail;
+
+        reject(problemDetail);
       },
       onWebSocketError: (event) => {
-        if (debug) {
-          console.error(`WebSocket error for ${username}`);
-        }
-        if (resolved) return;
-        resolved = true;
+        playerClient.lifecycleEvents.webSocketError = event;
+
         reject(event);
       },
       onWebSocketClose: (event) => {
-        if (debug) {
-          console.log(`WebSocket closed for ${username}`);
-        }
-        if (resolved) return;
-        resolved = true;
+        playerClient.lifecycleEvents.webSocketClose = event;
+
         reject(event);
       },
     });
@@ -107,9 +113,21 @@ export function createStompClient(
 }
 
 function safeParseJsonMessage(message: any): any {
-  try {
-    return JSON.parse(message.body);
-  } catch (error) {
-    return null;
+  if (typeof message === "string") {
+    try {
+      return JSON.parse(message);
+    } catch {
+      return message;
+    }
   }
+  if (message && typeof message === "object") {
+    if (message.body) {
+      try {
+        return JSON.parse(message.body);
+      } catch {
+        return message.body;
+      }
+    }
+  }
+  return message;
 }

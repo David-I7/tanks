@@ -9,7 +9,10 @@ import {
 
 describe("Valid FIRE Intent", () => {
   it("processes FIRE intent for active player", async () => {
-    const ctx = await createIsolatedTestContext({ setupType: "game" });
+    const ctx = await createIsolatedTestContext({
+      setupType: "game",
+      playerCount: 2,
+    });
     try {
       sendIntent(ctx.activeClient!, ctx.gameSessionId!, {
         intentId: `test-fire-${Date.now()}`,

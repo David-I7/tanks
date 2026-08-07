@@ -7,6 +7,5 @@ export default defineConfig({
     fileParallelism: false,
     testTimeout: 10000,
     reporters: ["verbose"],
-    silent: process.env.VITE_DEBUG_TESTS !== "true",
   },
 });

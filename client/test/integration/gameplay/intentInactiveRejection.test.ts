@@ -8,7 +8,10 @@ import {
 
 describe("Inactive Player Intent Rejection", () => {
   it("rejects intent sent by inactive player", async () => {
-    const ctx = await createIsolatedTestContext({ setupType: "game" });
+    const ctx = await createIsolatedTestContext({
+      setupType: "game",
+      playerCount: 2,
+    });
     try {
       sendIntent(ctx.inactiveClient!, ctx.gameSessionId!, {
         intentId: `test-inactive-${Date.now()}`,

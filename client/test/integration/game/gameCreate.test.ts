@@ -7,7 +7,10 @@ import {
 
 describe("Create Game Session", () => {
   it("creates a game session from lobby", async () => {
-    const ctx = await createIsolatedTestContext({ setupType: "game" });
+    const ctx = await createIsolatedTestContext({
+      setupType: "game",
+      playerCount: 2,
+    });
     try {
       ctx.hostClient!.client.publish({
         destination: "/app/game/create",
