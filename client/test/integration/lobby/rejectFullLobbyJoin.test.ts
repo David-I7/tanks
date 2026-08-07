@@ -20,8 +20,16 @@ describe("Full Lobby Join", () => {
         body: JSON.stringify({ tankId: "vanguard-cyber" }),
       });
 
-      const errorReply = await waitForErrorReply(player3, 3000);
+      const errorReply = await waitForErrorReply(player3, 500);
       expect(errorReply).toBeDefined();
+      expect(errorReply).toEqual(
+        expect.objectContaining({
+          detail: "Lobby is full.",
+          status: 400,
+          title: "Bad Request",
+          instance: `/lobby/join/private/${lobbyId}`,
+        }),
+      );
     } finally {
       teardownTestContext(ctx);
     }

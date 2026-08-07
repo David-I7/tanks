@@ -3,34 +3,32 @@ import {
   createIsolatedTestContext,
   teardownTestContext,
   sendIntent,
-  sleep,
   waitForTopicMessage,
 } from "../harnessUtils";
 
-describe("Valid FIRE Intent", () => {
-  it("processes FIRE intent for active player", async () => {
+describe("Weapon Selection Intent", () => {
+  it("updates active player selected weapon when valid weapon intent is received", async () => {
     const ctx = await createIsolatedTestContext({
       setupType: "game",
       playerCount: 2,
     });
     try {
       sendIntent(ctx.activeClient!, ctx.gameSessionId!, {
-        intentId: `test-fire-${Date.now()}`,
-        type: "FIRE",
-        playerId: 1,
+        intentId: `test-weapon-${Date.now()}`,
+        type: "SELECT_WEAPON",
+        playerId: ctx.activeClient!.playerId,
         lastConfirmedDiffSequence: 1,
         lastConfirmedDiffServerTick: 0,
-        payload: { angle: 45, power: 300 },
+        payload: { weaponId: "NUKE" },
       });
-      await waitForTopicMessage(
+
+      const diffEvent = await waitForTopicMessage(
         ctx.activeClient!,
-        "PROJECTILE_RESOLUTION",
-        500,
+        "STATE_DIFF",
+        5000,
       );
-      expect(
-        ctx.activeClient!.receivedReplies.length +
-          ctx.activeClient!.receivedTopicMessages.length,
-      ).toBeGreaterThan(0);
+
+      expect(diffEvent).toBeDefined();
     } finally {
       teardownTestContext(ctx);
     }

@@ -19,8 +19,16 @@ describe("Duplicate Lobby Join", () => {
         body: JSON.stringify({ tankId: "vanguard-cyber" }),
       });
 
-      const errorReply = await waitForErrorReply(player1, 3000).catch(() => null);
+      const errorReply = await waitForErrorReply(player1, 500);
       expect(errorReply).toBeDefined();
+      expect(errorReply).toEqual(
+        expect.objectContaining({
+          detail: "User is not idle.",
+          status: 401,
+          title: "Unauthorized",
+          instance: "/lobby/create/private",
+        }),
+      );
     } finally {
       teardownTestContext(ctx);
     }

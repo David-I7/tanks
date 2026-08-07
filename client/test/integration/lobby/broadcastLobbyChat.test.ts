@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import type { ChatEventType, ChatEvent } from "../../../src/api/ws/dto/chat/ChatEventDto";
+import type {
+  ChatEventType,
+  ChatEvent,
+} from "../../../src/api/ws/dto/chat/ChatEventDto";
 import {
   createIsolatedTestContext,
   teardownTestContext,
@@ -29,12 +32,13 @@ describe("Lobby Chat Broadcasting", () => {
       const chatBroadcast: ChatEvent = await waitForTopicMessage(
         receiver,
         chatType,
-        5000,
+        500,
       );
 
       expect(chatBroadcast).toBeDefined();
       if (chatBroadcast.type === "CHAT_MESSAGE") {
         expect(chatBroadcast.payload.message).toBe(testMessage);
+        expect(chatBroadcast.payload.triggeredBy).toBe(sender.username);
       }
     } finally {
       teardownTestContext(ctx);

@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import type { LobbyEventType, LobbyEvent } from "../../../src/api/ws/dto/lobby/LobbyEventDto";
+import type {
+  LobbyEventType,
+  LobbyEvent,
+} from "../../../src/api/ws/dto/lobby/LobbyEventDto";
 import type { GameEvent } from "../../../src/api/ws/dto/game/GameEventDto";
 import {
   createIsolatedTestContext,
@@ -49,13 +52,22 @@ describe("QuickMatch Game Start", () => {
         body: JSON.stringify({}),
       });
 
-      const gameReply1: GameEvent = await waitForReply(player1, "GAME_CREATED", 5000);
-      const gameReply2: GameEvent = await waitForReply(player2, "GAME_CREATED", 5000);
+      const gameReply1: GameEvent = await waitForReply(
+        player1,
+        "GAME_CREATED",
+        1000,
+      );
+      const gameReply2: GameEvent = await waitForReply(
+        player2,
+        "GAME_CREATED",
+        1000,
+      );
 
       expect(gameReply1.payload?.id).toBeDefined();
       expect(gameReply1.payload?.id).toBe(gameReply2.payload?.id);
+      ctx.gameSessionId = gameReply1.payload?.id;
     } finally {
-      teardownTestContext(ctx);
+      await teardownTestContext(ctx);
     }
   });
 });

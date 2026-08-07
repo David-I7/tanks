@@ -20,6 +20,14 @@ describe("Non-Existent Lobby Join", () => {
 
       const errorReply = await waitForErrorReply(ctx.playerClients[0]!, 3000);
       expect(errorReply).toBeDefined();
+      expect(errorReply).toEqual(
+        expect.objectContaining({
+          detail: "The lobby with the provided id does not exist.",
+          instance: "about:blank",
+          status: 404,
+          title: "Not Found",
+        }),
+      );
     } finally {
       teardownTestContext(ctx);
     }

@@ -3,30 +3,32 @@ import {
   createIsolatedTestContext,
   teardownTestContext,
   sendIntent,
-  sleep,
   waitForTopicMessage,
 } from "../harnessUtils";
 
-describe("Valid MOVE Intent", () => {
-  it("processes MOVE intent for active player", async () => {
+describe("Valid FIRE Intent", () => {
+  it("processes FIRE intent for active player and generates projectile resolution", async () => {
     const ctx = await createIsolatedTestContext({
       setupType: "game",
       playerCount: 2,
     });
     try {
       sendIntent(ctx.activeClient!, ctx.gameSessionId!, {
-        intentId: `test-move-${Date.now()}`,
-        type: "MOVE",
-        playerId: 1,
+        intentId: `test-fire-${Date.now()}`,
+        type: "FIRE",
+        playerId: ctx.activeClient!.playerId,
         lastConfirmedDiffSequence: 1,
         lastConfirmedDiffServerTick: 0,
-        payload: { direction: 1 },
+        payload: { angle: 45, power: 300 },
       });
-      await waitForTopicMessage(ctx.activeClient!, "MOVEMENT_SEGMENT", 500);
-      expect(
-        ctx.activeClient!.receivedReplies.length +
-          ctx.activeClient!.receivedTopicMessages.length,
-      ).toBeGreaterThan(0);
+
+      const resolutionEvent = await waitForTopicMessage(
+        ctx.activeClient!,
+        "PROJECTILE_RESOLUTION",
+        5000,
+      );
+
+      expect(resolutionEvent).toBeDefined();
     } finally {
       teardownTestContext(ctx);
     }

@@ -14,6 +14,7 @@ import com.tanks.server.websocket.entities.lobby.LobbyStatus;
 import com.tanks.server.websocket.entities.lobby.LobbyType;
 import com.tanks.server.websocket.entities.userSession.UserSession;
 import com.tanks.server.websocket.entities.userSession.UserSessionState;
+import com.tanks.server.websocket.repositories.GameSessionRepository;
 import com.tanks.server.websocket.repositories.LobbyRepository;
 import com.tanks.server.websocket.services.ClaimService;
 import com.tanks.server.websocket.services.GameSessionService;
@@ -37,10 +38,11 @@ public class MockGameTestController {
     private final UserSessionService userSessionService;
     private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
+    private final GameSessionRepository gameSessionRepository;
 
-    @PostMapping("/cleanup-game")
+    @DeleteMapping("/cleanup-game")
     public ResponseEntity<Void> cleanupMockGame(@RequestParam String gameSessionId) {
-        // Implementation for cleanup
+        gameSessionRepository.deleteById(UUID.fromString(gameSessionId));
         return ResponseEntity.ok().build();
     }
 

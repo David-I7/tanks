@@ -19,8 +19,16 @@ describe("Non-Host Game Start Restriction", () => {
         body: JSON.stringify({}),
       });
 
-      const errorReply = await waitForErrorReply(guestPlayer, 3000).catch(() => null);
+      const errorReply = await waitForErrorReply(guestPlayer, 3000);
       expect(errorReply).toBeDefined();
+      expect(errorReply).toEqual(
+        expect.objectContaining({
+          detail: "Player is not the host of the lobby.",
+          instance: "/game/create",
+          status: 401,
+          title: "Unauthorized",
+        }),
+      );
     } finally {
       teardownTestContext(ctx);
     }

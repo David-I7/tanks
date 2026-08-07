@@ -32,6 +32,7 @@ public class LobbyService {
     private final QuickMatchService quickMatchService;
     private final UserSessionService userSessionService;
     private final ApplicationEventPublisher eventPublisher;
+    private Object JOIN_LOCK = new Object();
 
     public Lobby create(UserSession userSession, LobbyType type, String tankDefinitionId) {
         UserSession originalUserSession = new UserSession(userSession);
@@ -68,34 +69,36 @@ public class LobbyService {
     }
 
     public void join(UUID lobbyId, UserSession userSession, String tankDefinitionId) {
-        Lobby lobby = findById(lobbyId);
-        LobbyPlayerConfig originalOpponent= lobby.getOpponent();
-        LobbyStatus originalStatus = lobby.getStatus();
-        UserSession originalUserSession = new UserSession(userSession);
+        synchronized (JOIN_LOCK) {
+            Lobby lobby = findById(lobbyId);
+            LobbyPlayerConfig originalOpponent = lobby.getOpponent();
+            LobbyStatus originalStatus = lobby.getStatus();
+            UserSession originalUserSession = new UserSession(userSession);
 
-        if (isFullLobby(lobby)) {
-            throw new ProblemDetailException(HttpStatus.BAD_REQUEST, "Lobby is full.", URI.create("/lobby/join/private/" + lobbyId));
-        }
+            if (isFullLobby(lobby)) {
+                throw new ProblemDetailException(HttpStatus.BAD_REQUEST, "Lobby is full.", URI.create("/lobby/join/private/" + lobbyId));
+            }
 
-        try {
-            // New user has joined
-            lobby.setOpponent(LobbyPlayerConfig.builder()
-                    .id(userSession.getId())
-                    .username(userSession.getUsername())
-                    .tankDefinitionId(tankDefinitionId)
-                    .build());
-            lobby.setStatus(LobbyStatus.READY);
-            lobbyRepository.save(lobby);
+            try {
+                // New user has joined
+                lobby.setOpponent(LobbyPlayerConfig.builder()
+                        .id(userSession.getId())
+                        .username(userSession.getUsername())
+                        .tankDefinitionId(tankDefinitionId)
+                        .build());
+                lobby.setStatus(LobbyStatus.READY);
+                lobbyRepository.save(lobby);
 
-            userSessionService.transitionToLobby(userSession, lobbyId);
-            userSessionService.save(userSession);
+                userSessionService.transitionToLobby(userSession, lobbyId);
+                userSessionService.save(userSession);
 
-            eventPublisher.publishEvent(new LobbyEvent(this, userSession.getUsername(), "/queue/replies",
-                    new LobbyEventResponseDto(LobbyEventType.LOBBY_JOINED, new LobbyEventPayload(lobbyId,lobby.getHost().getId() ,userSession.getUsername()))));
-        } catch (RuntimeException ex) {
-            restoreUserSession(originalUserSession);
-            restoreLobby(lobby, originalOpponent, originalStatus);
-            throw ex;
+                eventPublisher.publishEvent(new LobbyEvent(this, userSession.getUsername(), "/queue/replies",
+                        new LobbyEventResponseDto(LobbyEventType.LOBBY_JOINED, new LobbyEventPayload(lobbyId, lobby.getHost().getId(), userSession.getUsername()))));
+            } catch (RuntimeException ex) {
+                restoreUserSession(originalUserSession);
+                restoreLobby(lobby, originalOpponent, originalStatus);
+                throw ex;
+            }
         }
     }
 

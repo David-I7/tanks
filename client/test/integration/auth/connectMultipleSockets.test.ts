@@ -27,8 +27,14 @@ describe("Multiple Socket Connections", () => {
       } catch (err: any) {
         secondClientError = err;
       }
-      console.log("Duplicate socket error:", secondClientError);
       expect(secondClientError).toBeDefined();
+      expect(secondClientError).toEqual(
+        expect.objectContaining({
+          detail: "User is already connected",
+          status: 400,
+          title: "Bad Request",
+        }),
+      );
     } finally {
       teardownTestContext(ctx);
     }

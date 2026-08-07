@@ -3,11 +3,11 @@ import {
   createIsolatedTestContext,
   teardownTestContext,
   sendIntent,
-  waitForReply,
+  waitForErrorReply,
 } from "../harnessUtils";
 
 describe("Inactive Player Intent Rejection", () => {
-  it("rejects intent sent by inactive player", async () => {
+  it("rejects intent sent by inactive player whose turn it is not", async () => {
     const ctx = await createIsolatedTestContext({
       setupType: "game",
       playerCount: 2,
@@ -16,17 +16,14 @@ describe("Inactive Player Intent Rejection", () => {
       sendIntent(ctx.inactiveClient!, ctx.gameSessionId!, {
         intentId: `test-inactive-${Date.now()}`,
         type: "MOVE",
-        playerId: 2,
-        lastConfirmedDiffSequence: 2,
+        playerId: ctx.inactiveClient!.playerId,
+        lastConfirmedDiffSequence: 1,
         lastConfirmedDiffServerTick: 0,
-        payload: { direction: 1 },
+        payload: { direction: "RIGHT" },
       });
-      const rejection = await waitForReply(
-        ctx.inactiveClient!,
-        "INTENT_REJECTION",
-      );
-      expect(rejection).toBeDefined();
-      expect(rejection.type).toBe("INTENT_REJECTION");
+
+      const errorReply = await waitForErrorReply(ctx.inactiveClient!, 5000);
+      expect(errorReply).toBeDefined();
     } finally {
       teardownTestContext(ctx);
     }

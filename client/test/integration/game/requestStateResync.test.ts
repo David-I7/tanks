@@ -5,19 +5,22 @@ import {
   waitForReply,
 } from "../harnessUtils";
 
-describe("Game Disconnect / Resync", () => {
-  it("handles player resync request", async () => {
+describe("State Resync Request", () => {
+  it("returns full authoritative resync state when client requests resync on sequence gap", async () => {
     const ctx = await createIsolatedTestContext({
       setupType: "game",
       playerCount: 2,
     });
     try {
-      expect(ctx.gameSessionId).toBeDefined();
-      ctx.hostClient!.client.publish({
+      const activePlayer = ctx.activeClient!;
+
+      activePlayer.client.publish({
         destination: `/app/game/${ctx.gameSessionId}/resync`,
         body: JSON.stringify({}),
       });
-      await waitForReply(ctx.hostClient!, "RESYNC_STATE");
+
+      const resyncReply = await waitForReply(activePlayer, "RESYNC_STATE", 5000);
+      expect(resyncReply).toBeDefined();
     } finally {
       teardownTestContext(ctx);
     }

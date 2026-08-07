@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import type { LobbyEventType, LobbyEvent } from "../../../src/api/ws/dto/lobby/LobbyEventDto";
+import type {
+  LobbyEventType,
+  LobbyEvent,
+} from "../../../src/api/ws/dto/lobby/LobbyEventDto";
 import {
   createIsolatedTestContext,
   teardownTestContext,
@@ -22,12 +25,19 @@ describe("Private Lobby Creation", () => {
         body: JSON.stringify({ tankId: "vanguard-cyber" }),
       });
 
-      const reply: LobbyEvent = await waitForReply(hostClient, expectedEventType);
+      const reply: LobbyEvent = await waitForReply(
+        hostClient,
+        expectedEventType,
+      );
       const lobbyId = reply.payload?.id;
       expect(lobbyId).toBeDefined();
+      expect(reply.payload?.hostId).toBe(hostClient.playerId);
+      expect(reply.payload?.triggeredBy).toBe(hostClient.username);
 
       await setupLobbyTopicSubscription(hostClient, lobbyId);
-      expect(hostClient.subscriptions.has(`/topic/lobby/${lobbyId}`)).toBe(true);
+      expect(hostClient.subscriptions.has(`/topic/lobby/${lobbyId}`)).toBe(
+        true,
+      );
     } finally {
       teardownTestContext(ctx);
     }

@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import type { GameEvent } from "../../../src/api/ws/dto/game/GameEventDto";
 import {
   createIsolatedTestContext,
   teardownTestContext,
@@ -6,9 +7,9 @@ import {
 } from "../harnessUtils";
 
 describe("Create Game Session", () => {
-  it("creates a game session from lobby", async () => {
+  it("creates a game session from lobby when host sends creation request", async () => {
     const ctx = await createIsolatedTestContext({
-      setupType: "game",
+      setupType: "lobby",
       playerCount: 2,
     });
     try {
@@ -17,11 +18,15 @@ describe("Create Game Session", () => {
         body: JSON.stringify({}),
       });
 
-      const replyA = await waitForReply(ctx.hostClient!, "GAME_CREATED");
-      const gameSessionId = replyA.payload?.id || replyA.payload?.gameSessionId;
+      const reply: GameEvent = await waitForReply(
+        ctx.hostClient!,
+        "GAME_CREATED",
+      );
+      const gameSessionId = reply.payload?.id;
       expect(gameSessionId).toBeDefined();
+      expect(reply.type).toBe("GAME_CREATED");
     } finally {
-      teardownTestContext(ctx);
+      await teardownTestContext(ctx);
     }
   });
 });

@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import type { LobbyEventType, LobbyEvent } from "../../../src/api/ws/dto/lobby/LobbyEventDto";
+import type {
+  LobbyEventType,
+  LobbyEvent,
+} from "../../../src/api/ws/dto/lobby/LobbyEventDto";
 import {
   createIsolatedTestContext,
   teardownTestContext,
@@ -25,10 +28,13 @@ describe("Host Transfer On Leave", () => {
       const disconnectEvent: LobbyEvent = await waitForTopicMessage(
         remainingPlayer,
         disconnectType,
-        5000,
+        500,
       );
 
       expect(disconnectEvent).toBeDefined();
+      expect(disconnectEvent.type).toBe(disconnectType);
+      expect(disconnectEvent.payload?.hostId).toBe(remainingPlayer.playerId);
+      expect(disconnectEvent.payload?.triggeredBy).toBe(originalHost.username);
     } finally {
       teardownTestContext(ctx);
     }

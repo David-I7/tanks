@@ -109,10 +109,20 @@ export async function createIsolatedTestContext(
   return ctx;
 }
 
-export function teardownTestContext(ctx: DiagnosticContext): void {
+export async function teardownTestContext(
+  ctx: DiagnosticContext,
+): Promise<void> {
   try {
     ctx.playerClients.forEach((client) => teardownClient(client));
   } catch (ignored) {}
+
+  if (ctx.gameSessionId !== undefined) {
+    const MOCK_URL =
+      process.env.VITE_BASE_API_URL +
+      "/test/mock-game/cleanup-game?gameSessionId=" +
+      ctx.gameSessionId;
+    await fetch(MOCK_URL, { method: "DELETE" });
+  }
 
   ctx.playerClients = [];
   ctx.authData = undefined;

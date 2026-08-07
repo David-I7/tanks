@@ -20,7 +20,13 @@ describe("Unauthorized Topic Subscription", () => {
 
       // Check if subscription throws immediately or receives an error on queue
       const errorReply = await waitForStompError(ctx.playerClients[0]!, 3000);
-      expect(errorReply).toBeDefined();
+      expect(errorReply).toEqual(
+        expect.objectContaining({
+          status: 401,
+          title: "Unauthorized",
+          detail: "User is not in the provided lobby.",
+        }),
+      );
     } finally {
       teardownTestContext(ctx);
     }

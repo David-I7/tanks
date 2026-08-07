@@ -14,7 +14,13 @@ describe("Invalid Token Authentication", () => {
     } catch (err: any) {
       connectionError = err;
     }
-    console.log("Connection error for invalid token:", connectionError);
     expect(connectionError).toBeDefined();
+    expect(connectionError).toEqual(
+      expect.objectContaining({
+        detail: "Malformed jwt token",
+        status: 401,
+        title: "Unauthorized",
+      }),
+    );
   });
 });
