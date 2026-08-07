@@ -1,3 +1,4 @@
+import ProblemDetailDto from "../../src/api/http/dto/ProblemDetailDto";
 import {
   createMockGame,
   createStompClient,
@@ -20,19 +21,12 @@ type SetupType = "auth" | "connect" | "lobby" | "game";
 
 export interface TestSetupOptions {
   setupType: SetupType;
-  playerCount?: number;
-  debug?: boolean;
+  playerCount: number;
 }
 
 export async function createIsolatedTestContext(
   options: TestSetupOptions,
 ): Promise<DiagnosticContext> {
-  options.debug =
-    options.debug !== undefined
-      ? options.debug
-      : process.env.VITE_DEBUG_TESTS === "true";
-  options.playerCount =
-    options.playerCount !== undefined ? options.playerCount : 2;
   const ctx: DiagnosticContext = { playerClients: [] };
   const setupPromises: Promise<void>[] = [];
 
@@ -45,7 +39,6 @@ export async function createIsolatedTestContext(
         player.accessToken,
         player.username,
         player.id,
-        options.debug,
       );
       ctx.playerClients.push(client);
 
@@ -116,10 +109,20 @@ export async function createIsolatedTestContext(
   return ctx;
 }
 
-export function teardownTestContext(ctx: DiagnosticContext): void {
+export async function teardownTestContext(
+  ctx: DiagnosticContext,
+): Promise<void> {
   try {
     ctx.playerClients.forEach((client) => teardownClient(client));
   } catch (ignored) {}
+
+  if (ctx.gameSessionId !== undefined) {
+    const MOCK_URL =
+      process.env.VITE_BASE_API_URL +
+      "/test/mock-game/cleanup-game?gameSessionId=" +
+      ctx.gameSessionId;
+    await fetch(MOCK_URL, { method: "DELETE" });
+  }
 
   ctx.playerClients = [];
   ctx.authData = undefined;
@@ -276,6 +279,30 @@ export function waitForReply(
     eventType,
     timeoutMs,
   );
+}
+export function waitForStompError(
+  playerClient: PlayerClient,
+  timeoutMs = 5000,
+): Promise<ProblemDetailDto> {
+  return new Promise((resolve, reject) => {
+    const startTime = Date.now();
+
+    const checkError = () => {
+      if (playerClient.lifecycleEvents.stompError) {
+        resolve(playerClient.lifecycleEvents.stompError);
+      } else if (Date.now() - startTime > timeoutMs) {
+        reject(
+          new Error(
+            `Timeout waiting for STOMP error for ${playerClient.username}`,
+          ),
+        );
+      } else {
+        setTimeout(checkError, 50);
+      }
+    };
+
+    checkError();
+  });
 }
 export function waitForErrorReply(
   playerClient: PlayerClient,

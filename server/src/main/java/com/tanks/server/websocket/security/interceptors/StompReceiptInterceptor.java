@@ -1,4 +1,4 @@
-package com.tanks.server.websocket.config;
+package com.tanks.server.websocket.security.interceptors;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;

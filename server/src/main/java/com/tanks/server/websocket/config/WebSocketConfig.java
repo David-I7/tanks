@@ -3,6 +3,7 @@ package com.tanks.server.websocket.config;
 import com.tanks.server.websocket.exceptions.StompErrorHandler;
 import com.tanks.server.websocket.security.interceptors.AuthorizationInterceptor;
 import com.tanks.server.websocket.security.interceptors.JwtAuthenticationInterceptor;
+import com.tanks.server.websocket.security.interceptors.StompReceiptInterceptor;
 import com.tanks.server.websocket.security.interceptors.UserSessionReloadInterceptor;
 import lombok.AllArgsConstructor;
 import org.springframework.context.annotation.Bean;

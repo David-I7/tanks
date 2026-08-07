@@ -14,12 +14,14 @@ import com.tanks.server.websocket.entities.lobby.LobbyStatus;
 import com.tanks.server.websocket.entities.lobby.LobbyType;
 import com.tanks.server.websocket.entities.userSession.UserSession;
 import com.tanks.server.websocket.entities.userSession.UserSessionState;
+import com.tanks.server.websocket.repositories.GameSessionRepository;
 import com.tanks.server.websocket.repositories.LobbyRepository;
 import com.tanks.server.websocket.services.ClaimService;
 import com.tanks.server.websocket.services.GameSessionService;
 import com.tanks.server.websocket.services.UserSessionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
@@ -35,9 +37,17 @@ public class MockGameTestController {
     private final UserRepository userRepository;
     private final UserSessionService userSessionService;
     private final JwtService jwtService;
+    private final PasswordEncoder passwordEncoder;
+    private final GameSessionRepository gameSessionRepository;
+
+    @DeleteMapping("/cleanup-game")
+    public ResponseEntity<Void> cleanupMockGame(@RequestParam String gameSessionId) {
+        gameSessionRepository.deleteById(UUID.fromString(gameSessionId));
+        return ResponseEntity.ok().build();
+    }
 
     @PostMapping("/create")
-    public ResponseEntity<MockGameSetupResponseDto> createMockGame(@RequestParam(defaultValue = "3") int playerCount) {
+    public ResponseEntity<MockGameSetupResponseDto> createMockGame(@RequestParam int playerCount) {
 
         List<MockPlayer> players = new ArrayList<>();
 
@@ -62,7 +72,7 @@ public class MockGameTestController {
                 .orElseGet(() -> userRepository.save(User.builder()
                         .username(username)
                         .email(email)
-                        .password("Password123!")
+                        .password(passwordEncoder.encode("12345678"))
                         .build()));
     }
 

@@ -127,10 +127,17 @@ export default class TanksWSClient {
           const contentType = err.headers
             ? err.headers["content-type"]
             : undefined;
-          if (contentType && contentType.includes("json")) {
-            const problemDetail = JSON.parse(err.body) as ProblemDetailDto;
 
-            if (import.meta.env.DEV) console.error(problemDetail);
+          if (contentType && contentType.includes("json")) {
+            let bodyStr: string = err.body;
+            if (err.isBinaryBody) {
+              const rawBinary = (err as any)._binaryBody || err.binaryBody;
+              if (rawBinary) {
+                const decoder = new TextDecoder("utf-8");
+                bodyStr = decoder.decode(rawBinary);
+              }
+            }
+            const problemDetail = JSON.parse(bodyStr) as ProblemDetailDto;
 
             if (problemDetail.status === 401) {
               await this.refreshHandler();

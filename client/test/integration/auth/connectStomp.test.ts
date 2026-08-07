@@ -6,7 +6,10 @@ import {
 
 describe("STOMP Connection", () => {
   it("connects STOMP WebSocket clients for 2 players", async () => {
-    const ctx = await createIsolatedTestContext({ setupType: "connect" });
+    const ctx = await createIsolatedTestContext({
+      setupType: "connect",
+      playerCount: 2,
+    });
     try {
       expect(ctx.playerClients[0]).toBeDefined();
       expect(ctx.playerClients[1]).toBeDefined();

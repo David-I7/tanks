@@ -21,7 +21,6 @@ import type {
   OnlineImpactProjectionEvent,
 } from "./onlineConfirmedState";
 
-const DEFAULT_TANK_BODY_ANGLE = 0;
 const DEFAULT_PROJECTILE_POWER = 0;
 const DEFAULT_IMPACT_DURATION_SECONDS = 0.4;
 
