@@ -33,7 +33,7 @@ function CheckResumeSession() {
   useEffect(() => {
     if (userStatus == null || userStatus.state !== "IN_GAME") return;
 
-    if (location.pathname.includes(`/game`)) return;
+    if (location.pathname.includes(`/game`) || location.pathname.includes(`/test`)) return;
 
     // Redirect to the game page
     navigate(`/game/${userStatus.gameId}`);

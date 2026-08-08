@@ -4,7 +4,6 @@ import lombok.Builder;
 
 @Builder
 public record OnlineDiffResponseDto(
-        String protocolVersion,
         String gameSessionId,
         long sequence,
         long serverTick,

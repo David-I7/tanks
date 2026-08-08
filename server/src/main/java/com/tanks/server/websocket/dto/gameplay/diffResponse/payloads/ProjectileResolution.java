@@ -9,7 +9,6 @@ import lombok.Builder;
 
 @Builder
 public record ProjectileResolution(
-        String intentId,
         long projectileEntityId,
         long ownerPlayerId,
         String projectileDefinitionId,

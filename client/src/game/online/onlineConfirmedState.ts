@@ -676,23 +676,6 @@ function getReconciledIntent(
 ): ReconciledIntent | null {
   const playerId = getDiffPlayerId(diff);
 
-  if (diff.type === "MOVEMENT_SEGMENT") {
-    const payload = diff.payload as OnlineMovementSegmentResponse["payload"];
-    if (!payload.intentId) return null;
-    return { intentId: payload.intentId, playerId };
-  }
-
-  if (diff.type === "PROJECTILE_RESOLUTION") {
-    const payload = diff.payload as OnlineProjectileResolutionResponse["payload"];
-    if (!payload.intentId) return null;
-    return { intentId: payload.intentId, playerId };
-  }
-
-  if (diff.type === "INTENT_REJECTION") {
-    const payload = diff.payload as OnlineIntentRejectionResponse["payload"];
-    return { intentId: payload.rejectedIntentId, playerId };
-  }
-
   if (diff.intentId) {
     return { intentId: diff.intentId, playerId };
   }

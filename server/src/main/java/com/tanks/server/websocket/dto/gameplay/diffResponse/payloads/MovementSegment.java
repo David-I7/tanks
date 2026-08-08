@@ -7,7 +7,6 @@ import lombok.Builder;
 
 @Builder
 public record MovementSegment(
-        String intentId,
         long playerId,
         long tankEntityId,
         OnlineVec2Dto from,

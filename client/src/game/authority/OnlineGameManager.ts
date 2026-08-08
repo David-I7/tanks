@@ -295,7 +295,6 @@ class ActiveOnlineGameManager {
   ): OnlinePlayerIntentRequestDto | null {
     const intentId = this.ctx.generateIntentId();
     const common = {
-      protocolVersion: "online-gameplay.v1" as const,
       gameSessionId: this.confirmedState.gameSessionId,
       playerId: this.confirmedState.localPlayerId,
       intentId,

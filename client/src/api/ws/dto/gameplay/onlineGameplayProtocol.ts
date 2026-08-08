@@ -14,7 +14,6 @@ export type OnlinePlayerIntentRequest =
 export type OnlinePlayerIntentRequestDto<
   TIntent extends OnlinePlayerIntentRequest = OnlinePlayerIntentRequest,
 > = {
-  protocolVersion?: string;
   gameSessionId: GameSessionId;
   playerId: PlayerId;
   intentId: IntentId;
@@ -82,7 +81,6 @@ const ONLINE_STATE_DIFF_TYPES = new Set([
 export type OnlineDiffResponseDto<
   TDiff extends OnlineStateDiffResponse = OnlineStateDiffResponse,
 > = {
-  protocolVersion?: string;
   gameSessionId: GameSessionId;
   sequence: DiffSequence;
   serverTick: ServerTick;
@@ -139,7 +137,6 @@ export type OnlineResyncStateResponse = {
 export type OnlineMovementSegmentResponse = {
   type: "MOVEMENT_SEGMENT";
   payload: {
-    intentId: IntentId | null;
     playerId: PlayerId;
     tankEntityId: EntityId;
     from: OnlineVec2;
@@ -175,7 +172,6 @@ export type SubMunitionTrajectoryDto = {
 export type OnlineProjectileResolutionResponse = {
   type: "PROJECTILE_RESOLUTION";
   payload: {
-    intentId: IntentId;
     projectileEntityId: EntityId;
     ownerPlayerId: PlayerId;
     projectileDefinitionId: string;
@@ -197,7 +193,6 @@ export type OnlineTerrainPatchResponse = {
 export type OnlineIntentRejectionResponse = {
   type: "INTENT_REJECTION";
   payload: {
-    rejectedIntentId: IntentId;
     playerId: PlayerId;
     reason:
       | "STALE_BASE_STATE"

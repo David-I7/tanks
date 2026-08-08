@@ -9,6 +9,7 @@ import AuthenticatedRoute from "../components/auth/AuthenticatedRoute";
 import LobbyPage from "./lobby/LobbyPage";
 import GamePage from "./game/GamePage";
 import LocalGamePage from "./game/LocalGamePage";
+import MockGameTestPage from "./test/MockGameTestPage";
 
 const router = createBrowserRouter([
   {
@@ -52,6 +53,10 @@ const router = createBrowserRouter([
       {
         path: "game/local",
         element: <LocalGamePage />,
+      },
+      {
+        path: "test/mock-game",
+        element: <MockGameTestPage />,
       },
     ],
   },
