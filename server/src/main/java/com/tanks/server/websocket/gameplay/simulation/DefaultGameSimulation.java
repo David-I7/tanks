@@ -87,7 +87,6 @@ public class DefaultGameSimulation implements GameSimulation {
         state.fuel(fuelRemaining);
         long duration = content.world().movementSegmentDurationTicks();
         return Optional.of(MovementSegment.builder()
-                .intentId(intentId)
                 .playerId(playerId)
                 .tankEntityId(state.entityId())
                 .from(from)
@@ -116,7 +115,6 @@ public class DefaultGameSimulation implements GameSimulation {
                 state.position(to);
                 long duration = content.world().movementSegmentDurationTicks();
                 segments.add(MovementSegment.builder()
-                        .intentId(null)
                         .playerId(state.playerId())
                         .tankEntityId(state.entityId())
                         .from(from)
@@ -370,7 +368,6 @@ public class DefaultGameSimulation implements GameSimulation {
         }
 
         return ProjectileResolution.builder()
-                .intentId(intentId)
                 .projectileEntityId(projectileEntityId)
                 .ownerPlayerId(playerId)
                 .projectileDefinitionId(projectileDef.id())

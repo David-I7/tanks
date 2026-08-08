@@ -20,6 +20,7 @@ import com.tanks.server.websocket.services.ClaimService;
 import com.tanks.server.websocket.services.GameSessionService;
 import com.tanks.server.websocket.services.UserSessionService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
@@ -32,6 +33,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/test/mock-game")
 @RequiredArgsConstructor
+@Slf4j
 public class MockGameTestController {
 
     private final UserRepository userRepository;
@@ -39,9 +41,11 @@ public class MockGameTestController {
     private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
     private final GameSessionRepository gameSessionRepository;
+    private final ClaimService claimService;
 
     @DeleteMapping("/cleanup-game")
     public ResponseEntity<Void> cleanupMockGame(@RequestParam String gameSessionId) {
+        log.debug("Cleaning up mock game {}", gameSessionId);
         gameSessionRepository.deleteById(UUID.fromString(gameSessionId));
         return ResponseEntity.ok().build();
     }
@@ -55,6 +59,7 @@ public class MockGameTestController {
             var username = "tt" + (i + 1);
             var email = "test" + (i + 1) + "@gmail.com";
             User user = getOrCreateUser(username, email);
+            claimService.forceReleaseUserSocket(user.getId());
             createUserSession(user);
             players.add(MockPlayer.builder()
                     .username(username)

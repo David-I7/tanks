@@ -1,4 +1,4 @@
-import ProblemDetailDto from "../../src/api/http/dto/ProblemDetailDto";
+import type ProblemDetailDto from "../../src/api/http/dto/ProblemDetailDto";
 import {
   createMockGame,
   createStompClient,
@@ -112,13 +112,17 @@ export async function createIsolatedTestContext(
 export async function teardownTestContext(
   ctx: DiagnosticContext,
 ): Promise<void> {
+  if (!ctx) return;
   try {
-    ctx.playerClients.forEach((client) => teardownClient(client));
+    await Promise.all(
+      ctx.playerClients.map((client) => teardownClient(client)),
+    );
   } catch (ignored) {}
 
   if (ctx.gameSessionId !== undefined) {
+    const baseUrl = "http://localhost:8080/api/v1";
     const MOCK_URL =
-      process.env.VITE_BASE_API_URL +
+      baseUrl +
       "/test/mock-game/cleanup-game?gameSessionId=" +
       ctx.gameSessionId;
     await fetch(MOCK_URL, { method: "DELETE" });
@@ -133,10 +137,12 @@ export async function teardownTestContext(
   ctx.inactiveClient = undefined;
 }
 
-export function teardownClient(playerClient: PlayerClient | undefined): void {
+export async function teardownClient(
+  playerClient: PlayerClient | undefined,
+): Promise<void> {
   if (!playerClient) return;
   try {
-    playerClient.client.deactivate();
+    await playerClient.client.deactivate();
     playerClient.playerId = -1;
     playerClient.username = "";
     playerClient.receivedTopicMessages = [];
@@ -367,7 +373,6 @@ export function sendIntent(
   intentPayload: any,
 ): void {
   const fullPayload = {
-    protocolVersion: "V1",
     gameSessionId,
     ...intentPayload,
   };

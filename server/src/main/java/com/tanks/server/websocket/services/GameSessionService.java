@@ -8,7 +8,6 @@ import com.tanks.server.repositories.UserRepository;
 import com.tanks.server.utils.IdFactory;
 import com.tanks.server.websocket.dto.gameplay.diffResponse.OnlineDiffResponseDto;
 import com.tanks.server.websocket.dto.gameplay.diffResponse.OnlineDiffResponsePayload;
-import com.tanks.server.websocket.dto.gameplay.OnlineGameplayProtocolVersion;
 import com.tanks.server.websocket.dto.gameplay.diffResponse.enums.*;
 import com.tanks.server.websocket.dto.gameplay.diffResponse.payloads.*;
 import com.tanks.server.websocket.dto.gameplay.playerIntent.*;
@@ -40,6 +39,7 @@ import org.springframework.stereotype.Service;
 
 import java.net.URI;
 import java.time.OffsetDateTime;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -203,9 +203,6 @@ public class GameSessionService {
 
         if (rejectionReason != null) {
             log.info("Intent rejected reason={} intent={}", rejectionReason, intent);
-            if (rejectionReason == IntentRejectionReason.INVALID_PAYLOAD) {
-                return false;
-            }
             publishIntentRejection(gameSession, intent, rejectionReason);
             return false;
         }
@@ -304,7 +301,12 @@ public class GameSessionService {
     }
 
     public void removeConnectedUser(UUID gameSessionId, Long userId) {
-        GameSession gameSession = findById(gameSessionId);
+        Optional<GameSession> gameSessionOpt = gameRepository.findById(gameSessionId);
+        if (gameSessionOpt.isEmpty()) {
+            log.debug("Game session {} not found when removing connected user {}", gameSessionId, userId);
+            return;
+        }
+        GameSession gameSession = gameSessionOpt.get();
         if (userId != null) {
             gameSession.getConnectedUserIds().remove(userId);
         }
@@ -474,14 +476,12 @@ public class GameSessionService {
         gameSession.setLastDiffServerTick(gameSession.getServerTick());
 
         OnlineDiffResponseDto dto = OnlineDiffResponseDto.builder()
-                .protocolVersion(OnlineGameplayProtocolVersion.V1)
                 .gameSessionId(gameSession.getId().toString())
                 .sequence(sequence)
                 .serverTick(gameSession.getServerTick())
                     .type(OnlineStateDiffResponseType.INTENT_REJECTION)
                 .intentId(intent.intentId())
                 .payload(IntentRejection.builder()
-                        .rejectedIntentId(intent.intentId())
                         .playerId(intent.playerId())
                         .reason(reason)
                         .authoritativeSequence(gameSession.getNextDiffSequence())
@@ -524,7 +524,6 @@ public class GameSessionService {
         gameSession.setLastDiffServerTick(segment.endedServerTick());
 
         OnlineDiffResponseDto diff = new OnlineDiffResponseDto(
-                OnlineGameplayProtocolVersion.V1,
                 gameSession.getId().toString(),
                 sequence,
                 segment.endedServerTick(),
@@ -825,7 +824,6 @@ public class GameSessionService {
             OnlineDiffResponsePayload payload) {
         long sequence = gameSession.getNextDiffSequence();
         OnlineDiffResponseDto diff = new OnlineDiffResponseDto(
-                OnlineGameplayProtocolVersion.V1,
                 gameSession.getId().toString(),
                 sequence,
                 serverTick,

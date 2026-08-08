@@ -1,6 +1,5 @@
 package com.tanks.server.websocket.services;
 
-import com.tanks.server.websocket.dto.gameplay.OnlineGameplayProtocolVersion;
 import com.tanks.server.websocket.dto.gameplay.diffResponse.OnlineDiffResponseDto;
 import com.tanks.server.websocket.dto.gameplay.diffResponse.OnlineStateDiffResponseType;
 import com.tanks.server.websocket.dto.gameplay.diffResponse.enums.TerminalGameReason;
@@ -182,7 +181,6 @@ public class GameBatchTickTask implements Runnable {
                 gameSession.getWorld().match().winnerPlayerId(winnerPlayerId);
             }
             OnlineDiffResponseDto diff = new OnlineDiffResponseDto(
-                    OnlineGameplayProtocolVersion.V1,
                     gameSession.getId().toString(),
                     gameSession.getNextDiffSequence(),
                     gameSession.getServerTick(),
@@ -239,7 +237,6 @@ public class GameBatchTickTask implements Runnable {
 
     private void publishTurnTransition(GameSession gameSession, long previousPlayerId, long activePlayerId) {
         OnlineDiffResponseDto diff = new OnlineDiffResponseDto(
-                OnlineGameplayProtocolVersion.V1,
                 gameSession.getId().toString(),
                 gameSession.getNextDiffSequence(),
                 gameSession.getServerTick(),

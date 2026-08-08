@@ -3,7 +3,6 @@ package com.tanks.server.websocket.gameplay.simulation;
 import java.util.List;
 import org.springframework.stereotype.Service;
 import com.tanks.server.websocket.dto.gameplay.diffResponse.OnlineDiffResponseDto;
-import com.tanks.server.websocket.dto.gameplay.OnlineGameplayProtocolVersion;
 import com.tanks.server.websocket.dto.gameplay.diffResponse.OnlineStateDiffResponseType;
 import com.tanks.server.websocket.dto.gameplay.diffResponse.enums.ResyncReason;
 import com.tanks.server.websocket.dto.gameplay.diffResponse.payloads.InitialState;
@@ -29,7 +28,6 @@ public class GameStateResponseFactory {
 
     public OnlineDiffResponseDto createForPlayer(GameSession session, long localPlayerId) {
         return OnlineDiffResponseDto.builder()
-                .protocolVersion(OnlineGameplayProtocolVersion.V1)
                 .gameSessionId(session.getId().toString())
                 .sequence(1)
                 .serverTick(0)
@@ -47,7 +45,6 @@ public class GameStateResponseFactory {
             ResyncReason reason, long localPlayerId) {
         long replaces = Math.max(1, session.getNextDiffSequence() - 1);
         return OnlineDiffResponseDto.builder()
-                .protocolVersion(OnlineGameplayProtocolVersion.V1)
                 .gameSessionId(session.getId().toString())
                 .sequence(replaces)
                 .serverTick(session.getLastDiffServerTick())

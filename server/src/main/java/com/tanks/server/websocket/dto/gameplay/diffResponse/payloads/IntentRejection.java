@@ -6,7 +6,6 @@ import lombok.Builder;
 
 @Builder
 public record IntentRejection(
-        String rejectedIntentId,
         long playerId,
         IntentRejectionReason reason,
         long authoritativeSequence,

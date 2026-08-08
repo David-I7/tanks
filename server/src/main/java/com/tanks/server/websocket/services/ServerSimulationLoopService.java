@@ -20,7 +20,6 @@ import org.springframework.stereotype.Service;
 
 import com.tanks.server.websocket.dto.gameplay.diffResponse.OnlineDiffResponseDto;
 import com.tanks.server.websocket.dto.gameplay.diffResponse.enums.*;
-import com.tanks.server.websocket.dto.gameplay.OnlineGameplayProtocolVersion;
 import com.tanks.server.websocket.dto.gameplay.diffResponse.OnlineStateDiffResponseType;
 import com.tanks.server.websocket.entities.gameSession.GameSession;
 import com.tanks.server.websocket.entities.gameSession.GameSessionState;

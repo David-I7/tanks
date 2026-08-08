@@ -1,5 +1,5 @@
 import { Client } from "@stomp/stompjs";
-import ProblemDetailDto from "../../src/api/http/dto/ProblemDetailDto";
+import type ProblemDetailDto from "../../src/api/http/dto/ProblemDetailDto";
 
 export interface MockPlayer {
   username: string;
@@ -26,8 +26,8 @@ export interface PlayerClient {
   subscriptions: Map<string, any>;
 }
 
-const SERVER_HTTP_URL = process.env.VITE_SERVER_ORIGIN;
-const SERVER_WS_URL = process.env.VITE_BASE_WEBSOCKETS_URL;
+const SERVER_HTTP_URL = "http://localhost:8080";
+const SERVER_WS_URL = "ws://localhost:8080/ws";
 
 export async function createMockGame(
   playerCount = 2,

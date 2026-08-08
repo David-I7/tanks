@@ -106,22 +106,24 @@ public class WebSocketEventListeners {
         // UserSession is null if the user failed inside authorization interceptor
         if(userSession == null) return;
 
-        claimLockIfNotHeld(userSession.getId(), accessor);
+        try {
+            claimLockIfNotHeld(userSession.getId(), accessor);
 
-        if (userSession.getState() == UserSessionState.IN_LOBBY) {
-            // notify lobby that the user left
-            log.debug("User {} left lobby {}", user.username(),userSession.getLobbyId());
-            handleLobbyLeave(userSession);
-        } else if (userSession.getState() == UserSessionState.IN_GAME) {
-            // handle game leave
-            log.debug("User {} left game {}", user.username(),userSession.getGameSessionId());
-            handleGameLeave(userSession);
-        } else {
-            userSessionService.delete(userSession);
-            log.debug("User {} disconnected", user.username());
+            if (userSession.getState() == UserSessionState.IN_LOBBY) {
+                // notify lobby that the user left
+                log.debug("User {} left lobby {}", user.username(), userSession.getLobbyId());
+                handleLobbyLeave(userSession);
+            } else if (userSession.getState() == UserSessionState.IN_GAME) {
+                // handle game leave
+                log.debug("User {} left game {}", user.username(), userSession.getGameSessionId());
+                handleGameLeave(userSession);
+            } else {
+                userSessionService.delete(userSession);
+                log.debug("User {} disconnected", user.username());
+            }
+        }finally {
+            releaseLockIfHeld(userSession.getId(), accessor);
         }
-
-        releaseLockIfHeld(userSession.getId(), accessor);
     }
 
     @EventListener
