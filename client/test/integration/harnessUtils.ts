@@ -1,4 +1,5 @@
 import type ProblemDetailDto from "../../src/api/http/dto/ProblemDetailDto";
+import { isOnlineDiffBatchResponseDto } from "../../src/api/ws/dto/gameplay/onlineGameplayProtocol";
 import {
   createMockGame,
   createStompClient,
@@ -243,9 +244,6 @@ export function subscribeWithReceipt(
   playerClient.subscriptions.set(destination, sub);
   return receiptPromise;
 }
-
-import { isOnlineDiffBatchResponseDto } from "../../src/api/ws/dto/gameplay/onlineGameplayProtocol";
-
 export function setupGameTopicSubscription(
   playerClient: PlayerClient,
   gameSessionId: string,

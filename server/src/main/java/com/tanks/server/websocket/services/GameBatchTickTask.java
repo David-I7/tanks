@@ -220,18 +220,18 @@ public class GameBatchTickTask implements Runnable {
     private void advanceTurnWithoutShot(GameSession gameSession) {
         long previousPlayerId = gameSession.getWorld().match().activePlayerId();
         long activePlayerId = previousPlayerId == 1 ? 2 : 1;
-        gameSession.getWorld().match().activePlayerId(activePlayerId);
-        gameSession.getWorld().match().turnNumber(gameSession.getWorld().match().turnNumber() + 1);
-        gameSession.getWorld().match().turnEndsAtServerTick(gameSession.getServerTick() + TURN_TIMER_TICKS);
 
-        if (contentCatalog != null && gameSession.getGameContentVersion() != null) {
-            double wind = contentCatalog.require(gameSession.getGameContentVersion()).world().generateWind();
-            gameSession.getWorld().match().wind(wind);
-        }
-
-        publishTurnTransition(gameSession, previousPlayerId, activePlayerId);
         if (gameSessionService != null) {
-            gameSessionService.spawnLootCrate(gameSession);
+            gameSessionService.publishTurnStartBatch(gameSession, previousPlayerId, activePlayerId);
+        } else {
+            gameSession.getWorld().match().activePlayerId(activePlayerId);
+            gameSession.getWorld().match().turnNumber(gameSession.getWorld().match().turnNumber() + 1);
+            gameSession.getWorld().match().turnEndsAtServerTick(gameSession.getServerTick() + TURN_TIMER_TICKS);
+            if (contentCatalog != null && gameSession.getGameContentVersion() != null) {
+                double wind = contentCatalog.require(gameSession.getGameContentVersion()).world().generateWind();
+                gameSession.getWorld().match().wind(wind);
+            }
+            publishTurnTransition(gameSession, previousPlayerId, activePlayerId);
         }
     }
 

@@ -631,34 +631,7 @@ public class GameSessionService {
         } else {
             long previousPlayerId = gameSession.getWorld().match().activePlayerId();
             long activePlayerId = previousPlayerId == 1 ? 2 : 1;
-            double wind = contentCatalog.require(gameSession.getGameContentVersion()).world().generateWind();
-            gameSession.getWorld().match().wind(wind);
-            gameSession.getWorld().match().activePlayerId(activePlayerId);
-            gameSession.getWorld().match().turnNumber(gameSession.getWorld().match().turnNumber() + 1);
-            gameSession.getWorld().match().turnEndsAtServerTick(
-                    gameSession.getServerTick() + ServerSimulationLoopService.TURN_TIMER_TICKS);
-
-            OnlineDiffResponseDto turnDiff = createDiffDto(
-                    gameSession,
-                    OnlineStateDiffResponseType.TURN_TRANSITION,
-                    intent.intentId(),
-                    gameSession.getServerTick(),
-                    TurnTransition.builder()
-                            .previousPlayerId(previousPlayerId)
-                            .activePlayerId(activePlayerId)
-                            .turnNumber(gameSession.getWorld().match().turnNumber())
-                            .phase(TurnPhase.AIMING)
-                            .turnEndsAtServerTick(gameSession.getWorld().match().turnEndsAtServerTick())
-                            .matchEndsAtServerTick(gameSession.getMatchEndsAtServerTick())
-                            .wind(wind)
-                            .build());
-            diffs.add(turnDiff);
-            gameSession.setTurnStartDiffSequence(turnDiff.sequence());
-
-            OnlineDiffResponseDto crateDiff = createCrateSpawnDiff(gameSession);
-            if (crateDiff != null) {
-                diffs.add(crateDiff);
-            }
+            appendTurnStartDiffs(gameSession, previousPlayerId, activePlayerId, intent.intentId(), diffs);
         }
 
         publishBatch(gameSession, intent.intentId(), diffs);
@@ -669,7 +642,16 @@ public class GameSessionService {
             long previousPlayerId,
             long activePlayerId) {
         List<OnlineDiffResponseDto> diffs = new ArrayList<>();
+        appendTurnStartDiffs(gameSession, previousPlayerId, activePlayerId, null, diffs);
+        publishBatch(gameSession, null, diffs);
+    }
 
+    private void appendTurnStartDiffs(
+            GameSession gameSession,
+            long previousPlayerId,
+            long activePlayerId,
+            String intentId,
+            List<OnlineDiffResponseDto> diffs) {
         double wind = contentCatalog.require(gameSession.getGameContentVersion()).world().generateWind();
         gameSession.getWorld().match().wind(wind);
         gameSession.getWorld().match().activePlayerId(activePlayerId);
@@ -680,7 +662,7 @@ public class GameSessionService {
         OnlineDiffResponseDto turnDiff = createDiffDto(
                 gameSession,
                 OnlineStateDiffResponseType.TURN_TRANSITION,
-                null,
+                intentId,
                 gameSession.getServerTick(),
                 TurnTransition.builder()
                         .previousPlayerId(previousPlayerId)
@@ -698,8 +680,52 @@ public class GameSessionService {
         if (crateDiff != null) {
             diffs.add(crateDiff);
         }
+    }
 
-        publishBatch(gameSession, null, diffs);
+    public void finalizeDamageTrailKills(GameSession gameSession) {
+        com.tanks.server.websocket.gameplay.world.TankState tank1 = gameSession.getWorld().requireTankByPlayer(1L);
+        com.tanks.server.websocket.gameplay.world.TankState tank2 = gameSession.getWorld().requireTankByPlayer(2L);
+
+        boolean tank1Alive = tank1 != null && tank1.alive();
+        boolean tank2Alive = tank2 != null && tank2.alive();
+
+        if (!tank1Alive && !tank2Alive) {
+            finalizeDrawResult(gameSession);
+            publishDiff(
+                    gameSession,
+                    OnlineStateDiffResponseType.TERMINAL_GAME,
+                    null,
+                    gameSession.getServerTick(),
+                    TerminalGame.builder()
+                            .winnerPlayerId(null)
+                            .reason(TerminalGameReason.DRAW)
+                            .finalState(initialStateFactory.createStateSnapshot(gameSession))
+                            .build());
+        } else if (!tank1Alive) {
+            finalizeWinResult(gameSession, 2L);
+            publishDiff(
+                    gameSession,
+                    OnlineStateDiffResponseType.TERMINAL_GAME,
+                    null,
+                    gameSession.getServerTick(),
+                    TerminalGame.builder()
+                            .winnerPlayerId(2L)
+                            .reason(TerminalGameReason.LAST_TANK_STANDING)
+                            .finalState(initialStateFactory.createStateSnapshot(gameSession))
+                            .build());
+        } else if (!tank2Alive) {
+            finalizeWinResult(gameSession, 1L);
+            publishDiff(
+                    gameSession,
+                    OnlineStateDiffResponseType.TERMINAL_GAME,
+                    null,
+                    gameSession.getServerTick(),
+                    TerminalGame.builder()
+                            .winnerPlayerId(1L)
+                            .reason(TerminalGameReason.LAST_TANK_STANDING)
+                            .finalState(initialStateFactory.createStateSnapshot(gameSession))
+                            .build());
+        }
     }
 
     public void executePendingTurnTransition(GameSession gameSession) {
