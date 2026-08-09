@@ -19,8 +19,8 @@ export const defaultWorldCoordinateMapper: WorldCoordinateMapper = {
     if (!serverSurface || serverSurface.length === 0) {
       return { surface: [], width: 0 };
     }
-    if (scaleFactor === 1.0) {
-      return { surface: [...serverSurface], width: serverSurface.length };
+    if (scaleFactor === ONLINE_WORLD_SCALE_FACTOR) {
+      return { surface: serverSurface, width: serverSurface.length };
     }
     const serverWidth = serverSurface.length;
     const targetWidth = Math.round(serverWidth * scaleFactor);

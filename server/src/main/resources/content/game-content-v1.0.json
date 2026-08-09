@@ -9,12 +9,12 @@
     "maxProjectileSteps": 400,
     "movementSegmentDurationTicks": 15,
     "playerASpawnRegion": {
-      "minX": 225,
-      "maxX": 750
+      "minX": 240,
+      "maxX": 800
     },
     "playerBSpawnRegion": {
-      "minX": 1500,
-      "maxX": 2025
+      "minX": 1600,
+      "maxX": 2160
     },
     "minWind": -50.0,
     "maxWind": 50.0

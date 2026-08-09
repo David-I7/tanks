@@ -5,10 +5,18 @@ import { localGameContent } from "../../../src/game/content/localGameContent";
 import { defaultWorldCoordinateMapper } from "../../../src/game/online/onlineWorldMapper";
 import type { OnlineDiffResponseDto, OnlineGameStateSnapshotResponse } from "../../../src/api/ws/dto/gameplay/onlineGameplayProtocol";
 
+const mockOnlineGameContent = {
+  ...localGameContent,
+  world: {
+    ...localGameContent.world,
+    width: 2400,
+  },
+};
+
 function createMockInitialStateDiff(): OnlineDiffResponseDto {
   const mockSnapshot: OnlineGameStateSnapshotResponse = {
     gameContentVersion: "v1.0",
-    gameContent: localGameContent as any,
+    gameContent: mockOnlineGameContent as any,
     match: {
       phase: "AIMING",
       activePlayerId: 1,
@@ -98,7 +106,7 @@ describe("Online World Scaling, Slope Angles & Movement Consistency", () => {
     const ctx = {
       clock: () => 1000,
       generateIntentId: () => "test-intent",
-      gameContent: localGameContent,
+      gameContent: mockOnlineGameContent as any,
     };
 
     const confirmed = initializeOnlineConfirmedState(diff);
@@ -115,7 +123,7 @@ describe("Online World Scaling, Slope Angles & Movement Consistency", () => {
     const ctx = {
       clock: () => 1000,
       generateIntentId: () => "test-intent",
-      gameContent: localGameContent,
+      gameContent: mockOnlineGameContent as any,
     };
 
     const confirmed = initializeOnlineConfirmedState(diff);
@@ -133,7 +141,7 @@ describe("Online World Scaling, Slope Angles & Movement Consistency", () => {
     const ctx = {
       clock: () => clockMs,
       generateIntentId: () => "test-intent",
-      gameContent: localGameContent,
+      gameContent: mockOnlineGameContent as any,
     };
 
     let confirmed = initializeOnlineConfirmedState(diff);

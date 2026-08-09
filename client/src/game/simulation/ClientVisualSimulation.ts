@@ -25,6 +25,8 @@ export type ClientVisualState = {
 };
 
 const CAMERA_SMOOTHING_SPEED = 10;
+export const DEFAULT_TERRAIN_WIDTH = 2400;
+export const DEFAULT_VIEWPORT_WIDTH = 960;
 
 export class ClientVisualSimulation {
   private cameraX: number;
@@ -34,7 +36,7 @@ export class ClientVisualSimulation {
   private floatingTexts: FloatingText[] = [];
   private clouds: Cloud[] = [];
 
-  constructor(initialCameraX = 0, terrainWidth = 2400) {
+  constructor(initialCameraX = 0, terrainWidth = DEFAULT_TERRAIN_WIDTH) {
     this.cameraX = initialCameraX;
     this.isCameraLocked = true;
     this.initClouds(terrainWidth);
@@ -64,7 +66,11 @@ export class ClientVisualSimulation {
     };
   }
 
-  panCamera(deltaX: number, viewportWidth: number = 960, terrainWidth: number = 2400): void {
+  panCamera(
+    deltaX: number,
+    viewportWidth: number = DEFAULT_VIEWPORT_WIDTH,
+    terrainWidth: number = DEFAULT_TERRAIN_WIDTH,
+  ): void {
     const maxCameraX = Math.max(0, terrainWidth - viewportWidth);
     this.isCameraLocked = false;
     this.cameraX = Math.max(0, Math.min(maxCameraX, this.cameraX + deltaX));
@@ -74,7 +80,11 @@ export class ClientVisualSimulation {
     this.isCameraLocked = true;
   }
 
-  setCameraPosition(x: number, viewportWidth: number = 960, terrainWidth: number = 2400): void {
+  setCameraPosition(
+    x: number,
+    viewportWidth: number = DEFAULT_VIEWPORT_WIDTH,
+    terrainWidth: number = DEFAULT_TERRAIN_WIDTH,
+  ): void {
     const maxCameraX = Math.max(0, terrainWidth - viewportWidth);
     this.cameraX = Math.max(0, Math.min(maxCameraX, x));
   }
@@ -82,8 +92,8 @@ export class ClientVisualSimulation {
   updateCamera(
     dt: number,
     focusX: number | null,
-    viewportWidth: number = 960,
-    terrainWidth: number = 2400,
+    viewportWidth: number = DEFAULT_VIEWPORT_WIDTH,
+    terrainWidth: number = DEFAULT_TERRAIN_WIDTH,
   ): void {
     if (!this.isCameraLocked || focusX === null) return;
     const maxCameraX = Math.max(0, terrainWidth - viewportWidth);
