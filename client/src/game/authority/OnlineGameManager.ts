@@ -10,7 +10,10 @@ import type { GameAction, GameContext, GameState, Vec2 } from "../types";
 import type { OnlineGameplayTransport } from "../online/OnlineGameplayTransport";
 import { toGameState } from "../online/onlineGameState";
 import { onlineGameContentFromResponse } from "../online/onlineGameContent";
-import { ClientVisualSimulation } from "../simulation/ClientVisualSimulation";
+import {
+  ClientVisualSimulation,
+  DEFAULT_VIEWPORT_WIDTH,
+} from "../simulation/ClientVisualSimulation";
 import {
   OnlineDiffSequenceError,
   applyOnlineStateDiffResponse,
@@ -162,7 +165,7 @@ class ActiveOnlineGameManager {
     if (action.type === "panCamera") {
       this.visualSim.panCamera(
         action.deltaX,
-        960,
+        DEFAULT_VIEWPORT_WIDTH,
         this.confirmedState.state.terrain.width,
       );
       this.publishConfirmed(this.confirmedState);
@@ -270,7 +273,7 @@ class ActiveOnlineGameManager {
     this.visualSim.updateCamera(
       dt,
       focusX,
-      960,
+      DEFAULT_VIEWPORT_WIDTH,
       this.confirmedState.state.terrain.width,
     );
 
