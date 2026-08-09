@@ -8,10 +8,9 @@ export default function InitializeAuthDecorator({
   children: ReactNode;
 }) {
   const refresh = useAuthStore((state) => state.refresh);
-  const initialized = useAuthStore((state) => state.initialized);
 
   useEffect(() => {
-    if (initialized) return;
+    if (useAuthStore.getState().initialized) return;
     (async () => {
       try {
         await refresh();

@@ -268,16 +268,19 @@ function mapOnlineLootCrates(
   snapshot: OnlineGameStateSnapshotResponse,
 ): LootCrate[] {
   if (!snapshot.lootCrates) return [];
-  return snapshot.lootCrates.map((crate) => ({
-    crateId: crate.crateId,
-    crateType: crate.crateType,
-    x: crate.x,
-    y: crate.y,
-    targetY: crate.targetY,
-    isLanding: crate.isLanding,
-    collected: crate.collected,
-    value: crate.value,
-  }));
+  return snapshot.lootCrates.map((crate) => {
+    const targetY = crate.targetY - 12;
+    return {
+      crateId: crate.crateId,
+      crateType: crate.crateType,
+      x: crate.x,
+      y: !crate.isLanding ? targetY : crate.y,
+      targetY: targetY,
+      isLanding: crate.isLanding,
+      collected: crate.collected,
+      value: crate.value,
+    };
+  });
 }
 
 function mapOnlineDamageTrails(

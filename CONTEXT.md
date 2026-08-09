@@ -69,7 +69,7 @@ The server-resolved vertical movement of an unsupported tank onto the first supp
 _Avoid_: Client gravity, terrain snap, tank sliding
 
 **Aim State**:
-Local pre-fire aiming information such as angle and power that becomes authoritative only when included in a fire intent.
+Local pre-fire aiming information such as angle (in standard radians [-π, 0]) and power that becomes authoritative only when included in a fire intent.
 _Avoid_: Aim diff, aim command
 
 **Intent ID**:
@@ -209,7 +209,7 @@ Server-provided projectile path data used by clients to animate a projectile res
 _Avoid_: Client recomputation, local ballistics
 
 **Game Content**:
-Immutable authoritative content for play, including world rules, spawn constraints, tank capabilities and geometry, projectile physics, movement rules, damage behavior, and terrain effects.
+Immutable authoritative content for play, including world rules (with unified 2400px world width across online and local modes), spawn constraints, tank capabilities and geometry, projectile physics, movement rules, damage behavior, and terrain effects.
 _Avoid_: Gameplay definitions, asset bundle, client config
 
 **Game Content Version**:

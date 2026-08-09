@@ -68,7 +68,7 @@ function createMockInitialStateDiff(): OnlineDiffResponseDto {
 }
 
 describe("OnlineGameManager Throttling Integration", () => {
-  it("updates local state on aim immediately, but throttles WebSocket AIM packets", () => {
+  it("updates local state on aim immediately, but throttles AIM player intents", () => {
     let diffSubscriber: ((diff: OnlineDiffResponseDto) => void) | null = null;
     const sentIntents: any[] = [];
     const transportMock: OnlineGameplayTransport = {

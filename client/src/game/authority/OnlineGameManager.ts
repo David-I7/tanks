@@ -181,7 +181,7 @@ class ActiveOnlineGameManager {
         activeTank.power = action.power;
         this.publishConfirmed(this.confirmedState);
       }
-      const nowMs = performance.now();
+      const nowMs = this.ctx.clock();
       if (this.throttler.shouldSendAim(nowMs)) {
         const envelope = this.createIntentEnvelope(action);
         if (envelope) {
@@ -192,7 +192,7 @@ class ActiveOnlineGameManager {
     }
 
     if (action.type === "move") {
-      const nowMs = performance.now();
+      const nowMs = this.ctx.clock();
       if (this.throttler.shouldSendMove(nowMs)) {
         const envelope = this.createIntentEnvelope(action);
         if (envelope) {

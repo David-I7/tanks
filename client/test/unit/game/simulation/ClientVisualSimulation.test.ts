@@ -72,7 +72,7 @@ describe("ClientVisualSimulation", () => {
       expect(crate.isLanding).toBe(true);
     });
 
-    it("should clamp crate y position to targetY - 14 and clear isLanding when reached", () => {
+    it("should clamp crate y position to targetY and clear isLanding when reached", () => {
       const crate: LootCrate = {
         crateId: "crate-1",
         crateType: "hp",
@@ -85,8 +85,7 @@ describe("ClientVisualSimulation", () => {
       };
 
       simulation.updateLootCrates(0.5, [crate]);
-      // targetY - 14 = 286
-      expect(crate.y).toBe(286);
+      expect(crate.y).toBe(300);
       expect(crate.isLanding).toBe(false);
     });
   });

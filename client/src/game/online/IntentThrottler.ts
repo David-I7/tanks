@@ -15,7 +15,7 @@ export class IntentThrottler {
   }
 
   shouldSendAim(nowMs: number = performance.now()): boolean {
-    if (this.lastAimTimeMs === null || nowMs - this.lastAimTimeMs >= this.aimIntervalMs) {
+    if (this.shouldThrottle(this.lastAimTimeMs, this.aimIntervalMs, nowMs)) {
       this.lastAimTimeMs = nowMs;
       return true;
     }
@@ -23,7 +23,7 @@ export class IntentThrottler {
   }
 
   shouldSendMove(nowMs: number = performance.now()): boolean {
-    if (this.lastMoveTimeMs === null || nowMs - this.lastMoveTimeMs >= this.moveIntervalMs) {
+    if (this.shouldThrottle(this.lastMoveTimeMs, this.moveIntervalMs, nowMs)) {
       this.lastMoveTimeMs = nowMs;
       return true;
     }
@@ -33,5 +33,9 @@ export class IntentThrottler {
   reset(): void {
     this.lastAimTimeMs = null;
     this.lastMoveTimeMs = null;
+  }
+
+  private shouldThrottle(lastTimeMs: number | null, intervalMs: number, nowMs: number): boolean {
+    return lastTimeMs === null || nowMs - lastTimeMs >= intervalMs;
   }
 }
