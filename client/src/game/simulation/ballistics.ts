@@ -76,14 +76,11 @@ export function simulateTrajectoryPreview(
   const launchY = activeTank.position.y - muzzleVerticalOffset;
 
   const rawAngle = activeTank.aimAngle;
-  const angleRad =
-    Math.abs(rawAngle) > 2 * Math.PI
-      ? (rawAngle * Math.PI) / 180
-      : rawAngle;
+  const angleRad = clampAimAngle(rawAngle);
 
   const speed = activeTank.power * baseVel;
-  let currVx = facing * speed * Math.cos(angleRad);
-  let currVy = -speed * Math.sin(angleRad);
+  let currVx = speed * Math.cos(angleRad);
+  let currVy = speed * Math.sin(angleRad);
 
   const g = GRAVITY * gravityScale;
   const wind = snapshot.match.wind ?? 0;

@@ -22,7 +22,7 @@ describe("PROJECTILE_RESOLUTION Diff Response & Valid FIRE Intent", () => {
       const fireIntentType: OnlineFireRequest["type"] = "FIRE";
       const resolutionType: OnlineProjectileResolutionResponse["type"] =
         "PROJECTILE_RESOLUTION";
-      const testAngle = 45;
+      const testAngle = -Math.PI / 4;
       const testPower = 80;
 
       sendIntent(ctx.activeClient!, ctx.gameSessionId!, {

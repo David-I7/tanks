@@ -102,7 +102,7 @@ describe("LocalSimulation damage calculation", () => {
     const fired = sim.submitPlayerAction(0, {
       type: "fire",
       angle: 0,
-      power: 200,
+      power: 600,
       projectileSlotId: "basicShell",
     });
 

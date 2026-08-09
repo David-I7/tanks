@@ -433,7 +433,7 @@ public class GameSessionService {
             if (aim == null) return false;
             var validation = contentCatalog.require(gameSession.getGameContentVersion()).validation();
             return aim.getPower() >= validation.minFirePower() && aim.getPower() <= validation.maxFirePower()
-                    && aim.getAngle() >= validation.minAimAngle() && aim.getAngle() <= validation.maxAimAngle();
+                    && aim.getAngle() >= -Math.PI && aim.getAngle() <= 0.0;
         }
         if (intent.type() == OnlinePlayerIntentRequestType.SELECT_PROJECTILE_SLOT) {
             SelectProjectileIntentRequestPayload select = extractSelectProjectileSlotPayload(intent);
@@ -446,7 +446,7 @@ public class GameSessionService {
             }
             var validation = contentCatalog.require(gameSession.getGameContentVersion()).validation();
             return fire.getPower() >= validation.minFirePower() && fire.getPower() <= validation.maxFirePower()
-                    && fire.getAngle() >= validation.minAimAngle() && fire.getAngle() <= validation.maxAimAngle();
+                    && fire.getAngle() >= -Math.PI && fire.getAngle() <= 0.0;
         }
 
         return false;

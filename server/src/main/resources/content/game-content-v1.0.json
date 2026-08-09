@@ -331,7 +331,7 @@
   "validation": {
     "minFirePower": 0.0,
     "maxFirePower": 1000.0,
-    "minAimAngle": 0.0,
-    "maxAimAngle": 180.0
+    "minAimAngle": -3.141592653589793,
+    "maxAimAngle": 0.0
   }
 }

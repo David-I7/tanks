@@ -21,7 +21,7 @@ describe("AIM_UPDATE Diff Response & Valid AIM Intent", () => {
       const intentId = `test-aim-${Date.now()}`;
       const aimIntentType: OnlineAimRequest["type"] = "AIM";
       const aimUpdateType: OnlineAimUpdateResponse["type"] = "AIM_UPDATE";
-      const testAngle = 45;
+      const testAngle = -Math.PI / 4;
       const testPower = 50;
 
       sendIntent(ctx.activeClient!, ctx.gameSessionId!, {

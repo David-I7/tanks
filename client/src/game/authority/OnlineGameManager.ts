@@ -19,6 +19,7 @@ import {
   requestOnlineResyncState,
   type OnlineConfirmedState,
 } from "../online/onlineConfirmedState";
+import { clampAimAngle } from "../simulation/ballistics";
 
 export function createOnlineGameManager(options: {
   transport: OnlineGameplayTransport;
@@ -43,6 +44,7 @@ class TransportBackedOnlineGameManager implements GameManager {
     this.unsubscribeTransport = this.transport.subscribeToStateDiffs((diff) => {
       this.applyDiff(diff);
     });
+    this.transport.requestResyncState();
   }
 
   submitAction(action: GameAction): boolean {
@@ -61,6 +63,11 @@ class TransportBackedOnlineGameManager implements GameManager {
       );
     }
     return this.activeState.getState();
+  }
+
+  /** Returns true once INITIAL_STATE or RESYNC_STATE has been received. */
+  isReady(): boolean {
+    return this.activeState !== null;
   }
 
   subscribe(listener: (state: GameState) => void): () => void {
@@ -321,8 +328,8 @@ class ActiveOnlineGameManager {
           ...common,
           type: "FIRE",
           payload: {
-            angle: action.angle,
-            power: action.power,
+            angle: clampAimAngle(action.angle),
+            power: Math.max(0, Math.min(1000, action.power)),
           },
         };
       case "aim":
@@ -330,8 +337,8 @@ class ActiveOnlineGameManager {
           ...common,
           type: "AIM",
           payload: {
-            angle: action.angle,
-            power: action.power,
+            angle: clampAimAngle(action.angle),
+            power: Math.max(0, Math.min(1000, action.power)),
           },
         };
     }

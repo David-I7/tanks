@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { describe, it, expect } from "vitest";
-import { clampAimAngle } from "../../../../src/game/simulation/ballistics";
+import { clampAimAngle, simulateTrajectoryPreview } from "../../../../src/game/simulation/ballistics";
 import { LocalWorld } from "../../../../src/game/world/LocalWorld";
 import { LocalTerrainModel } from "../../../../src/game/simulation/LocalTerrainModel";
 import { localGameContent } from "../../../../src/game/content/localGameContent";
@@ -75,3 +75,37 @@ describe("LocalSimulation angle range enforcement", () => {
     expect(world.tanks.get(tankId)!.aimAngle).toBeCloseTo((-135 * Math.PI) / 180);
   });
 });
+
+describe("simulateTrajectoryPreview", () => {
+  it("should calculate trajectory points using standard radians regardless of facing direction", () => {
+    const mockState = {
+      match: { mode: "online", phase: "thinking", activePlayerId: 1, wind: 0 },
+      terrain: { kind: "heightmap", width: 2400, surface: new Array(2400).fill(600) },
+      projectileDefinitions: {
+        basicShell: { baseVelocity: 600, gravityScale: 1, drag: 0 },
+      },
+      tanks: [
+        {
+          playerId: 1,
+          alive: true,
+          position: { x: 500, y: 400 },
+          facing: -1, // tank facing left
+          aimAngle: -Math.PI / 4, // aiming UP-RIGHT (-45 deg)
+          power: 1,
+          selectedProjectileSlotId: "basicShell",
+          loadout: ["basicShell"],
+          width: 32,
+          height: 16,
+        },
+      ],
+    };
+
+    const points = simulateTrajectoryPreview(mockState as any, 1, 5);
+    expect(points.length).toBeGreaterThan(1);
+    // When aiming UP-RIGHT (-45 deg), x coordinate must INCREASE regardless of facing=-1
+    expect(points[1].x).toBeGreaterThan(points[0].x);
+    // y coordinate must DECREASE (upward)
+    expect(points[1].y).toBeLessThan(points[0].y);
+  });
+});
+
