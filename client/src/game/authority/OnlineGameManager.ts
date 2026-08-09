@@ -20,10 +20,12 @@ import {
   type OnlineConfirmedState,
 } from "../online/onlineConfirmedState";
 import { clampAimAngle } from "../simulation/ballistics";
+import { IntentThrottler } from "../online/IntentThrottler";
 
 export function createOnlineGameManager(options: {
   transport: OnlineGameplayTransport;
   ctx: GameContext;
+  throttler?: IntentThrottler;
 }): GameManager {
   return new TransportBackedOnlineGameManager(options);
 }
@@ -34,13 +36,16 @@ class TransportBackedOnlineGameManager implements GameManager {
   private readonly unsubscribeTransport: () => void;
   private readonly transport: OnlineGameplayTransport;
   private readonly ctx: GameContext;
+  private readonly throttler?: IntentThrottler;
 
   constructor(options: {
     transport: OnlineGameplayTransport;
     ctx: GameContext;
+    throttler?: IntentThrottler;
   }) {
     this.transport = options.transport;
     this.ctx = options.ctx;
+    this.throttler = options.throttler;
     this.unsubscribeTransport = this.transport.subscribeToStateDiffs((diff) => {
       this.applyDiff(diff);
     });
@@ -90,6 +95,7 @@ class TransportBackedOnlineGameManager implements GameManager {
         this.transport,
         this.ctx,
         (state) => this.publishState(state),
+        this.throttler,
       );
       this.publishState(this.activeState.getState());
       return;
@@ -102,6 +108,7 @@ class TransportBackedOnlineGameManager implements GameManager {
           this.transport,
           this.ctx,
           (state) => this.publishState(state),
+          this.throttler,
         );
         this.publishState(this.activeState.getState());
       }
@@ -123,13 +130,16 @@ class ActiveOnlineGameManager {
   private currentState!: GameState;
   private visualSim: ClientVisualSimulation;
   private lastImpactX: number | null = null;
+  private readonly throttler: IntentThrottler;
 
   constructor(
     initialState: OnlineConfirmedState,
     private readonly transport: OnlineGameplayTransport,
     private readonly ctx: GameContext,
     private readonly publish: (state: GameState) => void,
+    throttler?: IntentThrottler,
   ) {
+    this.throttler = throttler ?? new IntentThrottler();
     this.confirmedState = initialState;
     this.visualSim = new ClientVisualSimulation(
       0,
@@ -171,9 +181,31 @@ class ActiveOnlineGameManager {
         activeTank.power = action.power;
         this.publishConfirmed(this.confirmedState);
       }
-      const envelope = this.createIntentEnvelope(action);
-      if (envelope) {
-        this.transport.sendPlayerIntent(envelope);
+      const nowMs = performance.now();
+      if (this.throttler.shouldSendAim(nowMs)) {
+        const envelope = this.createIntentEnvelope(action);
+        if (envelope) {
+          this.transport.sendPlayerIntent(envelope);
+        }
+      }
+      return true;
+    }
+
+    if (action.type === "move") {
+      const nowMs = performance.now();
+      if (this.throttler.shouldSendMove(nowMs)) {
+        const envelope = this.createIntentEnvelope(action);
+        if (envelope) {
+          this.transport.sendPlayerIntent(envelope);
+          this.publishConfirmed(
+            predictOnlineMovement(
+              this.confirmedState,
+              envelope.intentId,
+              envelope.playerId,
+              { direction: action.direction },
+            ),
+          );
+        }
       }
       return true;
     }
@@ -181,17 +213,6 @@ class ActiveOnlineGameManager {
     const envelope = this.createIntentEnvelope(action);
     if (!envelope) return false;
     this.transport.sendPlayerIntent(envelope);
-
-    if (action.type === "move") {
-      this.publishConfirmed(
-        predictOnlineMovement(
-          this.confirmedState,
-          envelope.intentId,
-          envelope.playerId,
-          { direction: action.direction },
-        ),
-      );
-    }
 
     return true;
   }
@@ -249,6 +270,7 @@ class ActiveOnlineGameManager {
   applyDiff(diff: OnlineDiffResponseDto): void {
     if (diff.type === "TURN_TRANSITION") {
       this.lastImpactX = null;
+      this.throttler.reset();
     }
 
     if (diff.type === "PROJECTILE_RESOLUTION") {
