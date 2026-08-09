@@ -64,7 +64,7 @@ export class ClientVisualSimulation {
     };
   }
 
-  panCamera(deltaX: number, viewportWidth: number, terrainWidth: number): void {
+  panCamera(deltaX: number, viewportWidth: number = 960, terrainWidth: number = 2400): void {
     const maxCameraX = Math.max(0, terrainWidth - viewportWidth);
     this.isCameraLocked = false;
     this.cameraX = Math.max(0, Math.min(maxCameraX, this.cameraX + deltaX));
@@ -74,7 +74,7 @@ export class ClientVisualSimulation {
     this.isCameraLocked = true;
   }
 
-  setCameraPosition(x: number, viewportWidth: number, terrainWidth: number): void {
+  setCameraPosition(x: number, viewportWidth: number = 960, terrainWidth: number = 2400): void {
     const maxCameraX = Math.max(0, terrainWidth - viewportWidth);
     this.cameraX = Math.max(0, Math.min(maxCameraX, x));
   }
@@ -82,8 +82,8 @@ export class ClientVisualSimulation {
   updateCamera(
     dt: number,
     focusX: number | null,
-    viewportWidth: number,
-    terrainWidth: number,
+    viewportWidth: number = 960,
+    terrainWidth: number = 2400,
   ): void {
     if (!this.isCameraLocked || focusX === null) return;
     const maxCameraX = Math.max(0, terrainWidth - viewportWidth);
@@ -96,7 +96,7 @@ export class ClientVisualSimulation {
   updateLootCrates(dt: number, crates: LootCrate[]): void {
     for (const crate of crates) {
       if (crate.isLanding) {
-        const targetY = crate.targetY - 14;
+        const targetY = crate.targetY;
         crate.y = Math.min(targetY, crate.y + 150 * dt);
         if (crate.y >= targetY) {
           crate.y = targetY;

@@ -1,4 +1,4 @@
-export const ONLINE_WORLD_SCALE_FACTOR = 3.0;
+export const ONLINE_WORLD_SCALE_FACTOR = 1.0;
 
 export type WorldCoordinateMapper = {
   scaleFactor: number;
@@ -10,14 +10,17 @@ export type WorldCoordinateMapper = {
 export const defaultWorldCoordinateMapper: WorldCoordinateMapper = {
   scaleFactor: ONLINE_WORLD_SCALE_FACTOR,
   serverToClientX(serverX: number): number {
-    return Math.round(serverX * ONLINE_WORLD_SCALE_FACTOR);
+    return serverX;
   },
   clientToServerX(clientX: number): number {
-    return Math.round(clientX / ONLINE_WORLD_SCALE_FACTOR);
+    return clientX;
   },
   mapSurface(serverSurface: number[], scaleFactor: number = ONLINE_WORLD_SCALE_FACTOR) {
     if (!serverSurface || serverSurface.length === 0) {
       return { surface: [], width: 0 };
+    }
+    if (scaleFactor === 1.0) {
+      return { surface: [...serverSurface], width: serverSurface.length };
     }
     const serverWidth = serverSurface.length;
     const targetWidth = Math.round(serverWidth * scaleFactor);

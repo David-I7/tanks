@@ -252,7 +252,8 @@ export function predictOnlineMovement(
       confirmed.state.terrain.surface[
         Math.max(0, Math.min(confirmed.state.terrain.surface.length - 1, nextX))
       ];
-    const nextY = surfaceY ?? y;
+    const trackGroundOffset = (definition as any).trackGroundOffset ?? definition.height / 2;
+    const nextY = surfaceY !== undefined ? surfaceY - trackGroundOffset : y;
     if (y - nextY > definition.climbCapability) break;
     const ledge = nextY - y > definition.climbCapability;
     const cost = Math.ceil(
@@ -270,7 +271,6 @@ export function predictOnlineMovement(
   }
   if (path.length === 1) return confirmed;
   const predictedMovement: OnlineMovementSegmentResponse["payload"] = {
-    intentId,
     playerId,
     tankEntityId: tank.entityId,
     from: tank.position,
@@ -613,7 +613,7 @@ function applyCrateSpawned(
           crateType: crate.crateType,
           x: crate.dropX,
           y: 0,
-          targetY: crate.targetY,
+          targetY: crate.targetY - 12,
           isLanding: true,
           collected: false,
           value: crate.value,

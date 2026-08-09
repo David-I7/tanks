@@ -22,9 +22,9 @@ function createMockInitialStateDiff(): OnlineDiffResponseDto {
     },
     terrain: {
       kind: "HEIGHTMAP",
-      width: 1024,
+      width: 2400,
       height: 768,
-      surface: new Array(1024).fill(400),
+      surface: new Array(2400).fill(400),
     },
     tanks: [
       {
@@ -54,7 +54,7 @@ function createMockInitialStateDiff(): OnlineDiffResponseDto {
         width: 32,
         height: 16,
         visual: { fillStyle: "#8b5cf6", strokeStyle: "#6d28d9", accentColor: "#a78bfa", label: "S" },
-        position: { x: 800, y: 400 },
+        position: { x: 1800, y: 400 },
         facing: -1,
         aimAngle: 45,
         power: 300,
@@ -88,9 +88,9 @@ function createMockInitialStateDiff(): OnlineDiffResponseDto {
 describe("Online World Scaling, Slope Angles & Movement Consistency", () => {
   it("computes tank bodyAngle from terrain slope instead of hardcoding 0", () => {
     const diff = createMockInitialStateDiff();
-    const surface = new Array(1024).fill(400);
+    const surface = new Array(2400).fill(400);
     // Create a 45 degree slope at tank position x=200
-    for (let x = 0; x < 1024; x++) {
+    for (let x = 0; x < 2400; x++) {
       surface[x] = 400 + (x - 200);
     }
     (diff.payload as any).state.terrain.surface = surface;
@@ -110,7 +110,7 @@ describe("Online World Scaling, Slope Angles & Movement Consistency", () => {
     expect(tank1?.bodyAngle).not.toBe(0);
   });
 
-  it("scales server world dimensions (1024) to client world width (3072) by factor of 3", () => {
+  it("uses 1:1 server to client world dimensions (2400px width)", () => {
     const diff = createMockInitialStateDiff();
     const ctx = {
       clock: () => 1000,
@@ -121,10 +121,10 @@ describe("Online World Scaling, Slope Angles & Movement Consistency", () => {
     const confirmed = initializeOnlineConfirmedState(diff);
     const gameState = onlineSnapshotToGameState(confirmed.state, 1, [], ctx);
 
-    expect(gameState.terrain.width).toBe(3072);
-    // Server position 200 should scale to 600
+    expect(gameState.terrain.width).toBe(2400);
+    // Server position 200 should map 1:1 to client position 200
     const tank1 = gameState.tanks.find((t) => t.playerId === 1);
-    expect(tank1?.position.x).toBe(600);
+    expect(tank1?.position.x).toBe(200);
   });
 
   it("smoothly interpolates opponent movement segments along mapped coordinates", () => {
@@ -138,7 +138,7 @@ describe("Online World Scaling, Slope Angles & Movement Consistency", () => {
 
     let confirmed = initializeOnlineConfirmedState(diff);
 
-    // Opponent (Player 2, entityId 11) moves from 800 to 750 (server coords)
+    // Opponent (Player 2, entityId 11) moves from 1800 to 1750 (server coords)
     const moveSegmentDiff: OnlineDiffResponseDto = {
       gameSessionId: "test-session-123",
       sequence: 2,
@@ -148,12 +148,12 @@ describe("Online World Scaling, Slope Angles & Movement Consistency", () => {
       payload: {
         playerId: 2,
         tankEntityId: 11,
-        from: { x: 800, y: 400 },
-        to: { x: 750, y: 400 },
+        from: { x: 1800, y: 400 },
+        to: { x: 1750, y: 400 },
         movementPath: [
-          { x: 800, y: 400 },
-          { x: 775, y: 400 },
-          { x: 750, y: 400 },
+          { x: 1800, y: 400 },
+          { x: 1775, y: 400 },
+          { x: 1750, y: 400 },
         ],
         fuelBefore: 240,
         fuelAfter: 200,
@@ -173,8 +173,8 @@ describe("Online World Scaling, Slope Angles & Movement Consistency", () => {
     const midState = onlineSnapshotToGameState(renderSnapshot, 1, [], ctx);
     const p2Tank = midState.tanks.find((t) => t.playerId === 2);
     
-    // Position should be smoothly interpolated in client coordinates (server 800->2400, 750->2250, mid ~2325)
-    expect(p2Tank?.position.x).toBeLessThan(2400);
-    expect(p2Tank?.position.x).toBeGreaterThan(2250);
+    // Position should be smoothly interpolated in client coordinates (server 1800 -> 1750, mid ~1775)
+    expect(p2Tank?.position.x).toBeLessThan(1800);
+    expect(p2Tank?.position.x).toBeGreaterThan(1750);
   });
 });

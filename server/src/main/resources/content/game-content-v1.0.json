@@ -1,7 +1,7 @@
 {
   "version": "v1.0",
   "world": {
-    "width": 1024,
+    "width": 2400,
     "height": 768,
     "tickRateHz": 30,
     "gravity": 260.0,
@@ -9,12 +9,12 @@
     "maxProjectileSteps": 400,
     "movementSegmentDurationTicks": 15,
     "playerASpawnRegion": {
-      "minX": 96,
-      "maxX": 320
+      "minX": 225,
+      "maxX": 750
     },
     "playerBSpawnRegion": {
-      "minX": 640,
-      "maxX": 864
+      "minX": 1500,
+      "maxX": 2025
     },
     "minWind": -50.0,
     "maxWind": 50.0
