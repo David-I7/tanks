@@ -115,6 +115,32 @@ export function isOnlineDiffResponseDto(
   );
 }
 
+export type OnlineDiffBatchResponseDto = {
+  gameSessionId: GameSessionId;
+  sequence: DiffSequence;
+  serverTick: ServerTick;
+  intentId: IntentId | null;
+  diffs: OnlineDiffResponseDto[];
+};
+
+export function isOnlineDiffBatchResponseDto(
+  value: unknown,
+): value is OnlineDiffBatchResponseDto {
+  if (!value || typeof value !== "object") return false;
+
+  const candidate = value as Record<string, unknown>;
+
+  return (
+    typeof candidate.gameSessionId === "string" &&
+    typeof candidate.sequence === "number" &&
+    typeof candidate.serverTick === "number" &&
+    (typeof candidate.intentId === "string" || candidate.intentId === null) &&
+    Array.isArray(candidate.diffs) &&
+    candidate.diffs.every(isOnlineDiffResponseDto)
+  );
+}
+
+
 export type OnlineInitialStateResponse = {
   type: "INITIAL_STATE";
   payload: {

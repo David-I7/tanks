@@ -6,6 +6,7 @@ import com.tanks.server.entities.gameResult.GameResult;
 import com.tanks.server.repositories.GameResultRepository;
 import com.tanks.server.repositories.UserRepository;
 import com.tanks.server.utils.IdFactory;
+import com.tanks.server.websocket.dto.gameplay.diffResponse.OnlineDiffBatchResponseDto;
 import com.tanks.server.websocket.dto.gameplay.diffResponse.OnlineDiffResponseDto;
 import com.tanks.server.websocket.dto.gameplay.diffResponse.OnlineDiffResponsePayload;
 import com.tanks.server.websocket.dto.gameplay.diffResponse.enums.*;
@@ -39,6 +40,8 @@ import org.springframework.stereotype.Service;
 
 import java.net.URI;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -253,7 +256,7 @@ public class GameSessionService {
         if (intent.type() == OnlinePlayerIntentRequestType.FIRE) {
             FireIntentIntentRequestPayload fire = extractFirePayload(intent);
             if (fire != null) {
-                publishProjectileResolution(gameSession, intent, fire);
+                publishShotOutcomeBatch(gameSession, intent, fire);
                 log.debug("Fire accepted: {}", intent);
                 return true;
             }
@@ -539,12 +542,11 @@ public class GameSessionService {
         return true;
     }
 
-    private void publishProjectileResolution(
+    public void publishShotOutcomeBatch(
             GameSession gameSession,
             OnlinePlayerIntentRequestDto<?> intent,
             FireIntentIntentRequestPayload fire) {
         long firingPlayerId = intent.playerId();
-        long targetPlayerId = firingPlayerId == 1 ? 2 : 1;
         var firingTank = gameSession.getWorld().requireTankByPlayer(firingPlayerId);
         firingTank.aimAngle(fire.getAngle());
         firingTank.power(fire.getPower());
@@ -553,30 +555,151 @@ public class GameSessionService {
         var projectile = gameSimulation.fire(content, gameSession.getWorld(), gameSession.getTerrainModel(),
                 intent.intentId(), projectileEntityId(gameSession), firingPlayerId, fire);
 
-        publishDiff(
+        List<OnlineDiffResponseDto> diffs = new ArrayList<>();
+
+        // 1. PROJECTILE_RESOLUTION
+        diffs.add(createDiffDto(
                 gameSession,
                 OnlineStateDiffResponseType.PROJECTILE_RESOLUTION,
                 intent.intentId(),
                 gameSession.getServerTick(),
-                projectile);
+                projectile));
 
-        publishDiff(
+        // 2. TERRAIN_PATCH
+        diffs.add(createDiffDto(
                 gameSession,
                 OnlineStateDiffResponseType.TERRAIN_PATCH,
                 intent.intentId(),
                 gameSession.getServerTick(),
                 gameSimulation.deformTerrain(content, gameSession.getWorld(), gameSession.getTerrainModel(),
-                        projectile.projectileDefinitionId(), projectile.impact()));
+                        projectile.projectileDefinitionId(), projectile.impact())));
 
+        // 3. MOVEMENT_SEGMENT (settlements)
         for (var settlement : gameSimulation.settleUnsupportedTanks(content, gameSession.getWorld(),
                 gameSession.getTerrainModel(), gameSession.getServerTick())) {
-            publishDiff(gameSession, OnlineStateDiffResponseType.MOVEMENT_SEGMENT, null,
-                    settlement.endedServerTick(), settlement);
+            diffs.add(createDiffDto(
+                    gameSession,
+                    OnlineStateDiffResponseType.MOVEMENT_SEGMENT,
+                    null,
+                    settlement.endedServerTick(),
+                    settlement));
         }
 
-        long shotDurationTicks = Math.max(1L, (long) projectile.trajectory().size());
-        gameSession.setPendingTurnTransitionAtServerTick(gameSession.getServerTick() + shotDurationTicks);
-        gameSession.setPendingTurnTransitionIntentId(intent.intentId());
+        // 4. TURN_TRANSITION or TERMINAL_GAME
+        com.tanks.server.websocket.gameplay.world.TankState tank1 = gameSession.getWorld().requireTankByPlayer(1L);
+        com.tanks.server.websocket.gameplay.world.TankState tank2 = gameSession.getWorld().requireTankByPlayer(2L);
+
+        boolean tank1Alive = tank1 != null && tank1.alive();
+        boolean tank2Alive = tank2 != null && tank2.alive();
+
+        if (!tank1Alive && !tank2Alive) {
+            finalizeDrawResult(gameSession);
+            diffs.add(createDiffDto(
+                    gameSession,
+                    OnlineStateDiffResponseType.TERMINAL_GAME,
+                    intent.intentId(),
+                    gameSession.getServerTick(),
+                    TerminalGame.builder()
+                            .winnerPlayerId(null)
+                            .reason(TerminalGameReason.DRAW)
+                            .finalState(initialStateFactory.createStateSnapshot(gameSession))
+                            .build()));
+        } else if (!tank1Alive) {
+            finalizeWinResult(gameSession, 2L);
+            diffs.add(createDiffDto(
+                    gameSession,
+                    OnlineStateDiffResponseType.TERMINAL_GAME,
+                    intent.intentId(),
+                    gameSession.getServerTick(),
+                    TerminalGame.builder()
+                            .winnerPlayerId(2L)
+                            .reason(TerminalGameReason.LAST_TANK_STANDING)
+                            .finalState(initialStateFactory.createStateSnapshot(gameSession))
+                            .build()));
+        } else if (!tank2Alive) {
+            finalizeWinResult(gameSession, 1L);
+            diffs.add(createDiffDto(
+                    gameSession,
+                    OnlineStateDiffResponseType.TERMINAL_GAME,
+                    intent.intentId(),
+                    gameSession.getServerTick(),
+                    TerminalGame.builder()
+                            .winnerPlayerId(1L)
+                            .reason(TerminalGameReason.LAST_TANK_STANDING)
+                            .finalState(initialStateFactory.createStateSnapshot(gameSession))
+                            .build()));
+        } else {
+            long previousPlayerId = gameSession.getWorld().match().activePlayerId();
+            long activePlayerId = previousPlayerId == 1 ? 2 : 1;
+            double wind = contentCatalog.require(gameSession.getGameContentVersion()).world().generateWind();
+            gameSession.getWorld().match().wind(wind);
+            gameSession.getWorld().match().activePlayerId(activePlayerId);
+            gameSession.getWorld().match().turnNumber(gameSession.getWorld().match().turnNumber() + 1);
+            gameSession.getWorld().match().turnEndsAtServerTick(
+                    gameSession.getServerTick() + ServerSimulationLoopService.TURN_TIMER_TICKS);
+
+            OnlineDiffResponseDto turnDiff = createDiffDto(
+                    gameSession,
+                    OnlineStateDiffResponseType.TURN_TRANSITION,
+                    intent.intentId(),
+                    gameSession.getServerTick(),
+                    TurnTransition.builder()
+                            .previousPlayerId(previousPlayerId)
+                            .activePlayerId(activePlayerId)
+                            .turnNumber(gameSession.getWorld().match().turnNumber())
+                            .phase(TurnPhase.AIMING)
+                            .turnEndsAtServerTick(gameSession.getWorld().match().turnEndsAtServerTick())
+                            .matchEndsAtServerTick(gameSession.getMatchEndsAtServerTick())
+                            .wind(wind)
+                            .build());
+            diffs.add(turnDiff);
+            gameSession.setTurnStartDiffSequence(turnDiff.sequence());
+
+            OnlineDiffResponseDto crateDiff = createCrateSpawnDiff(gameSession);
+            if (crateDiff != null) {
+                diffs.add(crateDiff);
+            }
+        }
+
+        publishBatch(gameSession, intent.intentId(), diffs);
+    }
+
+    public void publishTurnStartBatch(
+            GameSession gameSession,
+            long previousPlayerId,
+            long activePlayerId) {
+        List<OnlineDiffResponseDto> diffs = new ArrayList<>();
+
+        double wind = contentCatalog.require(gameSession.getGameContentVersion()).world().generateWind();
+        gameSession.getWorld().match().wind(wind);
+        gameSession.getWorld().match().activePlayerId(activePlayerId);
+        gameSession.getWorld().match().turnNumber(gameSession.getWorld().match().turnNumber() + 1);
+        gameSession.getWorld().match().turnEndsAtServerTick(
+                gameSession.getServerTick() + ServerSimulationLoopService.TURN_TIMER_TICKS);
+
+        OnlineDiffResponseDto turnDiff = createDiffDto(
+                gameSession,
+                OnlineStateDiffResponseType.TURN_TRANSITION,
+                null,
+                gameSession.getServerTick(),
+                TurnTransition.builder()
+                        .previousPlayerId(previousPlayerId)
+                        .activePlayerId(activePlayerId)
+                        .turnNumber(gameSession.getWorld().match().turnNumber())
+                        .phase(TurnPhase.AIMING)
+                        .turnEndsAtServerTick(gameSession.getWorld().match().turnEndsAtServerTick())
+                        .matchEndsAtServerTick(gameSession.getMatchEndsAtServerTick())
+                        .wind(wind)
+                        .build());
+        diffs.add(turnDiff);
+        gameSession.setTurnStartDiffSequence(turnDiff.sequence());
+
+        OnlineDiffResponseDto crateDiff = createCrateSpawnDiff(gameSession);
+        if (crateDiff != null) {
+            diffs.add(crateDiff);
+        }
+
+        publishBatch(gameSession, null, diffs);
     }
 
     public void executePendingTurnTransition(GameSession gameSession) {
@@ -589,51 +712,7 @@ public class GameSessionService {
 
         long previousPlayerId = gameSession.getWorld().match().activePlayerId();
         long activePlayerId = previousPlayerId == 1 ? 2 : 1;
-        advanceTurnAfterShot(gameSession, previousPlayerId, activePlayerId, intentId);
-
-        com.tanks.server.websocket.gameplay.world.TankState tank1 = gameSession.getWorld().requireTankByPlayer(1L);
-        com.tanks.server.websocket.gameplay.world.TankState tank2 = gameSession.getWorld().requireTankByPlayer(2L);
-
-        boolean tank1Alive = tank1 != null && tank1.alive();
-        boolean tank2Alive = tank2 != null && tank2.alive();
-
-        if (!tank1Alive && !tank2Alive) {
-            finalizeDrawResult(gameSession);
-            publishDiff(
-                    gameSession,
-                    OnlineStateDiffResponseType.TERMINAL_GAME,
-                    intentId,
-                    gameSession.getServerTick(),
-                    TerminalGame.builder()
-                            .winnerPlayerId(null)
-                            .reason(TerminalGameReason.DRAW)
-                            .finalState(initialStateFactory.createStateSnapshot(gameSession))
-                            .build());
-        } else if (!tank1Alive) {
-            finalizeWinResult(gameSession, 2L);
-            publishDiff(
-                    gameSession,
-                    OnlineStateDiffResponseType.TERMINAL_GAME,
-                    intentId,
-                    gameSession.getServerTick(),
-                    TerminalGame.builder()
-                            .winnerPlayerId(2L)
-                            .reason(TerminalGameReason.LAST_TANK_STANDING)
-                            .finalState(initialStateFactory.createStateSnapshot(gameSession))
-                            .build());
-        } else if (!tank2Alive) {
-            finalizeWinResult(gameSession, 1L);
-            publishDiff(
-                    gameSession,
-                    OnlineStateDiffResponseType.TERMINAL_GAME,
-                    intentId,
-                    gameSession.getServerTick(),
-                    TerminalGame.builder()
-                            .winnerPlayerId(1L)
-                            .reason(TerminalGameReason.LAST_TANK_STANDING)
-                            .finalState(initialStateFactory.createStateSnapshot(gameSession))
-                            .build());
-        }
+        publishTurnStartBatch(gameSession, previousPlayerId, activePlayerId);
     }
 
     public void forfeitGame(UUID gameId, String forfeitingUsername) {
@@ -724,40 +803,9 @@ public class GameSessionService {
         return endedAt;
     }
 
-    private void advanceTurnAfterShot(
-            GameSession gameSession,
-            long previousPlayerId,
-            long activePlayerId,
-            String intentId) {
-        double wind = contentCatalog.require(gameSession.getGameContentVersion()).world().generateWind();
-        gameSession.getWorld().match().wind(wind);
-        gameSession.getWorld().match().activePlayerId(activePlayerId);
-        gameSession.getWorld().match().turnNumber(gameSession.getWorld().match().turnNumber() + 1);
-        gameSession.getWorld().match().turnEndsAtServerTick(
-                gameSession.getServerTick() + ServerSimulationLoopService.TURN_TIMER_TICKS);
-
-        publishDiff(
-                gameSession,
-                OnlineStateDiffResponseType.TURN_TRANSITION,
-                intentId,
-                gameSession.getServerTick(),
-                TurnTransition.builder()
-                        .previousPlayerId(previousPlayerId)
-                        .activePlayerId(activePlayerId)
-                        .turnNumber(gameSession.getWorld().match().turnNumber())
-                        .phase(TurnPhase.AIMING)
-                        .turnEndsAtServerTick(gameSession.getWorld().match().turnEndsAtServerTick())
-                        .matchEndsAtServerTick(gameSession.getMatchEndsAtServerTick())
-                        .wind(wind)
-                        .build());
-        gameSession.setTurnStartDiffSequence(gameSession.getNextDiffSequence() - 1);
-        spawnLootCrate(gameSession);
-        log.debug("Turn advanced after shot: {} -> {}", previousPlayerId, activePlayerId);
-    }
-
-    public void spawnLootCrate(GameSession gameSession) {
+    private OnlineDiffResponseDto createCrateSpawnDiff(GameSession gameSession) {
         if (gameSession == null || gameSession.getWorld() == null || gameSession.getTerrainModel() == null) {
-            return;
+            return null;
         }
         var content = contentCatalog.require(gameSession.getGameContentVersion());
         double minX = 100.0;
@@ -783,7 +831,7 @@ public class GameSessionService {
 
         gameSession.getWorld().lootCrates().add(crateState);
 
-        publishDiff(
+        return createDiffDto(
                 gameSession,
                 OnlineStateDiffResponseType.CRATE_SPAWNED,
                 null,
@@ -795,7 +843,17 @@ public class GameSessionService {
                         .targetY(targetY)
                         .value(value)
                         .build());
-        log.debug("Supply crate spawned: {} at x={}", crateId, dropX);
+    }
+
+    public void spawnLootCrate(GameSession gameSession) {
+        OnlineDiffResponseDto crateDiff = createCrateSpawnDiff(gameSession);
+        if (crateDiff != null) {
+            eventPublisher.publishEvent(new OnlineGameplayEvent(
+                    this,
+                    null,
+                    "/topic/game/" + gameSession.getId(),
+                    crateDiff));
+        }
     }
 
     public void finalizeMatchTimeExpired(GameSession gameSession, Long winnerPlayerId) {
@@ -814,6 +872,49 @@ public class GameSessionService {
 
     private long projectileEntityId(GameSession gameSession) {
         return 20 + gameSession.getNextDiffSequence() - 2;
+    }
+
+    private OnlineDiffResponseDto createDiffDto(
+            GameSession gameSession,
+            OnlineStateDiffResponseType type,
+            String intentId,
+            long serverTick,
+            OnlineDiffResponsePayload payload) {
+        long sequence = gameSession.getNextDiffSequence();
+        OnlineDiffResponseDto diff = new OnlineDiffResponseDto(
+                gameSession.getId().toString(),
+                sequence,
+                serverTick,
+                type,
+                intentId,
+                payload);
+
+        gameSession.setNextDiffSequence(sequence + 1);
+        gameSession.setLastDiffServerTick(serverTick);
+        return diff;
+    }
+
+    private void publishBatch(
+            GameSession gameSession,
+            String intentId,
+            List<OnlineDiffResponseDto> diffs) {
+        if (diffs == null || diffs.isEmpty()) {
+            return;
+        }
+        long firstSequence = diffs.get(0).sequence();
+        OnlineDiffBatchResponseDto batch = OnlineDiffBatchResponseDto.builder()
+                .gameSessionId(gameSession.getId().toString())
+                .sequence(firstSequence)
+                .serverTick(gameSession.getServerTick())
+                .intentId(intentId)
+                .diffs(diffs)
+                .build();
+
+        eventPublisher.publishEvent(new OnlineGameplayEvent(
+                this,
+                null,
+                "/topic/game/" + gameSession.getId(),
+                batch));
     }
 
     private void publishDiff(

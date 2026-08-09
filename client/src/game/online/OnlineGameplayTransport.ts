@@ -1,9 +1,13 @@
 import type {
   GameSessionId,
+  OnlineDiffBatchResponseDto,
   OnlineDiffResponseDto,
   OnlinePlayerIntentRequestDto,
 } from "../../api/ws/dto/gameplay/onlineGameplayProtocol";
-import { isOnlineDiffResponseDto } from "../../api/ws/dto/gameplay/onlineGameplayProtocol";
+import {
+  isOnlineDiffBatchResponseDto,
+  isOnlineDiffResponseDto,
+} from "../../api/ws/dto/gameplay/onlineGameplayProtocol";
 import type {
   EndpointSubscription,
   Message,
@@ -21,7 +25,9 @@ export type OnlineGameplayTransport = {
   sendPlayerIntent(intent: OnlinePlayerIntentRequestDto): void;
   requestResyncState(): void;
   subscribeToStateDiffs(
-    listener: (diff: OnlineDiffResponseDto) => void,
+    listener: (
+      diff: OnlineDiffResponseDto | OnlineDiffBatchResponseDto,
+    ) => void,
   ): SubscriptionCleanup;
   subscribeToGameEvents(
     listener: (event: GameEvent) => void,
@@ -69,10 +75,17 @@ export function createOnlineGameplayTransport(options: {
     },
 
     subscribeToStateDiffs(
-      listener: (diff: OnlineDiffResponseDto) => void,
+      listener: (
+        diff: OnlineDiffResponseDto | OnlineDiffBatchResponseDto,
+      ) => void,
     ): SubscriptionCleanup {
       const handleMessage = (message: Message<unknown>) => {
         if (
+          isOnlineDiffBatchResponseDto(message.body) &&
+          message.body.gameSessionId === options.gameSessionId
+        ) {
+          listener(message.body);
+        } else if (
           isOnlineDiffResponseDto(message.body) &&
           message.body.gameSessionId === options.gameSessionId
         ) {
@@ -98,7 +111,10 @@ export function createOnlineGameplayTransport(options: {
       listener: (event: GameEvent) => void,
     ): SubscriptionCleanup {
       const handleMessage = (message: Message<GameEvent | unknown>) => {
-        if (!isOnlineDiffResponseDto(message.body)) {
+        if (
+          !isOnlineDiffResponseDto(message.body) &&
+          !isOnlineDiffBatchResponseDto(message.body)
+        ) {
           listener(message.body as GameEvent);
         }
       };

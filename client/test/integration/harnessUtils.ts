@@ -244,6 +244,8 @@ export function subscribeWithReceipt(
   return receiptPromise;
 }
 
+import { isOnlineDiffBatchResponseDto } from "../../src/api/ws/dto/gameplay/onlineGameplayProtocol";
+
 export function setupGameTopicSubscription(
   playerClient: PlayerClient,
   gameSessionId: string,
@@ -253,6 +255,11 @@ export function setupGameTopicSubscription(
   return subscribeWithReceipt(playerClient, topic, (message) => {
     try {
       playerClient.receivedTopicMessages.push(message);
+      if (isOnlineDiffBatchResponseDto(message)) {
+        for (const diff of message.diffs) {
+          playerClient.receivedTopicMessages.push(diff);
+        }
+      }
     } catch (error) {
       throw new Error(
         `Failed to parse game topic message for ${playerClient.username}: ${error}`,

@@ -1,8 +1,10 @@
 import type {
+  OnlineDiffBatchResponseDto,
   OnlineDiffResponseDto,
   OnlinePlayerIntentRequestDto,
   OnlineProjectileResolutionResponse,
 } from "../../api/ws/dto/gameplay/onlineGameplayProtocol";
+import { isOnlineDiffBatchResponseDto } from "../../api/ws/dto/gameplay/onlineGameplayProtocol";
 import type { GameManager } from "./gameManager";
 import type { GameAction, GameContext, GameState, Vec2 } from "../types";
 import type { OnlineGameplayTransport } from "../online/OnlineGameplayTransport";
@@ -88,7 +90,14 @@ class TransportBackedOnlineGameManager implements GameManager {
     this.listeners.clear();
   }
 
-  private applyDiff(diff: OnlineDiffResponseDto): void {
+  private applyDiff(diff: OnlineDiffResponseDto | OnlineDiffBatchResponseDto): void {
+    if (isOnlineDiffBatchResponseDto(diff)) {
+      for (const subDiff of diff.diffs) {
+        this.applyDiff(subDiff);
+      }
+      return;
+    }
+
     if (diff.type === "INITIAL_STATE") {
       this.activeState = new ActiveOnlineGameManager(
         initializeOnlineConfirmedState(diff),
@@ -267,7 +276,14 @@ class ActiveOnlineGameManager {
     return this.currentState;
   }
 
-  applyDiff(diff: OnlineDiffResponseDto): void {
+  applyDiff(diff: OnlineDiffResponseDto | OnlineDiffBatchResponseDto): void {
+    if (isOnlineDiffBatchResponseDto(diff)) {
+      for (const subDiff of diff.diffs) {
+        this.applyDiff(subDiff);
+      }
+      return;
+    }
+
     if (diff.type === "TURN_TRANSITION") {
       this.lastImpactX = null;
       this.throttler.reset();
