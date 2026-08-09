@@ -35,10 +35,12 @@ export class ClientVisualSimulation {
   private particles: Particle[] = [];
   private floatingTexts: FloatingText[] = [];
   private clouds: Cloud[] = [];
+  private terrainWidth: number;
 
   constructor(initialCameraX = 0, terrainWidth = DEFAULT_TERRAIN_WIDTH) {
     this.cameraX = initialCameraX;
     this.isCameraLocked = true;
+    this.terrainWidth = terrainWidth;
     this.initClouds(terrainWidth);
   }
 
@@ -69,7 +71,7 @@ export class ClientVisualSimulation {
   panCamera(
     deltaX: number,
     viewportWidth: number = DEFAULT_VIEWPORT_WIDTH,
-    terrainWidth: number = DEFAULT_TERRAIN_WIDTH,
+    terrainWidth: number = this.terrainWidth,
   ): void {
     const maxCameraX = Math.max(0, terrainWidth - viewportWidth);
     this.isCameraLocked = false;
@@ -83,7 +85,7 @@ export class ClientVisualSimulation {
   setCameraPosition(
     x: number,
     viewportWidth: number = DEFAULT_VIEWPORT_WIDTH,
-    terrainWidth: number = DEFAULT_TERRAIN_WIDTH,
+    terrainWidth: number = this.terrainWidth,
   ): void {
     const maxCameraX = Math.max(0, terrainWidth - viewportWidth);
     this.cameraX = Math.max(0, Math.min(maxCameraX, x));
@@ -93,7 +95,7 @@ export class ClientVisualSimulation {
     dt: number,
     focusX: number | null,
     viewportWidth: number = DEFAULT_VIEWPORT_WIDTH,
-    terrainWidth: number = DEFAULT_TERRAIN_WIDTH,
+    terrainWidth: number = this.terrainWidth,
   ): void {
     if (!this.isCameraLocked || focusX === null) return;
     const maxCameraX = Math.max(0, terrainWidth - viewportWidth);

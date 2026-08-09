@@ -140,6 +140,7 @@ class ActiveOnlineGameManager {
   private visualSim: ClientVisualSimulation;
   private lastImpactX: number | null = null;
   private readonly throttler: IntentThrottler;
+  private deferredDiffs: OnlineDiffResponseDto[] = [];
 
   constructor(
     initialState: OnlineConfirmedState,
@@ -258,6 +259,10 @@ class ActiveOnlineGameManager {
       }
     }
 
+    if (!this.visualSim.getState().activeFlight && !this.pendingImpactFx) {
+      this.flushDeferredDiffs();
+    }
+
     const activeTank = this.confirmedState.state.tanks.find(
       (tank) => tank.playerId === this.confirmedState.state.match.activePlayerId,
     );
@@ -284,9 +289,11 @@ class ActiveOnlineGameManager {
       return;
     }
 
-    if (diff.type === "TURN_TRANSITION") {
-      this.lastImpactX = null;
-      this.throttler.reset();
+    if (diff.type === "RESYNC_STATE") {
+      this.deferredDiffs = [];
+      this.pendingImpactFx = null;
+      this.processSingleDiff(diff);
+      return;
     }
 
     if (diff.type === "PROJECTILE_RESOLUTION") {
@@ -311,6 +318,27 @@ class ActiveOnlineGameManager {
         damagedTanks: payload.damagedTanks,
         subMunitions: payload.subMunitions,
       };
+
+      this.deferredDiffs.push(diff);
+      return;
+    }
+
+    const isFlightActive = this.visualSim.getState().activeFlight !== null;
+    const hasPendingImpact = this.pendingImpactFx !== null;
+    const hasDeferredDiffs = this.deferredDiffs.length > 0;
+
+    if (isFlightActive || hasPendingImpact || hasDeferredDiffs) {
+      this.deferredDiffs.push(diff);
+      return;
+    }
+
+    this.processSingleDiff(diff);
+  }
+
+  private processSingleDiff(diff: OnlineDiffResponseDto): void {
+    if (diff.type === "TURN_TRANSITION") {
+      this.lastImpactX = null;
+      this.throttler.reset();
     }
 
     try {
@@ -326,12 +354,39 @@ class ActiveOnlineGameManager {
         error instanceof OnlineDiffSequenceError &&
         error.kind === "MISSING_DIFF"
       ) {
+        this.deferredDiffs = [];
+        this.pendingImpactFx = null;
         this.transport.requestResyncState();
         this.publishConfirmed(requestOnlineResyncState(this.confirmedState));
         return;
       }
 
       throw error;
+    }
+  }
+
+  private isSettlementAnimationActive(): boolean {
+    const nowMs = this.ctx.clock();
+    return this.confirmedState.confirmedMovementSegments.some(
+      (segment) =>
+        segment.durationMs > 0 &&
+        nowMs >= segment.receivedAtMonotonicMs &&
+        nowMs < segment.receivedAtMonotonicMs + segment.durationMs,
+    );
+  }
+
+  private flushDeferredDiffs(): void {
+    while (this.deferredDiffs.length > 0) {
+      const nextDiff = this.deferredDiffs[0]!;
+      if (
+        (nextDiff.type === "TURN_TRANSITION" || nextDiff.type === "TERMINAL_GAME") &&
+        this.isSettlementAnimationActive()
+      ) {
+        break;
+      }
+
+      const diff = this.deferredDiffs.shift()!;
+      this.processSingleDiff(diff);
     }
   }
 
