@@ -115,6 +115,22 @@ describe("ClientVisualSimulation", () => {
       expect(sampled!.position.y).toBe(-50);
     });
 
+    it("should handle zero trajectory points by clearing active flight and returning null", () => {
+      const flight: ActiveProjectileFlight = {
+        projectileEntityId: 1,
+        ownerPlayerId: 0,
+        projectileDefinitionId: "basicShell",
+        trajectory: [],
+        durationSeconds: 1.0,
+        elapsedSeconds: 0,
+      };
+
+      simulation.startTrajectoryFlight(flight);
+      const res = simulation.updateProjectileFlight(0.1);
+      expect(res).toBeNull();
+      expect(simulation.getState().activeFlight).toBeNull();
+    });
+
     it("should complete active flight when duration expires", () => {
       const flight: ActiveProjectileFlight = {
         projectileEntityId: 1,
