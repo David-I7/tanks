@@ -130,6 +130,7 @@ describe("Combat, Weapons & Damage Integration Suite", () => {
       expect(resolutionEvent.payload.impact).toBeDefined();
       expect(typeof resolutionEvent.payload.impact.x).toBe("number");
       expect(typeof resolutionEvent.payload.impact.y).toBe("number");
+      expect(resolutionEvent.payload.trajectory.length).toBeGreaterThan(0);
     } finally {
       await teardownTestContext(ctx);
     }

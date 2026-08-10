@@ -63,23 +63,22 @@ describe("Ballistics & Turn Lifecycle Integration Suite", () => {
       playerCount: 2,
     });
     try {
-      // Fire direct high-power shot to reduce health / terminate game
-      const intentId = `test-lethal-fire-${Date.now()}`;
-      sendIntent(ctx.activeClient!, ctx.gameSessionId!, {
-        intentId,
-        type: "FIRE" as OnlineFireRequest["type"],
-        playerId: ctx.activeClient!.playerId,
-        lastConfirmedDiffSequence: 1,
-        lastConfirmedDiffServerTick: 0,
-        payload: { angle: -Math.PI / 4, power: 100 },
+      // Forfeit game mid-match to simulate immediate game termination during active state
+      ctx.inactiveClient!.client.publish({
+        destination: `/app/game/${ctx.gameSessionId}/forfeit`,
+        body: JSON.stringify({}),
       });
 
-      const resolution = await waitForTopicMessage(
+      const terminalEvent = (await waitForTopicMessage(
         ctx.activeClient!,
-        "PROJECTILE_RESOLUTION",
+        "TERMINAL_GAME",
         5000,
-      );
-      expect(resolution).toBeDefined();
+      )) as OnlineDiffResponseDto<OnlineTerminalGameResponse>;
+
+      expect(terminalEvent).toBeDefined();
+      expect(terminalEvent.type).toBe("TERMINAL_GAME");
+      expect(terminalEvent.payload.winnerPlayerId).toBe(ctx.activeClient!.playerId);
+      expect(terminalEvent.payload.finalState.match.phase).toBe("GAME_OVER");
     } finally {
       await teardownTestContext(ctx);
     }

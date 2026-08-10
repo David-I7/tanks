@@ -154,14 +154,14 @@ describe("Movement, Fuel & Terrain Integration Suite", () => {
       playerCount: 2,
     });
     try {
-      // Fire a heavy shell to carve crater underneath or near tank
+      // Fire a shell straight down to carve crater beneath firing tank
       sendIntent(ctx.activeClient!, ctx.gameSessionId!, {
         intentId: `test-crater-settle-${Date.now()}`,
         type: "FIRE",
         playerId: ctx.activeClient!.playerId,
         lastConfirmedDiffSequence: 1,
         lastConfirmedDiffServerTick: 0,
-        payload: { angle: -Math.PI / 2, power: 30 },
+        payload: { angle: -Math.PI / 2, power: 20 },
       });
 
       const resolution = (await waitForTopicMessage(
@@ -172,6 +172,14 @@ describe("Movement, Fuel & Terrain Integration Suite", () => {
 
       expect(resolution).toBeDefined();
       expect(resolution.type).toBe("PROJECTILE_RESOLUTION");
+
+      const terrainPatch = (await waitForTopicMessage(
+        ctx.activeClient!,
+        "TERRAIN_PATCH",
+        5000,
+      )) as OnlineDiffResponseDto;
+      expect(terrainPatch).toBeDefined();
+      expect(terrainPatch.type).toBe("TERRAIN_PATCH");
     } finally {
       await teardownTestContext(ctx);
     }
