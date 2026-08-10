@@ -12,10 +12,10 @@ import {
   createIsolatedTestContext,
   teardownTestContext,
   sendIntent,
+  sendIntentWithReceipt,
   waitForTopicMessage,
   waitForReply,
   waitForErrorReply,
-  sleep,
 } from "../../harnessUtils";
 
 describe("Combat, Weapons & Damage Integration Suite", () => {
@@ -65,7 +65,7 @@ describe("Combat, Weapons & Damage Integration Suite", () => {
       playerCount: 2,
     });
     try {
-      sendIntent(ctx.activeClient!, ctx.gameSessionId!, {
+      await sendIntentWithReceipt(ctx.activeClient!, ctx.gameSessionId!, {
         intentId: `test-select-cluster-${Date.now()}`,
         type: "SELECT_PROJECTILE_SLOT" as OnlineSelectProjectileSlotRequest["type"],
         playerId: ctx.activeClient!.playerId,
@@ -73,7 +73,6 @@ describe("Combat, Weapons & Damage Integration Suite", () => {
         lastConfirmedDiffServerTick: 0,
         payload: { slot: 3 },
       });
-      await sleep(100);
 
       const fireIntentId = `test-cluster-fire-${Date.now()}`;
       sendIntent(ctx.activeClient!, ctx.gameSessionId!, {
@@ -147,7 +146,7 @@ describe("Combat, Weapons & Damage Integration Suite", () => {
       playerCount: 2,
     });
     try {
-      sendIntent(ctx.activeClient!, ctx.gameSessionId!, {
+      await sendIntentWithReceipt(ctx.activeClient!, ctx.gameSessionId!, {
         intentId: `test-weapon-select-heavy-${Date.now()}`,
         type: "SELECT_PROJECTILE_SLOT" as OnlineSelectProjectileSlotRequest["type"],
         playerId: ctx.activeClient!.playerId,
@@ -155,7 +154,6 @@ describe("Combat, Weapons & Damage Integration Suite", () => {
         lastConfirmedDiffServerTick: 0,
         payload: { slot: 2 },
       });
-      await sleep(100);
 
       const fireIntentId = `test-heavy-fire-${Date.now()}`;
       sendIntent(ctx.activeClient!, ctx.gameSessionId!, {

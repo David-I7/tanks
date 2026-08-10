@@ -388,6 +388,23 @@ export function sendIntent(
   });
 }
 
-export function sleep(ms: number): Promise<void> {
-  return new Promise((r) => setTimeout(r, ms));
+export function sendIntentWithReceipt(
+  playerClient: PlayerClient,
+  gameSessionId: string,
+  intentPayload: any,
+): Promise<void> {
+  const fullPayload = {
+    gameSessionId,
+    ...intentPayload,
+  };
+  const receipt = crypto.randomUUID();
+  const receiptPromise = createReceiptPromise(playerClient, receipt);
+
+  playerClient.client.publish({
+    destination: `/app/game/${gameSessionId}/intent`,
+    body: JSON.stringify(fullPayload),
+    headers: { receipt },
+  });
+
+  return receiptPromise;
 }
