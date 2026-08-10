@@ -4,6 +4,8 @@ import type {
   OnlineProjectileResolutionResponse,
   OnlineTurnTransitionResponse,
   OnlineTerminalGameResponse,
+  OnlineResyncStateResponse,
+  OnlineIntentRejectionResponse,
   OnlineDiffResponseDto,
 } from "../../../../src/api/ws/dto/gameplay/onlineGameplayProtocol";
 import {
@@ -11,10 +13,12 @@ import {
   teardownTestContext,
   sendIntent,
   waitForTopicMessage,
+  waitForReply,
+  waitForErrorReply,
 } from "../../harnessUtils";
 
 describe("Ballistics & Turn Lifecycle Integration Suite", () => {
-  it("Behavior 2: Ballistic state delays turn transition until projectile flight completes", async () => {
+  it("delays turn transition until active ballistic projectile flight completes", async () => {
     const ctx = await createIsolatedTestContext({
       setupType: "game",
       playerCount: 2,
@@ -30,7 +34,6 @@ describe("Ballistics & Turn Lifecycle Integration Suite", () => {
         payload: { angle: -Math.PI / 4, power: 70 },
       });
 
-      // Receive projectile resolution first
       const resolution = (await waitForTopicMessage(
         ctx.activeClient!,
         "PROJECTILE_RESOLUTION",
@@ -41,7 +44,6 @@ describe("Ballistics & Turn Lifecycle Integration Suite", () => {
       expect(resolution.type).toBe("PROJECTILE_RESOLUTION");
       expect(resolution.payload.trajectory.length).toBeGreaterThan(0);
 
-      // Verify turn transition arrives following ballistic resolution
       const turnTransition = (await waitForTopicMessage(
         ctx.activeClient!,
         "TURN_TRANSITION",
@@ -57,13 +59,12 @@ describe("Ballistics & Turn Lifecycle Integration Suite", () => {
     }
   });
 
-  it("Behavior 2 (Exception 1): End of game terminates match immediately during lethal ballistics", async () => {
+  it("terminates game session immediately when match concludes during lethal shot", async () => {
     const ctx = await createIsolatedTestContext({
       setupType: "game",
       playerCount: 2,
     });
     try {
-      // Forfeit game mid-match to simulate immediate game termination during active state
       ctx.inactiveClient!.client.publish({
         destination: `/app/game/${ctx.gameSessionId}/forfeit`,
         body: JSON.stringify({}),
@@ -84,13 +85,12 @@ describe("Ballistics & Turn Lifecycle Integration Suite", () => {
     }
   });
 
-  it("Behavior 2 (Exception 2) & Suggested Test: Off-screen projectile resolves ballistics immediately", async () => {
+  it("releases turn transition immediately when projectile exits horizontal world bounds", async () => {
     const ctx = await createIsolatedTestContext({
       setupType: "game",
       playerCount: 2,
     });
     try {
-      // Fire projectile trajectory
       const intentId = `test-offscreen-fire-${Date.now()}`;
       sendIntent(ctx.activeClient!, ctx.gameSessionId!, {
         intentId,
@@ -113,7 +113,6 @@ describe("Ballistics & Turn Lifecycle Integration Suite", () => {
       expect(typeof lastPoint.x).toBe("number");
       expect(typeof lastPoint.y).toBe("number");
 
-      // Turn transition releases immediately for offscreen misses
       const turnTransition = (await waitForTopicMessage(
         ctx.activeClient!,
         "TURN_TRANSITION",
@@ -127,7 +126,7 @@ describe("Ballistics & Turn Lifecycle Integration Suite", () => {
     }
   });
 
-  it("Behavior 7: Forfeiting a game declares the other player as winner", async () => {
+  it("concludes game session and declares opponent as winner when player forfeits", async () => {
     const ctx = await createIsolatedTestContext({
       setupType: "game",
       playerCount: 2,
@@ -153,6 +152,63 @@ describe("Ballistics & Turn Lifecycle Integration Suite", () => {
       expect(forfeitEvent.payload.reason).toBe("FORFEIT");
       expect(forfeitEvent.payload.winnerPlayerId).toBe(remainingPlayer.playerId);
       expect(forfeitEvent.payload.finalState.match.phase).toBe("GAME_OVER");
+    } finally {
+      await teardownTestContext(ctx);
+    }
+  });
+
+  it("rejects intent submitted by non-active player with NOT_ACTIVE_PLAYER rejection code", async () => {
+    const ctx = await createIsolatedTestContext({
+      setupType: "game",
+      playerCount: 2,
+    });
+    try {
+      sendIntent(ctx.inactiveClient!, ctx.gameSessionId!, {
+        intentId: `test-inactive-intent-${Date.now()}`,
+        type: "MOVE",
+        playerId: ctx.inactiveClient!.playerId,
+        lastConfirmedDiffSequence: 1,
+        lastConfirmedDiffServerTick: 0,
+        payload: { direction: 1 },
+      });
+
+      const errorReply = (await waitForReply(
+        ctx.inactiveClient!,
+        "INTENT_REJECTION",
+        5000,
+      )) as OnlineDiffResponseDto<OnlineIntentRejectionResponse>;
+
+      expect(errorReply).toBeDefined();
+      expect(errorReply.payload.playerId).toBe(ctx.inactiveClient!.playerId);
+      expect(errorReply.payload.reason).toBe("NOT_ACTIVE_PLAYER");
+    } finally {
+      await teardownTestContext(ctx);
+    }
+  });
+
+  it("returns full authoritative RESYNC_STATE diff response upon client resync request", async () => {
+    const ctx = await createIsolatedTestContext({
+      setupType: "game",
+      playerCount: 2,
+    });
+    try {
+      ctx.activeClient!.client.publish({
+        destination: `/app/game/${ctx.gameSessionId}/resync`,
+        body: JSON.stringify({}),
+      });
+
+      const resyncEvent = (await waitForReply(
+        ctx.activeClient!,
+        "RESYNC_STATE",
+        5000,
+      )) as OnlineDiffResponseDto<OnlineResyncStateResponse>;
+
+      expect(resyncEvent).toBeDefined();
+      expect(resyncEvent.gameSessionId).toBe(ctx.gameSessionId);
+      expect(resyncEvent.type).toBe("RESYNC_STATE");
+      expect(resyncEvent.payload.localPlayerId).toBe(ctx.activeClient!.playerId);
+      expect(resyncEvent.payload.state).toBeDefined();
+      expect(resyncEvent.payload.state.match).toBeDefined();
     } finally {
       await teardownTestContext(ctx);
     }

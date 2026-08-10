@@ -2,7 +2,10 @@ import { describe, it, expect } from "vitest";
 import type {
   OnlineFireRequest,
   OnlineSelectProjectileSlotRequest,
+  OnlineAimRequest,
+  OnlineAimUpdateResponse,
   OnlineProjectileResolutionResponse,
+  OnlineIntentRejectionResponse,
   OnlineDiffResponseDto,
 } from "../../../../src/api/ws/dto/gameplay/onlineGameplayProtocol";
 import {
@@ -10,10 +13,13 @@ import {
   teardownTestContext,
   sendIntent,
   waitForTopicMessage,
+  waitForReply,
+  waitForErrorReply,
+  sleep,
 } from "../../harnessUtils";
 
 describe("Combat, Weapons & Damage Integration Suite", () => {
-  it("Behavior 1: Player takes damage when hit by a projectile", async () => {
+  it("reduces target player health when hit by a projectile", async () => {
     const ctx = await createIsolatedTestContext({
       setupType: "game",
       playerCount: 2,
@@ -42,7 +48,6 @@ describe("Combat, Weapons & Damage Integration Suite", () => {
       expect(resolutionEvent.payload.ownerPlayerId).toBe(ctx.activeClient!.playerId);
       expect(Array.isArray(resolutionEvent.payload.damagedTanks)).toBe(true);
 
-      // Verify that damaged tanks record damage amount and health decrease
       for (const tankDamage of resolutionEvent.payload.damagedTanks) {
         expect(typeof tankDamage.damage).toBe("number");
         expect(tankDamage.damage).toBeGreaterThan(0);
@@ -54,13 +59,12 @@ describe("Combat, Weapons & Damage Integration Suite", () => {
     }
   });
 
-  it("Behavior 5: Multiple submunitions deal damage to player when cluster weapon is fired", async () => {
+  it("deals multi-hit damage from submunitions when cluster weapon is fired", async () => {
     const ctx = await createIsolatedTestContext({
       setupType: "game",
       playerCount: 2,
     });
     try {
-      // Slot 3 in vanguard-cyber loadout is "cluster" (subMunitions count = 3)
       sendIntent(ctx.activeClient!, ctx.gameSessionId!, {
         intentId: `test-select-cluster-${Date.now()}`,
         type: "SELECT_PROJECTILE_SLOT" as OnlineSelectProjectileSlotRequest["type"],
@@ -69,6 +73,7 @@ describe("Combat, Weapons & Damage Integration Suite", () => {
         lastConfirmedDiffServerTick: 0,
         payload: { slot: 3 },
       });
+      await sleep(100);
 
       const fireIntentId = `test-cluster-fire-${Date.now()}`;
       sendIntent(ctx.activeClient!, ctx.gameSessionId!, {
@@ -104,7 +109,7 @@ describe("Combat, Weapons & Damage Integration Suite", () => {
     }
   });
 
-  it("Behavior 4: Damage trails are generated on impact for hazard weapons", async () => {
+  it("generates damage trail persistent effects on impact for hazard weapons", async () => {
     const ctx = await createIsolatedTestContext({
       setupType: "game",
       playerCount: 2,
@@ -136,13 +141,12 @@ describe("Combat, Weapons & Damage Integration Suite", () => {
     }
   });
 
-  it("Suggested Test: Weapon selection updates active slot for subsequent projectile firing", async () => {
+  it("updates active weapon slot for subsequent projectile firing", async () => {
     const ctx = await createIsolatedTestContext({
       setupType: "game",
       playerCount: 2,
     });
     try {
-      // Slot 2 in loadout is "heavyShell"
       sendIntent(ctx.activeClient!, ctx.gameSessionId!, {
         intentId: `test-weapon-select-heavy-${Date.now()}`,
         type: "SELECT_PROJECTILE_SLOT" as OnlineSelectProjectileSlotRequest["type"],
@@ -151,6 +155,7 @@ describe("Combat, Weapons & Damage Integration Suite", () => {
         lastConfirmedDiffServerTick: 0,
         payload: { slot: 2 },
       });
+      await sleep(100);
 
       const fireIntentId = `test-heavy-fire-${Date.now()}`;
       sendIntent(ctx.activeClient!, ctx.gameSessionId!, {
@@ -170,6 +175,73 @@ describe("Combat, Weapons & Damage Integration Suite", () => {
 
       expect(resolutionEvent).toBeDefined();
       expect(resolutionEvent.payload.projectileDefinitionId).toBe("heavyShell");
+    } finally {
+      await teardownTestContext(ctx);
+    }
+  });
+
+  it("processes valid AIM intent and broadcasts AIM_UPDATE diff response", async () => {
+    const ctx = await createIsolatedTestContext({
+      setupType: "game",
+      playerCount: 2,
+    });
+    try {
+      const intentId = `test-aim-${Date.now()}`;
+      const aimAngle = -Math.PI / 3;
+      const aimPower = 75;
+
+      sendIntent(ctx.activeClient!, ctx.gameSessionId!, {
+        intentId,
+        type: "AIM" as OnlineAimRequest["type"],
+        playerId: ctx.activeClient!.playerId,
+        lastConfirmedDiffSequence: 1,
+        lastConfirmedDiffServerTick: 0,
+        payload: { angle: aimAngle, power: aimPower },
+      });
+
+      const diffEvent = (await waitForTopicMessage(
+        ctx.activeClient!,
+        "AIM_UPDATE",
+        5000,
+      )) as OnlineDiffResponseDto<OnlineAimUpdateResponse>;
+
+      expect(diffEvent).toBeDefined();
+      expect(diffEvent.type).toBe("AIM_UPDATE");
+      expect(diffEvent.intentId).toBe(intentId);
+      expect(diffEvent.payload.playerId).toBe(ctx.activeClient!.playerId);
+      expect(diffEvent.payload.angle).toBe(aimAngle);
+      expect(diffEvent.payload.power).toBe(aimPower);
+    } finally {
+      await teardownTestContext(ctx);
+    }
+  });
+
+  it("rejects AIM intent with out-of-range power payload and returns INTENT_REJECTION diff response", async () => {
+    const ctx = await createIsolatedTestContext({
+      setupType: "game",
+      playerCount: 2,
+    });
+    try {
+      const intentId = `test-invalid-aim-${Date.now()}`;
+
+      sendIntent(ctx.activeClient!, ctx.gameSessionId!, {
+        intentId,
+        type: "AIM" as OnlineAimRequest["type"],
+        playerId: ctx.activeClient!.playerId,
+        lastConfirmedDiffSequence: 1,
+        lastConfirmedDiffServerTick: 0,
+        payload: { angle: 45, power: 9999 },
+      });
+
+      const errorReply = (await waitForReply(
+        ctx.activeClient!,
+        "INTENT_REJECTION",
+        5000,
+      )) as OnlineDiffResponseDto<OnlineIntentRejectionResponse>;
+
+      expect(errorReply).toBeDefined();
+      expect(errorReply.payload.playerId).toBe(ctx.activeClient!.playerId);
+      expect(errorReply.payload.reason).toBe("INVALID_PAYLOAD");
     } finally {
       await teardownTestContext(ctx);
     }
