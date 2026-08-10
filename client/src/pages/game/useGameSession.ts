@@ -38,7 +38,7 @@ export default function useGameSession(gameSessionId: string) {
     useState<OnlineGameplayTransport | null>(null);
   const [error, setError] = useState<ApiError | WebSocketError | null>(null);
 
-  const forfitGame = () => {
+  const forfeitGame = () => {
     send({
       destination: `/app/game/:id/forfeit`,
       id: gameSessionId,
@@ -142,7 +142,7 @@ export default function useGameSession(gameSessionId: string) {
     gameManager,
     gameplayTransport,
     error,
-    forfitGame,
+    forfeitGame,
     retryJoin,
   };
 }

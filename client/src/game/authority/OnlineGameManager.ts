@@ -158,6 +158,8 @@ class ActiveOnlineGameManager {
       0,
       initialState.state.terrain.width,
     );
+    // Generate biome decorations from the terrain surface
+    this.visualSim.generateDecors(initialState.state.terrain.surface);
     this.publishConfirmed(initialState);
   }
 
@@ -242,8 +244,39 @@ class ActiveOnlineGameManager {
   update(dt: number = 1 / 60): void {
     this.visualSim.updateEffects(dt, this.confirmedState.state.terrain.width);
 
+    // Client-side timer countdown between server diffs
+    const phase = this.confirmedState.state.match.phase;
+    if (phase !== "GAME_OVER") {
+      const tickRateHz = this.ctx.gameContent.world.tickRateHz || 30;
+      const ticksDelta = dt * tickRateHz;
+      const match = this.confirmedState.state.match;
+      match.turnTimeRemainingTicks = Math.max(
+        0,
+        match.turnTimeRemainingTicks - ticksDelta,
+      );
+      match.matchTimeRemainingTicks = Math.max(
+        0,
+        match.matchTimeRemainingTicks - ticksDelta,
+      );
+    }
+
     if (this.confirmedState.state.lootCrates) {
       this.visualSim.updateLootCrates(dt, this.confirmedState.state.lootCrates);
+    }
+
+    // Smoothly interpolate remote player aim angles and power
+    const interpolatedAim = this.visualSim.updateAimInterpolation(
+      dt,
+      this.confirmedState.state.tanks,
+    );
+    for (const tank of this.confirmedState.state.tanks) {
+      if (tank.playerId !== this.confirmedState.localPlayerId) {
+        const interp = interpolatedAim.get(tank.playerId);
+        if (interp) {
+          tank.aimAngle = interp.angle;
+          tank.power = interp.power;
+        }
+      }
     }
 
     const flightRes = this.visualSim.updateProjectileFlight(dt);
@@ -342,6 +375,14 @@ class ActiveOnlineGameManager {
     if (diff.type === "TURN_TRANSITION") {
       this.lastImpactX = null;
       this.throttler.reset();
+    }
+
+    // For remote players, smooth aim updates via interpolation instead of snapping
+    if (diff.type === "AIM_UPDATE") {
+      const aimPayload = diff.payload as { playerId: number; angle: number; power: number };
+      if (aimPayload.playerId !== this.confirmedState.localPlayerId) {
+        this.visualSim.setAimTarget(aimPayload.playerId, aimPayload.angle, aimPayload.power);
+      }
     }
 
     try {

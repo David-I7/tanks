@@ -39,7 +39,7 @@ describe("SELECT_PROJECTILE_SLOT Intent & Weapon Selection", () => {
         playerId: ctx.activeClient!.playerId,
         lastConfirmedDiffSequence: 1,
         lastConfirmedDiffServerTick: 0,
-        payload: { angle: 45, power: 100 },
+        payload: { angle: -Math.PI / 4, power: 100 },
       });
 
       const diffEvent = (await waitForTopicMessage(

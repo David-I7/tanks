@@ -11,7 +11,7 @@ import IconButton from "../../components/buttons/IconButton";
 import type { TankDefinitionIds } from "../../game/rendering/ResourceManager";
 
 type LocationState = {
-  mode: "playerVsAi" | "localTwoPlayer";
+  mode: "localTwoPlayer";
   player1Config: {
     name: string;
     tankId: TankDefinitionIds;
@@ -26,7 +26,7 @@ function isValidLocationState(state: any): state is LocationState {
   return (
     state &&
     typeof state === "object" &&
-    (state.mode === "playerVsAi" || state.mode === "localTwoPlayer") &&
+    state.mode === "localTwoPlayer" &&
     typeof state.player1Config === "object" &&
     typeof state.player2Config === "object" &&
     "name" in state.player1Config &&
@@ -62,7 +62,7 @@ export default function LocalGamePage() {
         {
           id: 1,
           displayName: player2Config.name,
-          controllerKind: mode === "playerVsAi" ? "ai" : "human",
+          controllerKind: "human",
           tankSelection: { tankDefinitionId: player2Config.tankId },
         },
       ],
@@ -103,7 +103,7 @@ export default function LocalGamePage() {
     };
   }, [matchSetup]);
 
-  const modeLabel = mode === "playerVsAi" ? "Player vs AI" : "Local Two-Player";
+  const modeLabel = "Local Two-Player";
 
   return (
     <main className="relative z-10 flex min-h-screen flex-col bg-background p-4 text-text-body-high">

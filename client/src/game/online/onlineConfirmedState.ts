@@ -613,7 +613,7 @@ function applyCrateSpawned(
           crateType: crate.crateType,
           x: crate.dropX,
           y: 0,
-          targetY: crate.targetY - 12,
+          targetY: crate.targetY,
           isLanding: true,
           collected: false,
           value: crate.value,

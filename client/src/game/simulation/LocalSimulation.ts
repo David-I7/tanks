@@ -14,7 +14,6 @@ import {
   MAX_TANK_FUEL,
   MAX_TURN_SECONDS,
   MOVE_FUEL_COST,
-  type GameMode,
 } from "../types";
 import type { GameContent } from "../content/localGameContent";
 import { GRAVITY, getMuzzlePosition, clampAimAngle } from "./ballistics";
@@ -714,15 +713,3 @@ export class LocalSimulation {
   }
 }
 
-export type LocalControllerKind = "human" | "ai";
-
-export function getLocalControllerKind(
-  mode: GameMode,
-  activePlayerId: number,
-): LocalControllerKind {
-  if (mode === "playerVsAi") {
-    return activePlayerId === 0 ? "human" : "ai";
-  }
-
-  return "human";
-}

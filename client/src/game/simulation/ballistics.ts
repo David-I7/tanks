@@ -64,7 +64,6 @@ export function simulateTrajectoryPreview(
     ? snapshot.projectileDefinitions[slotId]
     : null;
 
-  const baseVel = projectileDef?.baseVelocity ?? 600;
   const gravityScale = projectileDef?.gravityScale ?? 1;
   const drag = projectileDef?.drag ?? 0;
 
@@ -78,7 +77,10 @@ export function simulateTrajectoryPreview(
   const rawAngle = activeTank.aimAngle;
   const angleRad = clampAimAngle(rawAngle);
 
-  const speed = activeTank.power * baseVel;
+  // In local mode, power is the velocity magnitude directly (120-680).
+  // In online mode, power is raw (0-1000) and the server multiplies by baseVelocity.
+  // The preview reads activeTank.power which matches the local convention.
+  const speed = activeTank.power;
   let currVx = speed * Math.cos(angleRad);
   let currVy = speed * Math.sin(angleRad);
 

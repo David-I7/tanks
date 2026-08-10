@@ -7,7 +7,6 @@ import {
   readDomCanvasRect,
 } from "../world/worldSizing";
 import { createDefaultMatchSetup } from "../world/createInitialWorld";
-import { LocalAiIntentSource } from "../input/LocalAiIntentSource";
 import {
   createLocalSimulationManager,
   type LocalSimulationManager as SimulationManager,
@@ -58,7 +57,6 @@ export function createCanvasSizedLocalGameManager(options: {
 
 class LocalGameManager implements GameManager {
   private currentState: GameState;
-  private readonly aiInput = new LocalAiIntentSource();
   private readonly listeners = new Set<(state: GameState) => void>();
   private readonly unsubscribeSimulation: () => void;
 
@@ -82,23 +80,12 @@ class LocalGameManager implements GameManager {
   }
 
   submitAction(action: GameAction): boolean {
-    const playerId = resolveActiveLocalActor(this.currentState, "human");
+    const playerId = resolveActiveLocalActor(this.currentState);
     if (playerId === null) return false;
     return this.simulationManager.submitPlayerAction(playerId, action);
   }
 
   update(dt: number): void {
-    const activePlayerId = this.currentState.match.activePlayerId;
-    const activeControllerKind = this.currentState.tanks.find(
-      (entry) => entry.playerId === activePlayerId,
-    )?.controllerKind;
-
-    if (activeControllerKind === "ai") {
-      for (const action of this.aiInput.poll(this.currentState, dt)) {
-        this.simulationManager.submitPlayerAction(activePlayerId, action);
-      }
-    }
-
     this.simulationManager.update(dt);
   }
 
@@ -156,15 +143,12 @@ export function toGameState(
   };
 }
 
-function resolveActiveLocalActor(
-  state: GameState,
-  source: "human" | "ai",
-): number | null {
+function resolveActiveLocalActor(state: GameState): number | null {
   const activeTank = state.tanks.find(
     (entry) => entry.playerId === state.match.activePlayerId,
   );
 
   if (!activeTank) return null;
-  if (activeTank.controllerKind !== source) return null;
+  if (activeTank.controllerKind !== "human") return null;
   return activeTank.playerId;
 }

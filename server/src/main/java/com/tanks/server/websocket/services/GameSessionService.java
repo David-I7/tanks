@@ -247,7 +247,14 @@ public class GameSessionService {
             SelectProjectileIntentRequestPayload select = extractSelectProjectileSlotPayload(intent);
             if (select != null) {
                 var tank = gameSession.getWorld().requireTankByPlayer(intent.playerId());
-                tank.selectedProjectileSlotId(String.valueOf(select.getSlot()));
+                var content = contentCatalog.require(gameSession.getGameContentVersion());
+                var tankDef = content.requireTank(tank.definitionId());
+                int slot = select.getSlot();
+                if (slot >= 0 && slot < tankDef.loadout().size()) {
+                    tank.selectedProjectileSlotId(tankDef.loadout().get(slot));
+                } else {
+                    tank.selectedProjectileSlotId(String.valueOf(slot));
+                }
                 log.debug("Select projectile slot accepted: {}", intent);
                 return true;
             }

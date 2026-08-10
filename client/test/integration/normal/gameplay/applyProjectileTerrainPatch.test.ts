@@ -28,7 +28,7 @@ describe("TERRAIN_PATCH Diff Response & Terrain Deformation", () => {
         playerId: ctx.activeClient!.playerId,
         lastConfirmedDiffSequence: 1,
         lastConfirmedDiffServerTick: 0,
-        payload: { angle: 45, power: 80 },
+        payload: { angle: -Math.PI / 4, power: 360 },
       });
 
       const patchEvent = (await waitForTopicMessage(

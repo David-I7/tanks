@@ -1,12 +1,13 @@
 import { ArrowLeft } from "lucide-react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Loader from "../../components/misc/Loader";
-import { GameEngine } from "../../game";
+import { GameEngine, type GameState } from "../../game";
 import IconButton from "../../components/buttons/IconButton";
 import useGameSession from "./useGameSession";
 import UiError from "../../errors/UiError";
 import { useUserStatusQuery } from "../../hooks/useUserStatusQuery";
+import GameOverOverlay from "../../components/game/GameOverOverlay";
 
 export default function GamePage() {
   const { id } = useParams();
@@ -53,10 +54,23 @@ function GameView({ gameSessionId }: { gameSessionId: string }) {
     useGameSession(gameSessionId);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const engineRef = useRef<GameEngine | null>(null);
+  const [gameState, setGameState] = useState<GameState | null>(null);
+
+  useEffect(() => {
+    if (!gameManager) return;
+    setGameState(gameManager.getState());
+    const unsubscribe = gameManager.subscribe((state) => {
+      setGameState(state);
+    });
+    return unsubscribe;
+  }, [gameManager]);
+
+  const isGameActive =
+    sessionStatus === "in_game" || sessionStatus === "game_over";
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || sessionStatus !== "in_game" || !gameManager) return;
+    if (!canvas || !isGameActive || !gameManager) return;
 
     engineRef.current?.stop();
     const engine = new GameEngine({
@@ -79,7 +93,20 @@ function GameView({ gameSessionId }: { gameSessionId: string }) {
         engineRef.current = null;
       }
     };
-  }, [sessionStatus, gameManager]);
+  }, [isGameActive, gameManager]);
+
+  const currentState =
+    gameState ?? engineRef.current?.getState() ?? gameManager?.getState();
+  const winnerPlayerId = currentState?.match.winnerPlayerId ?? null;
+  const isDraw = winnerPlayerId === null;
+  const winnerTank = currentState?.tanks.find(
+    (t) => t.playerId === winnerPlayerId,
+  );
+  const winnerName = winnerTank
+    ? winnerTank.displayName
+    : winnerPlayerId !== null
+      ? `Player ${winnerPlayerId + 1}`
+      : null;
 
   return (
     <main className="relative z-10 flex min-h-screen flex-col bg-background p-4 text-text-body-high">
@@ -94,7 +121,9 @@ function GameView({ gameSessionId }: { gameSessionId: string }) {
           </h1>
         </div>
         <div className="text-sm font-medium text-text-body-muted">
-          {sessionStatus === "in_game" ? "Online Mode" : "Connecting"}
+          {sessionStatus === "in_game" || sessionStatus === "game_over"
+            ? "Online Mode"
+            : "Connecting"}
         </div>
       </header>
 
@@ -128,6 +157,15 @@ function GameView({ gameSessionId }: { gameSessionId: string }) {
             <Loader />
           </div>
         )}
+
+        {sessionStatus === "game_over" && (
+          <GameOverOverlay
+            winnerName={winnerName}
+            isDraw={isDraw}
+            onReturnHome={() => navigate("/")}
+          />
+        )}
+
         <canvas
           ref={canvasRef}
           className="min-h-[560px] min-w-[320px] flex-1 rounded border border-border-main bg-background-high shadow-lg"

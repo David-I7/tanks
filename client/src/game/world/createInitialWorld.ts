@@ -24,12 +24,6 @@ export function getPlayerMatchConfig(
   displayName: string;
   controllerKind: ControllerKind;
 } {
-  if (mode === "playerVsAi") {
-    return {
-      displayName: playerId === 0 ? "Player 1" : "CPU",
-      controllerKind: playerId === 0 ? "human" : "ai",
-    };
-  }
   if (mode === "online") {
     return {
       displayName: playerId === 0 ? "Player 1" : "Player 2",

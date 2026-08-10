@@ -3,6 +3,8 @@ import type {
   FloatingText,
   Cloud,
   LootCrate,
+  DecorObject,
+  DecorType,
   Vec2,
 } from "../types";
 
@@ -22,6 +24,8 @@ export type ClientVisualState = {
   particles: Particle[];
   floatingTexts: FloatingText[];
   clouds: Cloud[];
+  decors: DecorObject[];
+  aimTargets: Map<number, { angle: number; power: number }>;
 };
 
 const CAMERA_SMOOTHING_SPEED = 10;
@@ -35,6 +39,8 @@ export class ClientVisualSimulation {
   private particles: Particle[] = [];
   private floatingTexts: FloatingText[] = [];
   private clouds: Cloud[] = [];
+  private decors: DecorObject[] = [];
+  private aimTargets = new Map<number, { angle: number; power: number }>();
   private terrainWidth: number;
 
   constructor(initialCameraX = 0, terrainWidth = DEFAULT_TERRAIN_WIDTH) {
@@ -57,6 +63,62 @@ export class ClientVisualSimulation {
     }
   }
 
+  /** Generate procedural biome decorations from a terrain surface array. */
+  generateDecors(surface: number[]): void {
+    if (this.decors.length > 0) return; // already generated
+    const terrainWidth = surface.length;
+    if (terrainWidth === 0) return;
+
+    const decorTypes: DecorType[] = ["tree", "rock", "bunker", "grass", "tree", "rock"];
+    const count = 22;
+    for (let i = 0; i < count; i++) {
+      const x = Math.floor(100 + (terrainWidth - 200) * (i / (count - 1)) + (Math.random() * 40 - 20));
+      const clampedX = Math.max(10, Math.min(terrainWidth - 10, x));
+      const y = surface[clampedX] ?? 0;
+      // Compute slope angle from surface
+      const leftX = Math.max(0, clampedX - 8);
+      const rightX = Math.min(terrainWidth - 1, clampedX + 8);
+      const rotation = Math.atan2((surface[rightX] ?? 0) - (surface[leftX] ?? 0), rightX - leftX);
+      const type = decorTypes[i % decorTypes.length]!;
+      this.decors.push({
+        id: `decor-online-${i}-${Math.random().toString(36).substring(2, 7)}`,
+        type,
+        x: clampedX,
+        y,
+        scale: type === "tree" ? 0.8 + Math.random() * 0.4 : 0.6 + Math.random() * 0.4,
+        rotation,
+        destroyed: false,
+      });
+    }
+  }
+
+  getDecors(): readonly DecorObject[] {
+    return this.decors;
+  }
+
+  /** Set the target aim state for a remote player (for interpolation). */
+  setAimTarget(playerId: number, angle: number, power: number): void {
+    this.aimTargets.set(playerId, { angle, power });
+  }
+
+  /** Interpolate remote aim states toward their targets. */
+  updateAimInterpolation(
+    dt: number,
+    tanks: ReadonlyArray<{ playerId: number; aimAngle: number; power: number }>,
+  ): Map<number, { angle: number; power: number }> {
+    const interpolated = new Map<number, { angle: number; power: number }>();
+    const lerpFactor = 1 - Math.exp(-15 * dt);
+    for (const tank of tanks) {
+      const target = this.aimTargets.get(tank.playerId);
+      if (target) {
+        const angle = tank.aimAngle + (target.angle - tank.aimAngle) * lerpFactor;
+        const power = tank.power + (target.power - tank.power) * lerpFactor;
+        interpolated.set(tank.playerId, { angle, power });
+      }
+    }
+    return interpolated;
+  }
+
   getState(): ClientVisualState {
     return {
       cameraX: this.cameraX,
@@ -65,6 +127,8 @@ export class ClientVisualSimulation {
       particles: this.particles.map((p) => ({ ...p })),
       floatingTexts: this.floatingTexts.map((ft) => ({ ...ft })),
       clouds: this.clouds.map((c) => ({ ...c })),
+      decors: this.decors.map((d) => ({ ...d })),
+      aimTargets: new Map(this.aimTargets),
     };
   }
 

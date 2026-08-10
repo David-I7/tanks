@@ -2,9 +2,9 @@ import type { GameContent } from "./content/localGameContent";
 
 export type EntityId = number;
 
-export type GameMode = "online" | "localTwoPlayer" | "playerVsAi";
+export type GameMode = "online" | "localTwoPlayer";
 
-export type ControllerKind = "human" | "ai" | "remote";
+export type ControllerKind = "human" | "remote";
 
 export type GameAction =
   | { type: "move"; direction: -1 | 1 }

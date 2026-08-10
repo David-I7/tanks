@@ -117,7 +117,9 @@ export function onlineSnapshotToGameState(
         alive: tank.alive,
         position: {
           x: defaultWorldCoordinateMapper.serverToClientX(tank.position.x),
-          y: tank.position.y,
+          // Server sends tank center (surfaceY - height/2); renderer expects
+          // bottom-of-tank (surfaceY), so add back trackGroundOffset.
+          y: tank.position.y + (tank.height ?? tankDefinition?.height ?? 24) / 2,
         },
       };
     }),
@@ -206,7 +208,7 @@ export function onlineSnapshotToGameState(
     damageTrails: mapOnlineDamageTrails(snapshot),
     particles: visualState?.particles ?? [],
     floatingTexts: visualState?.floatingTexts ?? [],
-    decors: [],
+    decors: visualState?.decors ?? [],
     clouds: visualState?.clouds ?? [],
   };
 }
@@ -269,13 +271,12 @@ function mapOnlineLootCrates(
 ): LootCrate[] {
   if (!snapshot.lootCrates) return [];
   return snapshot.lootCrates.map((crate) => {
-    const targetY = crate.targetY - 12;
     return {
       crateId: crate.crateId,
       crateType: crate.crateType,
       x: crate.x,
-      y: !crate.isLanding ? targetY : crate.y,
-      targetY: targetY,
+      y: !crate.isLanding ? crate.targetY : crate.y,
+      targetY: crate.targetY,
       isLanding: crate.isLanding,
       collected: crate.collected,
       value: crate.value,

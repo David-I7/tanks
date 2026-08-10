@@ -55,19 +55,11 @@ export default function MockGameTestPage() {
   const [gameSessionId, setGameSessionId] = useState<string | null>(gameIdParam);
   const [p1Url, setP1Url] = useState<string | null>(null);
   const [p2Url, setP2Url] = useState<string | null>(null);
-  const [logs, setLogs] = useState<string[]>([]);
-
-  const addLog = (msg: string) => {
-    console.log(`[TEST-PAGE] ${msg}`);
-    (window as any).testLogs = (window as any).testLogs || [];
-    (window as any).testLogs.push(msg);
-    setLogs((prev) => [msg, ...prev.slice(0, 99)]);
-  };
+  const [destroyLoading, setDestroyLoading] = useState<boolean>(false);
 
   useEffect(() => {
     if (isPlayerTab && tokenParam && gameIdParam && playerNumParam) {
       const pNum = Number(playerNumParam);
-      addLog(`Initializing Auth for Player ${pNum}...`);
 
       // Re-apply in case the module-level block ran before the store was observed
       TanksClient.setAccessToken(tokenParam);
@@ -91,39 +83,31 @@ export default function MockGameTestPage() {
     setLoading(true);
     setError(null);
     try {
-      addLog("Creating 2-player match on server...");
       const authData = await createMockGame(2);
       const p1 = authData.players[0];
       const p2 = authData.players[1];
 
-      addLog(`Users created: P1=${p1.username} (${p1.id}), P2=${p2.username} (${p2.id})`);
-
       // Connect STOMP client for P1
-      addLog("Connecting setup client P1...");
       const p1Client = await createStompClient(p1.accessToken, p1.username, p1.id);
       await setupUserRepliesSubscription(p1Client);
       await setupUserErrorsSubscription(p1Client);
 
       // Connect STOMP client for P2
-      addLog("Connecting setup client P2...");
       const p2Client = await createStompClient(p2.accessToken, p2.username, p2.id);
       await setupUserRepliesSubscription(p2Client);
       await setupUserErrorsSubscription(p2Client);
 
       // Create lobby by P1
-      addLog("P1 creating private lobby...");
       p1Client.client.publish({
         destination: "/app/lobby/create/private",
         body: JSON.stringify({ tankId: "vanguard-cyber" }),
       });
       const lobbyReply = await waitForReply(p1Client, "LOBBY_CREATED");
       const lobbyId = lobbyReply.payload?.id || lobbyReply.payload?.lobbyId;
-      addLog(`Lobby created: ${lobbyId}`);
 
       await setupLobbyTopicSubscription(p1Client, lobbyId);
 
       // P2 joins lobby
-      addLog("P2 joining lobby...");
       p2Client.client.publish({
         destination: `/app/lobby/join/private/${lobbyId}`,
         body: JSON.stringify({ tankId: "specter" }),
@@ -132,20 +116,17 @@ export default function MockGameTestPage() {
       await setupLobbyTopicSubscription(p2Client, lobbyId);
 
       // Start game
-      addLog("P1 launching game create...");
       p1Client.client.publish({
         destination: "/app/game/create",
       });
       const gameReply = await waitForReply(p1Client, "GAME_CREATED");
       const gId = gameReply.payload?.id;
-      addLog(`Game session created: ${gId}`);
 
       await setupGameTopicSubscription(p1Client, gId);
       await setupGameTopicSubscription(p2Client, gId);
 
       await waitForReply(p1Client, "INITIAL_STATE");
       await waitForReply(p2Client, "INITIAL_STATE");
-      addLog("INITIAL_STATE received by both clients!");
 
       // Clean up setup stomp clients so tab sockets take over
       await p1Client.client.deactivate();
@@ -160,16 +141,33 @@ export default function MockGameTestPage() {
       setP1Url(url1);
       setP2Url(url2);
 
-      addLog("Opening Player 1 and Player 2 tabs...");
       window.open(url1, "_blank");
       window.open(url2, "_blank");
 
     } catch (err: any) {
       console.error(err);
       setError(err?.message || String(err));
-      addLog(`ERROR: ${err?.message || String(err)}`);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const destroyGame = async () => {
+    if (!gameSessionId) return;
+    setDestroyLoading(true);
+    try {
+      await fetch(
+        `http://localhost:8080/api/v1/test/mock-game/cleanup-game?gameSessionId=${gameSessionId}`,
+        { method: "DELETE" },
+      );
+      setGameSessionId(null);
+      setP1Url(null);
+      setP2Url(null);
+    } catch (err: any) {
+      console.error(err);
+      setError(err?.message || String(err));
+    } finally {
+      setDestroyLoading(false);
     }
   };
 
@@ -189,7 +187,6 @@ export default function MockGameTestPage() {
       <PlayerGameTab
         gameIdParam={gameIdParam}
         playerNum={pNum}
-        addLog={addLog}
       />
     );
   }
@@ -246,22 +243,16 @@ export default function MockGameTestPage() {
             >
               Open Player 2 Tab (tt2)
             </a>
+            <button
+              onClick={destroyGame}
+              disabled={destroyLoading}
+              className="px-5 py-2.5 bg-red-700 hover:bg-red-600 rounded font-semibold text-white transition text-center disabled:opacity-50"
+            >
+              {destroyLoading ? "Destroying..." : "Destroy Game"}
+            </button>
           </div>
         </div>
       )}
-
-      <div className="bg-gray-900 border border-gray-800 rounded-lg p-4 flex flex-col gap-2">
-        <h2 className="text-md font-semibold text-gray-300">Launcher Log</h2>
-        <div className="bg-black/80 font-mono text-xs p-4 rounded-md overflow-y-auto max-h-60 space-y-1 text-gray-300">
-          {logs.length === 0 ? (
-            <div className="text-gray-600">Logs will appear here after clicking Launch...</div>
-          ) : (
-            logs.map((l, idx) => (
-              <div key={idx} className="border-b border-gray-900 pb-1">{l}</div>
-            ))
-          )}
-        </div>
-      </div>
     </div>
   );
   // ─────────────────────────────────────────────────────────────────────────────
@@ -273,13 +264,11 @@ export default function MockGameTestPage() {
 function PlayerGameTab({
   gameIdParam,
   playerNum,
-  addLog,
 }: {
   gameIdParam: string;
   playerNum: number;
-  addLog: (m: string) => void;
 }) {
-  const { sessionStatus, opponentDisconnected, gameManager } = useGameSession(gameIdParam);
+  const { sessionStatus, opponentDisconnected, gameManager, forfeitGame } = useGameSession(gameIdParam);
 
   // Lock body scroll while this full-screen tab is mounted
   useEffect(() => {
@@ -303,6 +292,14 @@ function PlayerGameTab({
           </span>
         </div>
         <div className="flex items-center gap-2">
+          {sessionStatus === "in_game" && (
+            <button
+              onClick={forfeitGame}
+              className="text-xs px-3 py-1 rounded font-semibold border bg-red-900/60 border-red-500/40 text-red-300 hover:bg-red-800/80 transition"
+            >
+              Forfeit
+            </button>
+          )}
           <span
             className={`text-xs px-2 py-0.5 rounded font-semibold border ${
               sessionStatus === "in_game"
@@ -328,7 +325,6 @@ function PlayerGameTab({
           playerNum={playerNum}
           sessionStatus={sessionStatus}
           gameManager={gameManager}
-          addLog={addLog}
         />
       </div>
     </div>
@@ -340,12 +336,10 @@ function TestGameView({
   playerNum,
   sessionStatus,
   gameManager,
-  addLog,
 }: {
   playerNum: number;
   sessionStatus: SessionStatus;
   gameManager: GameManager | null;
-  addLog: (m: string) => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const engineRef = useRef<GameEngine | null>(null);
@@ -381,8 +375,6 @@ function TestGameView({
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || sessionStatus !== "in_game" || !gameManager || !isManagerReady) return;
-
-    addLog(`[P${playerNum}] Starting GameEngine…`);
 
     engineRef.current?.stop();
     const engine = new GameEngine({ canvas, gameManager });
