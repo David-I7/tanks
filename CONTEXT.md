@@ -172,10 +172,6 @@ _Avoid_: World floor, terrain minimum, bottom boundary
 A local game mode where two human players share one client machine.
 _Avoid_: Online match, hotseat match
 
-**Player vs AI**:
-A local game mode where one human player plays against an AI-controlled opponent on the client machine.
-_Avoid_: Single-player, bot match
-
 **Intent Rejection Diff**:
 A sequenced state diff that rejects a player intent and tells the originating client to remove or correct the matching pending prediction.
 _Avoid_: Error toast, validation reply
