@@ -107,7 +107,7 @@ public class ServerSimulationLoopService implements ApplicationListener<ContextC
         return partitions;
     }
 
-    @Scheduled(fixedRate = 1, timeUnit = TimeUnit.SECONDS)
+    @Scheduled(fixedRate = 5, timeUnit = TimeUnit.SECONDS)
     public void cleanupTerminalSessions() {
         if (!acceptingFrames) {
             return;

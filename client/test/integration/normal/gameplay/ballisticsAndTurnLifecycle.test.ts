@@ -14,7 +14,6 @@ import {
   sendIntent,
   waitForTopicMessage,
   waitForReply,
-  waitForErrorReply,
 } from "../../harnessUtils";
 
 describe("Ballistics & Turn Lifecycle Integration Suite", () => {
@@ -52,8 +51,12 @@ describe("Ballistics & Turn Lifecycle Integration Suite", () => {
 
       expect(turnTransition).toBeDefined();
       expect(turnTransition.type).toBe("TURN_TRANSITION");
-      expect(turnTransition.payload.previousPlayerId).toBe(ctx.activeClient!.playerId);
-      expect(turnTransition.payload.activePlayerId).toBe(ctx.inactiveClient!.playerId);
+      expect(turnTransition.payload.previousPlayerId).toBe(
+        ctx.activeClient!.playerId,
+      );
+      expect(turnTransition.payload.activePlayerId).toBe(
+        ctx.inactiveClient!.playerId,
+      );
     } finally {
       await teardownTestContext(ctx);
     }
@@ -78,7 +81,9 @@ describe("Ballistics & Turn Lifecycle Integration Suite", () => {
 
       expect(terminalEvent).toBeDefined();
       expect(terminalEvent.type).toBe("TERMINAL_GAME");
-      expect(terminalEvent.payload.winnerPlayerId).toBe(ctx.activeClient!.playerId);
+      expect(terminalEvent.payload.winnerPlayerId).toBe(
+        ctx.activeClient!.playerId,
+      );
       expect(terminalEvent.payload.finalState.match.phase).toBe("GAME_OVER");
     } finally {
       await teardownTestContext(ctx);
@@ -109,7 +114,8 @@ describe("Ballistics & Turn Lifecycle Integration Suite", () => {
 
       expect(resolution).toBeDefined();
       expect(resolution.payload.trajectory.length).toBeGreaterThan(0);
-      const lastPoint = resolution.payload.trajectory[resolution.payload.trajectory.length - 1];
+      const lastPoint =
+        resolution.payload.trajectory[resolution.payload.trajectory.length - 1];
       expect(typeof lastPoint.x).toBe("number");
       expect(typeof lastPoint.y).toBe("number");
 
@@ -120,7 +126,9 @@ describe("Ballistics & Turn Lifecycle Integration Suite", () => {
       )) as OnlineDiffResponseDto<OnlineTurnTransitionResponse>;
 
       expect(turnTransition).toBeDefined();
-      expect(turnTransition.payload.previousPlayerId).toBe(ctx.activeClient!.playerId);
+      expect(turnTransition.payload.previousPlayerId).toBe(
+        ctx.activeClient!.playerId,
+      );
     } finally {
       await teardownTestContext(ctx);
     }
@@ -150,7 +158,9 @@ describe("Ballistics & Turn Lifecycle Integration Suite", () => {
       expect(forfeitEvent.gameSessionId).toBe(ctx.gameSessionId);
       expect(forfeitEvent.type).toBe("TERMINAL_GAME");
       expect(forfeitEvent.payload.reason).toBe("FORFEIT");
-      expect(forfeitEvent.payload.winnerPlayerId).toBe(remainingPlayer.playerId);
+      expect(forfeitEvent.payload.winnerPlayerId).toBe(
+        remainingPlayer.playerId,
+      );
       expect(forfeitEvent.payload.finalState.match.phase).toBe("GAME_OVER");
     } finally {
       await teardownTestContext(ctx);
@@ -206,7 +216,9 @@ describe("Ballistics & Turn Lifecycle Integration Suite", () => {
       expect(resyncEvent).toBeDefined();
       expect(resyncEvent.gameSessionId).toBe(ctx.gameSessionId);
       expect(resyncEvent.type).toBe("RESYNC_STATE");
-      expect(resyncEvent.payload.localPlayerId).toBe(ctx.activeClient!.playerId);
+      expect(resyncEvent.payload.localPlayerId).toBe(
+        ctx.activeClient!.playerId,
+      );
       expect(resyncEvent.payload.state).toBeDefined();
       expect(resyncEvent.payload.state.match).toBeDefined();
     } finally {

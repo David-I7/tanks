@@ -7,9 +7,9 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "test:integration": "vitest run --testTimeout=10000 --reporter=verbose test/integration/normal/**/*.test.ts",
-    "test:unit": "vitest run --reporter=verbose test/unit/**/*.test.ts",
-    "test:integration:slow": "vitest run --testTimeout=35000 --reporter=verbose test/integration/slow/**/*.test.ts"
+    "test:integration": "vitest run --testTimeout=10000 test/integration/normal",
+    "test:unit": "vitest run test/unit",
+    "test:integration:slow": "vitest run --testTimeout=35000 test/integration/slow"
   },
   "devDependencies": {
     "@types/node": "^26.1.2",
