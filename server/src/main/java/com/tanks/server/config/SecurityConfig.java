@@ -6,6 +6,7 @@ import jakarta.servlet.DispatcherType;
 import lombok.AllArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -44,6 +45,7 @@ public class SecurityConfig {
                         .dispatcherTypeMatchers(DispatcherType.FORWARD, DispatcherType.ERROR).permitAll()
                         .requestMatchers("/api/v1/auth/login/oauth2/response").denyAll()
                         .requestMatchers("/error").denyAll()
+                        .requestMatchers("/api/v1/game/*").permitAll()
                         .requestMatchers("/api/v1/auth/status").authenticated()
                         .requestMatchers(
                                 "/api/v1/auth/register/**",

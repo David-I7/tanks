@@ -1,0 +1,62 @@
+name: tanks-dev
+
+services:
+  postgres:
+    image: postgres:18-alpine3.23
+    container_name: postgres
+    env_file:
+      - ../server/.env.database
+    ports:
+      - "127.0.0.1:5432:5432"
+    networks:
+      - backend
+
+  tanks:
+    depends_on:
+      - postgres
+    build:
+      context: ../server
+      dockerfile: Dockerfile
+      target: dev
+    container_name: tanks
+    volumes:
+      - type: bind
+        source: ../server
+        target: /app
+    networks:
+      - backend
+
+  react-client:
+    build:
+      context: ../client
+      dockerfile: Dockerfile.dev
+      target: dev
+    container_name: react-client
+    volumes:
+      - type: bind
+        source: ../client
+        target: /app
+      - type: volume
+        target: /app/node_modules
+    ports:
+      - "5173:5173"
+    networks:
+      - frontend
+
+  nginx:
+    build:
+      context: ../client
+      dockerfile: Dockerfile.dev
+      target: nginx
+    container_name: nginx
+    ports:
+      - "8080:8080"
+    networks:
+      - frontend
+      - backend
+
+networks:
+  backend:
+    driver: bridge
+  frontend:
+    driver: bridge

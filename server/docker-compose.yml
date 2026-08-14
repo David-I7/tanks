@@ -1,17 +1,30 @@
-name: tanks
-
-services:
-  postgres:
-    image: postgres:18-alpine3.23
-    restart: always
-    environment:
-      POSTGRES_USER: david
-      POSTGRES_PASSWORD: david
-      POSTGRES_DB: prod
-    volumes:
-      - pgdata:/var/lib/postgresql
-    ports:
-      - "127.0.0.1:5432:5432"
+#name: tanks
+#
+#services:
+#  postgres:
+#    image: postgres:18-alpine3.23
+#    restart: unless-stopped
+#    environment:
+#      POSTGRES_USER: david
+#      POSTGRES_PASSWORD: david
+#      POSTGRES_DB: prod
+#    volumes:
+#      - pgdata:/var/lib/postgresql
+#    ports:
+#      - "127.0.0.1:5432:5432"
+#    networks:
+#      - backend
+#
+#  tanks:
+#    depends_on: postgres
+#    build:
+#      dockerfile: Dockerfile
+#      target: DEV
+#    restart: unless-stopped
+#    environment:
+#      APP_ISDEV: true
+#    networks:
+#      - backend
 
 #  nginx:
 #    image: nginx-unprivileged:stable-trixie-perl
@@ -19,5 +32,9 @@ services:
 #    ports:
 #      - "127.0.0.1:8080:80"
 
-volumes:
-  pgdata:
+#volumes:
+#  pgdata:
+#
+#networks:
+#  backend:
+#    driver: bridge

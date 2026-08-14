@@ -34,7 +34,7 @@ public class AuthController {
 
     private UserSessionService userSessionService;
 
-    @Value("${app.isDev:false}")
+    @Value("${app.isDev}")
     private boolean isDev;
 
     @Value("${app.client.origin}")

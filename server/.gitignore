@@ -36,3 +36,5 @@ build/
 
 ### Secrets ###
 application-local.properties
+.env
+.env.database
