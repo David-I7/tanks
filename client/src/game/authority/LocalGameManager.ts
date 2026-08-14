@@ -1,11 +1,7 @@
-import {
-  localGameContent,
+import ResourceManager, {
   type GameContent,
-} from "../content/localGameContent";
-import {
-  createCanvasSizing,
-  readDomCanvasRect,
-} from "../world/worldSizing";
+} from "../rendering/ResourceManager";
+import { createCanvasSizing, readDomCanvasRect } from "../world/worldSizing";
 import { createDefaultMatchSetup } from "../world/createInitialWorld";
 import {
   createLocalSimulationManager,
@@ -51,7 +47,7 @@ export function createCanvasSizedLocalGameManager(options: {
     canvas: options.canvas,
     mode: options.mode,
     setup: createDefaultMatchSetup(options.mode),
-    content: localGameContent,
+    content: ResourceManager.getInstance().getGameContent(),
   });
 }
 

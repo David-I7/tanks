@@ -4,7 +4,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import {
   createLocalGameManager,
   GameEngine,
-  localGameContent,
+  ResourceManager,
   type MatchSetup,
 } from "../../game";
 import IconButton from "../../components/buttons/IconButton";
@@ -79,7 +79,7 @@ export default function LocalGamePage() {
       canvas,
       mode,
       setup: matchSetup,
-      content: localGameContent,
+      content: ResourceManager.getInstance().getGameContent(),
     });
     const engine = new GameEngine({
       canvas,

@@ -1,4 +1,3 @@
-import { createInitialWeaponAmmo } from "../content/localGameContent";
 import {
   type EntityId,
   type LifetimeComponent,
@@ -51,14 +50,21 @@ export class LocalWorld {
     }
   }
 
-  createTank(player: MatchSetupPlayer, tankDefinition: TankDefinition, x: number, y: number): EntityId {
+  createTank(
+    player: MatchSetupPlayer,
+    tankDefinition: TankDefinition,
+    x: number,
+    y: number,
+  ): EntityId {
     const entityId = this.createEntity();
     this.positions.set(entityId, { x, y });
     const defaultSlot = tankDefinition.loadout[0];
     if (!defaultSlot) {
-      throw new Error(`Tank definition "${tankDefinition.id}" has no loadout slots`);
+      throw new Error(
+        `Tank definition "${tankDefinition.id}" has no loadout slots`,
+      );
     }
-    const weaponAmmo = createInitialWeaponAmmo(tankDefinition.loadout);
+    //const weaponAmmo = createInitialWeaponAmmo(tankDefinition.loadout);
     this.tanks.set(entityId, {
       playerId: player.id,
       displayName: player.displayName,
@@ -70,7 +76,7 @@ export class LocalWorld {
       visual: { ...tankDefinition.visual },
       loadout: [...tankDefinition.loadout],
       selectedProjectileSlotId: defaultSlot,
-      weaponAmmo,
+      weaponAmmo: {},
       maxHealth: tankDefinition.maxHealth,
       health: tankDefinition.maxHealth,
       facing: player.id === 0 ? 1 : -1,
@@ -85,7 +91,15 @@ export class LocalWorld {
     return entityId;
   }
 
-  createProjectile(ownerPlayerId: number, projectileDefinition: ProjectileDefinition, power: number, x: number, y: number, vx: number, vy: number): EntityId {
+  createProjectile(
+    ownerPlayerId: number,
+    projectileDefinition: ProjectileDefinition,
+    power: number,
+    x: number,
+    y: number,
+    vx: number,
+    vy: number,
+  ): EntityId {
     const entityId = this.createEntity();
     this.positions.set(entityId, { x, y });
     this.velocities.set(entityId, { x: vx, y: vy });
@@ -103,12 +117,24 @@ export class LocalWorld {
       },
       terrainEffect:
         projectileDefinition.terrainEffectType === "DRILL"
-          ? { type: "drill", radius: projectileDefinition.terrainRadius, depth: projectileDefinition.terrainDepth }
+          ? {
+              type: "drill",
+              radius: projectileDefinition.terrainRadius,
+              depth: projectileDefinition.terrainDepth,
+            }
           : { type: "crater", radius: projectileDefinition.terrainRadius },
       damageEffect:
         projectileDefinition.damageEffectType === "FOCUSED"
-          ? { type: "focused", radius: projectileDefinition.damageRadius, damage: projectileDefinition.damage }
-          : { type: "radial", radius: projectileDefinition.damageRadius, damage: projectileDefinition.damage },
+          ? {
+              type: "focused",
+              radius: projectileDefinition.damageRadius,
+              damage: projectileDefinition.damage,
+            }
+          : {
+              type: "radial",
+              radius: projectileDefinition.damageRadius,
+              damage: projectileDefinition.damage,
+            },
       position: { x, y },
       velocity: { x: vx, y: vy },
     });
@@ -129,7 +155,12 @@ export class LocalWorld {
       animationId: "orange-pop",
       age: 0,
       duration: 0.4,
-      visual: { fill: "#f97316", stroke: "#c2410c", accent: "#fed7aa", label: "!" },
+      visual: {
+        fill: "#f97316",
+        stroke: "#c2410c",
+        accent: "#fed7aa",
+        label: "!",
+      },
     });
   }
 

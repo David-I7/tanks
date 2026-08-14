@@ -8,7 +8,8 @@ export function createInitialWeaponAmmo(
 ): Record<string, number> {
   const weaponAmmo: Record<string, number> = {};
   for (const slotId of loadout) {
-    weaponAmmo[slotId] = slotId === "basicShell" || slotId === "standard" ? -1 : 1;
+    weaponAmmo[slotId] =
+      slotId === "basicShell" || slotId === "standard" ? -1 : 1;
   }
   return weaponAmmo;
 }
@@ -365,7 +366,12 @@ export const localGameContent: GameContent = {
       climbCapability: 4,
       width: 36,
       height: 24,
-      visual: { fill: "#ef4444", stroke: "#991b1b", accent: "#fca5a5", label: "HA" },
+      visual: {
+        fill: "#ef4444",
+        stroke: "#991b1b",
+        accent: "#fca5a5",
+        label: "HA",
+      },
       loadout: [
         "basicShell",
         "titanShell",
@@ -384,7 +390,12 @@ export const localGameContent: GameContent = {
       climbCapability: 6,
       width: 30,
       height: 22,
-      visual: { fill: "#eab308", stroke: "#854d0e", accent: "#fef08a", label: "DS" },
+      visual: {
+        fill: "#eab308",
+        stroke: "#854d0e",
+        accent: "#fef08a",
+        label: "DS",
+      },
       loadout: [
         "basicShell",
         "precisionLaser",
@@ -403,14 +414,13 @@ export const localGameContent: GameContent = {
       climbCapability: 5,
       width: 32,
       height: 24,
-      visual: { fill: "#06b6d4", stroke: "#155e75", accent: "#a5f3fc", label: "VC" },
-      loadout: [
-        "basicShell",
-        "mortar",
-        "heavyShell",
-        "cluster",
-        "needle",
-      ],
+      visual: {
+        fill: "#06b6d4",
+        stroke: "#155e75",
+        accent: "#a5f3fc",
+        label: "VC",
+      },
+      loadout: ["basicShell", "mortar", "heavyShell", "cluster", "needle"],
     },
     specter: {
       id: "specter",
@@ -422,7 +432,12 @@ export const localGameContent: GameContent = {
       climbCapability: 5,
       width: 32,
       height: 24,
-      visual: { fill: "#a855f7", stroke: "#581c87", accent: "#e9d5ff", label: "S" },
+      visual: {
+        fill: "#a855f7",
+        stroke: "#581c87",
+        accent: "#e9d5ff",
+        label: "S",
+      },
       loadout: [
         "basicShell",
         "phantomNuke",

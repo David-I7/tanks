@@ -1,3 +1,6 @@
+import ResourceManager from "./rendering/ResourceManager";
+
+export { ResourceManager };
 export { GameEngine } from "./GameEngine";
 export type { GameEngineOptions } from "./GameEngine";
 export {
@@ -9,7 +12,6 @@ export {
   createLocalSimulationManager,
   LocalSimulationManager,
 } from "./simulation/simulationManager";
-export { localGameContent } from "./content/localGameContent";
 export { createOnlineGameManager } from "./authority/OnlineGameManager";
 export { createOnlineGameplayTransport } from "./online/OnlineGameplayTransport";
 export type { OnlineGameplayTransport } from "./online/OnlineGameplayTransport";

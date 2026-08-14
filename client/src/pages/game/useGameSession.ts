@@ -6,9 +6,9 @@ import type ProblemDetailDto from "../../api/http/dto/ProblemDetailDto";
 import {
   createOnlineGameManager,
   createOnlineGameplayTransport,
-  localGameContent,
   type GameManager,
   type OnlineGameplayTransport,
+  ResourceManager,
 } from "../../game";
 
 export type SessionStatus =
@@ -91,7 +91,7 @@ export default function useGameSession(gameSessionId: string) {
           typeof crypto.randomUUID === "function"
             ? crypto.randomUUID()
             : `intent-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-        gameContent: localGameContent,
+        gameContent: ResourceManager.getInstance().getGameContent(),
       },
     });
 
