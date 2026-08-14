@@ -1,42 +1,23 @@
 import { useEffect, useState } from "react";
 import { ApiError } from "../../errors/ApiError";
 import type WebSocketError from "../../errors/WebSocketError";
-import { useSubscriptionGroup } from "../../hooks/useSubscriptionGroup";
 import { useWebSocketStore } from "../../store/useWebSocketStore";
-import { useAuthStore } from "../../store/useAuthStore";
 import type ProblemDetailDto from "../../api/http/dto/ProblemDetailDto";
-import type { GameEvent } from "../../api/ws/dto/game/GameEventDto";
-import type { Message } from "../../api/ws/TanksWebSocketClient";
-import { useNavigate } from "react-router-dom";
-import { createOnlineGameplayTransport } from "../../game";
-import type { RendererAssets } from "../../game/rendering/CanvasGameRenderer";
+import {
+  createOnlineGameManager,
+  createOnlineGameplayTransport,
+  localGameContent,
+  type GameManager,
+  type OnlineGameplayTransport,
+} from "../../game";
 
-type GameState =
-  | {
-      redererAssets: null;
-      gameplayTransport: null;
-      error: null;
-      state: "connecting_to_game" | "reconnecting_to_game";
-    }
-  | {
-      redererAssets: RendererAssets | null;
-      gameplayTransport: ReturnType<
-        typeof createOnlineGameplayTransport
-      > | null;
-      error: null;
-      state:
-        | "connecting_to_game"
-        | "reconnecting_to_game"
-        | "starting_game"
-        | "in_game"
-        | "game_over";
-    }
-  | {
-      error: ApiError | WebSocketError;
-      state: "error";
-      gameplayTransport: null;
-      redererAssets: null;
-    };
+export type SessionStatus =
+  | "connecting_to_game"
+  | "reconnecting_to_game"
+  | "starting_game"
+  | "in_game"
+  | "game_over"
+  | "error";
 
 export default function useGameSession(gameSessionId: string) {
   const {
@@ -47,45 +28,30 @@ export default function useGameSession(gameSessionId: string) {
     disconnect,
     error: webSocketError,
   } = useWebSocketStore();
-  const { add, cleanup } = useSubscriptionGroup();
-  const navigate = useNavigate();
-  const [gameState, setGameState] = useState<GameState>({
-    error: null,
-    state: "connecting_to_game",
-  });
-  const user = useAuthStore((state) => state.user);
 
-  const forfitGame = () => {
-    disconnect();
-    navigate("/");
+  const [sessionStatus, setSessionStatus] =
+    useState<SessionStatus>("connecting_to_game");
+  const [opponentDisconnected, setOpponentDisconnected] =
+    useState<boolean>(false);
+  const [gameManager, setGameManager] = useState<GameManager | null>(null);
+  const [gameplayTransport, setGameplayTransport] =
+    useState<OnlineGameplayTransport | null>(null);
+  const [error, setError] = useState<ApiError | WebSocketError | null>(null);
+
+  const forfeitGame = () => {
+    send({
+      destination: `/app/game/:id/forfeit`,
+      id: gameSessionId,
+    });
   };
 
   const retryJoin = () => {
-    if (webSocketStatus !== "disconnected" || gameState.state !== "error")
-      return;
+    if (webSocketStatus !== "disconnected" || sessionStatus !== "error") return;
 
-    setGameState((prev) => ({
-      ...prev,
-      error: null,
-      state: "reconnecting_to_game",
-    }));
+    setError(null);
+    setSessionStatus("reconnecting_to_game");
     connect();
   };
-
-  function handleGameConnect(message: Message<GameEvent>) {
-    setGameState((prev) => {
-      return {
-        ...prev,
-        state:
-          prev.state === "reconnecting_to_game" ? "in_game" : "starting_game",
-        error: null,
-      };
-    });
-  }
-
-  function handleGameLeave(message: Message<GameEvent>) {
-    if (message.body.payload.triggeredBy === user?.username) return;
-  }
 
   useEffect(() => {
     if (webSocketStatus === "disconnected") {
@@ -95,68 +61,88 @@ export default function useGameSession(gameSessionId: string) {
 
   useEffect(() => {
     if (webSocketStatus === "reconnecting") {
-      setGameState((_) => ({
-        error: null,
-        state: "reconnecting_to_game",
-      }));
+      setError(null);
+      setSessionStatus("reconnecting_to_game");
     }
   }, [webSocketStatus]);
 
   useEffect(() => {
     if (webSocketError) {
-      setGameState((prev) => ({
-        ...prev,
-        error: webSocketError,
-        state: "error",
-      }));
+      setError(webSocketError);
+      setSessionStatus("error");
     }
   }, [webSocketError]);
 
   useEffect(() => {
     const isConnected = webSocketStatus === "connected";
-
     if (!isConnected) return;
 
-    const handleGameTopicMessage = (message: Message<GameEvent>) => {
-      if (message.body.type === "GAME_CONNECT") {
-        handleGameConnect(message);
+    const transport = createOnlineGameplayTransport({
+      client: { send, subscribe },
+      gameSessionId,
+    });
+
+    const manager = createOnlineGameManager({
+      transport,
+      ctx: {
+        clock: () => performance.now(),
+        generateIntentId: () =>
+          typeof crypto !== "undefined" &&
+          typeof crypto.randomUUID === "function"
+            ? crypto.randomUUID()
+            : `intent-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        gameContent: localGameContent,
+      },
+    });
+
+    setGameplayTransport(transport);
+    setGameManager(manager);
+
+    const unsubscribeManager = manager.subscribe((state) => {
+      setSessionStatus((prev) => {
+        if (state.match.phase === "gameOver") return "game_over";
+        if (prev !== "in_game" && prev !== "game_over") return "in_game";
+        return prev;
+      });
+    });
+
+    const unsubscribeEvents = transport.subscribeToGameEvents((event) => {
+      if (event && event.type === "GAME_DISCONNECT") {
+        setOpponentDisconnected(true);
+      } else if (event && event.type === "GAME_CONNECT") {
+        setOpponentDisconnected(false);
       }
+    });
 
-      if (
-        message.body.type === "GAME_DISCONNECT" ||
-        message.body.type === "GAME_LEAVE"
-      ) {
-        handleGameLeave(message);
-      }
-    };
-
-    add(
-      subscribe({
-        destination: "/topic/game/:id",
-        id: gameSessionId,
-        onMessage: handleGameTopicMessage,
-      }),
-    );
-
-    add(
-      subscribe<ProblemDetailDto>({
-        destination: "/user/queue/errors",
-        onMessage: (message) => {
-          setGameState((prev) => ({
-            ...prev,
-            error: new ApiError(message.body, message.body.status),
-            state: "error",
-          }));
-          disconnect();
-        },
-      }),
-    );
+    const unsubscribeErrors = subscribe<ProblemDetailDto>({
+      destination: "/user/queue/errors",
+      onMessage: (message) => {
+        setError(new ApiError(message.body, message.body.status));
+        setSessionStatus("error");
+        disconnect();
+      },
+    });
 
     return () => {
       if (!isConnected) return;
-      cleanup();
+      unsubscribeManager();
+      unsubscribeEvents();
+      unsubscribeErrors();
+      manager.destroy();
+      transport.destroy();
+      setGameManager(null);
+      setGameplayTransport(null);
     };
-  }, [webSocketStatus === "connected"]);
+  }, [webSocketStatus === "connected", gameSessionId]);
 
-  return { ...gameState, forfitGame, retryJoin };
+  return {
+    sessionStatus,
+    state: sessionStatus,
+    opponentDisconnected,
+    gameManager,
+    gameplayTransport,
+    error,
+    forfeitGame,
+    retryJoin,
+  };
 }

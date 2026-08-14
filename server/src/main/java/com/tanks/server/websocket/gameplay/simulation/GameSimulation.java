@@ -2,25 +2,29 @@ package com.tanks.server.websocket.gameplay.simulation;
 
 import java.util.List;
 import java.util.Optional;
-import com.tanks.server.websocket.dto.gameplay.OnlineDiffResponsePayloads;
-import com.tanks.server.websocket.dto.gameplay.OnlinePlayerIntentRequestPayloads;
+import com.tanks.server.websocket.dto.gameplay.OnlineVec2Dto;
+import com.tanks.server.websocket.dto.gameplay.diffResponse.payloads.MovementSegment;
+import com.tanks.server.websocket.dto.gameplay.diffResponse.payloads.ProjectileResolution;
+import com.tanks.server.websocket.dto.gameplay.diffResponse.payloads.TerrainPatch;
+import com.tanks.server.websocket.dto.gameplay.playerIntent.payloads.FireIntentIntentRequestPayload;
+import com.tanks.server.websocket.dto.gameplay.playerIntent.payloads.MoveIntentRequestPayload;
 import com.tanks.server.websocket.gameplay.content.GameContent;
 import com.tanks.server.websocket.gameplay.world.TerrainModel;
 import com.tanks.server.websocket.gameplay.world.World;
 
 public interface GameSimulation {
-    Optional<OnlineDiffResponsePayloads.MovementSegment> move(GameContent content, World world,
+    Optional<MovementSegment> move(GameContent content, World world,
             TerrainModel terrain, String intentId, long playerId,
-            OnlinePlayerIntentRequestPayloads.Move request, long startedServerTick);
+            MoveIntentRequestPayload request, long startedServerTick);
 
-    OnlineDiffResponsePayloads.ProjectileResolution fire(GameContent content, World world,
+    ProjectileResolution fire(GameContent content, World world,
             TerrainModel terrain, String intentId, long projectileEntityId, long playerId,
-            OnlinePlayerIntentRequestPayloads.Fire request);
+            FireIntentIntentRequestPayload request);
 
-    OnlineDiffResponsePayloads.TerrainPatch deformTerrain(GameContent content, World world,
+    TerrainPatch deformTerrain(GameContent content, World world,
             TerrainModel terrain, String projectileDefinitionId,
-            com.tanks.server.websocket.dto.gameplay.OnlineVec2Dto impact);
+            OnlineVec2Dto impact);
 
-    List<OnlineDiffResponsePayloads.MovementSegment> settleUnsupportedTanks(GameContent content,
+    List<MovementSegment> settleUnsupportedTanks(GameContent content,
             World world, TerrainModel terrain, long startedServerTick);
 }

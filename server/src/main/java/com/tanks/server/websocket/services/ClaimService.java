@@ -29,6 +29,14 @@ public class ClaimService {
         socketLocks.remove(userId);
     }
 
+    public void forceReleaseUserSocket(Long userId) {
+        if (userId == null) {
+            return;
+        }
+        activeSockets.remove(userId);
+        socketLocks.remove(userId);
+    }
+
     public ReentrantLock getSocketLock(Long userId) {
         return socketLocks.get(userId);
     }

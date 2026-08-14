@@ -29,9 +29,11 @@ export default function TankSelector({
       )}
 
       {/* Tank Cards Selection Grid */}
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         {tanks.map((tank) => {
           const isSelected = tank.id === selectedTankId;
+          const tankColor = tank.color;
+
           return (
             <button
               key={tank.id}
@@ -46,12 +48,13 @@ export default function TankSelector({
                   : "border-border-main bg-background-high hover:border-text-body-muted"
               }`}
             >
-              <div className="w-16 h-12 flex items-center justify-center overflow-hidden">
-                <img
-                  src={tank.url}
-                  alt={tank.name}
-                  className="w-full h-full object-contain"
-                />
+              <div className="w-16 h-12 flex items-center justify-center overflow-hidden relative">
+                <div
+                  className="w-12 h-8 rounded-lg flex items-center justify-center text-xs font-black text-white shadow-inner border border-white/20"
+                  style={{ backgroundColor: tankColor }}
+                >
+                  {tank.name.slice(0, 2).toUpperCase()}
+                </div>
               </div>
               <span
                 className={`text-xs font-medium mt-1 truncate w-full text-center ${
@@ -88,20 +91,12 @@ export default function TankSelector({
                 title={`${proj.name} (${proj.type})`}
               >
                 <div className="w-9 h-7 flex items-center justify-center p-0.5 bg-background/70 rounded border border-border-main mb-1">
-                  {proj.url ? (
-                    <img
-                      src={proj.url}
-                      alt={proj.name}
-                      className="w-full h-full object-contain"
-                    />
-                  ) : (
-                    <div
-                      className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white shadow-sm"
-                      style={{ backgroundColor: proj.color }}
-                    >
-                      {proj.label}
-                    </div>
-                  )}
+                  <div
+                    className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white shadow-sm"
+                    style={{ backgroundColor: proj.color || "#38bdf8" }}
+                  >
+                    {proj.label}
+                  </div>
                 </div>
                 <span className="text-[10px] font-bold truncate w-full text-text-body-high">
                   {proj.name}

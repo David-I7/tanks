@@ -2,8 +2,11 @@ import {
   localGameContent,
   type GameContent,
 } from "../content/localGameContent";
-import { createCanvasSizing, readDomCanvasRect } from "../world/worldSizing";
-import { LocalAiIntentSource } from "../input/LocalAiIntentSource";
+import {
+  createCanvasSizing,
+  readDomCanvasRect,
+} from "../world/worldSizing";
+import { createDefaultMatchSetup } from "../world/createInitialWorld";
 import {
   createLocalSimulationManager,
   type LocalSimulationManager as SimulationManager,
@@ -15,7 +18,7 @@ import type {
   MatchSetup,
   LocalSimulationState,
 } from "../types";
-import type { GameManager } from "./GameManager";
+import type { GameManager } from "./gameManager";
 
 export function createLocalGameManager(options: {
   canvas: HTMLCanvasElement;
@@ -23,25 +26,37 @@ export function createLocalGameManager(options: {
   setup: MatchSetup;
   content: GameContent;
 }): GameManager {
-  const sizing = createCanvasSizing({
+  const gameViewport = createCanvasSizing({
     domCanvasRect: readDomCanvasRect(options.canvas),
-    devicePixelRatio: window.devicePixelRatio || 1,
-  });
+    devicePixelRatio:
+      typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1,
+  }).gameViewport;
 
   return new LocalGameManager(
     createLocalSimulationManager({
       mode: options.mode,
       setup: options.setup,
       content: options.content,
-      initialGameViewport: sizing.gameViewport,
+      initialGameViewport: gameViewport,
     }),
     options.content.projectiles,
   );
 }
 
+export function createCanvasSizedLocalGameManager(options: {
+  canvas: HTMLCanvasElement;
+  mode: Exclude<GameMode, "online">;
+}): GameManager {
+  return createLocalGameManager({
+    canvas: options.canvas,
+    mode: options.mode,
+    setup: createDefaultMatchSetup(options.mode),
+    content: localGameContent,
+  });
+}
+
 class LocalGameManager implements GameManager {
   private currentState: GameState;
-  private readonly aiInput = new LocalAiIntentSource();
   private readonly listeners = new Set<(state: GameState) => void>();
   private readonly unsubscribeSimulation: () => void;
 
@@ -65,23 +80,12 @@ class LocalGameManager implements GameManager {
   }
 
   submitAction(action: GameAction): boolean {
-    const playerId = resolveActiveLocalActor(this.currentState, "human");
+    const playerId = resolveActiveLocalActor(this.currentState);
     if (playerId === null) return false;
     return this.simulationManager.submitPlayerAction(playerId, action);
   }
 
   update(dt: number): void {
-    const activePlayerId = this.currentState.match.activePlayerId;
-    const activeControllerKind = this.currentState.tanks.find(
-      (entry) => entry.playerId === activePlayerId,
-    )?.controllerKind;
-
-    if (activeControllerKind === "ai") {
-      for (const action of this.aiInput.poll(this.currentState, dt)) {
-        this.simulationManager.submitPlayerAction(activePlayerId, action);
-      }
-    }
-
     this.simulationManager.update(dt);
   }
 
@@ -130,18 +134,21 @@ export function toGameState(
       velocity: entry.velocity,
     })),
     impactEvents: state.impactEvents,
+    damageTrails: state.damageTrails,
+    lootCrates: state.lootCrates,
+    particles: state.particles,
+    floatingTexts: state.floatingTexts,
+    decors: state.decors,
+    clouds: state.clouds,
   };
 }
 
-function resolveActiveLocalActor(
-  state: GameState,
-  source: "human" | "ai",
-): number | null {
+function resolveActiveLocalActor(state: GameState): number | null {
   const activeTank = state.tanks.find(
     (entry) => entry.playerId === state.match.activePlayerId,
   );
 
   if (!activeTank) return null;
-  if (activeTank.controllerKind !== source) return null;
+  if (activeTank.controllerKind !== "human") return null;
   return activeTank.playerId;
 }

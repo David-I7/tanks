@@ -17,8 +17,7 @@ public class InMemoryLobbyRepository implements LobbyRepository {
         if (entity == null || entity.getId() == null) {
             throw new IllegalArgumentException("Entity or ID cannot be null");
         }
-        Lobby copy = new Lobby(entity);
-        store.put(entity.getId(), copy);
+        store.put(entity.getId(), entity);
         return entity;
     }
 
@@ -35,8 +34,7 @@ public class InMemoryLobbyRepository implements LobbyRepository {
         if (id == null) {
             return Optional.empty();
         }
-        Lobby value = store.get(id);
-        return Optional.ofNullable(value).map(Lobby::new);
+        return Optional.ofNullable(store.get(id));
     }
 
     @Override
@@ -46,7 +44,7 @@ public class InMemoryLobbyRepository implements LobbyRepository {
 
     @Override
     public Iterable<Lobby> findAll() {
-        return store.values().stream().map(Lobby::new).toList();
+        return new java.util.ArrayList<>(store.values());
     }
 
     @Override

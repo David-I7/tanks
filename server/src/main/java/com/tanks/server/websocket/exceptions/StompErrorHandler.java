@@ -4,6 +4,7 @@ import com.tanks.server.utils.ProblemDetailWriter;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ProblemDetail;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.messaging.support.MessageHeaderAccessor;
@@ -21,6 +22,8 @@ public class StompErrorHandler extends StompSubProtocolErrorHandler {
 
     @Override
     public Message<byte[]> handleClientMessageProcessingError(Message<byte[]> clientMessage, Throwable ex) {
+        log.error("Stomp error", ex);
+
         if( ex instanceof ProblemDetailException){
             return problemDetailWriter.createMessage((ProblemDetailException) ex);
         }else if (ex.getCause() instanceof ProblemDetailException stompException){
@@ -39,9 +42,6 @@ public class StompErrorHandler extends StompSubProtocolErrorHandler {
             destination = accessor.getDestination();
         }
 
-        String errorMessage = ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage();
-
-        log.debug("Stomp error: {}", errorMessage);
-        return problemDetailWriter.createMessage(new ProblemDetailException(HttpStatus.BAD_REQUEST, "Bad Request", URI.create(destination == null ? "/" : destination)));
+        return problemDetailWriter.createMessage(new ProblemDetailException(HttpStatus.BAD_REQUEST, HttpStatus.BAD_REQUEST.getReasonPhrase(), URI.create(destination == null ? "/" : destination)));
     }
 }

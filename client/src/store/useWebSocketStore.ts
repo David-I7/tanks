@@ -93,10 +93,9 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => {
   const connect = () => {
     const { status } = get();
 
-    if (status !== "disconnected")
-      throw new Error(
-        "Client must be disconnected before attempting to connect",
-      );
+    if (status !== "disconnected") {
+      disconnect();
+    }
 
     if (client === null) {
       createClient();
@@ -112,7 +111,11 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => {
     if (disconnectReason === null) {
       disconnectReason = "manualDisconnect";
     }
-    client.deactivate();
+    try {
+      client.deactivate();
+    } catch (_) {}
+    client = null;
+    set({ status: "disconnected", disconnectReason });
   };
 
   const subscribe = <Data = WebSocketEventResponseDto>(

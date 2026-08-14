@@ -4,7 +4,9 @@ import type {
   OnlineGameStateSnapshotResponse,
   OnlineIntentRejectionResponse,
   OnlineMovementSegmentResponse,
+  OnlineAimUpdateResponse,
   OnlineProjectileResolutionResponse,
+  OnlineCrateSpawnedResponse,
   PlayerId,
   OnlineResyncStateResponse,
   OnlineTankSnapshotResponse,
@@ -14,8 +16,8 @@ import type {
   OnlineTurnTransitionResponse,
   OnlineMoveRequest,
   ServerTick,
-} from "../../api/ws/dto/gameplay/OnlineGameplayProtocol";
-import type { Vec2 } from "../types";
+} from "../../api/ws/dto/gameplay/onlineGameplayProtocol";
+import type { GameContext, Vec2 } from "../types";
 
 export type OnlinePendingPrediction = {
   intentId: string;
@@ -136,8 +138,9 @@ export function initializeOnlineConfirmedStateFromResync(
 export function applyOnlineStateDiffResponse(
   confirmed: OnlineConfirmedState,
   diff: OnlineDiffResponseDto,
-  monotonicNowMs: () => number = () => performance.now(),
+  ctx: GameContext,
 ): OnlineConfirmedState {
+  const monotonicNowMs = ctx.clock;
   if (diff.type === "RESYNC_STATE") {
     if (
       isStaleResyncDiff(
@@ -237,18 +240,20 @@ export function predictOnlineMovement(
   let y = tank.position.y;
   let completedColumns = 0;
   const movementQuantum = definition.movementQuantum;
+  const halfWidth = Math.floor(definition.width / 2);
   for (let step = 0; step < movementQuantum; step += 1) {
     const nextX = Math.round(x) + move.direction;
     if (
-      nextX - definition.halfWidth < 0 ||
-      nextX + definition.halfWidth >= confirmed.state.gameContent.world.width
+      nextX - halfWidth < 0 ||
+      nextX + halfWidth >= confirmed.state.gameContent.world.width
     )
       break;
     const surfaceY =
       confirmed.state.terrain.surface[
         Math.max(0, Math.min(confirmed.state.terrain.surface.length - 1, nextX))
       ];
-    const nextY = (surfaceY ?? y) - definition.trackGroundOffset;
+    const trackGroundOffset = (definition as any).trackGroundOffset ?? definition.height / 2;
+    const nextY = surfaceY !== undefined ? surfaceY - trackGroundOffset : y;
     if (y - nextY > definition.climbCapability) break;
     const ledge = nextY - y > definition.climbCapability;
     const cost = Math.ceil(
@@ -266,7 +271,6 @@ export function predictOnlineMovement(
   }
   if (path.length === 1) return confirmed;
   const predictedMovement: OnlineMovementSegmentResponse["payload"] = {
-    intentId,
     playerId,
     tankEntityId: tank.entityId,
     from: tank.position,
@@ -299,12 +303,12 @@ export function predictOnlineMovement(
 
 export function projectOnlineRenderState(
   confirmed: OnlineConfirmedState,
-  monotonicNowMs: number = performance.now(),
+  ctx: GameContext,
 ): OnlineGameStateSnapshotResponse {
   const interpolatedState = applyMovementInterpolation(
     confirmed.state,
     confirmed.confirmedMovementSegments,
-    monotonicNowMs,
+    ctx.clock(),
   );
 
   return confirmed.pendingPredictions.reduce(
@@ -340,6 +344,11 @@ function applyDiffPayload(
         confirmedMovementSegments: [],
         impactEvents: [],
       };
+    case "AIM_UPDATE":
+      return applyAimUpdate(
+        confirmed,
+        diff.payload as OnlineAimUpdateResponse["payload"],
+      );
     case "MOVEMENT_SEGMENT":
       return applyMovementSegment(
         confirmed,
@@ -380,6 +389,12 @@ function applyDiffPayload(
             turnTimeRemainingTicks:
               turnPayload.turnEndsAtServerTick -
               confirmed.lastConfirmedDiffServerTick,
+            matchTimeRemainingTicks:
+              turnPayload.matchEndsAtServerTick !== null
+                ? turnPayload.matchEndsAtServerTick -
+                  confirmed.lastConfirmedDiffServerTick
+                : confirmed.state.match.matchTimeRemainingTicks,
+            wind: turnPayload.wind,
           },
         },
       };
@@ -392,6 +407,11 @@ function applyDiffPayload(
       };
     case "INTENT_REJECTION":
       return confirmed;
+    case "CRATE_SPAWNED":
+      return applyCrateSpawned(
+        confirmed,
+        diff.payload as OnlineCrateSpawnedResponse["payload"],
+      );
   }
 }
 
@@ -497,20 +517,70 @@ function interpolateTank(
   };
 }
 
-function applyProjectileResolution(
+function applyAimUpdate(
   confirmed: OnlineConfirmedState,
-  resolution: OnlineProjectileResolutionResponse["payload"],
-  monotonicNowMs: () => number,
+  aim: OnlineAimUpdateResponse["payload"],
 ): OnlineConfirmedState {
   return {
     ...confirmed,
     state: {
       ...confirmed.state,
-      tanks: confirmed.state.tanks.map((tank) => {
-        const damage = resolution.damagedTanks.find(
-          (candidate) => candidate.tankEntityId === tank.entityId,
-        );
+      tanks: confirmed.state.tanks.map((tank) =>
+        tank.playerId === aim.playerId
+          ? {
+              ...tank,
+              aimAngle: aim.angle,
+              power: aim.power,
+            }
+          : tank,
+      ),
+    },
+  };
+}
 
+function applyProjectileResolution(
+  confirmed: OnlineConfirmedState,
+  resolution: OnlineProjectileResolutionResponse["payload"],
+  monotonicNowMs: () => number,
+): OnlineConfirmedState {
+  const subMunitions = resolution.subMunitions ?? [];
+  const allDamagedTanks = [
+    ...resolution.damagedTanks,
+    ...subMunitions.flatMap((sub) => sub.damagedTanks),
+  ];
+
+  const tankDamageMap = new Map<number, { remainingHealth: number }>();
+  for (const damage of allDamagedTanks) {
+    tankDamageMap.set(damage.tankEntityId, {
+      remainingHealth: damage.remainingHealth,
+    });
+  }
+
+  const nowMs = monotonicNowMs();
+
+  const impactEvents: OnlineImpactProjectionEvent[] = [
+    {
+      id: resolution.projectileEntityId,
+      position: { ...resolution.impact },
+      animationId: "impact.default",
+      projectileDefinitionId: resolution.projectileDefinitionId,
+      createdAtMonotonicMs: nowMs,
+    },
+    ...subMunitions.map((sub, index) => ({
+      id: generateSubMunitionImpactId(resolution.projectileEntityId, index),
+      position: { ...sub.impact },
+      animationId: "impact.default",
+      projectileDefinitionId: sub.projectileDefinitionId,
+      createdAtMonotonicMs: nowMs,
+    })),
+  ];
+
+  return {
+    ...confirmed,
+    state: {
+      ...confirmed.state,
+      tanks: confirmed.state.tanks.map((tank) => {
+        const damage = tankDamageMap.get(tank.entityId);
         return damage
           ? {
               ...tank,
@@ -523,16 +593,43 @@ function applyProjectileResolution(
         (projectile) => projectile.entityId !== resolution.projectileEntityId,
       ),
     },
-    impactEvents: [
-      {
-        id: resolution.projectileEntityId,
-        position: { ...resolution.impact },
-        animationId: resolution.impactRenderAssetId,
-        projectileDefinitionId: resolution.projectileDefinitionId,
-        createdAtMonotonicMs: monotonicNowMs(),
-      },
-    ],
+    impactEvents,
   };
+}
+
+function applyCrateSpawned(
+  confirmed: OnlineConfirmedState,
+  crate: OnlineCrateSpawnedResponse["payload"],
+): OnlineConfirmedState {
+  const existingCrates = confirmed.state.lootCrates ?? [];
+  return {
+    ...confirmed,
+    state: {
+      ...confirmed.state,
+      lootCrates: [
+        ...existingCrates,
+        {
+          crateId: crate.crateId,
+          crateType: crate.crateType,
+          x: crate.dropX,
+          y: 0,
+          targetY: crate.targetY,
+          isLanding: true,
+          collected: false,
+          value: crate.value,
+        },
+      ],
+    },
+  };
+}
+
+const SUB_MUNITION_ID_OFFSET = 65536;
+
+function generateSubMunitionImpactId(
+  projectileEntityId: number,
+  subIndex: number,
+): number {
+  return projectileEntityId * SUB_MUNITION_ID_OFFSET + subIndex + 1;
 }
 
 function applyTerrainPatches(
@@ -578,23 +675,6 @@ function getReconciledIntent(
   diff: OnlineDiffResponseDto,
 ): ReconciledIntent | null {
   const playerId = getDiffPlayerId(diff);
-
-  if (diff.type === "MOVEMENT_SEGMENT") {
-    const payload = diff.payload as OnlineMovementSegmentResponse["payload"];
-    if (!payload.intentId) return null;
-    return { intentId: payload.intentId, playerId };
-  }
-
-  if (diff.type === "PROJECTILE_RESOLUTION") {
-    const payload = diff.payload as OnlineProjectileResolutionResponse["payload"];
-    if (!payload.intentId) return null;
-    return { intentId: payload.intentId, playerId };
-  }
-
-  if (diff.type === "INTENT_REJECTION") {
-    const payload = diff.payload as OnlineIntentRejectionResponse["payload"];
-    return { intentId: payload.rejectedIntentId, playerId };
-  }
 
   if (diff.intentId) {
     return { intentId: diff.intentId, playerId };

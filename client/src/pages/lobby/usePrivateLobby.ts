@@ -51,7 +51,7 @@ export default function usePrivateLobby() {
   const user = useAuthStore((state) => state.user);
   const { data: tanks } = useAssetQuery();
   const selectedTankId = useAssetStore((state) => state.selectedTankId);
-  const selectedTank = tanks?.find((t) => t.id === selectedTankId) || null;
+  const selectedTank = tanks!.find((t) => t.id === selectedTankId)!;
 
   const navigate = useNavigate();
   const { id: urlLobbyId } = useParams();
@@ -73,7 +73,6 @@ export default function usePrivateLobby() {
 
   const leaveLobby = () => {
     disconnect();
-    queryClient.invalidateQueries({ queryKey: ["userStatus"] });
   };
   const retry = () => {
     if (webSocketStatus !== "disconnected" || lobbyState.state !== "error")
@@ -86,7 +85,6 @@ export default function usePrivateLobby() {
     send({
       destination: "/app/game/create",
     });
-    queryClient.invalidateQueries({ queryKey: ["userStatus"] });
     setLobbyState((prev) => ({
       ...prev,
       state: "creating_game",
@@ -123,6 +121,12 @@ export default function usePrivateLobby() {
     if (webSocketStatus === "disconnected") {
       connect();
     }
+
+    return () => {
+      if (queryClient.isFetching({ queryKey: ["userStatus"] }) === 0) {
+        queryClient.invalidateQueries({ queryKey: ["userStatus"] });
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -208,6 +212,7 @@ export default function usePrivateLobby() {
         }
 
         if (message.body.type === "GAME_CREATED") {
+          queryClient.invalidateQueries({ queryKey: ["userStatus"] });
           navigate(`/game/${message.body.payload.id}`, { replace: true });
           return;
         }

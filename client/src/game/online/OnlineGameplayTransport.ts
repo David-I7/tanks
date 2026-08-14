@@ -1,9 +1,13 @@
 import type {
   GameSessionId,
+  OnlineDiffBatchResponseDto,
   OnlineDiffResponseDto,
   OnlinePlayerIntentRequestDto,
-} from "../../api/ws/dto/gameplay/OnlineGameplayProtocol";
-import { isOnlineDiffResponseDto } from "../../api/ws/dto/gameplay/OnlineGameplayProtocol";
+} from "../../api/ws/dto/gameplay/onlineGameplayProtocol";
+import {
+  isOnlineDiffBatchResponseDto,
+  isOnlineDiffResponseDto,
+} from "../../api/ws/dto/gameplay/onlineGameplayProtocol";
 import type {
   EndpointSubscription,
   Message,
@@ -12,7 +16,7 @@ import type {
 } from "../../api/ws/TanksWebSocketClient";
 import type { GameEvent } from "../../api/ws/dto/game/GameEventDto";
 
-type OnlineGameplayClient = {
+export type OnlineGameplayClient = {
   send(params: PublishParams): void;
   subscribe<Data>(params: EndpointSubscription<Data>): SubscriptionCleanup;
 };
@@ -20,8 +24,14 @@ type OnlineGameplayClient = {
 export type OnlineGameplayTransport = {
   sendPlayerIntent(intent: OnlinePlayerIntentRequestDto): void;
   requestResyncState(): void;
-  subscribeToStateDiffs(listener: (diff: OnlineDiffResponseDto) => void): void;
-  subscribeToGameEvents(listener: (event: GameEvent) => void): void;
+  subscribeToStateDiffs(
+    listener: (
+      diff: OnlineDiffResponseDto | OnlineDiffBatchResponseDto,
+    ) => void,
+  ): SubscriptionCleanup;
+  subscribeToGameEvents(
+    listener: (event: GameEvent) => void,
+  ): SubscriptionCleanup;
   destroy(): void;
 };
 
@@ -37,6 +47,14 @@ export function createOnlineGameplayTransport(options: {
     options.client.subscribe<Data>({
       destination: "/topic/game/:id",
       id: options.gameSessionId,
+      onMessage,
+    });
+
+  const subscribeToUserReplies = <Data>(
+    onMessage: (message: Message<Data>) => void,
+  ): SubscriptionCleanup =>
+    options.client.subscribe<Data>({
+      destination: "/user/queue/replies",
       onMessage,
     });
 
@@ -57,10 +75,17 @@ export function createOnlineGameplayTransport(options: {
     },
 
     subscribeToStateDiffs(
-      listener: (diff: OnlineDiffResponseDto) => void,
+      listener: (
+        diff: OnlineDiffResponseDto | OnlineDiffBatchResponseDto,
+      ) => void,
     ): SubscriptionCleanup {
       const handleMessage = (message: Message<unknown>) => {
         if (
+          isOnlineDiffBatchResponseDto(message.body) &&
+          message.body.gameSessionId === options.gameSessionId
+        ) {
+          listener(message.body);
+        } else if (
           isOnlineDiffResponseDto(message.body) &&
           message.body.gameSessionId === options.gameSessionId
         ) {
@@ -68,31 +93,43 @@ export function createOnlineGameplayTransport(options: {
         }
       };
 
-      const replyCleanup = options.client.subscribe<unknown>({
-        destination: "/user/queue/replies",
-        onMessage: handleMessage,
-      });
+      const replyCleanup = subscribeToUserReplies(handleMessage);
       const topicCleanup = subscribeToGameTopic(handleMessage);
+
+      cleanups.add(replyCleanup);
+      cleanups.add(topicCleanup);
+
+      return () => {
+        replyCleanup();
+        topicCleanup();
+        cleanups.delete(replyCleanup);
+        cleanups.delete(topicCleanup);
+      };
     },
 
     subscribeToGameEvents(
       listener: (event: GameEvent) => void,
     ): SubscriptionCleanup {
       const handleMessage = (message: Message<GameEvent | unknown>) => {
-        if (!isOnlineDiffResponseDto(message.body)) {
+        if (
+          !isOnlineDiffResponseDto(message.body) &&
+          !isOnlineDiffBatchResponseDto(message.body)
+        ) {
           listener(message.body as GameEvent);
         }
       };
 
-      const replyCleanup = options.client.subscribe<unknown>({
-        destination: "/user/queue/replies",
-        onMessage: handleMessage,
-      });
+      const replyCleanup = subscribeToUserReplies(handleMessage);
       const topicCleanup = subscribeToGameTopic<GameEvent>(handleMessage);
+
+      cleanups.add(replyCleanup);
+      cleanups.add(topicCleanup);
 
       return () => {
         replyCleanup();
         topicCleanup();
+        cleanups.delete(replyCleanup);
+        cleanups.delete(topicCleanup);
       };
     },
 

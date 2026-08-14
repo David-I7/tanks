@@ -16,8 +16,13 @@ export type CanvasSizing = {
   domCanvasRect: DomCanvasRect;
 };
 
-export function readDomCanvasRect(canvas: HTMLCanvasElement): DomCanvasRect {
-  const rect = canvas.getBoundingClientRect();
+export function readDomCanvasRect(canvas?: HTMLCanvasElement): DomCanvasRect {
+  const rect = canvas?.getBoundingClientRect?.() ?? {
+    left: 0,
+    top: 0,
+    width: 960,
+    height: 560,
+  };
   return {
     left: rect.left,
     top: rect.top,

@@ -1,0 +1,228 @@
+import { describe, it, expect } from "vitest";
+import type {
+  OnlineFireRequest,
+  OnlineProjectileResolutionResponse,
+  OnlineTurnTransitionResponse,
+  OnlineTerminalGameResponse,
+  OnlineResyncStateResponse,
+  OnlineIntentRejectionResponse,
+  OnlineDiffResponseDto,
+} from "../../../../src/api/ws/dto/gameplay/onlineGameplayProtocol";
+import {
+  createIsolatedTestContext,
+  teardownTestContext,
+  sendIntent,
+  waitForTopicMessage,
+  waitForReply,
+} from "../../harnessUtils";
+
+describe("Ballistics & Turn Lifecycle Integration Suite", () => {
+  it("delays turn transition until active ballistic projectile flight completes", async () => {
+    const ctx = await createIsolatedTestContext({
+      setupType: "game",
+      playerCount: 2,
+    });
+    try {
+      const intentId = `test-ballistics-delay-${Date.now()}`;
+      sendIntent(ctx.activeClient!, ctx.gameSessionId!, {
+        intentId,
+        type: "FIRE" as OnlineFireRequest["type"],
+        playerId: ctx.activeClient!.playerId,
+        lastConfirmedDiffSequence: 1,
+        lastConfirmedDiffServerTick: 0,
+        payload: { angle: -Math.PI / 4, power: 70 },
+      });
+
+      const resolution = (await waitForTopicMessage(
+        ctx.activeClient!,
+        "PROJECTILE_RESOLUTION",
+        5000,
+      )) as OnlineDiffResponseDto<OnlineProjectileResolutionResponse>;
+
+      expect(resolution).toBeDefined();
+      expect(resolution.type).toBe("PROJECTILE_RESOLUTION");
+      expect(resolution.payload.trajectory.length).toBeGreaterThan(0);
+
+      const turnTransition = (await waitForTopicMessage(
+        ctx.activeClient!,
+        "TURN_TRANSITION",
+        5000,
+      )) as OnlineDiffResponseDto<OnlineTurnTransitionResponse>;
+
+      expect(turnTransition).toBeDefined();
+      expect(turnTransition.type).toBe("TURN_TRANSITION");
+      expect(turnTransition.payload.previousPlayerId).toBe(
+        ctx.activeClient!.playerId,
+      );
+      expect(turnTransition.payload.activePlayerId).toBe(
+        ctx.inactiveClient!.playerId,
+      );
+    } finally {
+      await teardownTestContext(ctx);
+    }
+  });
+
+  it("terminates game session immediately when match concludes during lethal shot", async () => {
+    const ctx = await createIsolatedTestContext({
+      setupType: "game",
+      playerCount: 2,
+    });
+    try {
+      ctx.inactiveClient!.client.publish({
+        destination: `/app/game/${ctx.gameSessionId}/forfeit`,
+        body: JSON.stringify({}),
+      });
+
+      const terminalEvent = (await waitForTopicMessage(
+        ctx.activeClient!,
+        "TERMINAL_GAME",
+        5000,
+      )) as OnlineDiffResponseDto<OnlineTerminalGameResponse>;
+
+      expect(terminalEvent).toBeDefined();
+      expect(terminalEvent.type).toBe("TERMINAL_GAME");
+      expect(terminalEvent.payload.winnerPlayerId).toBe(
+        ctx.activeClient!.playerId,
+      );
+      expect(terminalEvent.payload.finalState.match.phase).toBe("GAME_OVER");
+    } finally {
+      await teardownTestContext(ctx);
+    }
+  });
+
+  it("releases turn transition immediately when projectile exits horizontal world bounds", async () => {
+    const ctx = await createIsolatedTestContext({
+      setupType: "game",
+      playerCount: 2,
+    });
+    try {
+      const intentId = `test-offscreen-fire-${Date.now()}`;
+      sendIntent(ctx.activeClient!, ctx.gameSessionId!, {
+        intentId,
+        type: "FIRE" as OnlineFireRequest["type"],
+        playerId: ctx.activeClient!.playerId,
+        lastConfirmedDiffSequence: 1,
+        lastConfirmedDiffServerTick: 0,
+        payload: { angle: -Math.PI * 0.8, power: 100 },
+      });
+
+      const resolution = (await waitForTopicMessage(
+        ctx.activeClient!,
+        "PROJECTILE_RESOLUTION",
+        5000,
+      )) as OnlineDiffResponseDto<OnlineProjectileResolutionResponse>;
+
+      expect(resolution).toBeDefined();
+      expect(resolution.payload.trajectory.length).toBeGreaterThan(0);
+      const lastPoint =
+        resolution.payload.trajectory[resolution.payload.trajectory.length - 1];
+      expect(typeof lastPoint.x).toBe("number");
+      expect(typeof lastPoint.y).toBe("number");
+
+      const turnTransition = (await waitForTopicMessage(
+        ctx.activeClient!,
+        "TURN_TRANSITION",
+        5000,
+      )) as OnlineDiffResponseDto<OnlineTurnTransitionResponse>;
+
+      expect(turnTransition).toBeDefined();
+      expect(turnTransition.payload.previousPlayerId).toBe(
+        ctx.activeClient!.playerId,
+      );
+    } finally {
+      await teardownTestContext(ctx);
+    }
+  });
+
+  it("concludes game session and declares opponent as winner when player forfeits", async () => {
+    const ctx = await createIsolatedTestContext({
+      setupType: "game",
+      playerCount: 2,
+    });
+    try {
+      const forfeitingPlayer = ctx.inactiveClient!;
+      const remainingPlayer = ctx.activeClient!;
+
+      forfeitingPlayer.client.publish({
+        destination: `/app/game/${ctx.gameSessionId}/forfeit`,
+        body: JSON.stringify({}),
+      });
+
+      const forfeitEvent = (await waitForTopicMessage(
+        remainingPlayer,
+        "TERMINAL_GAME",
+        5000,
+      )) as OnlineDiffResponseDto<OnlineTerminalGameResponse>;
+
+      expect(forfeitEvent).toBeDefined();
+      expect(forfeitEvent.gameSessionId).toBe(ctx.gameSessionId);
+      expect(forfeitEvent.type).toBe("TERMINAL_GAME");
+      expect(forfeitEvent.payload.reason).toBe("FORFEIT");
+      expect(forfeitEvent.payload.winnerPlayerId).toBe(
+        remainingPlayer.playerId,
+      );
+      expect(forfeitEvent.payload.finalState.match.phase).toBe("GAME_OVER");
+    } finally {
+      await teardownTestContext(ctx);
+    }
+  });
+
+  it("rejects intent submitted by non-active player with NOT_ACTIVE_PLAYER rejection code", async () => {
+    const ctx = await createIsolatedTestContext({
+      setupType: "game",
+      playerCount: 2,
+    });
+    try {
+      sendIntent(ctx.inactiveClient!, ctx.gameSessionId!, {
+        intentId: `test-inactive-intent-${Date.now()}`,
+        type: "MOVE",
+        playerId: ctx.inactiveClient!.playerId,
+        lastConfirmedDiffSequence: 1,
+        lastConfirmedDiffServerTick: 0,
+        payload: { direction: 1 },
+      });
+
+      const errorReply = (await waitForReply(
+        ctx.inactiveClient!,
+        "INTENT_REJECTION",
+        5000,
+      )) as OnlineDiffResponseDto<OnlineIntentRejectionResponse>;
+
+      expect(errorReply).toBeDefined();
+      expect(errorReply.payload.playerId).toBe(ctx.inactiveClient!.playerId);
+      expect(errorReply.payload.reason).toBe("NOT_ACTIVE_PLAYER");
+    } finally {
+      await teardownTestContext(ctx);
+    }
+  });
+
+  it("returns full authoritative RESYNC_STATE diff response upon client resync request", async () => {
+    const ctx = await createIsolatedTestContext({
+      setupType: "game",
+      playerCount: 2,
+    });
+    try {
+      ctx.activeClient!.client.publish({
+        destination: `/app/game/${ctx.gameSessionId}/resync`,
+        body: JSON.stringify({}),
+      });
+
+      const resyncEvent = (await waitForReply(
+        ctx.activeClient!,
+        "RESYNC_STATE",
+        5000,
+      )) as OnlineDiffResponseDto<OnlineResyncStateResponse>;
+
+      expect(resyncEvent).toBeDefined();
+      expect(resyncEvent.gameSessionId).toBe(ctx.gameSessionId);
+      expect(resyncEvent.type).toBe("RESYNC_STATE");
+      expect(resyncEvent.payload.localPlayerId).toBe(
+        ctx.activeClient!.playerId,
+      );
+      expect(resyncEvent.payload.state).toBeDefined();
+      expect(resyncEvent.payload.state.match).toBeDefined();
+    } finally {
+      await teardownTestContext(ctx);
+    }
+  });
+});

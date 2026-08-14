@@ -98,7 +98,19 @@ public class LobbyAuthorizationService {
     }
 
     public boolean canLeaveLobby(Authentication authentication, String uri) {
-        return canSendMessageToTopic(authentication, uri);
+        UserSession userSession = getUserSession(authentication);
+
+        if (userSession == null) return false;
+
+        if (!userSessionService.isConnectedToLobby(userSession)) {
+            throw new ProblemDetailException(
+                    HttpStatus.UNAUTHORIZED,
+                    "User is not connected to a lobby.",
+                    URI.create(uri)
+            );
+        }
+
+        return true;
     }
 
     private UserSession getUserSession(Authentication authentication){

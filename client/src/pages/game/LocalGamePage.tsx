@@ -7,19 +7,18 @@ import {
   localGameContent,
   type MatchSetup,
 } from "../../game";
-import type { RendererAssets } from "../../game/rendering/CanvasGameRenderer";
 import IconButton from "../../components/buttons/IconButton";
-import { useAssetQuery, type TankAsset } from "../../hooks/useAssetQuery";
+import type { TankDefinitionIds } from "../../game/rendering/ResourceManager";
 
 type LocationState = {
-  mode: "playerVsAi" | "localTwoPlayer";
+  mode: "localTwoPlayer";
   player1Config: {
     name: string;
-    tankId: TankAsset["id"];
+    tankId: TankDefinitionIds;
   };
   player2Config: {
     name: string;
-    tankId: TankAsset["id"];
+    tankId: TankDefinitionIds;
   };
 };
 
@@ -27,7 +26,7 @@ function isValidLocationState(state: any): state is LocationState {
   return (
     state &&
     typeof state === "object" &&
-    (state.mode === "playerVsAi" || state.mode === "localTwoPlayer") &&
+    state.mode === "localTwoPlayer" &&
     typeof state.player1Config === "object" &&
     typeof state.player2Config === "object" &&
     "name" in state.player1Config &&
@@ -43,33 +42,12 @@ export default function LocalGamePage() {
   const engineRef = useRef<GameEngine | null>(null);
   const location = useLocation();
   const state = location.state as LocationState | null;
-  const { data: tanks } = useAssetQuery();
 
-  if (!state || !isValidLocationState(state) || !tanks) {
+  if (!state || !isValidLocationState(state)) {
     throw new Error("Invalid state for local game setup");
   }
 
   const { mode, player1Config, player2Config } = state;
-
-  const rendererAssets = useMemo<RendererAssets>(() => {
-    const tankImages: Record<string, HTMLImageElement> = {};
-    const projectileImages: Record<string, HTMLImageElement> = {};
-    tanks.forEach((t) => {
-      if (t.image) {
-        tankImages[t.id] = t.image;
-        for (const p of t.projectiles) {
-          if (p.image) {
-            projectileImages[p.id] = p.image;
-          }
-        }
-      }
-    });
-
-    return {
-      tankImages,
-      projectileImages,
-    };
-  }, [tanks]);
 
   const matchSetup = useMemo<MatchSetup>(
     () => ({
@@ -84,7 +62,7 @@ export default function LocalGamePage() {
         {
           id: 1,
           displayName: player2Config.name,
-          controllerKind: mode === "playerVsAi" ? "ai" : "human",
+          controllerKind: "human",
           tankSelection: { tankDefinitionId: player2Config.tankId },
         },
       ],
@@ -106,7 +84,6 @@ export default function LocalGamePage() {
     const engine = new GameEngine({
       canvas,
       gameManager,
-      rendererAssets,
     });
 
     engineRef.current = engine;
@@ -124,9 +101,9 @@ export default function LocalGamePage() {
         engineRef.current = null;
       }
     };
-  }, [matchSetup, rendererAssets]);
+  }, [matchSetup]);
 
-  const modeLabel = mode === "playerVsAi" ? "Player vs AI" : "Local Two-Player";
+  const modeLabel = "Local Two-Player";
 
   return (
     <main className="relative z-10 flex min-h-screen flex-col bg-background p-4 text-text-body-high">

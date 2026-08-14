@@ -13,6 +13,7 @@ dist
 dist-ssr
 old_src
 *.local
+.tmp
 
 # Editor directories and files
 .vscode/*

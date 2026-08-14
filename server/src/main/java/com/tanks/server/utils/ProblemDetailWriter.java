@@ -29,7 +29,7 @@ public class ProblemDetailWriter {
                                    String detail) throws IOException {
 
         ProblemDetail problemDetail = ProblemDetail.forStatus(status);
-        problemDetail.setTitle(status.toString());
+        problemDetail.setTitle(status.getReasonPhrase());
         problemDetail.setDetail(detail);
         problemDetail.setType(URI.create("about:blank"));
         problemDetail.setInstance(URI.create(request.getRequestURI()));
@@ -48,14 +48,14 @@ public class ProblemDetailWriter {
         accessor.setContentType(MediaType.APPLICATION_JSON);
 
         ProblemDetail problemDetail = ProblemDetail.forStatus(ex.getStatus());
-        problemDetail.setTitle(ex.getStatus().toString());
+        problemDetail.setTitle(ex.getStatus().getReasonPhrase());
         problemDetail.setDetail(ex.getDetail());
         problemDetail.setType(URI.create("about:blank"));
         problemDetail.setInstance(ex.getInstance());
 
         byte[] problemDetailBytes = objectMapper.writeValueAsString(problemDetail).getBytes();
-
         accessor.setContentLength(problemDetailBytes.length);
+
 
         return MessageBuilder.createMessage(
                 problemDetailBytes,
@@ -64,7 +64,7 @@ public class ProblemDetailWriter {
 
     public ProblemDetail createProblemDetail(ProblemDetailException ex){
         ProblemDetail problemDetail = ProblemDetail.forStatus(ex.getStatus());
-        problemDetail.setTitle(ex.getStatus().toString());
+        problemDetail.setTitle(ex.getStatus().getReasonPhrase());
         problemDetail.setDetail(ex.getDetail());
         problemDetail.setType(URI.create("about:blank"));
         problemDetail.setInstance(ex.getInstance());

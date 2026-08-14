@@ -1,7 +1,7 @@
 import type { GameAction, GameState } from "../types";
 import type { DomCanvasRect, GameViewport } from "../world/worldSizing";
 import { domPointToGameViewportPoint } from "../world/worldSizing";
-import { GRAVITY, getMuzzlePosition } from "../simulation/ballistics";
+import { clampAimAngle } from "../simulation/ballistics";
 
 export type CanvasAimInput = {
   clientX: number;
@@ -36,47 +36,33 @@ export function calculateAimIntent(
   const originX = activeTank.position.x;
   const originY = activeTank.position.y - 22;
 
-  const slot = activeTank.loadout.find(
-    (entry) => entry.id === activeTank.selectedProjectileSlotId,
-  );
-  const projectileDefinition = slot
-    ? input.gameState.projectileDefinitions[slot.projectileDefinitionId]
-    : null;
-  const gravityScale = projectileDefinition?.physics.gravityScale ?? 1;
-  const muzzleVelocityScale =
-    projectileDefinition?.physics.muzzleVelocityScale ?? 1;
+  const d = worldX - originX;
+  const h = originY - worldY;
 
-  // The peak of a parabolic trajectory must be higher (smaller Y value) than the starting height.
-  // We clamp the target peakY to be at least 10 pixels above the start point.
-  const peakY = Math.min(worldY, originY - 10);
-  const g = GRAVITY * gravityScale;
-  const dyPeak = originY - peakY;
+  const muzzleVelocityScale = 1;
 
-  // Compute first-pass velocities using the turret base origin
-  const vy0 = -Math.sqrt(2 * g * dyPeak);
-  const vx0 = (worldX - originX) * Math.sqrt(g / (2 * dyPeak));
-  const firstAngle = Math.atan2(vy0, vx0);
+  let angle: number;
+  let power: number;
 
-  // Refine calculation using the actual muzzle position
-  const muzzle = getMuzzlePosition(
-    activeTank.position.x,
-    activeTank.position.y,
-    firstAngle,
-  );
-  const refinedPeakY = Math.min(worldY, muzzle.y - 10);
-  const dyMuzzlePeak = muzzle.y - refinedPeakY;
-
-  const vy = -Math.sqrt(2 * g * dyMuzzlePeak);
-  const vx = (worldX - muzzle.x) * Math.sqrt(g / (2 * dyMuzzlePeak));
-
-  const angle = Math.atan2(vy, vx);
-  const speed = Math.sqrt(vx * vx + vy * vy);
-  const power = speed / muzzleVelocityScale;
+  const GRAVITY = 520;
+  if (h > 5 && Math.abs(d) > 5) {
+    angle = Math.atan2(-2 * h, d);
+    const v0 = Math.sqrt(GRAVITY * ((d * d) / (2 * h) + 2 * h));
+    const rawPower = v0 / muzzleVelocityScale;
+    power = Math.max(120, Math.min(rawPower, 680));
+  } else {
+    const dx = d;
+    const dy = worldY - originY;
+    angle = Math.atan2(dy, dx);
+    const distance = Math.hypot(dx, dy);
+    const rawPower = (distance * 1.5) / muzzleVelocityScale;
+    power = Math.max(120, Math.min(rawPower, 680));
+  }
 
   return {
     type: "aim",
-    angle,
-    power: Math.max(120, Math.min(power, 680)),
+    angle: clampAimAngle(angle),
+    power,
   };
 }
 
@@ -130,18 +116,86 @@ export function findProjectileSlotAtCanvasPoint(
   );
 
   for (let index = 0; index < targetTank.loadout.length; index += 1) {
-    const slot = targetTank.loadout[index];
-    if (!slot) continue;
+    const slotId = targetTank.loadout[index];
+    if (!slotId) continue;
     const slotX = layout.x + index * (layout.slotSize + layout.gap);
+    const slotY = layout.y;
+
+    const minX = slotX - 10;
+    const maxX = slotX + layout.slotSize + 10;
+    const minY = slotY - 20;
+    const maxY = canvasHeight;
+
     if (
-      canvasX >= slotX &&
-      canvasX <= slotX + layout.slotSize &&
-      canvasY >= layout.y &&
-      canvasY <= layout.y + layout.slotSize
+      canvasX >= minX &&
+      canvasX <= maxX &&
+      canvasY >= minY &&
+      canvasY <= maxY
     ) {
-      return slot.id;
+      return slotId;
     }
   }
 
   return null;
+}
+
+export function isFireButtonClickedAtCanvasPoint(
+  gameState: GameState,
+  canvasWidth: number,
+  canvasHeight: number,
+  canvasX: number,
+  canvasY: number,
+  activeTank?: GameState["tanks"][number],
+): boolean {
+  if (gameState.match.phase !== "thinking") return false;
+  const targetTank =
+    activeTank ??
+    gameState.tanks.find(
+      (entry) =>
+        entry.playerId === gameState.match.activePlayerId && entry.alive,
+    );
+  if (!targetTank) return false;
+
+  const layout = getProjectileSelectorLayout(
+    canvasWidth,
+    canvasHeight,
+    targetTank.loadout.length,
+  );
+  const totalWidth =
+    targetTank.loadout.length * layout.slotSize +
+    Math.max(0, targetTank.loadout.length - 1) * layout.gap;
+
+  const fireX = layout.x + totalWidth + 12;
+  const fireY = layout.y;
+  const fireW = 76;
+  const fireH = layout.slotSize;
+
+  return (
+    canvasX >= fireX - 4 &&
+    canvasX <= fireX + fireW + 4 &&
+    canvasY >= fireY - 4 &&
+    canvasY <= fireY + fireH + 4
+  );
+}
+
+export function isRelockCameraButtonClickedAtCanvasPoint(
+  gameState: GameState,
+  canvasWidth: number,
+  _canvasHeight: number,
+  canvasX: number,
+  canvasY: number,
+): boolean {
+  if (gameState.match.isCameraLocked !== false) return false;
+
+  const btnX = canvasWidth / 2 - 65;
+  const btnY = 84;
+  const btnW = 130;
+  const btnH = 30;
+
+  return (
+    canvasX >= btnX &&
+    canvasX <= btnX + btnW &&
+    canvasY >= btnY &&
+    canvasY <= btnY + btnH
+  );
 }

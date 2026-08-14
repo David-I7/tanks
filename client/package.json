@@ -5,16 +5,20 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "test:game": "node scripts/run-game-tests.mjs",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:integration": "vitest run --testTimeout=10000 test/integration/normal",
+    "test:unit": "vitest run test/unit",
+    "test:integration:slow": "vitest run --testTimeout=35000 test/integration/slow"
   },
   "devDependencies": {
+    "@types/node": "^26.1.2",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
     "typescript": "~6.0.2",
-    "vite": "^8.0.10"
+    "vite": "^8.0.10",
+    "vitest": "^4.1.10"
   },
   "dependencies": {
     "@fontsource/inter": "^5.2.8",

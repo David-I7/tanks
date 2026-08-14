@@ -31,6 +31,7 @@ export type PublishParams =
         | "/app/game/:id/intent"
         | "/app/game/:id/send"
         | "/app/game/:id/resync"
+        | "/app/game/:id/forfeit"
         | "/app/lobby/join/private/:id";
 
       id: string | number;
@@ -123,13 +124,20 @@ export default class TanksWSClient {
     if (!this.client.active) {
       this.client.onStompError = async (err) => {
         try {
-          if (
-            err.headers["content-type"] &&
-            err.headers["content-type"] === "application/json"
-          ) {
-            const problemDetail = JSON.parse(err.body) as ProblemDetailDto;
+          const contentType = err.headers
+            ? err.headers["content-type"]
+            : undefined;
 
-            if (import.meta.env.DEV) console.error(problemDetail);
+          if (contentType && contentType.includes("json")) {
+            let bodyStr: string = err.body;
+            if (err.isBinaryBody) {
+              const rawBinary = (err as any)._binaryBody || err.binaryBody;
+              if (rawBinary) {
+                const decoder = new TextDecoder("utf-8");
+                bodyStr = decoder.decode(rawBinary);
+              }
+            }
+            const problemDetail = JSON.parse(bodyStr) as ProblemDetailDto;
 
             if (problemDetail.status === 401) {
               await this.refreshHandler();
@@ -200,13 +208,16 @@ export default class TanksWSClient {
 
     const handleMessage = (message: IMessage) => {
       try {
-        if (
-          message.headers &&
-          message.headers["content-type"] === "application/json"
-        ) {
+        const contentType = message.headers
+          ? message.headers["content-type"]
+          : undefined;
+        if (!contentType || contentType.includes("json")) {
           const parsedMessage = {
             ...message,
-            body: JSON.parse(message.body) as Data,
+            body:
+              typeof message.body === "string"
+                ? (JSON.parse(message.body) as Data)
+                : (message.body as Data),
           };
 
           const subscriptions = this.subscriptionMap.get(

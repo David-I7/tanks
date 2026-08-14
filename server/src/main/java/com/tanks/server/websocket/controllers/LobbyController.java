@@ -4,9 +4,11 @@ import com.tanks.server.websocket.dto.lobby.LobbyJoinOrCreateRequestDto;
 import com.tanks.server.websocket.entities.lobby.LobbyType;
 import com.tanks.server.websocket.entities.userSession.UserSession;
 import com.tanks.server.websocket.entities.userSession.UserSessionState;
+import com.tanks.server.websocket.exceptions.ProblemDetailException;
 import com.tanks.server.websocket.security.entites.WebSocketPrincipal;
 import com.tanks.server.websocket.services.LobbyService;
 import com.tanks.server.websocket.services.UserSessionService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
@@ -26,7 +28,7 @@ public class LobbyController {
 
     @PreAuthorize("@lobbyAuthorizationService.canJoinOrCreateLobby(authentication, '/lobby/create/private')")
     @MessageMapping("/lobby/create/private")
-    public void createLobby(Authentication authentication, @Payload LobbyJoinOrCreateRequestDto request) {
+    public void createLobby(Authentication authentication, @Valid @Payload LobbyJoinOrCreateRequestDto request) {
         WebSocketPrincipal principal = (WebSocketPrincipal) authentication.getPrincipal();
         UserSession userSession = principal.getUserSession();
         lobbyService.create(userSession, LobbyType.PRIVATE, request.tankId());
@@ -34,7 +36,7 @@ public class LobbyController {
 
     @PreAuthorize("@lobbyAuthorizationService.canJoinOrCreateLobby(authentication, '/lobby/join/private/' + #id)")
     @MessageMapping("/lobby/join/private/{id}")
-    public void joinPrivateLobby(@DestinationVariable UUID id, Authentication authentication, @Payload LobbyJoinOrCreateRequestDto request) {
+    public void joinPrivateLobby(@DestinationVariable UUID id, Authentication authentication,@Valid @Payload LobbyJoinOrCreateRequestDto request) {
         WebSocketPrincipal principal = (WebSocketPrincipal) authentication.getPrincipal();
         UserSession userSession = principal.getUserSession();
         lobbyService.join(id, userSession, request.tankId());
@@ -42,7 +44,7 @@ public class LobbyController {
 
     @PreAuthorize("@lobbyAuthorizationService.canJoinOrCreateLobby(authentication, '/lobby/quick-match')")
     @MessageMapping("/lobby/quick-match")
-    public void joinQuickMatch(Authentication authentication, @Payload LobbyJoinOrCreateRequestDto request) {
+    public void joinQuickMatch(Authentication authentication,@Valid @Payload LobbyJoinOrCreateRequestDto request) {
         WebSocketPrincipal principal = (WebSocketPrincipal) authentication.getPrincipal();
         UserSession userSession = principal.getUserSession();
         lobbyService.joinQuickMatch(userSession,request.tankId());
@@ -53,14 +55,14 @@ public class LobbyController {
     public void leaveLobby(Authentication authentication) {
         WebSocketPrincipal principal = (WebSocketPrincipal) authentication.getPrincipal();
         UserSession userSession = principal.getUserSession();
-        synchronized (userSession) {
-            if (userSession.getState() == UserSessionState.IN_LOBBY) {
-                userSession.setState(UserSessionState.IDLE);
-                lobbyService.removeUser(userSession);
-                userSession.setTopicSubscriptions(null);
-                userSession.setLobbyId(null);
-                userSessionService.save(userSession);
-            }
+
+        if (userSession.getState() == UserSessionState.IN_LOBBY) {
+            userSession.setState(UserSessionState.IDLE);
+            lobbyService.removeUser(userSession);
+            userSession.setTopicSubscriptions(null);
+            userSession.setLobbyId(null);
+            userSessionService.save(userSession);
         }
+
     }
 }

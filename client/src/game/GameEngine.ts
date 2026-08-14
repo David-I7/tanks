@@ -2,12 +2,9 @@ import {
   CanvasInputSource,
   type CanvasInputLayout,
 } from "./input/CanvasInputSource";
-import {
-  CanvasGameRenderer,
-  type RendererAssets,
-} from "./rendering/CanvasGameRenderer";
+import { CanvasGameRenderer } from "./rendering/CanvasGameRenderer";
 import type { GameAction, GameState } from "./types";
-import { type GameManager } from "./authority/GameManager";
+import { type GameManager } from "./authority/gameManager";
 import {
   createCanvasSizing,
   readDomCanvasRect,
@@ -21,7 +18,6 @@ const MS_PER_SECOND = 1000;
 export type GameEngineOptions = {
   canvas: HTMLCanvasElement;
   gameManager: GameManager;
-  rendererAssets: RendererAssets;
 };
 
 export class GameEngine {
@@ -46,7 +42,6 @@ export class GameEngine {
     this.applyCanvasSizing();
     this.renderer = new CanvasGameRenderer(
       options.canvas,
-      options.rendererAssets,
       this.sizing.gameViewport,
       this.sizing.dpiViewport,
     );

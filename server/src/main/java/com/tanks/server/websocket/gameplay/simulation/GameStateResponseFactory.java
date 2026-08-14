@@ -2,10 +2,22 @@ package com.tanks.server.websocket.gameplay.simulation;
 
 import java.util.List;
 import org.springframework.stereotype.Service;
-import com.tanks.server.websocket.dto.gameplay.*;
+import com.tanks.server.websocket.dto.gameplay.diffResponse.OnlineDiffResponseDto;
+import com.tanks.server.websocket.dto.gameplay.diffResponse.OnlineStateDiffResponseType;
+import com.tanks.server.websocket.dto.gameplay.diffResponse.enums.ResyncReason;
+import com.tanks.server.websocket.dto.gameplay.diffResponse.payloads.InitialState;
+import com.tanks.server.websocket.dto.gameplay.diffResponse.payloads.ResyncState;
+import com.tanks.server.websocket.dto.gameplay.gameContent.GameContentResponseDto;
+import com.tanks.server.websocket.dto.gameplay.match.OnlineMatchSnapshotResponseDto;
+import com.tanks.server.websocket.dto.gameplay.match.phases.MatchPhase;
+import com.tanks.server.websocket.dto.gameplay.snapshots.*;
+import com.tanks.server.websocket.dto.gameplay.terrain.snapshot.Heightmap;
+import com.tanks.server.websocket.dto.gameplay.terrain.snapshot.TerrainSnapshotKind;
 import com.tanks.server.websocket.entities.gameSession.GameSession;
 import com.tanks.server.websocket.entities.gameSession.GameSessionState;
-import com.tanks.server.websocket.gameplay.content.*;
+import com.tanks.server.websocket.gameplay.content.GameContent;
+import com.tanks.server.websocket.gameplay.content.GameContentCatalog;
+import com.tanks.server.websocket.gameplay.content.definitions.TankDefinition;
 import com.tanks.server.websocket.gameplay.world.TankState;
 
 @Service
@@ -14,18 +26,37 @@ public class GameStateResponseFactory {
 
     public GameStateResponseFactory(GameContentCatalog contentCatalog) { this.contentCatalog = contentCatalog; }
 
-    public OnlineDiffResponseDto<OnlineDiffResponsePayloads.InitialState> createForPlayer(GameSession session, long localPlayerId) {
-        return new OnlineDiffResponseDto<>(OnlineGameplayProtocolVersion.V1, session.getId().toString(), 1, 0,
-                OnlineStateDiffResponseType.INITIAL_STATE, null,
-                new OnlineDiffResponsePayloads.InitialState(2, localPlayerId, createStateSnapshot(session)));
+    public OnlineDiffResponseDto createForPlayer(GameSession session, long localPlayerId) {
+        return OnlineDiffResponseDto.builder()
+                .gameSessionId(session.getId().toString())
+                .sequence(1)
+                .serverTick(0)
+                .type(OnlineStateDiffResponseType.INITIAL_STATE)
+                .intentId(null)
+                .payload(InitialState.builder()
+                        .expectedNextDiffSequence(2)
+                        .localPlayerId(localPlayerId)
+                        .state(createStateSnapshot(session))
+                        .build())
+                .build();
     }
 
-    public OnlineDiffResponseDto<OnlineDiffResponsePayloads.ResyncState> createResyncForPlayer(GameSession session,
-            OnlineDiffResponsePayloads.ResyncReason reason, long localPlayerId) {
+    public OnlineDiffResponseDto createResyncForPlayer(GameSession session,
+            ResyncReason reason, long localPlayerId) {
         long replaces = Math.max(1, session.getNextDiffSequence() - 1);
-        return new OnlineDiffResponseDto<>(OnlineGameplayProtocolVersion.V1, session.getId().toString(), replaces,
-                session.getLastDiffServerTick(), OnlineStateDiffResponseType.RESYNC_STATE, null,
-                new OnlineDiffResponsePayloads.ResyncState(replaces, reason, localPlayerId, createStateSnapshot(session)));
+        return OnlineDiffResponseDto.builder()
+                .gameSessionId(session.getId().toString())
+                .sequence(replaces)
+                .serverTick(session.getLastDiffServerTick())
+                .type(OnlineStateDiffResponseType.RESYNC_STATE)
+                .intentId(null)
+                .payload(ResyncState.builder()
+                        .replacesSequence(replaces)
+                        .reason(reason)
+                        .localPlayerId(localPlayerId)
+                        .state(createStateSnapshot(session))
+                        .build())
+                .build();
     }
 
     public OnlineGameStateSnapshotResponseDto createStateSnapshot(GameSession session) {
@@ -33,33 +64,81 @@ public class GameStateResponseFactory {
         if (session.getWorld() == null || session.getTerrainModel() == null) {
             throw new IllegalStateException("Game Session has no authoritative World");
         }
-        return new OnlineGameStateSnapshotResponseDto(content.version(), GameContentResponseDto.from(content),
-                new OnlineMatchSnapshotResponseDto(matchPhase(session), activePlayerId(session), 2,
-                        session.getWorld().match().turnNumber(),
-                        Math.max(0, session.getWorld().match().turnEndsAtServerTick() - session.getServerTick()),
-                        winnerPlayerId(session)),
-                new OnlineTerrainSnapshotResponseDto.Heightmap(OnlineTerrainSnapshotResponseDto.TerrainSnapshotKind.HEIGHTMAP,
-                        session.getTerrainModel().width(), session.getTerrainModel().height(), session.getTerrainModel().surface()),
-                session.getWorld().tanks().values().stream().map(tank -> tankSnapshot(content, tank)).toList(),
-                session.getWorld().projectiles().values().stream().map(projectile -> {
+        return OnlineGameStateSnapshotResponseDto.builder()
+                .gameContentVersion(content.version())
+                .gameContent(GameContentResponseDto.from(content))
+                .match(OnlineMatchSnapshotResponseDto.builder()
+                        .phase(matchPhase(session))
+                        .activePlayerId(activePlayerId(session))
+                        .playerCount(2)
+                        .turnNumber(session.getWorld().match().turnNumber())
+                        .turnTimeRemainingTicks(Math.max(0, session.getWorld().match().turnEndsAtServerTick() - session.getServerTick()))
+                        .winnerPlayerId(winnerPlayerId(session))
+                        .matchEndsAtServerTick(session.getMatchEndsAtServerTick())
+                        .wind(session.getWorld().match().wind())
+                        .biome(session.getWorld().match().biome() != null ? session.getWorld().match().biome() : (content.world().biome() != null ? content.world().biome() : "forest"))
+                        .build())
+                .terrain(new Heightmap(TerrainSnapshotKind.HEIGHTMAP,
+                        session.getTerrainModel().width(), session.getTerrainModel().height(), session.getTerrainModel().surface()))
+                .tanks(session.getWorld().tanks().values().stream()
+                        .sorted(java.util.Comparator.comparingLong(TankState::playerId))
+                        .map(tank -> tankSnapshot(content, tank)).toList())
+                .projectiles(session.getWorld().projectiles().values().stream()
+                        .sorted(java.util.Comparator.comparingLong(com.tanks.server.websocket.gameplay.world.ProjectileState::entityId))
+                        .map(projectile -> {
                     var definition = content.requireProjectile(projectile.definitionId());
                     return new OnlineProjectileSnapshotResponseDto(projectile.entityId(), projectile.ownerPlayerId(),
-                            definition.id(), definition.renderAssetId(), projectile.position(), projectile.velocity());
-                }).toList());
+                            definition.id(), projectile.position(), projectile.velocity());
+                }).toList())
+                .lootCrates(session.getWorld().lootCrates() != null ? session.getWorld().lootCrates().stream()
+                        .map(crate -> new OnlineLootCrateSnapshotResponseDto(
+                                crate.crateId(),
+                                crate.crateType(),
+                                crate.x(),
+                                crate.y(),
+                                crate.targetY(),
+                                crate.isLanding(),
+                                crate.collected(),
+                                crate.value()))
+                        .toList() : List.of())
+                .damageTrails(session.getWorld().damageTrails() != null ? session.getWorld().damageTrails().stream()
+                        .map(trail -> new OnlineDamageTrailSnapshotResponseDto(
+                                trail.id(),
+                                trail.ownerPlayerId(),
+                                trail.position(),
+                                trail.radius(),
+                                trail.damagePerSecond(),
+                                trail.remainingTicks() / (double) content.world().tickRateHz()))
+                        .toList() : List.of())
+                .build();
     }
 
     private static OnlineTankSnapshotResponseDto tankSnapshot(GameContent content, TankState state) {
         TankDefinition definition = content.requireTank(state.definitionId());
-        return new OnlineTankSnapshotResponseDto(state.entityId(), state.playerId(), state.displayName(), definition.id(),
-                definition.renderAssetId(), state.position(), state.facing(), state.aimAngle(), state.power(),
-                state.selectedProjectileSlotId(), definition.loadout().stream().map(slot -> new OnlineProjectileSlotSnapshotResponseDto(
-                        slot.id(), slot.projectileDefinitionId(), slot.label(), slot.renderAssetId())).toList(),
-                state.health(), definition.maxHealth(), state.fuel(), state.alive());
+        return OnlineTankSnapshotResponseDto.builder()
+                .entityId(state.entityId())
+                .playerId(state.playerId())
+                .displayName(state.displayName())
+                .tankDefinitionId(definition.id())
+                .width(definition.width())
+                .height(definition.height())
+                .visual(definition.visual())
+                .position(state.position())
+                .facing(state.facing())
+                .aimAngle(state.aimAngle())
+                .power(state.power())
+                .selectedProjectileSlotId(state.selectedProjectileSlotId())
+                .loadout(definition.loadout())
+                .health(state.health())
+                .maxHealth(definition.maxHealth())
+                .fuel(state.fuel())
+                .alive(state.alive())
+                .build();
     }
 
-    private static OnlineMatchSnapshotResponseDto.MatchPhase matchPhase(GameSession session) {
+    private static MatchPhase matchPhase(GameSession session) {
         return GameSessionState.ENDED.equals(session.getState())
-                ? OnlineMatchSnapshotResponseDto.MatchPhase.GAME_OVER : OnlineMatchSnapshotResponseDto.MatchPhase.AIMING;
+                ? MatchPhase.GAME_OVER : MatchPhase.AIMING;
     }
     private static long activePlayerId(GameSession session) {
         return session.getWorld().match().activePlayerId();

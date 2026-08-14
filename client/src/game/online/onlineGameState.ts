@@ -1,23 +1,27 @@
 import type {
   OnlineGameStateSnapshotResponse,
   OnlineTerrainSnapshotResponse,
-} from "../../api/ws/dto/gameplay/OnlineGameplayProtocol";
-import { localGameContent, type GameContent } from "../content/localGameContent";
+} from "../../api/ws/dto/gameplay/onlineGameplayProtocol";
+import { createInitialWeaponAmmo } from "../rendering/ResourceManager";
+import { defaultWorldCoordinateMapper } from "./onlineWorldMapper";
+import type { ClientVisualState } from "../simulation/ClientVisualSimulation";
 import type {
+  GameContext,
   GameState,
   ImpactEvent,
+  LootCrate,
+  DamageTrail,
   TerrainSnapshot,
   TurnPhase,
   VisualIdentity,
+  Vec2,
 } from "../types";
 import type {
   OnlineConfirmedState,
   OnlineImpactProjectionEvent,
 } from "./onlineConfirmedState";
 
-const DEFAULT_TANK_BODY_ANGLE = 0;
 const DEFAULT_PROJECTILE_POWER = 0;
-const DEFAULT_PROJECTILE_RADIUS = 4;
 const DEFAULT_IMPACT_DURATION_SECONDS = 0.4;
 
 const fallbackVisual: VisualIdentity = {
@@ -30,25 +34,30 @@ const fallbackVisual: VisualIdentity = {
 export function toGameState(
   confirmed: OnlineConfirmedState,
   renderState: OnlineGameStateSnapshotResponse,
-  content: GameContent = localGameContent,
-  monotonicNowMs: number = performance.now(),
+  ctx: GameContext,
+  visualState?: ClientVisualState,
+  flightState?: { position: Vec2; velocity: Vec2 } | null,
 ): GameState {
   return onlineSnapshotToGameState(
     renderState,
-    content,
     confirmed.localPlayerId,
     confirmed.impactEvents,
-    monotonicNowMs,
+    ctx,
+    visualState,
+    flightState,
   );
 }
 
 export function onlineSnapshotToGameState(
   snapshot: OnlineGameStateSnapshotResponse,
-  content: GameContent = localGameContent,
-  localPlayerId: number | null = null,
-  impactEvents: OnlineImpactProjectionEvent[] = [],
-  monotonicNowMs: number = performance.now(),
+  localPlayerId: number | null,
+  impactEvents: OnlineImpactProjectionEvent[],
+  ctx: GameContext,
+  visualState?: ClientVisualState,
+  flightState?: { position: Vec2; velocity: Vec2 } | null,
 ): GameState {
+  const content = ctx.gameContent;
+
   return {
     match: {
       mode: "online",
@@ -58,12 +67,28 @@ export function onlineSnapshotToGameState(
       turnNumber: snapshot.match.turnNumber,
       turnTimeRemaining:
         snapshot.match.turnTimeRemainingTicks / content.world.tickRateHz,
+      matchTimeRemaining:
+        snapshot.match.matchTimeRemainingTicks / content.world.tickRateHz,
+      wind: snapshot.match.wind,
       winnerPlayerId: snapshot.match.winnerPlayerId,
+      biome: snapshot.match.biome,
+      isCameraLocked: visualState?.isCameraLocked ?? true,
+      cameraX: visualState?.cameraX ?? 0,
     },
     terrain: mapOnlineTerrain(snapshot.terrain),
     projectileDefinitions: content.projectiles,
     tanks: snapshot.tanks.map((tank) => {
       const tankDefinition = content.tanks[tank.tankDefinitionId];
+      const weaponAmmo = createInitialWeaponAmmo(tank.loadout);
+      const visual: VisualIdentity = tank.visual
+        ? {
+            fill: tank.visual.fillStyle,
+            stroke: tank.visual.strokeStyle,
+            accent: tank.visual.accentColor,
+            label: tank.visual.label,
+          }
+        : tankDefinition?.visual ?? namedFallbackVisual(tank.displayName);
+
       return {
         entityId: tank.entityId,
         playerId: tank.playerId,
@@ -71,76 +96,136 @@ export function onlineSnapshotToGameState(
         controllerKind: tank.playerId === localPlayerId ? "human" : "remote",
         tankDefinitionId: tank.tankDefinitionId,
         tankName: tankDefinition?.name ?? tank.tankDefinitionId,
-        visual: tankDefinition?.visual ?? namedFallbackVisual(tank.displayName),
-        loadout: tank.loadout.map((slot) => ({
-          id: slot.id,
-          projectileDefinitionId: slot.projectileDefinitionId,
-          label: slot.label,
-          renderAssetId: slot.renderAssetId,
-        })),
+        width: tank.width ?? tankDefinition?.width ?? 32,
+        height: tank.height ?? tankDefinition?.height ?? 24,
+        visual,
+        loadout: tank.loadout,
         selectedProjectileSlotId: tank.selectedProjectileSlotId,
+        weaponAmmo,
         maxHealth: tank.maxHealth,
         health: tank.health,
         facing: tank.facing,
-        bodyAngle: DEFAULT_TANK_BODY_ANGLE,
+        bodyAngle: computeSlopeAngleFromSurface(
+          snapshot.terrain.surface,
+          tank.position.x,
+          tank.width,
+        ),
         aimAngle: tank.aimAngle,
         power: tank.power,
         maxFuel: tankDefinition?.maxFuel ?? tank.fuel,
         fuel: tank.fuel,
         alive: tank.alive,
-        position: { ...tank.position },
+        position: {
+          x: defaultWorldCoordinateMapper.serverToClientX(tank.position.x),
+          // Server sends tank center (surfaceY - height/2); renderer expects
+          // bottom-of-tank (surfaceY), so add back trackGroundOffset.
+          y: tank.position.y + (tank.height ?? tankDefinition?.height ?? 24) / 2,
+        },
       };
     }),
-    projectiles: snapshot.projectiles.map((projectile) => {
-      const definition = content.projectiles[projectile.projectileDefinitionId];
-      return {
-        entityId: projectile.entityId,
-        ownerPlayerId: projectile.ownerPlayerId,
-        projectileDefinitionId: projectile.projectileDefinitionId,
-        name: definition?.name ?? projectile.projectileDefinitionId,
-        power: DEFAULT_PROJECTILE_POWER,
-        radius: definition?.physics.radius ?? DEFAULT_PROJECTILE_RADIUS,
-        physics: definition?.physics ?? {
-          radius: DEFAULT_PROJECTILE_RADIUS,
-          gravityScale: 1,
-          drag: 0,
-          muzzleVelocityScale: 1,
-        },
-        terrainEffect: definition?.terrainEffect ?? {
-          type: "crater",
-          radius: 24,
-        },
-        damageEffect: definition?.damageEffect ?? {
-          type: "radial",
-          radius: 24,
-          damage: 20,
-        },
-        impactAnimationId: definition?.impactAnimationId ?? "online-impact",
-        impactDuration:
-          definition?.impactDuration ?? DEFAULT_IMPACT_DURATION_SECONDS,
-        visual: definition?.visual ?? fallbackVisual,
-        position: { ...projectile.position },
-        velocity: { ...projectile.velocity },
-      };
-    }),
-    impactEvents: mapOnlineImpactEvents(impactEvents, content, monotonicNowMs),
+    projectiles:
+      visualState?.activeFlight && flightState
+        ? [
+            {
+              entityId: visualState.activeFlight.projectileEntityId,
+              ownerPlayerId: visualState.activeFlight.ownerPlayerId,
+              projectileDefinitionId:
+                visualState.activeFlight.projectileDefinitionId,
+              name:
+                content.projectiles[
+                  visualState.activeFlight.projectileDefinitionId
+                ]?.name ?? visualState.activeFlight.projectileDefinitionId,
+              power: DEFAULT_PROJECTILE_POWER,
+              radius:
+                content.projectiles[
+                  visualState.activeFlight.projectileDefinitionId
+                ]?.radius ?? 4,
+              physics: {
+                radius:
+                  content.projectiles[
+                    visualState.activeFlight.projectileDefinitionId
+                  ]?.radius ?? 4,
+                gravityScale:
+                  content.projectiles[
+                    visualState.activeFlight.projectileDefinitionId
+                  ]?.gravityScale ?? 1,
+                drag:
+                  content.projectiles[
+                    visualState.activeFlight.projectileDefinitionId
+                  ]?.drag ?? 0,
+                muzzleVelocityScale: 1,
+              },
+              terrainEffect: { type: "crater", radius: 24 },
+              damageEffect: { type: "radial", radius: 24, damage: 20 },
+              position: flightState.position,
+              velocity: flightState.velocity,
+            },
+          ]
+        : snapshot.projectiles.map((projectile) => {
+            const definition = content.projectiles[projectile.projectileDefinitionId];
+            return {
+              entityId: projectile.entityId,
+              ownerPlayerId: projectile.ownerPlayerId,
+              projectileDefinitionId: projectile.projectileDefinitionId,
+              name: definition?.name ?? projectile.projectileDefinitionId,
+              power: DEFAULT_PROJECTILE_POWER,
+              radius: definition?.radius ?? 4,
+              physics: {
+                radius: definition?.radius ?? 4,
+                gravityScale: definition?.gravityScale ?? 1,
+                drag: definition?.drag ?? 0,
+                muzzleVelocityScale: 1,
+              },
+              terrainEffect:
+                definition?.terrainEffectType === "DRILL"
+                  ? {
+                      type: "drill",
+                      radius: definition.terrainRadius,
+                      depth: definition.terrainDepth,
+                    }
+                  : {
+                      type: "crater",
+                      radius: definition?.terrainRadius ?? 24,
+                    },
+              damageEffect:
+                definition?.damageEffectType === "FOCUSED"
+                  ? {
+                      type: "focused",
+                      radius: definition.damageRadius,
+                      damage: definition.damage,
+                    }
+                  : {
+                      type: "radial",
+                      radius: definition?.damageRadius ?? 24,
+                      damage: definition?.damage ?? 20,
+                    },
+              position: { ...projectile.position },
+              velocity: { ...projectile.velocity },
+            };
+          }),
+    impactEvents: mapOnlineImpactEvents(impactEvents, ctx),
+    lootCrates: mapOnlineLootCrates(snapshot),
+    damageTrails: mapOnlineDamageTrails(snapshot),
+    particles: visualState?.particles ?? [],
+    floatingTexts: visualState?.floatingTexts ?? [],
+    decors: visualState?.decors ?? [],
+    clouds: visualState?.clouds ?? [],
   };
 }
 
 function mapOnlineImpactEvents(
   events: OnlineImpactProjectionEvent[],
-  content: GameContent,
-  monotonicNowMs: number,
+  ctx: GameContext,
 ): ImpactEvent[] {
+  const monotonicNowMs = ctx.clock();
   return events.map((event) => {
-    const definition = content.projectiles[event.projectileDefinitionId];
     return {
       id: event.id,
       position: { ...event.position },
       animationId: event.animationId,
       age: Math.max(0, (monotonicNowMs - event.createdAtMonotonicMs) / 1000),
-      duration: definition?.impactDuration ?? DEFAULT_IMPACT_DURATION_SECONDS,
-      visual: definition?.visual ?? fallbackVisual,
+      duration: DEFAULT_IMPACT_DURATION_SECONDS,
+      visual: fallbackVisual,
     };
   });
 }
@@ -150,7 +235,7 @@ function mapOnlinePhase(
 ): TurnPhase {
   switch (phase) {
     case "AIMING":
-      return "aiming";
+      return "thinking";
     case "BALLISTICS":
       return "ballistics";
     case "IMPACT":
@@ -165,11 +250,12 @@ function mapOnlinePhase(
 function mapOnlineTerrain(
   terrain: OnlineTerrainSnapshotResponse,
 ): TerrainSnapshot {
+  const mapped = defaultWorldCoordinateMapper.mapSurface(terrain.surface);
   return {
     kind: "heightmap",
-    width: terrain.width,
+    width: mapped.width,
     height: terrain.height,
-    surface: [...terrain.surface],
+    surface: mapped.surface,
   };
 }
 
@@ -178,4 +264,50 @@ function namedFallbackVisual(displayName: string): VisualIdentity {
     ...fallbackVisual,
     label: displayName.slice(0, 1).toUpperCase(),
   };
+}
+
+function mapOnlineLootCrates(
+  snapshot: OnlineGameStateSnapshotResponse,
+): LootCrate[] {
+  if (!snapshot.lootCrates) return [];
+  return snapshot.lootCrates.map((crate) => {
+    return {
+      crateId: crate.crateId,
+      crateType: crate.crateType,
+      x: crate.x,
+      y: !crate.isLanding ? crate.targetY : crate.y,
+      targetY: crate.targetY,
+      isLanding: crate.isLanding,
+      collected: crate.collected,
+      value: crate.value,
+    };
+  });
+}
+
+function mapOnlineDamageTrails(
+  snapshot: OnlineGameStateSnapshotResponse,
+): DamageTrail[] {
+  if (!snapshot.damageTrails) return [];
+  return snapshot.damageTrails.map((trail) => ({
+    id: trail.id,
+    position: { ...trail.position },
+    radius: trail.radius,
+    damagePerSecond: trail.damagePerSecond,
+    remainingDuration: trail.durationSeconds,
+    ownerPlayerId: trail.ownerPlayerId,
+  }));
+}
+
+function computeSlopeAngleFromSurface(
+  surface: number[],
+  x: number,
+  tankWidth: number = 32,
+): number {
+  if (!surface || surface.length === 0) return 0;
+  const halfWidth = Math.max(1, Math.floor(tankWidth / 2));
+  const leftX = Math.max(0, Math.min(surface.length - 1, Math.floor(x - halfWidth)));
+  const rightX = Math.max(0, Math.min(surface.length - 1, Math.floor(x + halfWidth)));
+  const leftY = surface[leftX] ?? 0;
+  const rightY = surface[rightX] ?? 0;
+  return Math.atan2(rightY - leftY, rightX - leftX);
 }
