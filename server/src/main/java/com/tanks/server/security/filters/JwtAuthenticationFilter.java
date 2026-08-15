@@ -13,6 +13,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import java.io.IOException;
 import jakarta.servlet.DispatcherType;
@@ -25,56 +27,63 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private ProblemDetailWriter problemDetailWriter;
 
-    public JwtAuthenticationFilter(AuthService authService, ProblemDetailWriter problemDetailWriter){
+    public JwtAuthenticationFilter(AuthService authService, ProblemDetailWriter problemDetailWriter) {
         this.authService = authService;
         this.problemDetailWriter = problemDetailWriter;
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+            throws ServletException, IOException {
         // User is logging in, registering, or logging out.
         String requestPath = request.getRequestURI();
 
-        if (requestPath.equals("/api/v1/auth/login/oauth2/response") && request.getDispatcherType() != DispatcherType.FORWARD) {
-            problemDetailWriter.writeProblemDetail(request,response, HttpStatus.FORBIDDEN, null);
+        if (requestPath.equals("/api/v1/auth/login/oauth2/response")
+                && request.getDispatcherType() != DispatcherType.FORWARD) {
+            problemDetailWriter.writeProblemDetail(request, response, HttpStatus.FORBIDDEN, null);
             return;
         }
 
-        if(     requestPath.startsWith("/api/v1/auth/register") ||
-                requestPath.startsWith("/api/v1/auth/login")    ||
-                requestPath.startsWith("/api/v1/auth/logout")    ||
-                requestPath.startsWith("/api/v1/auth/oauth2/authorization") ||
-                requestPath.startsWith("/ws") ||
-                requestPath.startsWith("/api/v1/test") ||
-                requestPath.startsWith("/api/v1/auth/refresh")){
-
-            filterChain.doFilter(request,response);
+        if (shouldNotAuthenticate(request)) {
+            filterChain.doFilter(request, response);
             return;
         }
         // User has been logged in by some other filter
-        else if(SecurityContextHolder.getContext().getAuthentication() != null){
-            filterChain.doFilter(request,response);
+        else if (SecurityContextHolder.getContext().getAuthentication() != null) {
+            filterChain.doFilter(request, response);
             return;
         }
 
         // Extract user from access token
         String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
 
-        if(authHeader == null || !authHeader.startsWith(TOKEN_PREFIX)){
-            problemDetailWriter.writeProblemDetail(request,response, HttpStatus.UNAUTHORIZED, "Missing or invalid authorization header");
+        if (authHeader == null || !authHeader.startsWith(TOKEN_PREFIX)) {
+            problemDetailWriter.writeProblemDetail(request, response, HttpStatus.UNAUTHORIZED,
+                    "Missing or invalid authorization header");
             return;
         }
 
         String token = authHeader.substring(TOKEN_PREFIX.length());
 
-        try{
+        try {
             SecurityContextHolder.getContext().setAuthentication(new JwtAuthentication(authService.parseUser(token)));
-        }catch (ResponseStatusException e){
-            problemDetailWriter.writeProblemDetail(request,response,HttpStatus.UNAUTHORIZED, e.getMessage());
+        } catch (ResponseStatusException e) {
+            problemDetailWriter.writeProblemDetail(request, response, HttpStatus.UNAUTHORIZED, e.getMessage());
             return;
         }
 
-        filterChain.doFilter(request,response);
+        filterChain.doFilter(request, response);
     }
 
+    protected boolean shouldNotAuthenticate(HttpServletRequest request) throws ServletException {
+        String requestPath = request.getRequestURI();
+        return requestPath.startsWith("/api/v1/auth/register") ||
+                requestPath.startsWith("/api/v1/auth/login") ||
+                requestPath.startsWith("/api/v1/auth/logout") ||
+                requestPath.startsWith("/api/v1/auth/oauth2/authorization") ||
+                requestPath.startsWith("/api/v1/game") ||
+                requestPath.startsWith("/ws") ||
+                requestPath.startsWith("/api/v1/test") ||
+                requestPath.startsWith("/api/v1/auth/refresh");
+    }
 }

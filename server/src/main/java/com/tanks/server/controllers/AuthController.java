@@ -7,7 +7,6 @@ import com.tanks.server.mappers.user.RegisterRequestToUserMapper;
 import com.tanks.server.security.model.JwtSession;
 import com.tanks.server.services.AuthService;
 import com.tanks.server.websocket.dto.UserSessionStatusDto;
-import com.tanks.server.websocket.entities.userSession.UserSession;
 import com.tanks.server.websocket.services.UserSessionService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
@@ -25,7 +24,6 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import java.net.URI;
 
-
 @Controller
 @RequestMapping("/api/v1/auth")
 public class AuthController {
@@ -40,13 +38,13 @@ public class AuthController {
     @Value("${app.client.origin}")
     private String clientOrigin;
 
-    public AuthController(AuthService authService, UserSessionService userSessionService){
+    public AuthController(AuthService authService, UserSessionService userSessionService) {
         this.authService = authService;
         this.userSessionService = userSessionService;
     }
 
     @PostMapping("/status")
-    public ResponseEntity<AuthStatusResponseDto> status(Authentication authentication){
+    public ResponseEntity<AuthStatusResponseDto> status(Authentication authentication) {
 
         UserDto userDto = (UserDto) authentication.getPrincipal();
 
@@ -56,90 +54,92 @@ public class AuthController {
     }
 
     @PostMapping("/register/password")
-    public ResponseEntity<RefreshTokenResponse> register(@Valid @RequestBody RegisterRequest request){
+    public ResponseEntity<RefreshTokenResponse> register(@Valid @RequestBody RegisterRequest request) {
         User user = new RegisterRequestToUserMapper().apply(request);
 
         JwtSession session = authService.register(user);
 
         return ResponseEntity
                 .created(URI.create(ServletUriComponentsBuilder.fromPath("/api/v1/auth/status").build().toUriString()))
-                .header(HttpHeaders.SET_COOKIE,session.cookie().toString())
-                .body(new RefreshTokenResponse(session.accessToken(),session.userDto()));
+                .header(HttpHeaders.SET_COOKIE, session.cookie().toString())
+                .body(new RefreshTokenResponse(session.accessToken(), session.userDto()));
     }
 
     @PostMapping("/register/postOAuth2")
-    public ResponseEntity<RefreshTokenResponse> postOAuth2Register(@Valid @RequestBody PostOAuth2RegisterRequest request){
+    public ResponseEntity<RefreshTokenResponse> postOAuth2Register(
+            @Valid @RequestBody PostOAuth2RegisterRequest request) {
 
         JwtSession session = authService.postOAuth2Register(request);
 
         return ResponseEntity
                 .created(URI.create(ServletUriComponentsBuilder.fromPath("/api/v1/auth/status").build().toUriString()))
-                .header(HttpHeaders.SET_COOKIE,session.cookie().toString())
-                .body(new RefreshTokenResponse(session.accessToken(),session.userDto()));
+                .header(HttpHeaders.SET_COOKIE, session.cookie().toString())
+                .body(new RefreshTokenResponse(session.accessToken(), session.userDto()));
     }
 
     @PostMapping("/login/password")
-    public ResponseEntity<RefreshTokenResponse> login(@Valid @RequestBody LoginRequest loginRequest){
+    public ResponseEntity<RefreshTokenResponse> login(@Valid @RequestBody LoginRequest loginRequest) {
 
         JwtSession session = authService.login(loginRequest);
 
         return ResponseEntity
                 .ok()
-                .header(HttpHeaders.SET_COOKIE,session.cookie().toString())
-                .body(new RefreshTokenResponse(session.accessToken(),session.userDto()));
+                .header(HttpHeaders.SET_COOKIE, session.cookie().toString())
+                .body(new RefreshTokenResponse(session.accessToken(), session.userDto()));
     }
 
     @PostMapping("/login/postOAuth2")
-    public ResponseEntity<RefreshTokenResponse> postOAuth2Login(@Valid @RequestBody PostOAuth2LoginRequest loginRequest){
+    public ResponseEntity<RefreshTokenResponse> postOAuth2Login(
+            @Valid @RequestBody PostOAuth2LoginRequest loginRequest) {
 
         JwtSession session = authService.postOAuth2Login(loginRequest);
 
         return ResponseEntity
                 .ok()
-                .header(HttpHeaders.SET_COOKIE,session.cookie().toString())
-                .body(new RefreshTokenResponse(session.accessToken(),session.userDto()));
+                .header(HttpHeaders.SET_COOKIE, session.cookie().toString())
+                .body(new RefreshTokenResponse(session.accessToken(), session.userDto()));
     }
 
     @PostMapping("/refresh")
-    public ResponseEntity<RefreshTokenResponse> refresh(@CookieValue("refreshToken") String refreshToken){
+    public ResponseEntity<RefreshTokenResponse> refresh(@CookieValue("refreshToken") String refreshToken) {
 
-        if(authService.shouldRollSession(refreshToken)){
+        if (authService.shouldRollSession(refreshToken)) {
             JwtSession newSession = authService.extendSession(refreshToken);
             return ResponseEntity
                     .ok()
-                    .header(HttpHeaders.SET_COOKIE,newSession.cookie().toString())
-                    .body(new RefreshTokenResponse(newSession.accessToken(),newSession.userDto()));
-        }else{
+                    .header(HttpHeaders.SET_COOKIE, newSession.cookie().toString())
+                    .body(new RefreshTokenResponse(newSession.accessToken(), newSession.userDto()));
+        } else {
             return ResponseEntity.ok(authService.refresh(refreshToken));
         }
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<Void> logout(@CookieValue("refreshToken") String refreshToken){
+    public ResponseEntity<Void> logout(@CookieValue("refreshToken") String refreshToken) {
         ResponseCookie expiredCookie = authService.deleteSession(refreshToken);
 
         return ResponseEntity
                 .ok()
-                .header(HttpHeaders.SET_COOKIE,expiredCookie.toString())
+                .header(HttpHeaders.SET_COOKIE, expiredCookie.toString())
                 .build();
     }
 
     @GetMapping("/login/oauth2/response")
-    public String oauth2LoginResponse(Model model, HttpSession session, HttpServletRequest request){
+    public String oauth2LoginResponse(Model model, HttpSession session, HttpServletRequest request) {
         OAuth2LoginResponse response = (OAuth2LoginResponse) session.getAttribute("oauth2LoginResponse");
-        model.addAttribute("oauth2LoginResponse",response);
+        model.addAttribute("oauth2LoginResponse", response);
 
-
-        if(isDev){
-            model.addAttribute("origin",clientOrigin);
-        }else{
+        if (isDev) {
+            model.addAttribute("origin", clientOrigin);
+        } else {
             String origin = UriComponentsBuilder.newInstance()
                     .scheme(request.getScheme())
                     .host(request.getServerName())
-                    .port((request.getServerPort() == 80 || request.getServerPort() == 443) ? -1 : request.getServerPort())
+                    .port((request.getServerPort() == 80 || request.getServerPort() == 443) ? -1
+                            : request.getServerPort())
                     .build()
                     .toUriString();
-            model.addAttribute("origin",origin);
+            model.addAttribute("origin", origin);
         }
 
         return "OAuth2LoginResponse";

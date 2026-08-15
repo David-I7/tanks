@@ -14,6 +14,7 @@ dist-ssr
 old_src
 *.local
 .tmp
+.npm
 
 # Editor directories and files
 .vscode/*

@@ -23,6 +23,8 @@ services:
       - type: bind
         source: ../server
         target: /app
+      - type: volume
+        target: /root/.m2
     networks:
       - backend
 
@@ -44,6 +46,8 @@ services:
       - frontend
 
   nginx:
+    depends_on:
+      - tanks
     build:
       context: ../client
       dockerfile: Dockerfile.dev

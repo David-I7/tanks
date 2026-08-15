@@ -1,0 +1,6 @@
+# pack-refs with: peeled fully-peeled sorted 
+b7c56b25ee70e41aefe3aadbe1813c865bc9c06d refs/heads/feature
+411f252be34a442dff47f00d559125fbb2a69a8f refs/heads/main
+0e4ee355d202286c1b5e9f30ccec063cfbb4865f refs/heads/proto
+2b89428c283422af7aa5136d046cb9d1480a105f refs/heads/slop
+e4588caf7618e5c79b42cbf4649d4920eb955316 refs/remotes/origin/main

@@ -5,17 +5,20 @@ WORKDIR /app
 COPY .mvn .mvn
 COPY mvnw .
 COPY pom.xml .
-RUN ./mvnw verify clean --fail-never
+
+RUN --mount=type=cache,target=/root/.m2 \
+    ./mvnw dependency:go-offline -B
+
 COPY . .
+
+RUN --mount=type=cache,target=/root/.m2 \
+    ./mvnw package -DskipTests -B
 
 FROM base AS dev
 CMD ["./mvnw", "spring-boot:run"]
 
-FROM base AS prod
-RUN ./mvnw package -DskipTests
-
 FROM eclipse-temurin:25-jre AS runtime
-COPY --link --from=prod /app/target/*.jar ./app.jar
+COPY --link --from=base /app/target/*.jar ./app.jar
 EXPOSE 8080
 CMD ["java", "-jar", "app.jar"]
 
