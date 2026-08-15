@@ -11,16 +11,13 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 @EnableScheduling
 public class ServerApplication {
 
-	public static void main(String[] args) {
-		SpringApplication.run(ServerApplication.class, args);
-	}
+    public static void main(String[] args) {
+        SpringApplication.run(ServerApplication.class, args);
+    }
 
-	@Bean
-	CommandLineRunner commandLineRunner(PasswordEncoder passwordEncoder ) {
-		return (args) -> {
-
-		};
-	}
-
-
+    @Bean
+    CommandLineRunner commandLineRunner(PasswordEncoder passwordEncoder) {
+        return (args) -> {
+        };
+    }
 }
