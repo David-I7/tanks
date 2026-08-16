@@ -28,8 +28,8 @@
       "movementQuantum": 8,
       "fuelRate": 1,
       "climbCapability": 5,
-      "width": 32,
-      "height": 16,
+      "width": 24,
+      "height": 24,
       "visual": {
         "fillStyle": "#3b82f6",
         "strokeStyle": "#1d4ed8",
@@ -52,8 +52,8 @@
       "movementQuantum": 8,
       "fuelRate": 1,
       "climbCapability": 5,
-      "width": 36,
-      "height": 18,
+      "width": 24,
+      "height": 24,
       "visual": {
         "fillStyle": "#ef4444",
         "strokeStyle": "#b91c1c",
@@ -76,8 +76,8 @@
       "movementQuantum": 8,
       "fuelRate": 1,
       "climbCapability": 5,
-      "width": 30,
-      "height": 15,
+      "width": 24,
+      "height": 24,
       "visual": {
         "fillStyle": "#f59e0b",
         "strokeStyle": "#b45309",
@@ -100,8 +100,8 @@
       "movementQuantum": 8,
       "fuelRate": 1,
       "climbCapability": 5,
-      "width": 32,
-      "height": 16,
+      "width": 24,
+      "height": 24,
       "visual": {
         "fillStyle": "#8b5cf6",
         "strokeStyle": "#6d28d9",

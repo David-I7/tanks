@@ -1,4 +1,4 @@
-import type { GameContent } from "../content/localGameContent";
+import type { GameContent } from "../rendering/ResourceManager";
 import type { GameViewport } from "../world/worldSizing";
 import { createLocalInitialWorld } from "../world/createInitialWorld";
 import { LocalSimulation } from "./LocalSimulation";

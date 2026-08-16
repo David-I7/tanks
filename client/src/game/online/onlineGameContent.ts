@@ -1,5 +1,5 @@
 import type { GameContentResponseDto } from "../../api/ws/dto/gameplay/onlineGameplayProtocol";
-import type { GameContent } from "../content/localGameContent";
+import type { GameContent } from "../rendering/ResourceManager";
 
 export function onlineGameContentFromResponse(
   response: GameContentResponseDto,
@@ -12,7 +12,7 @@ export function onlineGameContentFromResponse(
       height: response.world.height,
       tickRateHz: response.world.tickRateHz,
       gravity: response.world.gravity,
-      projectileTimeStepSeconds: response.world.projectileTimeStepSeconds,
+      projectileTimeStepSeconds: response.world.deltaTime,
       maxProjectileSteps: response.world.maxProjectileSteps,
       movementSegmentDurationTicks: response.world.movementSegmentDurationTicks,
       minWind: response.world.minWind,

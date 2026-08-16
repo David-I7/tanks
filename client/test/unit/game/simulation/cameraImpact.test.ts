@@ -1,8 +1,7 @@
-// @ts-nocheck
 import { describe, it, expect } from "vitest";
 import { LocalWorld } from "../../../../src/game/world/LocalWorld";
 import { LocalTerrainModel } from "../../../../src/game/simulation/LocalTerrainModel";
-import { localGameContent } from "../../../../src/game/content/localGameContent";
+import { testGameContent } from "../online/mockOnlineTestState";
 import { LocalSimulation } from "../../../../src/game/simulation/LocalSimulation";
 
 describe("Camera impact tracking and turn transition", () => {
@@ -23,35 +22,36 @@ describe("Camera impact tracking and turn transition", () => {
     });
 
     const terrain = new LocalTerrainModel(1280, 720);
+    terrain.surface.fill(500);
 
     // Player 0 at x=500, Player 1 at x=1000
     world.createTank(
       { id: 0, displayName: "P1", controllerKind: "human", tankSelection: { tankDefinitionId: "heavy-armor" } },
-      localGameContent.tanks["heavy-armor"]!,
+      testGameContent.tanks["heavy-armor"]!,
       500,
-      terrain.getSurfaceY(500),
+      500,
     );
 
     world.createTank(
       { id: 1, displayName: "P2", controllerKind: "human", tankSelection: { tankDefinitionId: "heavy-armor" } },
-      localGameContent.tanks["heavy-armor"]!,
+      testGameContent.tanks["heavy-armor"]!,
       1000,
-      terrain.getSurfaceY(1000),
+      500,
     );
 
-    const sim = new LocalSimulation(world, terrain, localGameContent);
+    const sim = new LocalSimulation(world, terrain, testGameContent);
 
-    // Player 0 fires
+    // Player 0 fires directly at Player 1
     sim.submitPlayerAction(0, {
       type: "fire",
-      angle: -Math.PI / 4,
-      power: 450,
+      angle: 0,
+      power: 600,
       projectileSlotId: "basicShell",
     });
 
     // Advance until ballistics resolves to impact
     let impactOccurred = false;
-    for (let frame = 0; frame < 120; frame++) {
+    for (let frame = 0; frame < 150; frame++) {
       sim.update(0.016);
       if (world.match.phase === "impact" || world.match.phase === "transition") {
         impactOccurred = true;

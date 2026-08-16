@@ -252,7 +252,7 @@ export function predictOnlineMovement(
       confirmed.state.terrain.surface[
         Math.max(0, Math.min(confirmed.state.terrain.surface.length - 1, nextX))
       ];
-    const trackGroundOffset = (definition as any).trackGroundOffset ?? definition.height / 2;
+    const trackGroundOffset = definition.height / 2;
     const nextY = surfaceY !== undefined ? surfaceY - trackGroundOffset : y;
     if (y - nextY > definition.climbCapability) break;
     const ledge = nextY - y > definition.climbCapability;

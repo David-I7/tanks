@@ -5,8 +5,7 @@ import type {
   OnlineDiffResponseDto,
   OnlineDiffBatchResponseDto,
 } from "../../../../src/api/ws/dto/gameplay/onlineGameplayProtocol";
-import { localGameContent } from "../../../../src/game/content/localGameContent";
-import { createInitialDiff } from "./mockOnlineTestState";
+import { createInitialDiff, testGameContent } from "./mockOnlineTestState";
 
 describe("OnlineGameManager Intent Handling & Batch Processing", () => {
   it("initializes successfully and reports ready status", () => {
@@ -23,7 +22,7 @@ describe("OnlineGameManager Intent Handling & Batch Processing", () => {
     const ctx = {
       clock: () => 1000,
       generateIntentId: () => "intent-1",
-      gameContent: localGameContent,
+      gameContent: testGameContent,
     };
 
     const manager = createOnlineGameManager({ transport: mockTransport, ctx });
@@ -51,7 +50,7 @@ describe("OnlineGameManager Intent Handling & Batch Processing", () => {
     const ctx = {
       clock: () => timeMs,
       generateIntentId: vi.fn(() => `intent-${sentIntents.length + 1}`),
-      gameContent: localGameContent,
+      gameContent: testGameContent,
     };
 
     const manager = createOnlineGameManager({ transport: mockTransport, ctx });
@@ -98,7 +97,7 @@ describe("OnlineGameManager Intent Handling & Batch Processing", () => {
     const ctx = {
       clock: () => 1000,
       generateIntentId: () => "intent-fire-out-of-bounds",
-      gameContent: localGameContent,
+      gameContent: testGameContent,
     };
 
     const manager = createOnlineGameManager({ transport: mockTransport, ctx });
@@ -126,7 +125,7 @@ describe("OnlineGameManager Intent Handling & Batch Processing", () => {
     const ctx = {
       clock: () => 1000,
       generateIntentId: () => "intent-1",
-      gameContent: localGameContent,
+      gameContent: testGameContent,
     };
 
     const manager = createOnlineGameManager({ transport: mockTransport, ctx });

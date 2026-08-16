@@ -34,7 +34,7 @@ export function getMuzzlePosition(
   tankY: number,
   _angle: number,
   facing: 1 | -1 = 1,
-  width = 36,
+  width = 24,
   height = 24,
 ): TrajectoryPoint {
   const muzzleForwardOffset = width / 2.0;
