@@ -1,13 +1,12 @@
-// @ts-nocheck
 import { describe, it, expect } from "vitest";
 import { clampAimAngle, simulateTrajectoryPreview } from "../../../../src/game/simulation/ballistics";
 import { LocalWorld } from "../../../../src/game/world/LocalWorld";
 import { LocalTerrainModel } from "../../../../src/game/simulation/LocalTerrainModel";
-import { localGameContent } from "../../../../src/game/content/localGameContent";
+import { testGameContent } from "../online/mockOnlineTestState";
 import { LocalSimulation } from "../../../../src/game/simulation/LocalSimulation";
 
 describe("clampAimAngle", () => {
-  it("should preserve valid radian angles in upper semicircle [-\u03c0, 0]", () => {
+  it("should preserve valid radian angles in upper semicircle [-π, 0]", () => {
     expect(clampAimAngle(0)).toBe(0);
     expect(clampAimAngle(-Math.PI / 4)).toBe(-Math.PI / 4);
     expect(clampAimAngle(-Math.PI / 2)).toBe(-Math.PI / 2);
@@ -17,11 +16,11 @@ describe("clampAimAngle", () => {
   it("should clamp radian angles pointing into the ground (> 0)", () => {
     // Pointing down-right -> clamps to 0
     expect(clampAimAngle(Math.PI / 6)).toBe(0);
-    // Pointing down-left -> clamps to -\u03c0
+    // Pointing down-left -> clamps to -π
     expect(clampAimAngle((3 * Math.PI) / 4)).toBe(-Math.PI);
   });
 
-  it("should clamp radian angles beyond 180 degrees left (< -\u03c0)", () => {
+  it("should clamp radian angles beyond 180 degrees left (< -π)", () => {
     expect(clampAimAngle(-1.2 * Math.PI)).toBe(-Math.PI);
   });
 
@@ -55,18 +54,18 @@ describe("LocalSimulation angle range enforcement", () => {
     const terrain = new LocalTerrainModel(1280, 720);
     const tankId = world.createTank(
       { id: 0, displayName: "P1", controllerKind: "human", tankSelection: { tankDefinitionId: "heavy-armor" } },
-      localGameContent.tanks["heavy-armor"]!,
+      testGameContent.tanks["heavy-armor"]!,
       200,
       400,
     );
 
-    const sim = new LocalSimulation(world, terrain, localGameContent);
+    const sim = new LocalSimulation(world, terrain, testGameContent);
 
     // Aiming into ground on right side (+0.5 rad)
     sim.submitPlayerAction(0, { type: "aim", angle: 0.5, power: 300 });
     expect(world.tanks.get(tankId)!.aimAngle).toBe(0);
 
-    // Aiming past 180 deg (-1.5 * \u03c0 rad)
+    // Aiming past 180 deg (-1.5 * π rad)
     sim.submitPlayerAction(0, { type: "aim", angle: -1.5 * Math.PI, power: 300 });
     expect(world.tanks.get(tankId)!.aimAngle).toBe(-Math.PI);
 
@@ -94,8 +93,8 @@ describe("simulateTrajectoryPreview", () => {
           power: 1,
           selectedProjectileSlotId: "basicShell",
           loadout: ["basicShell"],
-          width: 32,
-          height: 16,
+          width: 24,
+          height: 24,
         },
       ],
     };

@@ -1,8 +1,7 @@
-// @ts-nocheck
 import { describe, it, expect } from "vitest";
 import { LocalWorld } from "../../../../src/game/world/LocalWorld";
 import { LocalTerrainModel } from "../../../../src/game/simulation/LocalTerrainModel";
-import { localGameContent } from "../../../../src/game/content/localGameContent";
+import { testGameContent } from "../online/mockOnlineTestState";
 import { LocalSimulation } from "../../../../src/game/simulation/LocalSimulation";
 
 describe("LocalSimulation damage calculation", () => {
@@ -26,22 +25,22 @@ describe("LocalSimulation damage calculation", () => {
 
     const tank0Id = world.createTank(
       { id: 0, displayName: "P1", controllerKind: "human", tankSelection: { tankDefinitionId: "heavy-armor" } },
-      localGameContent.tanks["heavy-armor"]!,
+      testGameContent.tanks["heavy-armor"]!,
       200,
       terrain.getSurfaceY(200),
     );
 
     const tank1Id = world.createTank(
       { id: 1, displayName: "P2", controllerKind: "human", tankSelection: { tankDefinitionId: "heavy-armor" } },
-      localGameContent.tanks["heavy-armor"]!,
+      testGameContent.tanks["heavy-armor"]!,
       300,
       terrain.getSurfaceY(300),
     );
 
-    const sim = new LocalSimulation(world, terrain, localGameContent);
+    const sim = new LocalSimulation(world, terrain, testGameContent);
 
     const initialHealth = world.tanks.get(tank1Id)!.health;
-    expect(initialHealth).toBe(130);
+    expect(initialHealth).toBe(100);
 
     const fired = sim.submitPlayerAction(0, {
       type: "fire",
@@ -81,22 +80,23 @@ describe("LocalSimulation damage calculation", () => {
     });
 
     const terrain = new LocalTerrainModel(1280, 720);
+    terrain.surface.fill(500);
 
     world.createTank(
       { id: 0, displayName: "P1", controllerKind: "human", tankSelection: { tankDefinitionId: "heavy-armor" } },
-      localGameContent.tanks["heavy-armor"]!,
+      testGameContent.tanks["heavy-armor"]!,
       100,
-      terrain.getSurfaceY(100),
+      500,
     );
 
     const tank1Id = world.createTank(
       { id: 1, displayName: "P2", controllerKind: "human", tankSelection: { tankDefinitionId: "heavy-armor" } },
-      localGameContent.tanks["heavy-armor"]!,
+      testGameContent.tanks["heavy-armor"]!,
       150,
-      terrain.getSurfaceY(150),
+      500,
     );
 
-    const sim = new LocalSimulation(world, terrain, localGameContent);
+    const sim = new LocalSimulation(world, terrain, testGameContent);
 
     // Aim directly right at Tank 1
     const fired = sim.submitPlayerAction(0, {
@@ -117,6 +117,6 @@ describe("LocalSimulation damage calculation", () => {
 
     const finalHealth = world.tanks.get(tank1Id)!.health;
     // basicShell damage is 48
-    expect(finalHealth).toBe(130 - 48);
+    expect(finalHealth).toBe(100 - 48);
   });
 });

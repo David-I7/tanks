@@ -1,4 +1,4 @@
-import type { GameContent } from "./content/localGameContent";
+import type { GameContent } from "./rendering/ResourceManager";
 
 export type EntityId = number;
 

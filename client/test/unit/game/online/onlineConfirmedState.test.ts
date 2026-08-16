@@ -7,14 +7,13 @@ import {
 } from "../../../../src/game/online/onlineConfirmedState";
 import { toGameState } from "../../../../src/game/online/onlineGameState";
 import type { OnlineDiffResponseDto } from "../../../../src/api/ws/dto/gameplay/onlineGameplayProtocol";
-import { localGameContent } from "../../../../src/game/content/localGameContent";
-import { createInitialDiff, createTestSnapshot } from "./mockOnlineTestState";
+import { createInitialDiff, createTestSnapshot, testGameContent } from "./mockOnlineTestState";
 
 describe("onlineConfirmedState & onlineGameState", () => {
   const ctx = {
     clock: () => 1000,
     generateIntentId: () => "intent-1",
-    gameContent: localGameContent,
+    gameContent: testGameContent,
   };
 
   it("initializes state correctly from INITIAL_STATE diff", () => {
@@ -89,8 +88,9 @@ describe("onlineConfirmedState & onlineGameState", () => {
   it("converts OnlineConfirmedState into GameState with computed slope bodyAngle", () => {
     const snapshot = createTestSnapshot();
     // Simulate terrain slope under tank at x=200
-    snapshot.terrain.surface[184] = 380;
-    snapshot.terrain.surface[216] = 420;
+    for (let x = 180; x <= 220; x++) {
+      snapshot.terrain.surface[x] = 400 + (x - 200);
+    }
 
     const initDiff: OnlineDiffResponseDto = {
       gameSessionId: "session-123",

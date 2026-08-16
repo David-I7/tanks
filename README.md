@@ -6,3 +6,21 @@ Tanks is a multiplayer artillery game with a React/TypeScript client and a Java 
 
 - `client/` - React, Vite, TypeScript, canvas rendering, local simulation, local input, client-side prediction, and online state projection.
 - `server/` - Spring Boot, HTTP auth, STOMP WebSockets, lobby/game session lifecycle, Redis coordination, Postgres persistence, and the planned authoritative online simulation.
+
+## Startup dev server
+
+```bash
+# Initial launch
+docker compose -f docker/docker-compose.dev.yml up --build
+
+# Subsequent launches
+docker compose -f docker/docker-compose.dev.yml stop
+
+# Remove resources
+docker compose -f docker/docker-compose.dev.yml down
+
+docker volume prune
+
+## Stop containers
+docker compose -f docker/docker-compose.dev.yml stop
+```

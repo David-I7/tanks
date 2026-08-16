@@ -1,12 +1,7 @@
 import { useEffect } from "react";
-import type { ReactNode } from "react";
 import { useAuthStore } from "../../store/useAuthStore";
 
-export default function InitializeAuthDecorator({
-  children,
-}: {
-  children: ReactNode;
-}) {
+export default function InitializeAuth() {
   const refresh = useAuthStore((state) => state.refresh);
 
   useEffect(() => {
@@ -18,5 +13,5 @@ export default function InitializeAuthDecorator({
     })();
   }, []);
 
-  return children;
+  return null;
 }

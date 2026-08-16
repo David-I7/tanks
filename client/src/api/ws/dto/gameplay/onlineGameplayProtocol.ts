@@ -340,7 +340,7 @@ export type GameContentResponseDto = {
     height: number;
     tickRateHz: number;
     gravity: number;
-    projectileTimeStepSeconds: number;
+    deltaTime: number;
     maxProjectileSteps: number;
     movementSegmentDurationTicks: number;
     playerASpawnRegion: { minX: number; maxX: number };

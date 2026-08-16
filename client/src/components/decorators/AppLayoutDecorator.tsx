@@ -1,15 +1,13 @@
 import { useEffect } from "react";
 import AppLayout from "../../components/layouts/AppLayout";
 import { useLocation, useNavigate } from "react-router-dom";
-import { useAssetQuery } from "../../hooks/useAssetQuery";
 import { REDIRECT_KEY } from "../../constants";
 import { BrowserStorage } from "../../utils/storage";
 import { useUserStatusQuery } from "../../hooks/useUserStatusQuery";
 
 export default function AppLayoutDecorator() {
   const location = useLocation();
-  useAssetQuery();
-
+  
   useEffect(() => {
     const publicNonAuthPaths = ["/", "/game/local"];
     if (publicNonAuthPaths.includes(location.pathname)) {

@@ -24,13 +24,6 @@ import type {
 const DEFAULT_PROJECTILE_POWER = 0;
 const DEFAULT_IMPACT_DURATION_SECONDS = 0.4;
 
-const fallbackVisual: VisualIdentity = {
-  fill: "#94a3b8",
-  stroke: "#334155",
-  accent: "#e2e8f0",
-  label: "?",
-};
-
 export function toGameState(
   confirmed: OnlineConfirmedState,
   renderState: OnlineGameStateSnapshotResponse,
@@ -78,16 +71,13 @@ export function onlineSnapshotToGameState(
     terrain: mapOnlineTerrain(snapshot.terrain),
     projectileDefinitions: content.projectiles,
     tanks: snapshot.tanks.map((tank) => {
-      const tankDefinition = content.tanks[tank.tankDefinitionId];
       const weaponAmmo = createInitialWeaponAmmo(tank.loadout);
-      const visual: VisualIdentity = tank.visual
-        ? {
-            fill: tank.visual.fillStyle,
-            stroke: tank.visual.strokeStyle,
-            accent: tank.visual.accentColor,
-            label: tank.visual.label,
-          }
-        : tankDefinition?.visual ?? namedFallbackVisual(tank.displayName);
+      const visual: VisualIdentity = {
+        fill: tank.visual.fillStyle,
+        stroke: tank.visual.strokeStyle,
+        accent: tank.visual.accentColor,
+        label: tank.visual.label,
+      };
 
       return {
         entityId: tank.entityId,
@@ -95,9 +85,9 @@ export function onlineSnapshotToGameState(
         displayName: tank.displayName,
         controllerKind: tank.playerId === localPlayerId ? "human" : "remote",
         tankDefinitionId: tank.tankDefinitionId,
-        tankName: tankDefinition?.name ?? tank.tankDefinitionId,
-        width: tank.width ?? tankDefinition?.width ?? 32,
-        height: tank.height ?? tankDefinition?.height ?? 24,
+        tankName: content.tanks[tank.tankDefinitionId]?.name ?? tank.tankDefinitionId,
+        width: tank.width,
+        height: tank.height,
         visual,
         loadout: tank.loadout,
         selectedProjectileSlotId: tank.selectedProjectileSlotId,
@@ -112,14 +102,12 @@ export function onlineSnapshotToGameState(
         ),
         aimAngle: tank.aimAngle,
         power: tank.power,
-        maxFuel: tankDefinition?.maxFuel ?? tank.fuel,
+        maxFuel: tank.fuel,
         fuel: tank.fuel,
         alive: tank.alive,
         position: {
           x: defaultWorldCoordinateMapper.serverToClientX(tank.position.x),
-          // Server sends tank center (surfaceY - height/2); renderer expects
-          // bottom-of-tank (surfaceY), so add back trackGroundOffset.
-          y: tank.position.y + (tank.height ?? tankDefinition?.height ?? 24) / 2,
+          y: tank.position.y + tank.height / 2,
         },
       };
     }),
@@ -134,29 +122,75 @@ export function onlineSnapshotToGameState(
               name:
                 content.projectiles[
                   visualState.activeFlight.projectileDefinitionId
-                ]?.name ?? visualState.activeFlight.projectileDefinitionId,
+                ].name,
               power: DEFAULT_PROJECTILE_POWER,
               radius:
                 content.projectiles[
                   visualState.activeFlight.projectileDefinitionId
-                ]?.radius ?? 4,
+                ].radius,
               physics: {
                 radius:
                   content.projectiles[
                     visualState.activeFlight.projectileDefinitionId
-                  ]?.radius ?? 4,
+                  ].radius,
                 gravityScale:
                   content.projectiles[
                     visualState.activeFlight.projectileDefinitionId
-                  ]?.gravityScale ?? 1,
+                  ].gravityScale,
                 drag:
                   content.projectiles[
                     visualState.activeFlight.projectileDefinitionId
-                  ]?.drag ?? 0,
+                  ].drag,
                 muzzleVelocityScale: 1,
               },
-              terrainEffect: { type: "crater", radius: 24 },
-              damageEffect: { type: "radial", radius: 24, damage: 20 },
+              terrainEffect:
+                content.projectiles[
+                  visualState.activeFlight.projectileDefinitionId
+                ].terrainEffectType === "DRILL"
+                  ? {
+                      type: "drill",
+                      radius:
+                        content.projectiles[
+                          visualState.activeFlight.projectileDefinitionId
+                        ].terrainRadius,
+                      depth:
+                        content.projectiles[
+                          visualState.activeFlight.projectileDefinitionId
+                        ].terrainDepth,
+                    }
+                  : {
+                      type: "crater",
+                      radius:
+                        content.projectiles[
+                          visualState.activeFlight.projectileDefinitionId
+                        ].terrainRadius,
+                    },
+              damageEffect:
+                content.projectiles[
+                  visualState.activeFlight.projectileDefinitionId
+                ].damageEffectType === "FOCUSED"
+                  ? {
+                      type: "focused",
+                      radius:
+                        content.projectiles[
+                          visualState.activeFlight.projectileDefinitionId
+                        ].damageRadius,
+                      damage:
+                        content.projectiles[
+                          visualState.activeFlight.projectileDefinitionId
+                        ].damage,
+                    }
+                  : {
+                      type: "radial",
+                      radius:
+                        content.projectiles[
+                          visualState.activeFlight.projectileDefinitionId
+                        ].damageRadius,
+                      damage:
+                        content.projectiles[
+                          visualState.activeFlight.projectileDefinitionId
+                        ].damage,
+                    },
               position: flightState.position,
               velocity: flightState.velocity,
             },
@@ -167,17 +201,17 @@ export function onlineSnapshotToGameState(
               entityId: projectile.entityId,
               ownerPlayerId: projectile.ownerPlayerId,
               projectileDefinitionId: projectile.projectileDefinitionId,
-              name: definition?.name ?? projectile.projectileDefinitionId,
+              name: definition.name,
               power: DEFAULT_PROJECTILE_POWER,
-              radius: definition?.radius ?? 4,
+              radius: definition.radius,
               physics: {
-                radius: definition?.radius ?? 4,
-                gravityScale: definition?.gravityScale ?? 1,
-                drag: definition?.drag ?? 0,
+                radius: definition.radius,
+                gravityScale: definition.gravityScale,
+                drag: definition.drag,
                 muzzleVelocityScale: 1,
               },
               terrainEffect:
-                definition?.terrainEffectType === "DRILL"
+                definition.terrainEffectType === "DRILL"
                   ? {
                       type: "drill",
                       radius: definition.terrainRadius,
@@ -185,10 +219,10 @@ export function onlineSnapshotToGameState(
                     }
                   : {
                       type: "crater",
-                      radius: definition?.terrainRadius ?? 24,
+                      radius: definition.terrainRadius,
                     },
               damageEffect:
-                definition?.damageEffectType === "FOCUSED"
+                definition.damageEffectType === "FOCUSED"
                   ? {
                       type: "focused",
                       radius: definition.damageRadius,
@@ -196,8 +230,8 @@ export function onlineSnapshotToGameState(
                     }
                   : {
                       type: "radial",
-                      radius: definition?.damageRadius ?? 24,
-                      damage: definition?.damage ?? 20,
+                      radius: definition.damageRadius,
+                      damage: definition.damage,
                     },
               position: { ...projectile.position },
               velocity: { ...projectile.velocity },
@@ -219,13 +253,19 @@ function mapOnlineImpactEvents(
 ): ImpactEvent[] {
   const monotonicNowMs = ctx.clock();
   return events.map((event) => {
+    const projDef = ctx.gameContent.projectiles[event.projectileDefinitionId];
     return {
       id: event.id,
       position: { ...event.position },
       animationId: event.animationId,
       age: Math.max(0, (monotonicNowMs - event.createdAtMonotonicMs) / 1000),
       duration: DEFAULT_IMPACT_DURATION_SECONDS,
-      visual: fallbackVisual,
+      visual: {
+        fill: "#ff4500",
+        stroke: "#ff8c00",
+        accent: "#ffd700",
+        label: projDef ? projDef.label : "!",
+      },
     };
   });
 }
@@ -256,13 +296,6 @@ function mapOnlineTerrain(
     width: mapped.width,
     height: terrain.height,
     surface: mapped.surface,
-  };
-}
-
-function namedFallbackVisual(displayName: string): VisualIdentity {
-  return {
-    ...fallbackVisual,
-    label: displayName.slice(0, 1).toUpperCase(),
   };
 }
 

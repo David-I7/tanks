@@ -15,7 +15,7 @@ import {
   MAX_TURN_SECONDS,
   MOVE_FUEL_COST,
 } from "../types";
-import type { GameContent } from "../content/localGameContent";
+import type { GameContent } from "../rendering/ResourceManager";
 import { GRAVITY, getMuzzlePosition, clampAimAngle } from "./ballistics";
 import { ClientVisualSimulation } from "./ClientVisualSimulation";
 
@@ -317,6 +317,9 @@ export class LocalSimulation {
       tankX,
       tankY,
       tank.aimAngle,
+      tank.facing,
+      tank.width,
+      tank.height,
     );
   }
 
@@ -327,8 +330,18 @@ export class LocalSimulation {
     tankX: number,
     tankY: number,
     aimAngle: number,
+    facing: 1 | -1 = 1,
+    width = 24,
+    height = 24,
   ): void {
-    const muzzle = getMuzzlePosition(tankX, tankY, aimAngle);
+    const muzzle = getMuzzlePosition(
+      tankX,
+      tankY,
+      aimAngle,
+      facing,
+      width,
+      height,
+    );
     this.world.createProjectile(
       ownerPlayerId,
       projectileDefinition,
@@ -444,8 +457,8 @@ export class LocalSimulation {
       if (!tankPosition) continue;
 
       const dx = projectilePosition.x - tankPosition.x;
-      const dy = projectilePosition.y - (tankPosition.y - 14);
-      if (Math.hypot(dx, dy) <= (tank.width ? tank.width * 0.5 : 18) + projectile.radius) {
+      const dy = projectilePosition.y - (tankPosition.y - tank.height * 0.5);
+      if (Math.hypot(dx, dy) <= tank.width * 0.5 + projectile.radius) {
         return tankEntityId;
       }
     }
@@ -514,9 +527,9 @@ export class LocalSimulation {
       }
 
       const dx = x - position.x;
-      const dy = y - (position.y - 12);
+      const dy = y - (position.y - tank.height * 0.5);
       const distance = Math.hypot(dx, dy);
-      const tankCollisionRadius = (tank.width ?? 32) * 0.5;
+      const tankCollisionRadius = tank.width * 0.5;
       const effectiveDistance = Math.max(0, distance - tankCollisionRadius);
 
       if (effectiveDistance > damageRadius) continue;

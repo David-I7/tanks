@@ -1,20 +1,22 @@
 package com.tanks.server.controllers;
-
-import org.springframework.core.io.ClassPathResource;
+ 
+import com.tanks.server.websocket.dto.gameplay.gameContent.GameContentResponseDto;
+import com.tanks.server.websocket.gameplay.content.GameContentCatalog;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.nio.file.Files;
-
 @RestController
 @RequestMapping("/api/v1/game")
+@RequiredArgsConstructor
 public class GameController {
 
+    private final GameContentCatalog gameContentCatalog;
+
     @GetMapping("/content")
-    public ResponseEntity<String> getContent() throws Exception{
-        String content = Files.readString(new ClassPathResource("content/game-content-v1.0.json").getFilePath());
-        return ResponseEntity.ok(content);
+    public ResponseEntity<GameContentResponseDto> getContent() {
+        return ResponseEntity.ok(GameContentResponseDto.from(gameContentCatalog.current()));
     }
 }

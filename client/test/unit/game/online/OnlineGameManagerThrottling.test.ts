@@ -3,13 +3,74 @@ import { createOnlineGameManager } from "../../../../src/game/authority/OnlineGa
 import { IntentThrottler } from "../../../../src/game/online/IntentThrottler";
 import type { OnlineGameplayTransport } from "../../../../src/game/online/OnlineGameplayTransport";
 import type { OnlineDiffResponseDto, OnlineGameStateSnapshotResponse } from "../../../../src/api/ws/dto/gameplay/onlineGameplayProtocol";
-import { localGameContent } from "../../../../src/game/content/localGameContent";
+import { testGameContent } from "./mockOnlineTestState";
 import { clampAimAngle } from "../../../../src/game/simulation/ballistics";
 
 function createMockInitialStateDiff(): OnlineDiffResponseDto {
   const mockSnapshot: OnlineGameStateSnapshotResponse = {
     gameContentVersion: "v1.0",
-    gameContent: localGameContent as any,
+    gameContent: {
+      version: testGameContent.version,
+      world: {
+        biome: testGameContent.world.biome,
+        width: testGameContent.world.width,
+        height: testGameContent.world.height,
+        tickRateHz: testGameContent.world.tickRateHz,
+        gravity: testGameContent.world.gravity,
+        deltaTime: testGameContent.world.projectileTimeStepSeconds,
+        maxProjectileSteps: testGameContent.world.maxProjectileSteps,
+        movementSegmentDurationTicks: testGameContent.world.movementSegmentDurationTicks,
+        playerASpawnRegion: { minX: 240, maxX: 800 },
+        playerBSpawnRegion: { minX: 1600, maxX: 2160 },
+        minWind: testGameContent.world.minWind,
+        maxWind: testGameContent.world.maxWind,
+      },
+      tanks: Object.fromEntries(
+        Object.entries(testGameContent.tanks).map(([id, tank]) => [
+          id,
+          {
+            id: tank.id,
+            name: tank.name,
+            maxHealth: tank.maxHealth,
+            maxFuel: tank.maxFuel,
+            movementQuantum: tank.movementQuantum,
+            fuelRate: tank.fuelRate,
+            climbCapability: tank.climbCapability,
+            width: tank.width,
+            height: tank.height,
+            visual: {
+              fillStyle: tank.visual.fill,
+              strokeStyle: tank.visual.stroke,
+              accentColor: tank.visual.accent,
+              label: tank.visual.label,
+            },
+            loadout: tank.loadout,
+          },
+        ]),
+      ),
+      projectiles: Object.fromEntries(
+        Object.entries(testGameContent.projectiles).map(([id, proj]) => [
+          id,
+          {
+            id: proj.id,
+            name: proj.name,
+            label: proj.label,
+            radius: proj.radius,
+            baseVelocity: proj.baseVelocity,
+            gravityScale: proj.gravityScale,
+            drag: proj.drag,
+            terrainEffectType: proj.terrainEffectType,
+            terrainRadius: proj.terrainRadius,
+            terrainDepth: proj.terrainDepth,
+            damageEffectType: proj.damageEffectType,
+            damageRadius: proj.damageRadius,
+            damage: proj.damage,
+            subMunitions: proj.subMunitions,
+            damageTrail: proj.damageTrail,
+          },
+        ]),
+      ),
+    },
     match: {
       phase: "AIMING",
       activePlayerId: 1,
@@ -33,10 +94,10 @@ function createMockInitialStateDiff(): OnlineDiffResponseDto {
         playerId: 1,
         displayName: "Player 1",
         tankDefinitionId: "vanguard-cyber",
-        width: 32,
-        height: 16,
+        width: 24,
+        height: 24,
         visual: { fillStyle: "#3b82f6", strokeStyle: "#1d4ed8", accentColor: "#60a5fa", label: "VC" },
-        position: { x: 200, y: 400 },
+        position: { x: 200, y: 388 },
         facing: 1,
         aimAngle: 45,
         power: 300,
@@ -88,7 +149,7 @@ describe("OnlineGameManager Throttling Integration", () => {
         let count = 0;
         return () => `intent-${++count}`;
       })(),
-      gameContent: localGameContent,
+      gameContent: testGameContent,
     };
 
     const throttler = new IntentThrottler({ aimIntervalMs: 80, moveIntervalMs: 180 });
@@ -138,7 +199,7 @@ describe("OnlineGameManager Throttling Integration", () => {
         let count = 0;
         return () => `intent-${++count}`;
       })(),
-      gameContent: localGameContent,
+      gameContent: testGameContent,
     };
 
     const throttler = new IntentThrottler({ aimIntervalMs: 80, moveIntervalMs: 180 });
@@ -182,7 +243,7 @@ describe("OnlineGameManager Throttling Integration", () => {
         let count = 0;
         return () => `intent-${++count}`;
       })(),
-      gameContent: localGameContent,
+      gameContent: testGameContent,
     };
 
     const manager = createOnlineGameManager({

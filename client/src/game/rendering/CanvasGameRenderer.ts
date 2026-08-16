@@ -202,7 +202,11 @@ export class CanvasGameRenderer {
     const ctx = this.canvas.getContext("2d");
     if (!ctx) return;
 
-    this.updateCamera(gameState);
+    const maxCameraX = Math.max(
+      0,
+      gameState.terrain.width - this.gameViewport.width,
+    );
+    this.cameraX = Math.max(0, Math.min(maxCameraX, gameState.match.cameraX ?? 0));
 
     const currentImpactCount = gameState.impactEvents.length;
     if (currentImpactCount > this.lastImpactCount) {
@@ -252,30 +256,6 @@ export class CanvasGameRenderer {
     for (const pass of this.overlayPasses) {
       pass.draw(ctx, gameState, renderContext);
     }
-  }
-
-  private updateCamera(gameState: GameState): void {
-    const maxCameraX = Math.max(
-      0,
-      gameState.terrain.width - this.gameViewport.width,
-    );
-    const isLocked = gameState.match.isCameraLocked !== false;
-    let targetCameraX: number;
-
-    if (isLocked) {
-      const activeTank = gameState.tanks.find(
-        (entry) => entry.playerId === gameState.match.activePlayerId,
-      );
-      const focusX =
-        gameState.projectiles[0]?.position.x ?? activeTank?.position.x ?? 0;
-      targetCameraX = focusX - this.gameViewport.width * 0.5;
-    } else {
-      targetCameraX = gameState.match.cameraX ?? this.cameraX;
-    }
-
-    targetCameraX = Math.max(0, Math.min(maxCameraX, targetCameraX));
-    this.cameraX += (targetCameraX - this.cameraX) * 0.15;
-    this.cameraX = Math.max(0, Math.min(maxCameraX, this.cameraX));
   }
 
   private drawSky(ctx: CanvasRenderingContext2D, gameState: GameState): void {
