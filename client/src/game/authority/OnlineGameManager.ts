@@ -10,10 +10,7 @@ import type { GameAction, GameContext, GameState, Vec2 } from "../types";
 import type { OnlineGameplayTransport } from "../online/OnlineGameplayTransport";
 import { toGameState } from "../online/onlineGameState";
 import { onlineGameContentFromResponse } from "../online/onlineGameContent";
-import {
-  ClientVisualSimulation,
-  DEFAULT_VIEWPORT_WIDTH,
-} from "../simulation/ClientVisualSimulation";
+import { ClientVisualSimulation } from "../simulation/ClientVisualSimulation";
 import {
   OnlineDiffSequenceError,
   applyOnlineStateDiffResponse,
@@ -167,7 +164,6 @@ class ActiveOnlineGameManager {
     if (action.type === "panCamera") {
       this.visualSim.panCamera(
         action.deltaX,
-        DEFAULT_VIEWPORT_WIDTH,
         this.confirmedState.state.terrain.width,
       );
       this.publishConfirmed(this.confirmedState);
@@ -218,9 +214,25 @@ class ActiveOnlineGameManager {
               envelope.intentId,
               envelope.playerId,
               { direction: action.direction },
+              nowMs,
             ),
           );
         }
+      }
+      return true;
+    }
+
+    if (action.type === "selectProjectileSlot") {
+      const activeTank = this.confirmedState.state.tanks.find(
+        (tank) => tank.playerId === this.confirmedState.localPlayerId,
+      );
+      if (activeTank) {
+        activeTank.selectedProjectileSlotId = action.projectileSlotId;
+        this.publishConfirmed(this.confirmedState);
+      }
+      const envelope = this.createIntentEnvelope(action);
+      if (envelope) {
+        this.transport.sendPlayerIntent(envelope);
       }
       return true;
     }
@@ -234,12 +246,13 @@ class ActiveOnlineGameManager {
 
   private pendingImpactFx: {
     impact: Vec2;
-    damagedTanks?: Array<{ tankEntityId: number; damage: number }>;
+    damagedTanks?: Array<{ entityId: number; damageDealt: number }>;
     subMunitions?: Array<{
       impact: Vec2;
-      damagedTanks: Array<{ tankEntityId: number; damage: number }>;
+      damagedTanks: Array<{ entityId: number; damageDealt: number }>;
     }>;
   } | null = null;
+  private postImpactDelaySeconds = 0;
 
   update(dt: number = 1 / 60): void {
     this.visualSim.updateEffects(dt, this.confirmedState.state.terrain.width);
@@ -262,6 +275,66 @@ class ActiveOnlineGameManager {
 
     if (this.confirmedState.state.lootCrates) {
       this.visualSim.updateLootCrates(dt, this.confirmedState.state.lootCrates);
+
+      const remainingCrates: typeof this.confirmedState.state.lootCrates = [];
+      for (const crate of this.confirmedState.state.lootCrates) {
+        if (crate.collected) continue;
+
+        let pickedUp = false;
+        for (const tank of this.confirmedState.state.tanks) {
+          if (!tank.alive) continue;
+          const dist = Math.hypot(
+            crate.x - tank.position.x,
+            crate.y - tank.position.y,
+          );
+          if (dist <= 36) {
+            crate.collected = true;
+            pickedUp = true;
+            if (crate.crateType === "hp") {
+              tank.health = Math.min(tank.maxHealth, tank.health + 35);
+              this.visualSim.spawnFloatingText(
+                "+35 HP",
+                "#22c55e",
+                tank.position.x,
+                tank.position.y - 36,
+              );
+            } else if (crate.crateType === "fuel") {
+              tank.fuel = Math.min(tank.maxFuel, tank.fuel + 60);
+              this.visualSim.spawnFloatingText(
+                "+60 Fuel",
+                "#f59e0b",
+                tank.position.x,
+                tank.position.y - 36,
+              );
+            } else if (crate.crateType === "ammo") {
+              if (tank.weaponAmmo) {
+                const uniqueSlots = tank.loadout.filter(
+                  (s) => s !== "basicShell" && s !== "standard",
+                );
+                if (uniqueSlots.length > 0) {
+                  const slot =
+                    uniqueSlots[Math.floor(Math.random() * uniqueSlots.length)];
+                  if (slot && tank.weaponAmmo[slot] !== undefined) {
+                    tank.weaponAmmo[slot] = tank.weaponAmmo[slot] + 1;
+                  }
+                }
+              }
+              this.visualSim.spawnFloatingText(
+                "+1 Ammo",
+                "#a855f7",
+                tank.position.x,
+                tank.position.y - 36,
+              );
+            }
+            break;
+          }
+        }
+
+        if (!pickedUp && !crate.collected) {
+          remainingCrates.push(crate);
+        }
+      }
+      this.confirmedState.state.lootCrates = remainingCrates;
     }
 
     // Smoothly interpolate remote player aim angles and power
@@ -286,16 +359,27 @@ class ActiveOnlineGameManager {
       this.pendingImpactFx = null;
       this.lastImpactX = fx.impact.x;
       this.visualSim.spawnExplosionParticles(fx.impact.x, fx.impact.y);
+      this.visualSim.destroyDecorsNear(fx.impact.x, fx.impact.y, 45);
       this.spawnDamageFloatingTexts(fx.damagedTanks);
       if (fx.subMunitions) {
         for (const sub of fx.subMunitions) {
           this.visualSim.spawnExplosionParticles(sub.impact.x, sub.impact.y);
+          this.visualSim.destroyDecorsNear(sub.impact.x, sub.impact.y, 35);
           this.spawnDamageFloatingTexts(sub.damagedTanks);
         }
       }
+      this.postImpactDelaySeconds = 0.55;
     }
 
-    if (!this.visualSim.getState().activeFlight && !this.pendingImpactFx) {
+    if (this.postImpactDelaySeconds > 0) {
+      this.postImpactDelaySeconds = Math.max(0, this.postImpactDelaySeconds - dt);
+    }
+
+    if (
+      !this.visualSim.getState().activeFlight &&
+      !this.pendingImpactFx &&
+      this.postImpactDelaySeconds <= 0
+    ) {
       this.flushDeferredDiffs();
     }
 
@@ -306,7 +390,6 @@ class ActiveOnlineGameManager {
     this.visualSim.updateCamera(
       dt,
       focusX,
-      DEFAULT_VIEWPORT_WIDTH,
       this.confirmedState.state.terrain.width,
     );
 
@@ -328,6 +411,7 @@ class ActiveOnlineGameManager {
     if (diff.type === "RESYNC_STATE") {
       this.deferredDiffs = [];
       this.pendingImpactFx = null;
+      this.postImpactDelaySeconds = 0;
       this.processSingleDiff(diff);
       return;
     }
@@ -362,8 +446,9 @@ class ActiveOnlineGameManager {
     const isFlightActive = this.visualSim.getState().activeFlight !== null;
     const hasPendingImpact = this.pendingImpactFx !== null;
     const hasDeferredDiffs = this.deferredDiffs.length > 0;
+    const hasPostImpactDelay = this.postImpactDelaySeconds > 0;
 
-    if (isFlightActive || hasPendingImpact || hasDeferredDiffs) {
+    if (isFlightActive || hasPendingImpact || hasDeferredDiffs || hasPostImpactDelay) {
       this.deferredDiffs.push(diff);
       return;
     }
@@ -385,6 +470,10 @@ class ActiveOnlineGameManager {
       }
     }
 
+    if (diff.type === "TERRAIN_PATCH" || diff.type === "RESYNC_STATE") {
+      this.visualSim.updateDecorsTerrain(this.confirmedState.state.terrain.surface);
+    }
+
     try {
       this.publishConfirmed(
         applyOnlineStateDiffResponse(
@@ -400,6 +489,7 @@ class ActiveOnlineGameManager {
       ) {
         this.deferredDiffs = [];
         this.pendingImpactFx = null;
+        this.postImpactDelaySeconds = 0;
         this.transport.requestResyncState();
         this.publishConfirmed(requestOnlineResyncState(this.confirmedState));
         return;
@@ -424,7 +514,7 @@ class ActiveOnlineGameManager {
       const nextDiff = this.deferredDiffs[0]!;
       if (
         (nextDiff.type === "TURN_TRANSITION" || nextDiff.type === "TERMINAL_GAME") &&
-        this.isSettlementAnimationActive()
+        (this.isSettlementAnimationActive() || this.postImpactDelaySeconds > 0)
       ) {
         break;
       }
@@ -454,12 +544,25 @@ class ActiveOnlineGameManager {
           type: "MOVE",
           payload: { direction: action.direction },
         };
-      case "selectProjectileSlot":
+      case "selectProjectileSlot": {
+        const localTank = this.confirmedState.state.tanks.find(
+          (t) => t.playerId === this.confirmedState.localPlayerId,
+        );
+        const slotIndex = localTank
+          ? localTank.loadout.indexOf(action.projectileSlotId)
+          : -1;
+        const slot =
+          slotIndex >= 0
+            ? slotIndex
+            : !Number.isNaN(Number(action.projectileSlotId))
+            ? Number(action.projectileSlotId)
+            : 0;
         return {
           ...common,
           type: "SELECT_PROJECTILE_SLOT",
-          payload: { slot: Number(action.projectileSlotId) || 0 },
+          payload: { slot },
         };
+      }
       case "fire":
         return {
           ...common,
@@ -505,16 +608,16 @@ class ActiveOnlineGameManager {
   }
 
   private spawnDamageFloatingTexts(
-    damagedTanks?: Array<{ tankEntityId: number; damage: number }>,
+    damagedTanks?: Array<{ entityId: number; damageDealt: number }>,
   ): void {
     if (!damagedTanks) return;
     for (const dtank of damagedTanks) {
       const tank = this.confirmedState.state.tanks.find(
-        (t) => t.entityId === dtank.tankEntityId,
+        (t) => t.entityId === dtank.entityId,
       );
       if (tank) {
         this.visualSim.spawnFloatingText(
-          `-${dtank.damage} HP`,
+          `-${dtank.damageDealt} HP`,
           "#ef4444",
           tank.position.x,
           tank.position.y - 30,

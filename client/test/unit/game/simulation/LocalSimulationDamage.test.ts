@@ -119,4 +119,130 @@ describe("LocalSimulation damage calculation", () => {
     // basicShell damage is 48
     expect(finalHealth).toBe(100 - 48);
   });
+
+  it("should decrement limited ammo and prevent firing when depleted", () => {
+    const world = new LocalWorld({
+      mode: "localTwoPlayer",
+      phase: "thinking",
+      activePlayerId: 0,
+      playerCount: 2,
+      turnNumber: 1,
+      turnTimeRemaining: 30,
+      matchTimeRemaining: 180,
+      wind: 0,
+      winnerPlayerId: null,
+      biome: "forest",
+      isCameraLocked: true,
+      cameraX: 0,
+    });
+
+    const terrain = new LocalTerrainModel(1280, 720);
+    terrain.surface.fill(500);
+
+    const tank0Id = world.createTank(
+      { id: 0, displayName: "P1", controllerKind: "human", tankSelection: { tankDefinitionId: "vanguard-cyber" } },
+      testGameContent.tanks["vanguard-cyber"]!,
+      100,
+      500,
+    );
+
+    const sim = new LocalSimulation(world, terrain, testGameContent);
+    const tank0 = world.tanks.get(tank0Id)!;
+
+    // basicShell has infinite ammo (-1)
+    expect(tank0.weaponAmmo["basicShell"]).toBe(-1);
+    // cluster has 1 ammo initially
+    expect(tank0.weaponAmmo["cluster"]).toBe(1);
+
+    // Fire cluster (1 ammo -> 0 ammo)
+    const firstFire = sim.submitPlayerAction(0, {
+      type: "fire",
+      angle: -Math.PI / 4,
+      power: 300,
+      projectileSlotId: "cluster",
+    });
+    expect(firstFire).toBe(true);
+    expect(tank0.weaponAmmo["cluster"]).toBe(0);
+
+    // Reset phase back to thinking for next turn test
+    world.match.phase = "thinking";
+
+    // Attempting to fire depleted cluster returns false
+    const secondFire = sim.submitPlayerAction(0, {
+      type: "fire",
+      angle: -Math.PI / 4,
+      power: 300,
+      projectileSlotId: "cluster",
+    });
+    expect(secondFire).toBe(false);
+
+    // Firing basicShell succeeds because it has infinite ammo
+    const basicFire = sim.submitPlayerAction(0, {
+      type: "fire",
+      angle: -Math.PI / 4,
+      power: 300,
+      projectileSlotId: "basicShell",
+    });
+    expect(basicFire).toBe(true);
+  });
+
+  it("should spawn and simulate submunitions upon cluster impact", () => {
+    const world = new LocalWorld({
+      mode: "localTwoPlayer",
+      phase: "thinking",
+      activePlayerId: 0,
+      playerCount: 2,
+      turnNumber: 1,
+      turnTimeRemaining: 30,
+      matchTimeRemaining: 180,
+      wind: 0,
+      winnerPlayerId: null,
+      biome: "forest",
+      isCameraLocked: true,
+      cameraX: 0,
+    });
+
+    const terrain = new LocalTerrainModel(1280, 720);
+    terrain.surface.fill(500);
+
+    world.createTank(
+      { id: 0, displayName: "P1", controllerKind: "human", tankSelection: { tankDefinitionId: "vanguard-cyber" } },
+      testGameContent.tanks["vanguard-cyber"]!,
+      100,
+      500,
+    );
+
+    const tank1Id = world.createTank(
+      { id: 1, displayName: "P2", controllerKind: "human", tankSelection: { tankDefinitionId: "heavy-armor" } },
+      testGameContent.tanks["heavy-armor"]!,
+      300,
+      500,
+    );
+
+    const sim = new LocalSimulation(world, terrain, testGameContent);
+
+    // Fire cluster weapon
+    sim.submitPlayerAction(0, {
+      type: "fire",
+      angle: -Math.PI / 4,
+      power: 350,
+      projectileSlotId: "cluster",
+    });
+
+    expect(world.match.phase).toBe("ballistics");
+
+    let submunitionsObserved = false;
+    for (let frame = 0; frame < 180; frame++) {
+      sim.update(0.016);
+      if (world.projectiles.size > 1) {
+        submunitionsObserved = true;
+      }
+      if (world.match.phase !== "ballistics" && world.projectiles.size === 0) {
+        break;
+      }
+    }
+
+    expect(submunitionsObserved).toBe(true);
+    expect(world.tanks.get(tank1Id)!.health).toBeLessThanOrEqual(100);
+  });
 });

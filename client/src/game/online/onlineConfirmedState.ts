@@ -23,6 +23,9 @@ export type OnlinePendingPrediction = {
   intentId: string;
   baseDiffSequence: DiffSequence;
   baseDiffServerTick: ServerTick;
+  predictedAtMonotonicMs?: number;
+  durationMs?: number;
+  confirmedByServer?: boolean;
   predictedMovement?: OnlineMovementSegmentResponse["payload"];
 };
 
@@ -198,12 +201,33 @@ export function applyOnlineStateDiffResponse(
     return nextWithPayload;
   }
 
+  const nowMs = monotonicNowMs();
+  const nextPredictions = nextWithPayload.pendingPredictions
+    .map((prediction) => {
+      if (isMatchingPendingPrediction(prediction, reconciledIntent)) {
+        return {
+          ...prediction,
+          confirmedByServer: true,
+        };
+      }
+      return prediction;
+    })
+    .filter((prediction) => {
+      if (diff.type === "INTENT_REJECTION") {
+        return !isMatchingPendingPrediction(prediction, reconciledIntent);
+      }
+      if (prediction.confirmedByServer) {
+        const endTime =
+          (prediction.predictedAtMonotonicMs ?? 0) +
+          (prediction.durationMs ?? 0);
+        return nowMs < endTime;
+      }
+      return true;
+    });
+
   return {
     ...nextWithPayload,
-    pendingPredictions: nextWithPayload.pendingPredictions.filter(
-      (prediction) =>
-        !isMatchingPendingPrediction(prediction, reconciledIntent),
-    ),
+    pendingPredictions: nextPredictions,
   };
 }
 
@@ -224,6 +248,7 @@ export function predictOnlineMovement(
   intentId: string,
   playerId: number,
   move: OnlineMoveRequest["payload"],
+  predictedAtMonotonicMs?: number,
 ): OnlineConfirmedState {
   const tank = confirmed.state.tanks.find(
     (candidate) => candidate.playerId === playerId,
@@ -234,10 +259,31 @@ export function predictOnlineMovement(
 
   const definition = confirmed.state.gameContent.tanks[tank.tankDefinitionId];
   if (!definition) return confirmed;
-  const path: Vec2[] = [{ ...tank.position }];
-  let fuel = tank.fuel;
-  let x = tank.position.x;
-  let y = tank.position.y;
+
+  const now = predictedAtMonotonicMs ?? (typeof performance !== "undefined" ? performance.now() : 0);
+  const activePendingPredictions = confirmed.pendingPredictions.filter((p) => {
+    if (p.confirmedByServer) {
+      const endTime = (p.predictedAtMonotonicMs ?? 0) + (p.durationMs ?? 0);
+      return now < endTime;
+    }
+    return true;
+  });
+
+  const playerPredictions = activePendingPredictions.filter(
+    (p) => p.predictedMovement?.playerId === playerId,
+  );
+  const lastPrediction =
+    playerPredictions.length > 0
+      ? playerPredictions[playerPredictions.length - 1]?.predictedMovement
+      : undefined;
+
+  const startPosition = lastPrediction ? lastPrediction.to : tank.position;
+  const startFuel = lastPrediction ? lastPrediction.fuelAfter : tank.fuel;
+
+  const path: Vec2[] = [{ ...startPosition }];
+  let fuel = startFuel;
+  let x = startPosition.x;
+  let y = startPosition.y;
   let completedColumns = 0;
   const movementQuantum = definition.movementQuantum;
   const halfWidth = Math.floor(definition.width / 2);
@@ -273,28 +319,34 @@ export function predictOnlineMovement(
   const predictedMovement: OnlineMovementSegmentResponse["payload"] = {
     playerId,
     tankEntityId: tank.entityId,
-    from: tank.position,
+    from: startPosition,
     to: path[path.length - 1]!,
     movementPath: path,
-    fuelBefore: tank.fuel,
+    fuelBefore: startFuel,
     fuelAfter: fuel,
-    fuelSpent: tank.fuel - fuel,
+    fuelSpent: startFuel - fuel,
     partial: completedColumns < movementQuantum,
     startedServerTick: confirmed.lastConfirmedDiffServerTick,
     endedServerTick: confirmed.lastConfirmedDiffServerTick,
     durationTicks: 0,
   };
 
+  const durationMs =
+    (confirmed.state.gameContent.world.movementSegmentDurationTicks /
+      confirmed.state.gameContent.world.tickRateHz) *
+    1000;
+
   return {
     ...confirmed,
     pendingPredictions: [
-      ...confirmed.pendingPredictions.filter(
-        (prediction) => prediction.predictedMovement?.playerId !== playerId,
-      ),
+      ...activePendingPredictions,
       {
         intentId,
         baseDiffSequence: confirmed.lastConfirmedDiffSequence,
         baseDiffServerTick: confirmed.lastConfirmedDiffServerTick,
+        predictedAtMonotonicMs: now,
+        durationMs,
+        confirmedByServer: false,
         predictedMovement,
       },
     ],
@@ -305,19 +357,72 @@ export function projectOnlineRenderState(
   confirmed: OnlineConfirmedState,
   ctx: GameContext,
 ): OnlineGameStateSnapshotResponse {
+  const nowMs = ctx.clock();
   const interpolatedState = applyMovementInterpolation(
     confirmed.state,
     confirmed.confirmedMovementSegments,
-    ctx.clock(),
+    nowMs,
+    confirmed.localPlayerId,
   );
 
   return confirmed.pendingPredictions.reduce(
     (state, prediction) =>
       prediction.predictedMovement
-        ? applyMovementToSnapshot(state, prediction.predictedMovement)
+        ? applyPredictedMovementToSnapshot(state, prediction, nowMs)
         : state,
     interpolatedState,
   );
+}
+
+function applyPredictedMovementToSnapshot(
+  state: OnlineGameStateSnapshotResponse,
+  prediction: OnlinePendingPrediction,
+  nowMs: number,
+): OnlineGameStateSnapshotResponse {
+  const movement = prediction.predictedMovement;
+  if (!movement) return state;
+
+  let pos = movement.to;
+  if (
+    prediction.predictedAtMonotonicMs !== undefined &&
+    prediction.durationMs !== undefined &&
+    prediction.durationMs > 0
+  ) {
+    const progress = Math.min(
+      1,
+      Math.max(
+        0,
+        (nowMs - prediction.predictedAtMonotonicMs) / prediction.durationMs,
+      ),
+    );
+    const path = movement.movementPath?.length
+      ? movement.movementPath
+      : [movement.from, movement.to];
+    if (progress < 1 && path.length > 1) {
+      const scaled = progress * (path.length - 1);
+      const pathIndex = Math.min(path.length - 2, Math.floor(scaled));
+      const from = path[Math.max(0, pathIndex)] ?? movement.from;
+      const to = path[Math.min(path.length - 1, pathIndex + 1)] ?? movement.to;
+      const pointProgress = scaled - Math.floor(scaled);
+      pos = {
+        x: lerp(from.x, to.x, pointProgress),
+        y: lerp(from.y, to.y, pointProgress),
+      };
+    }
+  }
+
+  return {
+    ...state,
+    tanks: state.tanks.map((tank) =>
+      tank.entityId === movement.tankEntityId
+        ? {
+            ...tank,
+            position: pos,
+            fuel: movement.fuelAfter,
+          }
+        : tank,
+    ),
+  };
 }
 
 function applyDiffPayload(
@@ -396,6 +501,11 @@ function applyDiffPayload(
                 : confirmed.state.match.matchTimeRemainingTicks,
             wind: turnPayload.wind,
           },
+          tanks: confirmed.state.tanks.map((tank) =>
+            tank.playerId === turnPayload.activePlayerId
+              ? { ...tank, fuel: tank.maxFuel ?? tank.fuel }
+              : tank,
+          ),
         },
       };
     case "TERMINAL_GAME":
@@ -420,14 +530,18 @@ function applyMovementSegment(
   segment: OnlineMovementSegmentResponse["payload"],
   monotonicNowMs: () => number,
 ): OnlineConfirmedState {
+  const now = monotonicNowMs();
+  const activeSegments = confirmed.confirmedMovementSegments.filter(
+    (s) => now < s.receivedAtMonotonicMs + s.durationMs + 1000,
+  );
   return {
     ...confirmed,
     state: applyMovementToSnapshot(confirmed.state, segment),
     confirmedMovementSegments: [
-      ...confirmed.confirmedMovementSegments,
+      ...activeSegments,
       {
         ...segment,
-        receivedAtMonotonicMs: monotonicNowMs(),
+        receivedAtMonotonicMs: now,
         durationMs:
           (segment.durationTicks /
             confirmed.state.gameContent.world.tickRateHz) *
@@ -459,6 +573,7 @@ function applyMovementInterpolation(
   state: OnlineGameStateSnapshotResponse,
   segments: OnlineConfirmedMovementSegment[],
   monotonicNowMs: number,
+  localPlayerId?: number | null,
 ): OnlineGameStateSnapshotResponse {
   const activeSegments = segments.filter(
     (segment) =>
@@ -473,9 +588,12 @@ function applyMovementInterpolation(
 
   return {
     ...state,
-    tanks: state.tanks.map((tank) =>
-      interpolateTank(tank, activeSegments, monotonicNowMs),
-    ),
+    tanks: state.tanks.map((tank) => {
+      if (localPlayerId !== null && localPlayerId !== undefined && tank.playerId === localPlayerId) {
+        return tank;
+      }
+      return interpolateTank(tank, activeSegments, monotonicNowMs);
+    }),
   };
 }
 
@@ -484,12 +602,13 @@ function interpolateTank(
   segments: OnlineConfirmedMovementSegment[],
   monotonicNowMs: number,
 ): OnlineTankSnapshotResponse {
-  const segment = segments.find(
+  const tankSegments = segments.filter(
     (candidate) => candidate.tankEntityId === tank.entityId,
   );
-  if (!segment) {
+  if (tankSegments.length === 0) {
     return tank;
   }
+  const segment = tankSegments[tankSegments.length - 1]!;
 
   const progress = Math.min(
     1,
@@ -529,7 +648,10 @@ function applyAimUpdate(
         tank.playerId === aim.playerId
           ? {
               ...tank,
-              aimAngle: aim.angle,
+              aimAngle:
+                tank.playerId === confirmed.localPlayerId
+                  ? aim.angle
+                  : tank.aimAngle,
               power: aim.power,
             }
           : tank,
@@ -551,8 +673,8 @@ function applyProjectileResolution(
 
   const tankDamageMap = new Map<number, { remainingHealth: number }>();
   for (const damage of allDamagedTanks) {
-    tankDamageMap.set(damage.tankEntityId, {
-      remainingHealth: damage.remainingHealth,
+    tankDamageMap.set(damage.entityId, {
+      remainingHealth: damage.healthAfter,
     });
   }
 
@@ -581,13 +703,29 @@ function applyProjectileResolution(
       ...confirmed.state,
       tanks: confirmed.state.tanks.map((tank) => {
         const damage = tankDamageMap.get(tank.entityId);
-        return damage
+        let updatedTank = damage
           ? {
               ...tank,
               health: damage.remainingHealth,
               alive: damage.remainingHealth > 0,
             }
           : tank;
+        if (
+          tank.playerId === resolution.ownerPlayerId &&
+          updatedTank.weaponAmmo &&
+          updatedTank.weaponAmmo[resolution.projectileDefinitionId] !== undefined &&
+          updatedTank.weaponAmmo[resolution.projectileDefinitionId] > 0
+        ) {
+          updatedTank = {
+            ...updatedTank,
+            weaponAmmo: {
+              ...updatedTank.weaponAmmo,
+              [resolution.projectileDefinitionId]:
+                updatedTank.weaponAmmo[resolution.projectileDefinitionId]! - 1,
+            },
+          };
+        }
+        return updatedTank;
       }),
       projectiles: confirmed.state.projectiles.filter(
         (projectile) => projectile.entityId !== resolution.projectileEntityId,

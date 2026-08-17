@@ -3,17 +3,24 @@ import { useAssetStore } from "../../store/useAssetStore";
 
 type TankSelectorProps = {
   onTankSelect?: (tank: TankAsset) => void;
+  selectedTankId?: TankAsset["id"] | null;
   label?: string;
 };
 
 export default function TankSelector({
   onTankSelect,
+  selectedTankId: explicitSelectedTankId,
   label = "Select Your Tank",
 }: TankSelectorProps) {
   const { data: tanks, isLoading } = useAssetQuery();
-  const selectedTankId = useAssetStore((state) => state.selectedTankId);
-  const selectTank = useAssetStore((state) => state.setSelectedTank);
+  const storeSelectedTankId = useAssetStore((state) => state.selectedTankId);
+  const setStoreSelectedTank = useAssetStore((state) => state.setSelectedTank);
 
+  const selectedTankId =
+    explicitSelectedTankId !== undefined
+      ? explicitSelectedTankId
+      : storeSelectedTankId;
+  
   if (isLoading || !tanks) {
     return <div className="text-xs text-text-body-muted">Loading tanks...</div>;
   }
@@ -39,8 +46,8 @@ export default function TankSelector({
               key={tank.id}
               type="button"
               onClick={() => {
-                selectTank(tank.id);
-                onTankSelect && onTankSelect(tank);
+                setStoreSelectedTank(tank.id);
+                onTankSelect?.(tank);
               }}
               className={`flex flex-col items-center p-2 rounded-lg border transition-all duration-200 cursor-pointer ${
                 isSelected

@@ -29,6 +29,14 @@ public class TerrainModel {
     public int width() { return width; }
     public int height() { return height; }
     public int surfaceY(double x) { return surface.get(Math.max(0, Math.min(width - 1, (int) Math.round(x)))); }
+    public double slopeAngle(double x, int tankWidth) {
+        int halfWidth = Math.max(1, tankWidth / 2);
+        int leftX = Math.max(0, Math.min(width - 1, (int) Math.round(x - halfWidth)));
+        int rightX = Math.max(0, Math.min(width - 1, (int) Math.round(x + halfWidth)));
+        double leftY = surface.get(leftX);
+        double rightY = surface.get(rightX);
+        return Math.atan2(rightY - leftY, rightX - leftX);
+    }
     public List<Integer> surface() { return List.copyOf(surface); }
     public boolean intersectsCircle(double cx, double cy, double radius) {
         int start = Math.max(0, (int) Math.floor(cx - radius));

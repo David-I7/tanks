@@ -11,16 +11,17 @@ import {
   type DamageTrail,
   type LootCrate,
   type LootCrateType,
-  MAX_TANK_FUEL,
   MAX_TURN_SECONDS,
-  MOVE_FUEL_COST,
+  MIN_AIM_POWER,
+  MAX_AIM_POWER,
+  CRATE_HP_VALUE,
+  CRATE_FUEL_VALUE,
+  CRATE_AMMO_VALUE,
+  CRATE_COLLECTION_RADIUS,
 } from "../types";
 import type { GameContent } from "../rendering/ResourceManager";
-import { GRAVITY, getMuzzlePosition, clampAimAngle } from "./ballistics";
+import { getMuzzlePosition, clampAimAngle } from "./ballistics";
 import { ClientVisualSimulation } from "./ClientVisualSimulation";
-
-const TANK_HALF_WIDTH = 22;
-const TANK_MOVE_STEP = 2;
 
 export class LocalSimulation {
   private transitionTimer = 0;
@@ -76,19 +77,59 @@ export class LocalSimulation {
 
     if (action.type === "move") {
       if (tank.fuel <= 0 || this.damageTrails.length > 0) return false;
-      const fuelSpend = Math.min(tank.fuel, MOVE_FUEL_COST);
-      const moveDistance = TANK_MOVE_STEP * (fuelSpend / MOVE_FUEL_COST);
-      position.x = Math.max(
-        TANK_HALF_WIDTH,
-        Math.min(
-          this.terrain.width - TANK_HALF_WIDTH,
-          position.x + action.direction * moveDistance,
-        ),
-      );
-      tank.fuel -= fuelSpend;
-      position.y = this.terrain.getSurfaceY(position.x);
-      tank.bodyAngle = this.terrain.getSlopeAngle(position.x);
-      return true;
+      if (action.direction !== -1 && action.direction !== 1) return false;
+
+      const definition = this.content.tanks[tank.tankDefinitionId];
+      if (!definition) {
+        throw new Error(`Missing tank definition "${tank.tankDefinitionId}"`);
+      }
+      const climbCapability = definition.climbCapability;
+      const fuelRate = definition.fuelRate;
+      const halfWidth = Math.floor(definition.width / 2);
+      const trackGroundOffset = definition.height / 2;
+      const movementQuantum = 4; // 4px per 60Hz tick matching 24px per 100ms on server
+
+      tank.facing = action.direction;
+      let currentX = position.x;
+      let currentY = position.y;
+      let moved = false;
+
+      for (let step = 0; step < movementQuantum; step += 1) {
+        const nextX = Math.round(currentX) + action.direction;
+        if (nextX - halfWidth < 0 || nextX + halfWidth >= this.terrain.width) {
+          break;
+        }
+        const surfaceY = this.terrain.getSurfaceY(nextX);
+        const nextY = surfaceY - trackGroundOffset;
+        if (currentY - nextY > climbCapability) {
+          break;
+        }
+        const ledge = nextY - currentY > climbCapability;
+        const cost = Math.ceil(
+          fuelRate *
+            (ledge
+              ? Math.abs(nextX - currentX)
+              : Math.hypot(nextX - currentX, nextY - currentY)),
+        );
+        if (cost > tank.fuel) {
+          break;
+        }
+        tank.fuel -= cost;
+        currentX = nextX;
+        currentY = nextY;
+        moved = true;
+        if (ledge) {
+          break;
+        }
+      }
+
+      if (moved) {
+        position.x = currentX;
+        position.y = currentY;
+        tank.bodyAngle = this.terrain.getSlopeAngle(position.x);
+        return true;
+      }
+      return false;
     }
 
     if (action.type === "selectProjectileSlot") {
@@ -100,11 +141,11 @@ export class LocalSimulation {
     }
 
     tank.aimAngle = clampAimAngle(action.angle);
-    tank.power = Math.max(120, Math.min(action.power, 680));
+    tank.power = Math.max(MIN_AIM_POWER, Math.min(action.power, MAX_AIM_POWER));
 
     if (action.type === "fire") {
-      const currentAmmo = tank.weaponAmmo[action.projectileSlotId] ?? -1;
-      if (currentAmmo === 0) {
+      const currentAmmo = tank.weaponAmmo[action.projectileSlotId];
+      if (currentAmmo === undefined || currentAmmo === 0) {
         return false;
       }
       const projectileDefinition = this.resolveProjectileDefinition(
@@ -180,7 +221,11 @@ export class LocalSimulation {
         ? this.world.positions.get(activeProjId)
         : null;
     const focusX = projPos?.x ?? this.lastImpactX ?? pos?.x ?? null;
-    this.visualSim.updateCamera(dt, focusX, 960, this.terrain.width);
+    this.visualSim.updateCamera(
+      dt,
+      focusX,
+      this.terrain.width,
+    );
 
     const visState = this.visualSim.getState();
     this.world.match.cameraX = visState.cameraX;
@@ -229,36 +274,30 @@ export class LocalSimulation {
 
   getState(): LocalSimulationState {
     const visState = this.visualSim.getState();
+    this.world.match.cameraX = visState.cameraX;
+    this.world.match.isCameraLocked = visState.isCameraLocked;
     return {
-      match: {
-        ...this.world.match,
-        cameraX: visState.cameraX,
-        isCameraLocked: visState.isCameraLocked,
-      },
+      match: this.world.match,
       terrain: this.terrain.snapshot(),
       tanks: [...this.world.tanks].map(([entityId, tank]) => ({
         entityId,
-        position: { ...this.world.positions.get(entityId)! },
-        tank: { ...tank },
+        position: this.world.positions.get(entityId)!,
+        tank,
       })),
       projectiles: [...this.world.projectiles].map(
         ([entityId, projectile]) => ({
           entityId,
-          position: { ...this.world.positions.get(entityId)! },
-          velocity: { ...this.world.velocities.get(entityId)! },
-          projectile: { ...projectile },
+          position: this.world.positions.get(entityId)!,
+          velocity: this.world.velocities.get(entityId)!,
+          projectile,
         }),
       ),
-      impactEvents: [...this.world.impactEvents.values()].map((event) => ({
-        ...event,
-        position: { ...event.position },
-        visual: { ...event.visual },
-      })),
-      damageTrails: this.damageTrails.map((t) => ({ ...t })),
-      lootCrates: this.lootCrates.map((c) => ({ ...c })),
+      impactEvents: [...this.world.impactEvents.values()],
+      damageTrails: this.damageTrails,
+      lootCrates: this.lootCrates,
       particles: visState.particles,
       floatingTexts: visState.floatingTexts,
-      decors: this.world.decors.map((d) => ({ ...d })),
+      decors: this.world.decors,
       clouds: visState.clouds,
     };
   }
@@ -269,7 +308,7 @@ export class LocalSimulation {
     }
   }
 
-  panCamera(deltaX: number, viewportWidth = 960): void {
+  panCamera(deltaX: number): void {
     if (this.world.match.isCameraLocked !== false) {
       const activeTankEntityId = this.world.tankEntitiesByPlayer.get(
         this.world.match.activePlayerId,
@@ -278,11 +317,11 @@ export class LocalSimulation {
         ? this.world.positions.get(activeTankEntityId)
         : null;
       if (pos) {
-        this.visualSim.setCameraPosition(pos.x - viewportWidth * 0.5, viewportWidth, this.terrain.width);
+        this.visualSim.setCameraPosition(pos.x, this.terrain.width);
       }
     }
 
-    this.visualSim.panCamera(deltaX, viewportWidth, this.terrain.width);
+    this.visualSim.panCamera(deltaX, this.terrain.width);
     const visState = this.visualSim.getState();
     this.world.match.cameraX = visState.cameraX;
     this.world.match.isCameraLocked = visState.isCameraLocked;
@@ -297,7 +336,10 @@ export class LocalSimulation {
       ? this.world.positions.get(activeTankEntityId)
       : null;
     if (pos) {
-      this.visualSim.setCameraPosition(pos.x - 960 * 0.5, 960, this.terrain.width);
+      this.visualSim.setCameraPosition(
+        pos.x,
+        this.terrain.width,
+      );
     }
     const visState = this.visualSim.getState();
     this.world.match.cameraX = visState.cameraX;
@@ -317,9 +359,7 @@ export class LocalSimulation {
       tankX,
       tankY,
       tank.aimAngle,
-      tank.facing,
-      tank.width,
-      tank.height,
+      tank.bodyAngle ?? 0,
     );
   }
 
@@ -330,26 +370,18 @@ export class LocalSimulation {
     tankX: number,
     tankY: number,
     aimAngle: number,
-    facing: 1 | -1 = 1,
-    width = 24,
-    height = 24,
+    bodyAngle: number = 0,
   ): void {
-    const muzzle = getMuzzlePosition(
-      tankX,
-      tankY,
-      aimAngle,
-      facing,
-      width,
-      height,
-    );
+    const muzzle = getMuzzlePosition(tankX, tankY, aimAngle, bodyAngle);
+    const speed = power * projectileDefinition.baseVelocity;
     this.world.createProjectile(
       ownerPlayerId,
       projectileDefinition,
       power,
       muzzle.x,
       muzzle.y,
-      Math.cos(aimAngle) * power,
-      Math.sin(aimAngle) * power,
+      Math.cos(aimAngle) * speed,
+      Math.sin(aimAngle) * speed,
     );
   }
 
@@ -408,7 +440,7 @@ export class LocalSimulation {
       velocity.x *= Math.max(0, 1 - projectile.physics.drag * dt);
       velocity.y *= Math.max(0, 1 - projectile.physics.drag * dt);
       velocity.x += (this.world.match.wind ?? 0) * dt;
-      velocity.y += GRAVITY * projectile.physics.gravityScale * dt;
+      velocity.y += this.content.world.gravity * projectile.physics.gravityScale * dt;
       position.x += velocity.x * dt;
       position.y += velocity.y * dt;
       projectile.position.x = position.x;
@@ -481,7 +513,9 @@ export class LocalSimulation {
 
     const blastRadius = Math.max(
       30,
-      projectile.terrainEffect.radius ?? projectile.damageEffect.radius ?? 35,
+      projectile.terrainEffect.radius !== undefined
+        ? projectile.terrainEffect.radius
+        : projectile.damageEffect.radius,
     );
     for (const decor of this.world.decors) {
       if (
@@ -493,6 +527,32 @@ export class LocalSimulation {
     }
 
     const projectileDef = this.content.projectiles[projectile.projectileDefinitionId];
+    if (projectileDef?.subMunitions && projectileDef.subMunitions.count > 0) {
+      const subConfig = projectileDef.subMunitions;
+      const subProjDef = this.content.projectiles[subConfig.projectileDefinitionId];
+      if (subProjDef) {
+        const count = subConfig.count;
+        const spreadAngle = subConfig.spreadAngleDegrees;
+        for (let i = 0; i < count; i++) {
+          const angleDeg =
+            count === 1
+              ? 90.0
+              : 90.0 - spreadAngle / 2.0 + (i * spreadAngle) / (count - 1);
+          const subAngleRad = -(angleDeg * Math.PI) / 180;
+          const subPower = projectile.power * subConfig.velocityScale;
+          this.world.createProjectile(
+            projectile.ownerPlayerId,
+            subProjDef,
+            subPower,
+            x,
+            y - 4,
+            Math.cos(subAngleRad) * subPower,
+            Math.sin(subAngleRad) * subPower,
+          );
+        }
+      }
+    }
+
     if (projectileDef?.damageTrail) {
       this.damageTrails.push({
         id: `hazard-${Date.now()}-${Math.random()}`,
@@ -551,12 +611,18 @@ export class LocalSimulation {
     for (const [entityId, tank] of this.world.tanks) {
       const position = this.world.positions.get(entityId);
       if (!position || !tank.alive) continue;
-      position.y = this.terrain.getSurfaceY(position.x);
+      position.y = this.terrain.getSurfaceY(position.x) - tank.height / 2;
       tank.bodyAngle = this.terrain.getSlopeAngle(position.x);
     }
     for (const decor of this.world.decors) {
-      decor.y = this.terrain.getSurfaceY(decor.x);
-      decor.rotation = this.terrain.getSlopeAngle(decor.x);
+      if (decor.destroyed) continue;
+      const currentY = this.terrain.getSurfaceY(decor.x);
+      if (Math.abs(currentY - decor.y) > 12) {
+        decor.destroyed = true;
+      } else {
+        decor.y = currentY;
+        decor.rotation = this.terrain.getSlopeAngle(decor.x);
+      }
     }
   }
 
@@ -604,7 +670,7 @@ export class LocalSimulation {
         this.world.match.turnNumber += 1;
         this.world.match.turnTimeRemaining = MAX_TURN_SECONDS;
         this.world.match.wind = Math.round((Math.random() * 14 - 7) * 10) / 10;
-        nextTank.fuel = MAX_TANK_FUEL;
+        nextTank.fuel = nextTank.maxFuel;
         this.world.match.phase = "thinking";
         return;
       }
@@ -646,6 +712,12 @@ export class LocalSimulation {
     const types: LootCrateType[] = ["hp", "fuel", "ammo"];
     const type = types[Math.floor(Math.random() * types.length)] ?? "hp";
     const targetY = this.terrain.getSurfaceY(x);
+    const crateValue =
+      type === "hp"
+        ? CRATE_HP_VALUE
+        : type === "fuel"
+          ? CRATE_FUEL_VALUE
+          : CRATE_AMMO_VALUE;
     this.lootCrates.push({
       crateId: `crate-${Date.now()}-${Math.random()}`,
       crateType: type,
@@ -654,7 +726,7 @@ export class LocalSimulation {
       targetY,
       isLanding: true,
       collected: false,
-      value: type === "hp" ? 35 : type === "fuel" ? 60 : 1,
+      value: crateValue,
     });
   }
 
@@ -673,28 +745,31 @@ export class LocalSimulation {
       if (crate.collected) continue;
 
       if (!crate.isLanding) {
-        crate.y = crate.targetY - 14;
+        crate.y = crate.targetY;
       }
 
       if (activeTank && activePos && activeTank.alive) {
-        const dist = Math.hypot(crate.x - activePos.x, crate.y - (activePos.y - 14));
-        if (dist <= 36) {
+        const dist = Math.hypot(
+          crate.x - activePos.x,
+          crate.y - 12 - activePos.y,
+        );
+        if (dist <= CRATE_COLLECTION_RADIUS) {
           crate.collected = true;
           if (crate.crateType === "hp") {
-            activeTank.health = Math.min(activeTank.maxHealth, activeTank.health + 35);
-            this.spawnFloatingText("+35 HP", "#22c55e", activePos.x, activePos.y - 36);
+            activeTank.health = Math.min(activeTank.maxHealth, activeTank.health + crate.value);
+            this.spawnFloatingText(`+${crate.value} HP`, "#22c55e", activePos.x, activePos.y - 36);
           } else if (crate.crateType === "fuel") {
-            activeTank.fuel = Math.min(activeTank.maxFuel, activeTank.fuel + 60);
-            this.spawnFloatingText("+60 Fuel", "#f59e0b", activePos.x, activePos.y - 36);
+            activeTank.fuel = Math.min(activeTank.maxFuel, activeTank.fuel + crate.value);
+            this.spawnFloatingText(`+${crate.value} Fuel`, "#f59e0b", activePos.x, activePos.y - 36);
           } else if (crate.crateType === "ammo") {
-            const uniqueSlots = activeTank.loadout.filter((s) => s !== "basicShell");
+            const uniqueSlots = activeTank.loadout.filter((s) => s !== "basicShell" && s !== "standard");
             if (uniqueSlots.length > 0) {
               const slot = uniqueSlots[Math.floor(Math.random() * uniqueSlots.length)];
-              if (slot) {
-                activeTank.weaponAmmo[slot] = (activeTank.weaponAmmo[slot] ?? 1) + 1;
+              if (slot && activeTank.weaponAmmo[slot] !== undefined) {
+                activeTank.weaponAmmo[slot] = activeTank.weaponAmmo[slot] + crate.value;
               }
             }
-            this.spawnFloatingText("+1 Ammo", "#a855f7", activePos.x, activePos.y - 36);
+            this.spawnFloatingText(`+${crate.value} Ammo`, "#a855f7", activePos.x, activePos.y - 36);
           }
         }
       }

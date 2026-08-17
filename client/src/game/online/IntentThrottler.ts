@@ -11,7 +11,7 @@ export class IntentThrottler {
 
   constructor(options?: IntentThrottlerOptions) {
     this.aimIntervalMs = options?.aimIntervalMs ?? 80;
-    this.moveIntervalMs = options?.moveIntervalMs ?? 180;
+    this.moveIntervalMs = options?.moveIntervalMs ?? 100;
   }
 
   shouldSendAim(nowMs: number = performance.now()): boolean {

@@ -8,10 +8,13 @@ import { useScreenStack } from "../../context/ScreenStack";
 import type { HomeScreenStack } from "./HomePage";
 import { useUserStatusQuery } from "../../hooks/useUserStatusQuery";
 import UiError from "../../errors/UiError";
+import { useAssetStore } from "../../store/useAssetStore";
 
 export default function OnlineMenu() {
   const { popScreen, pushScreen } = useScreenStack<HomeScreenStack>();
   const checked = useCheckUserStatus();
+  const selectedTankId = useAssetStore((state) => state.selectedTankId);
+  const selectTank = useAssetStore((state) => state.setSelectedTank);
 
   if (checked === false) {
     return null;
@@ -27,7 +30,7 @@ export default function OnlineMenu() {
       </div>
       <H1 className="text-center mb-1">Online Mode</H1>
 
-      <TankSelector label="Select Your Tank" />
+      <TankSelector onTankSelect={(tank) => selectTank(tank.id)} selectedTankId={selectedTankId} label="Select Your Tank" />
 
       <div className="flex flex-col gap-3 mt-2">
         <Button color="primary" onClick={() => pushScreen("quickMatchLobby")}>

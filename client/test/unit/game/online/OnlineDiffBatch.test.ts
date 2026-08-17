@@ -320,8 +320,8 @@ describe("OnlineDiffBatchResponseDto & Batch Handling", () => {
     const listener = mockTransport.subscribeToStateDiffs.mock.calls[0][0];
     expect(() => listener(batchMsg)).not.toThrow();
 
-    // Advance time for visual flight completion
-    manager.update(0.4);
+    // Advance time for visual flight and post-impact delay completion
+    manager.update(1.0);
 
     const state = manager.getState();
     expect(state.match.activePlayerId).toBe(2);

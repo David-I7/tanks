@@ -47,7 +47,10 @@ export function collectGameActions(input: {
   return actions;
 }
 
-const movementIntentProducer: IntentProducer = ({ state }) => {
+const movementIntentProducer: IntentProducer = ({ state, context }) => {
+  const activeTank = getActiveTank(context.gameState);
+  if (!activeTank) return [];
+
   const left =
     state.pressedKeys.has("a") ||
     state.pressedKeys.has("A") ||
@@ -97,8 +100,6 @@ const spacebarFireIntentProducer: IntentProducer = ({
 
 const pointerIntentProducer: IntentProducer = ({ state, context }) => {
   const intents: GameAction[] = [];
-  const activeTank = getActiveTank(context.gameState);
-  if (!activeTank) return intents;
 
   const pointerDown = state.pendingPointerDown;
   const pointerPoint = pointerDown
@@ -109,6 +110,23 @@ const pointerIntentProducer: IntentProducer = ({ state, context }) => {
         gameViewport: context.gameViewport,
       })
     : null;
+
+  if (pointerPoint) {
+    if (
+      isRelockCameraButtonClickedAtCanvasPoint(
+        context.gameState,
+        context.gameViewport.width,
+        context.gameViewport.height,
+        pointerPoint.x,
+        pointerPoint.y,
+      )
+    ) {
+      return [{ type: "relockCamera" }];
+    }
+  }
+
+  const activeTank = getActiveTank(context.gameState);
+  if (!activeTank) return intents;
 
   let clickedHud = false;
 
@@ -128,17 +146,6 @@ const pointerIntentProducer: IntentProducer = ({ state, context }) => {
         type: "selectProjectileSlot",
         projectileSlotId: clickedSlotId,
       });
-    } else if (
-      isRelockCameraButtonClickedAtCanvasPoint(
-        context.gameState,
-        context.gameViewport.width,
-        context.gameViewport.height,
-        pointerPoint.x,
-        pointerPoint.y,
-      )
-    ) {
-      clickedHud = true;
-      intents.push({ type: "relockCamera" });
     } else if (
       isFireButtonClickedAtCanvasPoint(
         context.gameState,
@@ -237,7 +244,10 @@ function getActiveTank(
 ): GameState["tanks"][number] | null {
   return (
     gameState.tanks.find(
-      (entry) => entry.playerId === gameState.match.activePlayerId,
+      (entry) =>
+        entry.playerId === gameState.match.activePlayerId &&
+        entry.alive &&
+        entry.controllerKind !== "remote",
     ) ?? null
   );
 }

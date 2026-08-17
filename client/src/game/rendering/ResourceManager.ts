@@ -1,7 +1,8 @@
 import type {
-  ProjectileDefinition,
-  TankDefinition as DomainTankDefinition,
+  GameContent
 } from "../types";
+
+export type { GameContent };
 
 export function createInitialWeaponAmmo(
   loadout: string[],
@@ -13,24 +14,6 @@ export function createInitialWeaponAmmo(
   }
   return weaponAmmo;
 }
-
-export type GameContent = {
-  version: string;
-  world: {
-    biome: "forest" | "desert" | "ice";
-    width: number;
-    height: number;
-    tickRateHz: number;
-    gravity: number;
-    projectileTimeStepSeconds: number;
-    maxProjectileSteps: number;
-    movementSegmentDurationTicks: number;
-    minWind: number;
-    maxWind: number;
-  };
-  tanks: Record<string, DomainTankDefinition>;
-  projectiles: Record<string, ProjectileDefinition>;
-};
 
 const TANK_DESCRIPTIONS: Record<string, string> = {
   "heavy-armor": "Reinforced steel hull with heavy dual-barreled firepower.",
@@ -61,7 +44,7 @@ export type TankDefinitionUi = {
 
 export type TankDefinition = TankDefinitionUi;
 
-export default class ResourceManager {
+export class ResourceManager {
   private static instance: ResourceManager | null = null;
   private content: GameContent | null = null;
 
@@ -116,3 +99,5 @@ export default class ResourceManager {
     );
   }
 }
+
+export default ResourceManager;

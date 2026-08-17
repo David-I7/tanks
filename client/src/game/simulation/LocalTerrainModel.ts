@@ -77,7 +77,7 @@ export class LocalTerrainModel {
       kind: "heightmap",
       width: this.width,
       height: this.height,
-      surface: this.cloneSurface(),
+      surface: this.surface,
     };
   }
 

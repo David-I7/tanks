@@ -3,7 +3,6 @@ import type {
   OnlineTerrainSnapshotResponse,
 } from "../../api/ws/dto/gameplay/onlineGameplayProtocol";
 import { createInitialWeaponAmmo } from "../rendering/ResourceManager";
-import { defaultWorldCoordinateMapper } from "./onlineWorldMapper";
 import type { ClientVisualState } from "../simulation/ClientVisualSimulation";
 import type {
   GameContext,
@@ -54,7 +53,7 @@ export function onlineSnapshotToGameState(
   return {
     match: {
       mode: "online",
-      phase: mapOnlinePhase(snapshot.match.phase),
+      phase: visualState?.activeFlight ? "ballistics" : mapOnlinePhase(snapshot.match.phase),
       activePlayerId: snapshot.match.activePlayerId,
       playerCount: snapshot.match.playerCount,
       turnNumber: snapshot.match.turnNumber,
@@ -71,7 +70,8 @@ export function onlineSnapshotToGameState(
     terrain: mapOnlineTerrain(snapshot.terrain),
     projectileDefinitions: content.projectiles,
     tanks: snapshot.tanks.map((tank) => {
-      const weaponAmmo = createInitialWeaponAmmo(tank.loadout);
+      const weaponAmmo =
+        tank.weaponAmmo ?? createInitialWeaponAmmo(tank.loadout);
       const visual: VisualIdentity = {
         fill: tank.visual.fillStyle,
         stroke: tank.visual.strokeStyle,
@@ -102,12 +102,12 @@ export function onlineSnapshotToGameState(
         ),
         aimAngle: tank.aimAngle,
         power: tank.power,
-        maxFuel: tank.fuel,
+        maxFuel: tank.maxFuel ?? tank.fuel,
         fuel: tank.fuel,
         alive: tank.alive,
         position: {
-          x: defaultWorldCoordinateMapper.serverToClientX(tank.position.x),
-          y: tank.position.y + tank.height / 2,
+          x: tank.position.x,
+          y: tank.position.y,
         },
       };
     }),
@@ -252,22 +252,27 @@ function mapOnlineImpactEvents(
   ctx: GameContext,
 ): ImpactEvent[] {
   const monotonicNowMs = ctx.clock();
-  return events.map((event) => {
-    const projDef = ctx.gameContent.projectiles[event.projectileDefinitionId];
-    return {
-      id: event.id,
-      position: { ...event.position },
-      animationId: event.animationId,
-      age: Math.max(0, (monotonicNowMs - event.createdAtMonotonicMs) / 1000),
-      duration: DEFAULT_IMPACT_DURATION_SECONDS,
-      visual: {
-        fill: "#ff4500",
-        stroke: "#ff8c00",
-        accent: "#ffd700",
-        label: projDef ? projDef.label : "!",
-      },
-    };
-  });
+  const results: ImpactEvent[] = [];
+  for (const event of events) {
+    const age = Math.max(0, (monotonicNowMs - event.createdAtMonotonicMs) / 1000);
+    if (age < DEFAULT_IMPACT_DURATION_SECONDS) {
+      const projDef = ctx.gameContent.projectiles[event.projectileDefinitionId];
+      results.push({
+        id: event.id,
+        position: { ...event.position },
+        animationId: event.animationId,
+        age,
+        duration: DEFAULT_IMPACT_DURATION_SECONDS,
+        visual: {
+          fill: "#ff4500",
+          stroke: "#ff8c00",
+          accent: "#ffd700",
+          label: projDef ? projDef.label : "!",
+        },
+      });
+    }
+  }
+  return results;
 }
 
 function mapOnlinePhase(
@@ -290,12 +295,11 @@ function mapOnlinePhase(
 function mapOnlineTerrain(
   terrain: OnlineTerrainSnapshotResponse,
 ): TerrainSnapshot {
-  const mapped = defaultWorldCoordinateMapper.mapSurface(terrain.surface);
   return {
     kind: "heightmap",
-    width: mapped.width,
+    width: terrain.surface.length,
     height: terrain.height,
-    surface: mapped.surface,
+    surface: terrain.surface,
   };
 }
 

@@ -1,5 +1,5 @@
 import { createBrowserRouter } from "react-router-dom";
-import AppLayoutDecorator from "../components/decorators/AppLayoutDecorator";
+import AppLayoutDecorator from "../components/layouts/AppLayoutDecorator";
 import GlobalErrorPage from "./error/GlobalErrorPage";
 import HomePage from "./home/HomePage";
 import UnauthenticatedRoute from "../components/auth/UnauthenticatedRoute";
@@ -60,6 +60,7 @@ const router = createBrowserRouter([
       },
     ],
   },
+  
 ]);
 
 export default router;

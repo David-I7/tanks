@@ -190,7 +190,7 @@ describe("OnlineGameManager Playback Pipeline", () => {
         ownerPlayerId: 1,
         projectileDefinitionId: "basicShell",
         impact: { x: 1200, y: 400 },
-        damagedTanks: [{ tankEntityId: 20, damage: 30, remainingHealth: 70 }],
+        damagedTanks: [{ entityId: 20, playerId: 2, damageDealt: 30, healthAfter: 70 }],
         trajectory: [
           { x: 200, y: 400 },
           { x: 700, y: 200 },

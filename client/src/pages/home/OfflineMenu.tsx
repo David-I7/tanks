@@ -7,8 +7,7 @@ import Surface from "../../components/layouts/Surface";
 import TankSelector from "../../components/game/TankSelector";
 import { useScreenStack } from "../../context/ScreenStack";
 import { useNavigate } from "react-router-dom";
-import { useAssetQuery, type TankAsset } from "../../hooks/useAssetQuery";
-import randInt from "../../utils/random";
+import type { TankAsset } from "../../hooks/useAssetQuery";
 
 type PlayerConfig = {
   name: string;
@@ -18,19 +17,14 @@ type PlayerConfig = {
 export default function OfflineMenu() {
   const { popScreen } = useScreenStack();
   const navigate = useNavigate();
-  const { data: tanks } = useAssetQuery();
-
+  
   const [player1Config, setPlayer1Config] = useState<PlayerConfig>({
     name: "Player 1",
-    tankId:
-      !tanks ? "heavy-armor" : tanks[randInt(0, tanks.length - 1)].id,
+    tankId: "",
   });
   const [player2Config, setPlayer2Config] = useState<PlayerConfig>({
     name: "Player 2",
-    tankId:
-      !tanks
-        ? "desert-striker"
-        : tanks[randInt(0, tanks.length - 1)].id,
+    tankId: ""
   });
 
   const handleStartGame = () => {
@@ -39,9 +33,6 @@ export default function OfflineMenu() {
     });
   };
 
-  if (!tanks) {
-    return "Loading tanks...";
-  }
 
   return (
     <Surface className="px-6 py-6 w-full max-w-lg flex flex-col gap-5 text-center relative pt-14 max-h-[90vh] overflow-y-auto">
@@ -76,6 +67,7 @@ export default function OfflineMenu() {
           onTankSelect={(tank) =>
             setPlayer1Config({ ...player1Config, tankId: tank.id })
           }
+          selectedTankId={player1Config.tankId}
           label="Tank Choice"
         />
       </div>
@@ -103,6 +95,7 @@ export default function OfflineMenu() {
           onTankSelect={(tank) =>
             setPlayer2Config({ ...player2Config, tankId: tank.id })
           }
+          selectedTankId={player2Config.tankId}
           label="Tank Choice"
         />
       </div>
@@ -110,6 +103,12 @@ export default function OfflineMenu() {
       <Button
         color="primary"
         onClick={handleStartGame}
+        disabled={
+          !player1Config.name ||
+          !player1Config.tankId ||
+          !player2Config.name ||
+          !player2Config.tankId
+        }
         className="w-full font-black text-sm tracking-widest mt-2"
       >
         Start Game

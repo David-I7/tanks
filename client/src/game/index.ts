@@ -3,10 +3,7 @@ import ResourceManager from "./rendering/ResourceManager";
 export { ResourceManager };
 export { GameEngine } from "./GameEngine";
 export type { GameEngineOptions } from "./GameEngine";
-export {
-  createLocalGameManager,
-  createCanvasSizedLocalGameManager,
-} from "./authority/LocalGameManager";
+export { createLocalGameManager } from "./authority/LocalGameManager";
 export type { GameManager } from "./authority/gameManager";
 export {
   createLocalSimulationManager,

@@ -76,7 +76,6 @@ export default function LocalGamePage() {
 
     engineRef.current?.stop();
     const gameManager = createLocalGameManager({
-      canvas,
       mode,
       setup: matchSetup,
       content: ResourceManager.getInstance().getGameContent(),

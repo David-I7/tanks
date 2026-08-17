@@ -30,7 +30,6 @@ export type ClientVisualState = {
 
 const CAMERA_SMOOTHING_SPEED = 10;
 export const DEFAULT_TERRAIN_WIDTH = 2400;
-export const DEFAULT_VIEWPORT_WIDTH = 960;
 
 export class ClientVisualSimulation {
   private cameraX: number;
@@ -96,6 +95,34 @@ export class ClientVisualSimulation {
     return this.decors;
   }
 
+  destroyDecorsNear(x: number, y: number, radius: number): void {
+    for (const decor of this.decors) {
+      if (!decor.destroyed && Math.hypot(decor.x - x, decor.y - y) <= radius * 1.2) {
+        decor.destroyed = true;
+      }
+    }
+  }
+
+  updateDecorsTerrain(surface: number[]): void {
+    const terrainWidth = surface.length;
+    for (const decor of this.decors) {
+      if (decor.destroyed) continue;
+      const clampedX = Math.max(0, Math.min(terrainWidth - 1, decor.x));
+      const currentY = surface[clampedX] ?? decor.y;
+      if (Math.abs(currentY - decor.y) > 12) {
+        decor.destroyed = true;
+      } else {
+        decor.y = currentY;
+        const leftX = Math.max(0, clampedX - 8);
+        const rightX = Math.min(terrainWidth - 1, clampedX + 8);
+        decor.rotation = Math.atan2(
+          (surface[rightX] ?? 0) - (surface[leftX] ?? 0),
+          rightX - leftX,
+        );
+      }
+    }
+  }
+
   /** Set the target aim state for a remote player (for interpolation). */
   setAimTarget(playerId: number, angle: number, power: number): void {
     this.aimTargets.set(playerId, { angle, power });
@@ -134,12 +161,10 @@ export class ClientVisualSimulation {
 
   panCamera(
     deltaX: number,
-    viewportWidth: number = DEFAULT_VIEWPORT_WIDTH,
     terrainWidth: number = this.terrainWidth,
   ): void {
-    const maxCameraX = Math.max(0, terrainWidth - viewportWidth);
     this.isCameraLocked = false;
-    this.cameraX = Math.max(0, Math.min(maxCameraX, this.cameraX + deltaX));
+    this.cameraX = Math.max(0, Math.min(terrainWidth, this.cameraX + deltaX));
   }
 
   relockCamera(): void {
@@ -148,25 +173,21 @@ export class ClientVisualSimulation {
 
   setCameraPosition(
     x: number,
-    viewportWidth: number = DEFAULT_VIEWPORT_WIDTH,
     terrainWidth: number = this.terrainWidth,
   ): void {
-    const maxCameraX = Math.max(0, terrainWidth - viewportWidth);
-    this.cameraX = Math.max(0, Math.min(maxCameraX, x));
+    this.cameraX = Math.max(0, Math.min(terrainWidth, x));
   }
 
   updateCamera(
     dt: number,
     focusX: number | null,
-    viewportWidth: number = DEFAULT_VIEWPORT_WIDTH,
     terrainWidth: number = this.terrainWidth,
   ): void {
     if (!this.isCameraLocked || focusX === null) return;
-    const maxCameraX = Math.max(0, terrainWidth - viewportWidth);
-    const targetCameraX = Math.max(0, Math.min(maxCameraX, focusX - viewportWidth * 0.5));
+    const target = Math.max(0, Math.min(terrainWidth, focusX));
     const lerpFactor = 1 - Math.exp(-CAMERA_SMOOTHING_SPEED * dt);
-    this.cameraX += (targetCameraX - this.cameraX) * lerpFactor;
-    this.cameraX = Math.max(0, Math.min(maxCameraX, this.cameraX));
+    this.cameraX += (target - this.cameraX) * lerpFactor;
+    this.cameraX = Math.max(0, Math.min(terrainWidth, this.cameraX));
   }
 
   updateLootCrates(dt: number, crates: LootCrate[]): void {

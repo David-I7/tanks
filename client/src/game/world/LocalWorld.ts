@@ -13,6 +13,7 @@ import {
   type DecorObject,
   type Cloud,
 } from "../types";
+import { createInitialWeaponAmmo } from "../rendering/ResourceManager";
 
 export class LocalWorld {
   private nextEntityId = 1;
@@ -64,7 +65,7 @@ export class LocalWorld {
         `Tank definition "${tankDefinition.id}" has no loadout slots`,
       );
     }
-    //const weaponAmmo = createInitialWeaponAmmo(tankDefinition.loadout);
+    const weaponAmmo = createInitialWeaponAmmo(tankDefinition.loadout);
     this.tanks.set(entityId, {
       playerId: player.id,
       displayName: player.displayName,
@@ -76,7 +77,7 @@ export class LocalWorld {
       visual: { ...tankDefinition.visual },
       loadout: [...tankDefinition.loadout],
       selectedProjectileSlotId: defaultSlot,
-      weaponAmmo: {},
+      weaponAmmo,
       maxHealth: tankDefinition.maxHealth,
       health: tankDefinition.maxHealth,
       facing: player.id === 0 ? 1 : -1,

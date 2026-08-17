@@ -160,8 +160,17 @@ public class DefaultGameSimulation implements GameSimulation {
                 int val = crate.value() != null ? crate.value() : 25;
                 if ("hp".equalsIgnoreCase(crate.crateType())) {
                     tankState.health(Math.min(tankDef.maxHealth(), tankState.health() + val));
-                } else if ("fuel".equalsIgnoreCase(crate.crateType()) || "ammo".equalsIgnoreCase(crate.crateType())) {
+                } else if ("fuel".equalsIgnoreCase(crate.crateType())) {
                     tankState.fuel(Math.min(tankDef.maxFuel(), tankState.fuel() + val));
+                } else if ("ammo".equalsIgnoreCase(crate.crateType())) {
+                    List<String> nonInfiniteSlots = tankDef.loadout().stream()
+                            .filter(s -> !s.equals("basicShell") && !s.equals("standard"))
+                            .toList();
+                    if (!nonInfiniteSlots.isEmpty()) {
+                        String slot = nonInfiniteSlots.get(new java.util.Random().nextInt(nonInfiniteSlots.size()));
+                        int currentAmmo = tankState.weaponAmmo().getOrDefault(slot, 0);
+                        tankState.weaponAmmo().put(slot, currentAmmo + 1);
+                    }
                 }
                 crate.collected(true);
                 iterator.remove();
@@ -178,11 +187,23 @@ public class DefaultGameSimulation implements GameSimulation {
         String projectileId = state.selectedProjectileSlotId() != null ? state.selectedProjectileSlotId() : tankDef.loadout().getFirst();
         ProjectileDefinition projectileDef = content.requireProjectile(projectileId);
 
-        double launchX = state.position().x() + (state.facing() * tankDef.muzzleForwardOffset());
-        double launchY = state.position().y() - tankDef.muzzleVerticalOffset();
-        OnlineVec2Dto launch = new OnlineVec2Dto(round(launchX), round(launchY));
+        if (state.weaponAmmo() != null && state.weaponAmmo().containsKey(projectileId)) {
+            int currentAmmo = state.weaponAmmo().get(projectileId);
+            if (currentAmmo > 0) {
+                state.weaponAmmo().put(projectileId, currentAmmo - 1);
+            }
+        }
 
         double angleRad = request.getAngle();
+        double barrelLength = 28.0;
+        double turretYOffset = -14.0;
+        double bodyAngle = terrain.slopeAngle(state.position().x(), tankDef.width());
+        double pivotX = state.position().x() - turretYOffset * Math.sin(bodyAngle);
+        double pivotY = state.position().y() + turretYOffset * Math.cos(bodyAngle);
+        double launchX = pivotX + Math.cos(angleRad) * barrelLength;
+        double launchY = pivotY + Math.sin(angleRad) * barrelLength;
+        OnlineVec2Dto launch = new OnlineVec2Dto(round(launchX), round(launchY));
+
         double speed = request.getPower() * projectileDef.baseVelocity();
         double vx = speed * Math.cos(angleRad);
         double vy = speed * Math.sin(angleRad);

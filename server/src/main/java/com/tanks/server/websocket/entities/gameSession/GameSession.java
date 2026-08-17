@@ -58,6 +58,12 @@ public class GameSession {
 
     private TerrainModel terrainModel;
 
+    private boolean crateSpawnedMinute1;
+
+    private boolean crateSpawnedMinute2;
+
+    private boolean crateSpawnedMinute3;
+
     @Builder.Default
     private Set<Long> connectedUserIds = ConcurrentHashMap.newKeySet();
 
@@ -79,10 +85,15 @@ public class GameSession {
             this.turnStartDiffSequence = other.turnStartDiffSequence;
             this.lastDiffServerTick = other.lastDiffServerTick;
             this.matchEndsAtServerTick = other.matchEndsAtServerTick;
+            this.pendingTurnTransitionAtServerTick = other.pendingTurnTransitionAtServerTick;
+            this.pendingTurnTransitionIntentId = other.pendingTurnTransitionIntentId;
             this.state = other.state;
             this.gameContentVersion = other.gameContentVersion;
             this.world = other.world == null ? null : new World(other.world);
             this.terrainModel = other.terrainModel == null ? null : new TerrainModel(other.terrainModel);
+            this.crateSpawnedMinute1 = other.crateSpawnedMinute1;
+            this.crateSpawnedMinute2 = other.crateSpawnedMinute2;
+            this.crateSpawnedMinute3 = other.crateSpawnedMinute3;
             this.connectedUserIds = ConcurrentHashMap.newKeySet();
             if (other.connectedUserIds != null) {
                 this.connectedUserIds.addAll(other.connectedUserIds);

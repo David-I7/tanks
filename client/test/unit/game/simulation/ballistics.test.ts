@@ -1,9 +1,16 @@
 import { describe, it, expect } from "vitest";
-import { clampAimAngle, simulateTrajectoryPreview } from "../../../../src/game/simulation/ballistics";
+import {
+  BARREL_LENGTH,
+  TURRET_Y_OFFSET,
+  clampAimAngle,
+  getMuzzlePosition,
+  simulateTrajectoryPreview,
+} from "../../../../src/game/simulation/ballistics";
 import { LocalWorld } from "../../../../src/game/world/LocalWorld";
 import { LocalTerrainModel } from "../../../../src/game/simulation/LocalTerrainModel";
 import { testGameContent } from "../online/mockOnlineTestState";
 import { LocalSimulation } from "../../../../src/game/simulation/LocalSimulation";
+import type { GameState } from "../../../../src/game/types";
 
 describe("clampAimAngle", () => {
   it("should preserve valid radian angles in upper semicircle [-π, 0]", () => {
@@ -31,6 +38,36 @@ describe("clampAimAngle", () => {
     expect(clampAimAngle(180)).toBeCloseTo(-Math.PI);
     expect(clampAimAngle(210)).toBeCloseTo(-Math.PI); // clamped to 180deg
     expect(clampAimAngle(-45)).toBeCloseTo(-Math.PI / 4); // canvas -45deg
+  });
+});
+
+describe("getMuzzlePosition", () => {
+  it("should calculate exact muzzle position along aim angle from turret pivot", () => {
+    const tankX = 200;
+    const tankY = 400;
+
+    // Aiming straight right (0 rad)
+    const right = getMuzzlePosition(tankX, tankY, 0);
+    expect(right.x).toBeCloseTo(tankX + BARREL_LENGTH);
+    expect(right.y).toBeCloseTo(tankY + TURRET_Y_OFFSET);
+
+    // Aiming straight up (-π/2 rad)
+    const up = getMuzzlePosition(tankX, tankY, -Math.PI / 2);
+    expect(up.x).toBeCloseTo(tankX);
+    expect(up.y).toBeCloseTo(tankY + TURRET_Y_OFFSET - BARREL_LENGTH);
+
+    // Aiming straight left (-π rad)
+    const left = getMuzzlePosition(tankX, tankY, -Math.PI);
+    expect(left.x).toBeCloseTo(tankX - BARREL_LENGTH);
+    expect(left.y).toBeCloseTo(tankY + TURRET_Y_OFFSET);
+
+    // Rotated tank on slope (bodyAngle = 45 deg = π/4)
+    const slopeAngle = Math.PI / 4;
+    const rotatedMuzzle = getMuzzlePosition(tankX, tankY, -Math.PI / 2, slopeAngle);
+    const expectedPivotX = tankX - TURRET_Y_OFFSET * Math.sin(slopeAngle);
+    const expectedPivotY = tankY + TURRET_Y_OFFSET * Math.cos(slopeAngle);
+    expect(rotatedMuzzle.x).toBeCloseTo(expectedPivotX);
+    expect(rotatedMuzzle.y).toBeCloseTo(expectedPivotY - BARREL_LENGTH);
   });
 });
 
@@ -76,35 +113,87 @@ describe("LocalSimulation angle range enforcement", () => {
 });
 
 describe("simulateTrajectoryPreview", () => {
-  it("should calculate trajectory points using standard radians regardless of facing direction", () => {
-    const mockState = {
-      match: { mode: "online", phase: "thinking", activePlayerId: 1, wind: 0 },
-      terrain: { kind: "heightmap", width: 2400, surface: new Array(2400).fill(600) },
+  it("should calculate trajectory points starting at muzzle and moving according to aim angle", () => {
+    const mockState: Partial<GameState> = {
+      match: {
+        mode: "online",
+        phase: "thinking",
+        activePlayerId: 1,
+        wind: 0,
+        playerCount: 2,
+        turnNumber: 1,
+        turnTimeRemaining: 30,
+        matchTimeRemaining: 180,
+        winnerPlayerId: null,
+        biome: "forest",
+        isCameraLocked: true,
+        cameraX: 0,
+      },
+      terrain: { kind: "heightmap", width: 2400, height: 720, surface: new Array(2400).fill(600) },
       projectileDefinitions: {
-        basicShell: { baseVelocity: 600, gravityScale: 1, drag: 0 },
+        basicShell: {
+          id: "basicShell",
+          name: "Basic Shell",
+          label: "BS",
+          baseVelocity: 1.0,
+          gravityScale: 1,
+          drag: 0,
+          radius: 4,
+          terrainRadius: 20,
+          terrainDepth: 10,
+          damageRadius: 30,
+          damage: 50,
+          terrainEffectType: "CRATER",
+          damageEffectType: "RADIAL",
+        },
       },
       tanks: [
         {
+          entityId: 1,
           playerId: 1,
+          displayName: "P1",
+          controllerKind: "human",
+          tankDefinitionId: "vanguard-cyber",
+          tankName: "Vanguard Cyber",
           alive: true,
           position: { x: 500, y: 400 },
-          facing: -1, // tank facing left
+          facing: -1,
+          bodyAngle: 0,
           aimAngle: -Math.PI / 4, // aiming UP-RIGHT (-45 deg)
-          power: 1,
+          power: 300,
           selectedProjectileSlotId: "basicShell",
           loadout: ["basicShell"],
+          weaponAmmo: { basicShell: -1 },
+          maxHealth: 100,
+          health: 100,
+          maxFuel: 200,
+          fuel: 200,
           width: 24,
           height: 24,
+          visual: { fill: "#000", stroke: "#000", accent: "#000", label: "T" },
         },
       ],
+      projectiles: [],
+      impactEvents: [],
+      particles: [],
+      floatingTexts: [],
+      clouds: [],
+      decors: [],
     };
 
-    const points = simulateTrajectoryPreview(mockState as any, 1, 5);
+    const points = simulateTrajectoryPreview(mockState as GameState, 1, 10);
     expect(points.length).toBeGreaterThan(1);
-    // When aiming UP-RIGHT (-45 deg), x coordinate must INCREASE regardless of facing=-1
+
+    // Trajectory must start at muzzle position
+    const muzzle = getMuzzlePosition(500, 400, -Math.PI / 4);
+    expect(points[0].x).toBeCloseTo(muzzle.x);
+    expect(points[0].y).toBeCloseTo(muzzle.y);
+
+    // When aiming UP-RIGHT (-45 deg), x coordinate must INCREASE
     expect(points[1].x).toBeGreaterThan(points[0].x);
     // y coordinate must DECREASE (upward)
     expect(points[1].y).toBeLessThan(points[0].y);
   });
 });
+
 
