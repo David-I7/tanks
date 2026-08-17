@@ -129,9 +129,11 @@ public class GameStateResponseFactory {
                 .power(state.power())
                 .selectedProjectileSlotId(state.selectedProjectileSlotId())
                 .loadout(definition.loadout())
+                .weaponAmmo(state.weaponAmmo())
                 .health(state.health())
                 .maxHealth(definition.maxHealth())
                 .fuel(state.fuel())
+                .maxFuel(definition.maxFuel())
                 .alive(state.alive())
                 .build();
     }

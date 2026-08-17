@@ -1,9 +1,167 @@
+// ============================================================================
+// 1. Core Identifiers & Geometry
+// ============================================================================
+
 export type GameSessionId = string;
 export type PlayerId = number;
 export type EntityId = number;
 export type IntentId = string;
 export type DiffSequence = number;
 export type ServerTick = number;
+
+export type OnlineVec2 = {
+  x: number;
+  y: number;
+};
+
+// ============================================================================
+// 2. Shared Value Objects & Reusable Schemas
+// ============================================================================
+
+export type OnlineBiome = "forest" | "desert" | "ice";
+
+export type OnlineAimData = {
+  angle: number;
+  power: number;
+};
+
+export type OnlineTankVisualDto = {
+  fillStyle: string;
+  strokeStyle: string;
+  accentColor: string;
+  label: string;
+};
+
+export type OnlineCrateType = "hp" | "fuel" | "ammo";
+
+export type OnlineLootCrateBase = {
+  crateId: string;
+  crateType: OnlineCrateType;
+  targetY: number;
+  value: number;
+};
+
+export type OnlineTankDamageResponse = {
+  entityId: EntityId;
+  playerId: PlayerId;
+  damageDealt: number;
+  healthAfter: number;
+};
+
+export type SubMunitionConfigDto = {
+  count: number;
+  projectileDefinitionId: string;
+  spreadAngleDegrees: number;
+  velocityScale: number;
+};
+
+export type DamageTrailConfigDto = {
+  radius: number;
+  damagePerSecond: number;
+  durationSeconds: number;
+};
+
+export type SubMunitionTrajectoryDto = {
+  projectileDefinitionId: string;
+  launch: OnlineVec2;
+  trajectory: OnlineVec2[];
+  impact: OnlineVec2;
+  damagedTanks: OnlineTankDamageResponse[];
+};
+
+export type SpawnRegionDto = {
+  minX: number;
+  maxX: number;
+};
+
+export type OnlineTankCoreAttributesDto = {
+  width: number;
+  height: number;
+  visual: OnlineTankVisualDto;
+  maxHealth: number;
+  maxFuel: number;
+  loadout: string[];
+};
+
+// ============================================================================
+// 3. Game Content Catalog DTOs
+// ============================================================================
+
+export type WorldDefinitionDto = {
+  biome: OnlineBiome;
+  width: number;
+  height: number;
+  tickRateHz: number;
+  gravity: number;
+  deltaTime: number;
+  maxProjectileSteps: number;
+  movementSegmentDurationTicks: number;
+  playerASpawnRegion: SpawnRegionDto;
+  playerBSpawnRegion: SpawnRegionDto;
+  minWind: number;
+  maxWind: number;
+};
+
+export type TankDefinitionDto = OnlineTankCoreAttributesDto & {
+  id: string;
+  name: string;
+  movementQuantum: number;
+  fuelRate: number;
+  climbCapability: number;
+};
+
+export type ProjectileDefinitionDto = {
+  id: string;
+  name: string;
+  label: string;
+  radius: number;
+  baseVelocity: number;
+  gravityScale: number;
+  drag: number;
+  terrainEffectType: "CRATER" | "DRILL";
+  terrainRadius: number;
+  terrainDepth: number;
+  damageEffectType: "RADIAL" | "FOCUSED";
+  damageRadius: number;
+  damage: number;
+  subMunitions: SubMunitionConfigDto | null;
+  damageTrail: DamageTrailConfigDto | null;
+};
+
+export type GameContentResponseDto = {
+  version: string;
+  world: WorldDefinitionDto;
+  tanks: Record<string, TankDefinitionDto>;
+  projectiles: Record<string, ProjectileDefinitionDto>;
+};
+
+// ============================================================================
+// 4. Player Intent Requests (Client -> Server)
+// ============================================================================
+
+export type OnlineMoveRequest = {
+  type: "MOVE";
+  payload: {
+    direction: -1 | 1;
+  };
+};
+
+export type OnlineAimRequest = {
+  type: "AIM";
+  payload: OnlineAimData;
+};
+
+export type OnlineSelectProjectileSlotRequest = {
+  type: "SELECT_PROJECTILE_SLOT";
+  payload: {
+    slot: number;
+  };
+};
+
+export type OnlineFireRequest = {
+  type: "FIRE";
+  payload: OnlineAimData;
+};
 
 export type OnlinePlayerIntentRequest =
   | OnlineMoveRequest
@@ -23,140 +181,47 @@ export type OnlinePlayerIntentRequestDto<
   payload: TIntent["payload"];
 };
 
-export type OnlineMoveRequest = {
-  type: "MOVE";
-  payload: {
-    direction: -1 | 1;
-  };
+// ============================================================================
+// 5. State Diffs & Server Events (Server -> Client)
+// ============================================================================
+
+export type OnlineResyncReason =
+  | "MISSED_DIFF"
+  | "SERVER_CORRECTION"
+  | "RECONNECT";
+
+export type OnlineRejectionReason =
+  | "STALE_BASE_STATE"
+  | "NOT_ACTIVE_PLAYER"
+  | "INVALID_PAYLOAD"
+  | "TURN_ALREADY_RESOLVING"
+  | "INSUFFICIENT_FUEL"
+  | "OUT_OF_BOUNDS"
+  | "IMPASSABLE_TERRAIN";
+
+export type OnlineTerminalReason =
+  | "LAST_TANK_STANDING"
+  | "DRAW"
+  | "FORFEIT"
+  | "MATCH_TIME_EXPIRED";
+
+export type OnlineStateSnapshotPayload = {
+  localPlayerId: PlayerId;
+  state: OnlineGameStateSnapshotResponse;
 };
-
-export type OnlineAimRequest = {
-  type: "AIM";
-  payload: {
-    angle: number;
-    power: number;
-  };
-};
-
-export type OnlineSelectProjectileSlotRequest = {
-  type: "SELECT_PROJECTILE_SLOT";
-  payload: {
-    slot: number;
-  };
-};
-
-export type OnlineFireRequest = {
-  type: "FIRE";
-  payload: {
-    angle: number;
-    power: number;
-  };
-};
-
-export type OnlineStateDiffResponse =
-  | OnlineInitialStateResponse
-  | OnlineResyncStateResponse
-  | OnlineMovementSegmentResponse
-  | OnlineAimUpdateResponse
-  | OnlineProjectileResolutionResponse
-  | OnlineTerrainPatchResponse
-  | OnlineIntentRejectionResponse
-  | OnlineTurnTransitionResponse
-  | OnlineTerminalGameResponse
-  | OnlineCrateSpawnedResponse;
-
-const ONLINE_STATE_DIFF_TYPES = new Set([
-  "INITIAL_STATE",
-  "RESYNC_STATE",
-  "MOVEMENT_SEGMENT",
-  "AIM_UPDATE",
-  "PROJECTILE_RESOLUTION",
-  "TERRAIN_PATCH",
-  "INTENT_REJECTION",
-  "TURN_TRANSITION",
-  "TERMINAL_GAME",
-  "CRATE_SPAWNED",
-]);
-
-export type OnlineDiffResponseDto<
-  TDiff extends OnlineStateDiffResponse = OnlineStateDiffResponse,
-> = {
-  gameSessionId: GameSessionId;
-  sequence: DiffSequence;
-  serverTick: ServerTick;
-  type: TDiff["type"];
-  intentId: IntentId | null;
-  payload: TDiff["payload"];
-};
-
-export function isOnlineDiffResponseDto(
-  value: unknown,
-): value is OnlineDiffResponseDto {
-  if (!value || typeof value !== "object") return false;
-
-  const candidate = value as {
-    gameSessionId?: unknown;
-    sequence?: unknown;
-    serverTick?: unknown;
-    type?: unknown;
-    intentId?: unknown;
-    payload?: unknown;
-  };
-
-  return (
-    typeof candidate.gameSessionId === "string" &&
-    typeof candidate.sequence === "number" &&
-    typeof candidate.serverTick === "number" &&
-    typeof candidate.type === "string" &&
-    ONLINE_STATE_DIFF_TYPES.has(candidate.type) &&
-    (typeof candidate.intentId === "string" || candidate.intentId === null) &&
-    typeof candidate.payload === "object" &&
-    candidate.payload !== null
-  );
-}
-
-export type OnlineDiffBatchResponseDto = {
-  gameSessionId: GameSessionId;
-  sequence: DiffSequence;
-  serverTick: ServerTick;
-  intentId: IntentId | null;
-  diffs: OnlineDiffResponseDto[];
-};
-
-export function isOnlineDiffBatchResponseDto(
-  value: unknown,
-): value is OnlineDiffBatchResponseDto {
-  if (!value || typeof value !== "object") return false;
-
-  const candidate = value as Record<string, unknown>;
-
-  return (
-    typeof candidate.gameSessionId === "string" &&
-    typeof candidate.sequence === "number" &&
-    typeof candidate.serverTick === "number" &&
-    (typeof candidate.intentId === "string" || candidate.intentId === null) &&
-    Array.isArray(candidate.diffs) &&
-    candidate.diffs.every(isOnlineDiffResponseDto)
-  );
-}
-
 
 export type OnlineInitialStateResponse = {
   type: "INITIAL_STATE";
-  payload: {
+  payload: OnlineStateSnapshotPayload & {
     expectedNextDiffSequence: DiffSequence;
-    localPlayerId: PlayerId;
-    state: OnlineGameStateSnapshotResponse;
   };
 };
 
 export type OnlineResyncStateResponse = {
   type: "RESYNC_STATE";
-  payload: {
+  payload: OnlineStateSnapshotPayload & {
     replacesSequence: DiffSequence;
-    reason: "MISSED_DIFF" | "SERVER_CORRECTION" | "RECONNECT";
-    localPlayerId: PlayerId;
-    state: OnlineGameStateSnapshotResponse;
+    reason: OnlineResyncReason;
   };
 };
 
@@ -182,29 +247,14 @@ export type OnlineAimUpdateResponse = {
   type: "AIM_UPDATE";
   payload: {
     playerId: PlayerId;
-    angle: number;
-    power: number;
-  };
-};
-
-export type SubMunitionTrajectoryDto = {
-  projectileDefinitionId: string;
-  launch: OnlineVec2;
-  trajectory: OnlineVec2[];
-  impact: OnlineVec2;
-  damagedTanks: OnlineTankDamageResponse[];
+  } & OnlineAimData;
 };
 
 export type OnlineProjectileResolutionResponse = {
   type: "PROJECTILE_RESOLUTION";
-  payload: {
+  payload: SubMunitionTrajectoryDto & {
     projectileEntityId: EntityId;
     ownerPlayerId: PlayerId;
-    projectileDefinitionId: string;
-    launch: OnlineVec2;
-    trajectory: OnlineVec2[];
-    impact: OnlineVec2;
-    damagedTanks: OnlineTankDamageResponse[];
     subMunitions: SubMunitionTrajectoryDto[];
   };
 };
@@ -220,14 +270,7 @@ export type OnlineIntentRejectionResponse = {
   type: "INTENT_REJECTION";
   payload: {
     playerId: PlayerId;
-    reason:
-      | "STALE_BASE_STATE"
-      | "NOT_ACTIVE_PLAYER"
-      | "INVALID_PAYLOAD"
-      | "TURN_ALREADY_RESOLVING"
-      | "INSUFFICIENT_FUEL"
-      | "OUT_OF_BOUNDS"
-      | "IMPASSABLE_TERRAIN";
+    reason: OnlineRejectionReason;
     authoritativeSequence: DiffSequence;
     authoritativeServerTick: ServerTick;
   };
@@ -250,73 +293,69 @@ export type OnlineTerminalGameResponse = {
   type: "TERMINAL_GAME";
   payload: {
     winnerPlayerId: PlayerId | null;
-    reason: "LAST_TANK_STANDING" | "DRAW" | "FORFEIT" | "MATCH_TIME_EXPIRED";
+    reason: OnlineTerminalReason;
     finalState: OnlineGameStateSnapshotResponse;
   };
 };
 
 export type OnlineCrateSpawnedResponse = {
   type: "CRATE_SPAWNED";
-  payload: {
-    crateId: string;
-    crateType: "hp" | "fuel" | "ammo";
+  payload: OnlineLootCrateBase & {
     dropX: number;
-    targetY: number;
-    value: number;
   };
 };
 
-export type OnlineDamageTrailEvent = {
-  id: string;
-  position: OnlineVec2;
-  radius: number;
-  durationSeconds: number;
-  damagePerSecond: number;
-  ownerPlayerId: PlayerId;
+export type OnlineStateDiffResponse =
+  | OnlineInitialStateResponse
+  | OnlineResyncStateResponse
+  | OnlineMovementSegmentResponse
+  | OnlineAimUpdateResponse
+  | OnlineProjectileResolutionResponse
+  | OnlineTerrainPatchResponse
+  | OnlineIntentRejectionResponse
+  | OnlineTurnTransitionResponse
+  | OnlineTerminalGameResponse
+  | OnlineCrateSpawnedResponse;
+
+export type OnlineDiffEnvelopeDto = {
+  gameSessionId: GameSessionId;
+  sequence: DiffSequence;
+  serverTick: ServerTick;
+  intentId: IntentId | null;
 };
 
-export type OnlineVec2 = {
-  x: number;
-  y: number;
+export type OnlineDiffResponseDto<
+  TDiff extends OnlineStateDiffResponse = OnlineStateDiffResponse,
+> = OnlineDiffEnvelopeDto & {
+  type: TDiff["type"];
+  payload: TDiff["payload"];
 };
 
-export type OnlineTankDamageResponse = {
-  tankEntityId: EntityId;
-  playerId: PlayerId;
-  damage: number;
-  remainingHealth: number;
+export type OnlineDiffBatchResponseDto = OnlineDiffEnvelopeDto & {
+  diffs: OnlineDiffResponseDto[];
 };
 
-export type OnlineLootCrateSnapshot = {
-  crateId: string;
-  crateType: "hp" | "fuel" | "ammo";
-  x: number;
-  y: number;
-  targetY: number;
-  isLanding: boolean;
-  collected: boolean;
-  value: number;
-};
+// ============================================================================
+// 6. Game State Snapshots & Entities
+// ============================================================================
 
-export type OnlineGameStateSnapshotResponse = {
-  gameContentVersion: string;
-  gameContent: GameContentResponseDto;
-  match: {
-    phase: "AIMING" | "BALLISTICS" | "IMPACT" | "TRANSITION" | "GAME_OVER";
-    activePlayerId: PlayerId;
-    playerCount: number;
-    turnNumber: number;
-    turnTimeRemainingTicks: number;
-    winnerPlayerId: PlayerId | null;
-    wind: number;
-    matchTimeRemainingTicks: number;
-    biome: "forest" | "desert" | "ice";
-  };
-  terrain: OnlineTerrainSnapshotResponse;
-  tanks: OnlineTankSnapshotResponse[];
-  projectiles: OnlineProjectileSnapshotResponse[];
-  lootCrates: OnlineLootCrateSnapshot[];
-  damageTrails: OnlineDamageTrailEvent[];
+export type OnlineTurnPhase =
+  | "AIMING"
+  | "BALLISTICS"
+  | "IMPACT"
+  | "TRANSITION"
+  | "GAME_OVER";
+
+export type OnlineMatchSnapshotResponse = {
+  phase: OnlineTurnPhase;
+  activePlayerId: PlayerId;
+  playerCount: number;
+  turnNumber: number;
+  turnTimeRemainingTicks: number;
+  winnerPlayerId: PlayerId | null;
+  wind: number;
+  matchTimeRemainingTicks: number;
+  biome: OnlineBiome;
 };
 
 export type OnlineTerrainSnapshotResponse = {
@@ -332,76 +371,18 @@ export type OnlineTerrainPatchResponseDto = {
   surface: number[];
 };
 
-export type GameContentResponseDto = {
-  version: string;
-  world: {
-    biome: "forest" | "desert" | "ice";
-    width: number;
-    height: number;
-    tickRateHz: number;
-    gravity: number;
-    deltaTime: number;
-    maxProjectileSteps: number;
-    movementSegmentDurationTicks: number;
-    playerASpawnRegion: { minX: number; maxX: number };
-    playerBSpawnRegion: { minX: number; maxX: number };
-    minWind: number;
-    maxWind: number;
-  };
-  tanks: Record<
-    string,
-    {
-      id: string;
-      name: string;
-      maxHealth: number;
-      maxFuel: number;
-      movementQuantum: number;
-      fuelRate: number;
-      climbCapability: number;
-      width: number;
-      height: number;
-      visual: { fillStyle: string; strokeStyle: string; accentColor: string; label: string };
-      loadout: string[];
-    }
-  >;
-  projectiles: Record<
-    string,
-    {
-      id: string;
-      name: string;
-      label: string;
-      radius: number;
-      baseVelocity: number;
-      gravityScale: number;
-      drag: number;
-      terrainEffectType: "CRATER" | "DRILL";
-      terrainRadius: number;
-      terrainDepth: number;
-      damageEffectType: "RADIAL" | "FOCUSED";
-      damageRadius: number;
-      damage: number;
-      subMunitions: { count: number; projectileDefinitionId: string; spreadAngleDegrees: number; velocityScale: number } | null;
-      damageTrail: { radius: number; damagePerSecond: number; durationSeconds: number } | null;
-    }
-  >;
-};
-
-export type OnlineTankSnapshotResponse = {
+export type OnlineTankSnapshotResponse = OnlineTankCoreAttributesDto & {
   entityId: EntityId;
   playerId: PlayerId;
   displayName: string;
   tankDefinitionId: string;
-  width: number;
-  height: number;
-  visual: { fillStyle: string; strokeStyle: string; accentColor: string; label: string };
   position: OnlineVec2;
   facing: 1 | -1;
   aimAngle: number;
   power: number;
   selectedProjectileSlotId: string;
-  loadout: string[];
+  weaponAmmo?: Record<string, number>;
   health: number;
-  maxHealth: number;
   fuel: number;
   alive: boolean;
 };
@@ -419,3 +400,89 @@ export type OnlineProjectileSnapshotResponse = {
   position: OnlineVec2;
   velocity: OnlineVec2;
 };
+
+export type OnlineLootCrateSnapshot = OnlineLootCrateBase & {
+  x: number;
+  y: number;
+  isLanding: boolean;
+  collected: boolean;
+};
+
+export type OnlineDamageTrailEvent = DamageTrailConfigDto & {
+  id: string;
+  position: OnlineVec2;
+  ownerPlayerId: PlayerId;
+};
+
+export type OnlineGameStateSnapshotResponse = {
+  gameContentVersion: string;
+  gameContent: GameContentResponseDto;
+  match: OnlineMatchSnapshotResponse;
+  terrain: OnlineTerrainSnapshotResponse;
+  tanks: OnlineTankSnapshotResponse[];
+  projectiles: OnlineProjectileSnapshotResponse[];
+  lootCrates: OnlineLootCrateSnapshot[];
+  damageTrails: OnlineDamageTrailEvent[];
+};
+
+// ============================================================================
+// 7. Runtime Validators & Type Guards
+// ============================================================================
+
+const ONLINE_STATE_DIFF_TYPES = new Set<OnlineStateDiffResponse["type"]>([
+  "INITIAL_STATE",
+  "RESYNC_STATE",
+  "MOVEMENT_SEGMENT",
+  "AIM_UPDATE",
+  "PROJECTILE_RESOLUTION",
+  "TERRAIN_PATCH",
+  "INTENT_REJECTION",
+  "TURN_TRANSITION",
+  "TERMINAL_GAME",
+  "CRATE_SPAWNED",
+]);
+
+export function isOnlineDiffResponseDto(
+  value: unknown,
+): value is OnlineDiffResponseDto {
+  if (!value || typeof value !== "object") return false;
+
+  const candidate = value as {
+    gameSessionId?: unknown;
+    sequence?: unknown;
+    serverTick?: unknown;
+    type?: unknown;
+    intentId?: unknown;
+    payload?: unknown;
+  };
+
+  return (
+    typeof candidate.gameSessionId === "string" &&
+    typeof candidate.sequence === "number" &&
+    typeof candidate.serverTick === "number" &&
+    typeof candidate.type === "string" &&
+    ONLINE_STATE_DIFF_TYPES.has(
+      candidate.type as OnlineStateDiffResponse["type"],
+    ) &&
+    (typeof candidate.intentId === "string" || candidate.intentId === null) &&
+    typeof candidate.payload === "object" &&
+    candidate.payload !== null
+  );
+}
+
+export function isOnlineDiffBatchResponseDto(
+  value: unknown,
+): value is OnlineDiffBatchResponseDto {
+  if (!value || typeof value !== "object") return false;
+
+  const candidate = value as Record<string, unknown>;
+
+  return (
+    typeof candidate.gameSessionId === "string" &&
+    typeof candidate.sequence === "number" &&
+    typeof candidate.serverTick === "number" &&
+    (typeof candidate.intentId === "string" || candidate.intentId === null) &&
+    Array.isArray(candidate.diffs) &&
+    candidate.diffs.every(isOnlineDiffResponseDto)
+  );
+}

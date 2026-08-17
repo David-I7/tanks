@@ -1,40 +1,20 @@
-import type { GameContent } from "./rendering/ResourceManager";
+// ============================================================================
+// 1. Core Geometric & Primitive Types
+// ============================================================================
 
 export type EntityId = number;
-
-export type GameMode = "online" | "localTwoPlayer";
-
-export type ControllerKind = "human" | "remote";
-
-export type GameAction =
-  | { type: "move"; direction: -1 | 1 }
-  | { type: "aim"; angle: number; power: number }
-  | { type: "selectProjectileSlot"; projectileSlotId: string }
-  | {
-      type: "fire";
-      angle: number;
-      power: number;
-      projectileSlotId: string;
-    }
-  | { type: "panCamera"; deltaX: number }
-  | { type: "relockCamera" };
-
-export type RemoteGameAction = {
-  playerId: number;
-  intent: GameAction;
-};
-
-export type TurnPhase =
-  | "thinking"
-  | "ballistics"
-  | "impact"
-  | "transition"
-  | "gameOver";
 
 export type Vec2 = {
   x: number;
   y: number;
 };
+
+export type LifetimeComponent = {
+  active: boolean;
+};
+
+export type PositionComponent = Vec2;
+export type VelocityComponent = Vec2;
 
 export type VisualIdentity = {
   fill: string;
@@ -43,11 +23,23 @@ export type VisualIdentity = {
   label: string;
 };
 
-export type ProjectilePhysics = {
-  radius: number;
-  gravityScale: number;
-  drag: number;
-  muzzleVelocityScale: number;
+// ============================================================================
+// 2. Catalog & Content Definitions
+// ============================================================================
+
+export type MapBiome = "forest" | "desert" | "ice";
+
+export type WorldDefinition = {
+  biome: MapBiome;
+  width: number;
+  height: number;
+  tickRateHz: number;
+  gravity: number;
+  projectileTimeStepSeconds: number;
+  maxProjectileSteps: number;
+  movementSegmentDurationTicks: number;
+  minWind: number;
+  maxWind: number;
 };
 
 export type TerrainEffect =
@@ -69,6 +61,13 @@ export type DamageTrailConfig = {
   radius: number;
   damagePerSecond: number;
   durationSeconds: number;
+};
+
+export type ProjectilePhysics = {
+  radius: number;
+  gravityScale: number;
+  drag: number;
+  muzzleVelocityScale: number;
 };
 
 export type ProjectileDefinition = {
@@ -109,6 +108,27 @@ export type TankDefinition = {
   loadout: string[];
 };
 
+export type GameContent = {
+  version: string;
+  world: WorldDefinition;
+  tanks: Record<string, TankDefinition>;
+  projectiles: Record<string, ProjectileDefinition>;
+};
+
+// ============================================================================
+// 3. Match Configuration & Rules
+// ============================================================================
+
+export type GameMode = "online" | "localTwoPlayer";
+export type ControllerKind = "human" | "remote";
+
+export type TurnPhase =
+  | "thinking"
+  | "ballistics"
+  | "impact"
+  | "transition"
+  | "gameOver";
+
 export type TankSelection = {
   tankDefinitionId: string;
 };
@@ -125,9 +145,46 @@ export type MatchSetup = {
   players: MatchSetupPlayer[];
 };
 
-export type PositionComponent = Vec2;
+export type MatchState = {
+  mode: GameMode;
+  phase: TurnPhase;
+  activePlayerId: number;
+  playerCount: number;
+  turnNumber: number;
+  turnTimeRemaining: number;
+  matchTimeRemaining: number;
+  wind: number;
+  winnerPlayerId: number | null;
+  biome: MapBiome;
+  isCameraLocked: boolean;
+  cameraX: number;
+};
 
-export type VelocityComponent = Vec2;
+// ============================================================================
+// 4. Player Actions & User Intents
+// ============================================================================
+
+export type GameAction =
+  | { type: "move"; direction: -1 | 1 }
+  | { type: "aim"; angle: number; power: number }
+  | { type: "selectProjectileSlot"; projectileSlotId: string }
+  | {
+      type: "fire";
+      angle: number;
+      power: number;
+      projectileSlotId: string;
+    }
+  | { type: "panCamera"; deltaX: number }
+  | { type: "relockCamera" };
+
+export type RemoteGameAction = {
+  playerId: number;
+  intent: GameAction;
+};
+
+// ============================================================================
+// 5. Entity Components & World Objects
+// ============================================================================
 
 export type TankComponent = {
   playerId: number;
@@ -152,6 +209,11 @@ export type TankComponent = {
   visual: VisualIdentity;
 };
 
+export type TankEntity = TankComponent & {
+  entityId: EntityId;
+  position: PositionComponent;
+};
+
 export type ProjectileComponent = {
   ownerPlayerId: number;
   projectileDefinitionId: string;
@@ -163,6 +225,12 @@ export type ProjectileComponent = {
   damageEffect: DamageEffect;
   position: Vec2;
   velocity: Vec2;
+};
+
+export type ProjectileEntity = ProjectileComponent & {
+  entityId: EntityId;
+  position: PositionComponent;
+  velocity: VelocityComponent;
 };
 
 export type DamageTrail = {
@@ -183,10 +251,6 @@ export type ImpactEvent = {
   visual: VisualIdentity;
 };
 
-export type LifetimeComponent = {
-  active: boolean;
-};
-
 export type LootCrateType = "hp" | "fuel" | "ammo";
 
 export type LootCrate = {
@@ -198,6 +262,22 @@ export type LootCrate = {
   isLanding: boolean;
   collected: boolean;
   value: number;
+};
+
+// ============================================================================
+// 6. Environment & Visual Cosmetics
+// ============================================================================
+
+export type DecorType = "tree" | "rock" | "bunker" | "grass";
+
+export type DecorObject = {
+  id: string;
+  type: DecorType;
+  x: number;
+  y: number;
+  scale: number;
+  rotation: number;
+  destroyed: boolean;
 };
 
 export type Particle = {
@@ -223,20 +303,6 @@ export type FloatingText = {
   maxLife: number;
 };
 
-export type MapBiome = "forest" | "desert" | "ice";
-
-export type DecorType = "tree" | "rock" | "bunker" | "grass";
-
-export type DecorObject = {
-  id: string;
-  type: DecorType;
-  x: number;
-  y: number;
-  scale: number;
-  rotation: number;
-  destroyed: boolean;
-};
-
 export type Cloud = {
   x: number;
   y: number;
@@ -245,20 +311,9 @@ export type Cloud = {
   opacity: number;
 };
 
-export type MatchState = {
-  mode: GameMode;
-  phase: TurnPhase;
-  activePlayerId: number;
-  playerCount: number;
-  turnNumber: number;
-  turnTimeRemaining: number;
-  matchTimeRemaining: number;
-  wind: number;
-  winnerPlayerId: number | null;
-  biome: MapBiome;
-  isCameraLocked: boolean;
-  cameraX: number;
-};
+// ============================================================================
+// 7. Terrain State
+// ============================================================================
 
 export type HeightmapTerrainSnapshot = {
   kind: "heightmap";
@@ -269,7 +324,11 @@ export type HeightmapTerrainSnapshot = {
 
 export type TerrainSnapshot = HeightmapTerrainSnapshot;
 
-type DeepReadonly<T> = T extends (...args: never[]) => unknown
+// ============================================================================
+// 8. Aggregated Game & Simulation State Snapshots
+// ============================================================================
+
+export type DeepReadonly<T> = T extends (...args: never[]) => unknown
   ? T
   : T extends readonly (infer U)[]
     ? readonly DeepReadonly<U>[]
@@ -277,20 +336,24 @@ type DeepReadonly<T> = T extends (...args: never[]) => unknown
       ? { readonly [K in keyof T]: DeepReadonly<T[K]> }
       : T;
 
+export type LocalSimulationTankEntry = {
+  entityId: EntityId;
+  position: PositionComponent;
+  tank: TankComponent;
+};
+
+export type LocalSimulationProjectileEntry = {
+  entityId: EntityId;
+  position: PositionComponent;
+  velocity: VelocityComponent;
+  projectile: ProjectileComponent;
+};
+
 export type LocalSimulationState = DeepReadonly<{
   match: MatchState;
   terrain: TerrainSnapshot;
-  tanks: Array<{
-    entityId: EntityId;
-    position: PositionComponent;
-    tank: TankComponent;
-  }>;
-  projectiles: Array<{
-    entityId: EntityId;
-    position: PositionComponent;
-    velocity: VelocityComponent;
-    projectile: ProjectileComponent;
-  }>;
+  tanks: LocalSimulationTankEntry[];
+  projectiles: LocalSimulationProjectileEntry[];
   impactEvents: ImpactEvent[];
   damageTrails: DamageTrail[];
   lootCrates: LootCrate[];
@@ -304,19 +367,8 @@ export type GameState = DeepReadonly<{
   match: MatchState;
   terrain: TerrainSnapshot;
   projectileDefinitions: Record<string, ProjectileDefinition>;
-  tanks: Array<
-    TankComponent & {
-      entityId: EntityId;
-      position: PositionComponent;
-    }
-  >;
-  projectiles: Array<
-    ProjectileComponent & {
-      entityId: EntityId;
-      position: PositionComponent;
-      velocity: VelocityComponent;
-    }
-  >;
+  tanks: TankEntity[];
+  projectiles: ProjectileEntity[];
   impactEvents: ImpactEvent[];
   damageTrails: DamageTrail[];
   lootCrates: LootCrate[];
@@ -332,6 +384,15 @@ export type GameContext = {
   gameContent: GameContent;
 };
 
+// ============================================================================
+// 9. Constants
+// ============================================================================
+
 export const MAX_TURN_SECONDS = 30;
-export const MAX_TANK_FUEL = 240;
-export const MOVE_FUEL_COST = 1;
+export const MATCH_DURATION_SECONDS = 180;
+export const MIN_AIM_POWER = 120;
+export const MAX_AIM_POWER = 680;
+export const CRATE_HP_VALUE = 25;
+export const CRATE_FUEL_VALUE = 50;
+export const CRATE_AMMO_VALUE = 1;
+export const CRATE_COLLECTION_RADIUS = 36;

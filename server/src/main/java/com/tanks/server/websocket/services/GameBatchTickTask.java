@@ -57,6 +57,21 @@ public class GameBatchTickTask implements Runnable {
             checkDamageTrailKills(gameSession);
         }
 
+        if (gameSessionService != null && gameSession.getMatchEndsAtServerTick() > 0 && gameSession.getState() == GameSessionState.STARTED) {
+            long remainingTicks = gameSession.getMatchEndsAtServerTick() - nextServerTick;
+            int tickRateHz = 30;
+            if (remainingTicks <= 120 * tickRateHz && !gameSession.isCrateSpawnedMinute1()) {
+                gameSession.setCrateSpawnedMinute1(true);
+                gameSessionService.spawnLootCrate(gameSession);
+            } else if (remainingTicks <= 60 * tickRateHz && !gameSession.isCrateSpawnedMinute2()) {
+                gameSession.setCrateSpawnedMinute2(true);
+                gameSessionService.spawnLootCrate(gameSession);
+            } else if (remainingTicks <= 30 * tickRateHz && !gameSession.isCrateSpawnedMinute3()) {
+                gameSession.setCrateSpawnedMinute3(true);
+                gameSessionService.spawnLootCrate(gameSession);
+            }
+        }
+
         if (gameSessionService != null && gameSession.getPendingTurnTransitionAtServerTick() > 0
                 && nextServerTick >= gameSession.getPendingTurnTransitionAtServerTick()) {
             gameSessionService.executePendingTurnTransition(gameSession);
@@ -68,6 +83,7 @@ public class GameBatchTickTask implements Runnable {
         }
 
         if (gameSession.getWorld() != null && gameSession.getWorld().match() != null
+                && gameSession.getPendingTurnTransitionAtServerTick() <= 0
                 && gameSession.getWorld().match().turnEndsAtServerTick() <= nextServerTick) {
             advanceTurnWithoutShot(gameSession);
         }
@@ -134,8 +150,21 @@ public class GameBatchTickTask implements Runnable {
         }
         if ("hp".equalsIgnoreCase(crate.crateType())) {
             tank.health(Math.min(maxHp, tank.health() + val));
-        } else if ("fuel".equalsIgnoreCase(crate.crateType()) || "ammo".equalsIgnoreCase(crate.crateType())) {
+        } else if ("fuel".equalsIgnoreCase(crate.crateType())) {
             tank.fuel(Math.min(maxFuel, tank.fuel() + val));
+        } else if ("ammo".equalsIgnoreCase(crate.crateType())) {
+            if (contentCatalog != null && session != null && session.getGameContentVersion() != null) {
+                var content = contentCatalog.require(session.getGameContentVersion());
+                var tankDef = content.requireTank(tank.definitionId());
+                java.util.List<String> nonInfiniteSlots = tankDef.loadout().stream()
+                        .filter(s -> !s.equals("basicShell") && !s.equals("standard"))
+                        .toList();
+                if (!nonInfiniteSlots.isEmpty()) {
+                    String slot = nonInfiniteSlots.get(new java.util.Random().nextInt(nonInfiniteSlots.size()));
+                    int currentAmmo = tank.weaponAmmo().getOrDefault(slot, 0);
+                    tank.weaponAmmo().put(slot, currentAmmo + 1);
+                }
+            }
         }
     }
 

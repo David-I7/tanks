@@ -2,39 +2,18 @@ import { LocalWorld } from "./LocalWorld";
 import { LocalTerrainModel } from "../simulation/LocalTerrainModel";
 import type { GameContent } from "../rendering/ResourceManager";
 import {
-  type ControllerKind,
   type GameMode,
   type MatchSetup,
   type DecorType,
   type MapBiome,
   MAX_TURN_SECONDS,
 } from "../types";
-import type { GameViewport } from "./worldSizing";
 
 export type LocalInitialWorld = {
   world: LocalWorld;
   terrain: LocalTerrainModel;
   content: GameContent;
 };
-
-export function getPlayerMatchConfig(
-  mode: GameMode,
-  playerId: number,
-): {
-  displayName: string;
-  controllerKind: ControllerKind;
-} {
-  if (mode === "online") {
-    return {
-      displayName: playerId === 0 ? "Player 1" : "Player 2",
-      controllerKind: playerId === 0 ? "human" : "remote",
-    };
-  }
-  return {
-    displayName: playerId === 0 ? "Player 1" : "Player 2",
-    controllerKind: "human",
-  };
-}
 
 export function createDefaultMatchSetup(
   mode: GameMode = "localTwoPlayer",
@@ -44,27 +23,29 @@ export function createDefaultMatchSetup(
     players: [
       {
         id: 0,
-        ...getPlayerMatchConfig(mode, 0),
+        displayName: "Player 1",
+        controllerKind: "human",
         tankSelection: { tankDefinitionId: "vanguard-cyber" },
       },
       {
         id: 1,
-        ...getPlayerMatchConfig(mode, 1),
+        displayName: "Player 2",
+        controllerKind: "human",
         tankSelection: { tankDefinitionId: "specter" },
       },
     ],
   };
 }
 
-
 export function createLocalInitialWorld(
   setup: MatchSetup,
   content: GameContent,
-  initialGameViewport: GameViewport,
   overrideBiome?: MapBiome,
 ): LocalInitialWorld {
-  const terrainSize = deriveLocalTerrainSize(initialGameViewport);
-  const terrain = new LocalTerrainModel(terrainSize.width, terrainSize.height);
+  const terrain = new LocalTerrainModel(
+    content.world.width,
+    content.world.height,
+  );
   const initialWind = Math.round((Math.random() * 14 - 7) * 10) / 10;
   const biomes: MapBiome[] = ["forest", "desert", "ice"];
   const biome = overrideBiome ?? biomes[Math.floor(Math.random() * biomes.length)];
@@ -97,7 +78,12 @@ export function createLocalInitialWorld(
         : Math.floor(
             140 + (terrain.width * 0.62 * index) / (setup.players.length - 1),
           );
-    world.createTank(player, tankDefinition, x, terrain.getSurfaceY(x));
+    world.createTank(
+      player,
+      tankDefinition,
+      x,
+      terrain.getSurfaceY(x) - tankDefinition.height / 2,
+    );
   });
 
   for (const [entityId, tank] of world.tanks) {
@@ -138,14 +124,4 @@ export function createLocalInitialWorld(
   }
 
   return { world, terrain, content };
-}
-
-export function deriveLocalTerrainSize(initialGameViewport: GameViewport): {
-  width: number;
-  height: number;
-} {
-  return {
-    width: Math.max(800, Math.floor(initialGameViewport.width * 2.5)),
-    height: Math.max(420, initialGameViewport.height),
-  };
 }

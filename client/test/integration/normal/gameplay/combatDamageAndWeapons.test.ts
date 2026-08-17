@@ -49,8 +49,8 @@ describe("Combat, Weapons & Damage Integration Suite", () => {
       expect(Array.isArray(resolutionEvent.payload.damagedTanks)).toBe(true);
 
       for (const tankDamage of resolutionEvent.payload.damagedTanks) {
-        expect(typeof tankDamage.damage).toBe("number");
-        expect(tankDamage.damage).toBeGreaterThan(0);
+        expect(typeof tankDamage.damageDealt).toBe("number");
+        expect(tankDamage.damageDealt).toBeGreaterThan(0);
         expect(typeof tankDamage.healthAfter).toBe("number");
         expect(tankDamage.healthAfter).toBeLessThan(100);
       }

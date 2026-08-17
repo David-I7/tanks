@@ -1,8 +1,4 @@
-import ResourceManager, {
-  type GameContent,
-} from "../rendering/ResourceManager";
-import { createCanvasSizing, readDomCanvasRect } from "../world/worldSizing";
-import { createDefaultMatchSetup } from "../world/createInitialWorld";
+import type { GameContent } from "../rendering/ResourceManager";
 import {
   createLocalSimulationManager,
   type LocalSimulationManager as SimulationManager,
@@ -17,38 +13,18 @@ import type {
 import type { GameManager } from "./gameManager";
 
 export function createLocalGameManager(options: {
-  canvas: HTMLCanvasElement;
   mode: Exclude<GameMode, "online">;
   setup: MatchSetup;
   content: GameContent;
 }): GameManager {
-  const gameViewport = createCanvasSizing({
-    domCanvasRect: readDomCanvasRect(options.canvas),
-    devicePixelRatio:
-      typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1,
-  }).gameViewport;
-
   return new LocalGameManager(
     createLocalSimulationManager({
       mode: options.mode,
       setup: options.setup,
       content: options.content,
-      initialGameViewport: gameViewport,
     }),
     options.content.projectiles,
   );
-}
-
-export function createCanvasSizedLocalGameManager(options: {
-  canvas: HTMLCanvasElement;
-  mode: Exclude<GameMode, "online">;
-}): GameManager {
-  return createLocalGameManager({
-    canvas: options.canvas,
-    mode: options.mode,
-    setup: createDefaultMatchSetup(options.mode),
-    content: ResourceManager.getInstance().getGameContent(),
-  });
 }
 
 class LocalGameManager implements GameManager {

@@ -1,5 +1,4 @@
 import type { GameContent } from "../rendering/ResourceManager";
-import type { GameViewport } from "../world/worldSizing";
 import { createLocalInitialWorld } from "../world/createInitialWorld";
 import { LocalSimulation } from "./LocalSimulation";
 import type {
@@ -13,7 +12,6 @@ export function createLocalSimulationManager(options: {
   mode: GameMode;
   setup: MatchSetup;
   content: GameContent;
-  initialGameViewport: GameViewport;
 }): LocalSimulationManager {
   return new LocalSimulationManager(createLocalSimulation(options));
 }
@@ -22,12 +20,10 @@ function createLocalSimulation(options: {
   mode: GameMode;
   setup: MatchSetup;
   content: GameContent;
-  initialGameViewport: GameViewport;
 }): LocalSimulation {
   const { world, terrain, content } = createLocalInitialWorld(
     options.setup,
     options.content,
-    options.initialGameViewport,
   );
   return new LocalSimulation(world, terrain, content);
 }

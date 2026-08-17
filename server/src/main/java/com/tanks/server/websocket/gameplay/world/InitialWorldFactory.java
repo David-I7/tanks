@@ -45,6 +45,10 @@ public class InitialWorldFactory {
             long entityId, long playerId, String displayName, String definitionId, int facing, SpawnRegion region) {
         int x = random.nextInt(region.minX(), region.maxX() + 1);
         var definition = content.requireTank(definitionId);
+        java.util.Map<String, Integer> weaponAmmo = new java.util.HashMap<>();
+        for (String slotId : definition.loadout()) {
+            weaponAmmo.put(slotId, slotId.equals("basicShell") || slotId.equals("standard") ? -1 : 1);
+        }
         world.tanks().put(entityId, TankState.builder()
                 .entityId(entityId)
                 .playerId(playerId)
@@ -55,6 +59,7 @@ public class InitialWorldFactory {
                 .selectedProjectileSlotId(definition.loadout().getFirst())
                 .health(definition.maxHealth())
                 .fuel(definition.maxFuel())
+                .weaponAmmo(weaponAmmo)
                 .build());
     }
 }

@@ -2,7 +2,6 @@ import { describe, it, expect } from "vitest";
 import { onlineSnapshotToGameState } from "../../../src/game/online/onlineGameState";
 import { initializeOnlineConfirmedState, applyOnlineStateDiffResponse, projectOnlineRenderState } from "../../../src/game/online/onlineConfirmedState";
 import { testGameContent } from "./online/mockOnlineTestState";
-import { defaultWorldCoordinateMapper } from "../../../src/game/online/onlineWorldMapper";
 import type { OnlineDiffResponseDto, OnlineGameStateSnapshotResponse } from "../../../src/api/ws/dto/gameplay/onlineGameplayProtocol";
 
 function createMockInitialStateDiff(): OnlineDiffResponseDto {

@@ -10,6 +10,7 @@ import {
   type OnlineGameplayTransport,
   ResourceManager,
 } from "../../game";
+import { useAssetQuery } from "../../hooks/useAssetQuery";
 
 export type SessionStatus =
   | "connecting_to_game"
@@ -20,6 +21,7 @@ export type SessionStatus =
   | "error";
 
 export default function useGameSession(gameSessionId: string) {
+  const { data: assets, isLoading: isAssetsLoading } = useAssetQuery();
   const {
     send,
     subscribe,
@@ -75,7 +77,9 @@ export default function useGameSession(gameSessionId: string) {
 
   useEffect(() => {
     const isConnected = webSocketStatus === "connected";
-    if (!isConnected) return;
+    if (!isConnected || isAssetsLoading || !assets || !ResourceManager.getInstance().isLoaded()) {
+      return;
+    }
 
     const transport = createOnlineGameplayTransport({
       client: { send, subscribe },
@@ -133,7 +137,7 @@ export default function useGameSession(gameSessionId: string) {
       setGameManager(null);
       setGameplayTransport(null);
     };
-  }, [webSocketStatus === "connected", gameSessionId]);
+  }, [webSocketStatus === "connected", gameSessionId, isAssetsLoading, Boolean(assets)]);
 
   return {
     sessionStatus,

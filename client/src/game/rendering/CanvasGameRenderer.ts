@@ -1,4 +1,4 @@
-import type { GameState } from "../types";
+import { type GameState, MAX_AIM_POWER } from "../types";
 import { simulateTrajectoryPreview } from "../simulation/ballistics";
 import { getProjectileSelectorLayout } from "../input/inputHelpers";
 import type { DpiViewport, GameViewport } from "../world/worldSizing";
@@ -123,7 +123,6 @@ export class CanvasGameRenderer {
   private cameraX = 0;
   private gameViewport: GameViewport;
   private dpiViewport: DpiViewport;
-  private localPlayerId?: number;
   private screenShakeIntensity = 0;
   private lastImpactCount = 0;
   private readonly worldPasses: RenderPass[];
@@ -133,11 +132,9 @@ export class CanvasGameRenderer {
     private readonly canvas: HTMLCanvasElement,
     gameViewport: GameViewport,
     dpiViewport: DpiViewport,
-    localPlayerId?: number,
   ) {
     this.gameViewport = gameViewport;
     this.dpiViewport = dpiViewport;
-    this.localPlayerId = localPlayerId;
     this.worldPasses = [
       {
         name: "terrain",
@@ -181,10 +178,6 @@ export class CanvasGameRenderer {
     ];
   }
 
-  setLocalPlayerId(localPlayerId?: number): void {
-    this.localPlayerId = localPlayerId;
-  }
-
   setSizing(gameViewport: GameViewport, dpiViewport: DpiViewport): void {
     this.gameViewport = gameViewport;
     this.dpiViewport = dpiViewport;
@@ -206,7 +199,11 @@ export class CanvasGameRenderer {
       0,
       gameState.terrain.width - this.gameViewport.width,
     );
-    this.cameraX = Math.max(0, Math.min(maxCameraX, gameState.match.cameraX ?? 0));
+    const focusX = gameState.match.cameraX ?? 0;
+    this.cameraX = Math.max(
+      0,
+      Math.min(maxCameraX, focusX - this.gameViewport.width * 0.5),
+    );
 
     const currentImpactCount = gameState.impactEvents.length;
     if (currentImpactCount > this.lastImpactCount) {
@@ -390,19 +387,14 @@ export class CanvasGameRenderer {
     const theme = BIOME_THEMES[gameState.match.biome ?? "forest"] ?? BIOME_THEMES.forest;
 
     gameState.decors.forEach((dec) => {
+      if (dec.destroyed) {
+        return;
+      }
       ctx.save();
       ctx.translate(dec.x, dec.y);
       ctx.rotate(dec.rotation);
       ctx.scale(dec.scale, dec.scale);
-
-      if (dec.destroyed) {
-        ctx.fillStyle = "#1c1917";
-        ctx.fillRect(-6, -8, 12, 8);
-        ctx.beginPath();
-        ctx.arc(0, -8, 5, 0, Math.PI * 2);
-        ctx.fillStyle = "#ef444455";
-        ctx.fill();
-      } else if (dec.type === "tree") {
+      if (dec.type === "tree") {
         ctx.fillStyle = theme.treeTrunk;
         ctx.fillRect(-4, -12, 8, 12);
         ctx.beginPath();
@@ -462,29 +454,30 @@ export class CanvasGameRenderer {
     for (const entry of gameState.tanks) {
       if (!entry.alive) continue;
       const isActive = entry.playerId === gameState.match.activePlayerId;
-      const mainColor = entry.visual?.fill ?? "#3b82f6";
-      const strokeColor = entry.visual?.stroke ?? "#1e40af";
-      const accentColor = entry.visual?.accent ?? "#93c5fd";
+      const mainColor = entry.visual.fill;
+      const strokeColor = entry.visual.stroke;
+      const accentColor = entry.visual.accent;
 
       ctx.save();
       ctx.translate(entry.position.x, entry.position.y);
       ctx.rotate(entry.bodyAngle);
 
-      // Clean subtle indicator for active tank
+      // Clean glowing halo beneath active tank tracks on the ground
       if (isActive) {
         ctx.save();
         ctx.beginPath();
-        ctx.ellipse(0, 0, 22, 7, 0, 0, Math.PI * 2);
-        ctx.fillStyle = `${mainColor}22`;
+        ctx.ellipse(0, 13, 28, 6.5, 0, 0, Math.PI * 2);
+        ctx.fillStyle = `${mainColor}33`;
         ctx.fill();
         ctx.strokeStyle = mainColor;
-        ctx.lineWidth = 1.5;
+        ctx.lineWidth = 1.8;
+        ctx.setLineDash([5, 2.5]);
         ctx.stroke();
         ctx.restore();
       }
 
       // Barrel
-      const rad = entry.aimAngle;
+      const rad = entry.aimAngle - entry.bodyAngle;
       const barrelLength = 28;
       const muzzleX = Math.cos(rad) * barrelLength;
       const muzzleY = -14 + Math.sin(rad) * barrelLength;
@@ -504,8 +497,8 @@ export class CanvasGameRenderer {
 
       // Tank Body
       ctx.beginPath();
-      ctx.roundRect(-18, -20, 36, 14, 4);
-      const bodyGrad = ctx.createLinearGradient(0, -20, 0, -6);
+      ctx.roundRect(-18, -15, 36, 14, 4);
+      const bodyGrad = ctx.createLinearGradient(0, -15, 0, -1);
       bodyGrad.addColorStop(0, mainColor);
       bodyGrad.addColorStop(1, strokeColor);
       ctx.fillStyle = bodyGrad;
@@ -514,10 +507,10 @@ export class CanvasGameRenderer {
       ctx.lineWidth = 1.5;
       ctx.stroke();
 
-      // Treads & Wheels
+      // Treads & Wheels (resting flush with terrain stroke)
       ctx.fillStyle = "#0f172a";
       ctx.beginPath();
-      ctx.roundRect(-22, -8, 44, 10, 3);
+      ctx.roundRect(-22, 1, 44, 12, 3);
       ctx.fill();
       ctx.strokeStyle = "#334155";
       ctx.lineWidth = 1.5;
@@ -525,32 +518,11 @@ export class CanvasGameRenderer {
 
       for (let wx = -15; wx <= 15; wx += 10) {
         ctx.beginPath();
-        ctx.arc(wx, -3, 3, 0, Math.PI * 2);
+        ctx.arc(wx, 7, 3.5, 0, Math.PI * 2);
         ctx.fillStyle = "#64748b";
         ctx.fill();
       }
 
-      // HP Bar above tank
-      ctx.save();
-      ctx.rotate(-entry.bodyAngle);
-      const barW = 44;
-      const barH = 5;
-      const hpRatio = Math.max(0, entry.health / entry.maxHealth);
-
-      ctx.translate(0, -32);
-      ctx.fillStyle = "rgba(15, 23, 42, 0.85)";
-      ctx.beginPath();
-      ctx.roundRect(-barW / 2 - 2, -3, barW + 4, barH + 6, 3);
-      ctx.fill();
-      ctx.strokeStyle = "rgba(255,255,255,0.2)";
-      ctx.stroke();
-
-      ctx.fillStyle = hpRatio > 0.5 ? "#22c55e" : hpRatio > 0.25 ? "#eab308" : "#ef4444";
-      ctx.beginPath();
-      ctx.roundRect(-barW / 2, -1, barW * hpRatio, barH, 2);
-      ctx.fill();
-
-      ctx.restore();
       ctx.restore();
     }
   }
@@ -618,17 +590,17 @@ export class CanvasGameRenderer {
       const radius = 18 + ratio * 48;
       ctx.save();
       ctx.globalAlpha = 1 - ratio * 0.75;
-      ctx.fillStyle = event.visual?.fill ?? "#ff4500";
-      ctx.strokeStyle = event.visual?.stroke ?? "#ff8c00";
+      ctx.fillStyle = event.visual.fill;
+      ctx.strokeStyle = event.visual.stroke;
       ctx.lineWidth = 5;
       ctx.beginPath();
       ctx.arc(event.position.x, event.position.y, radius, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
-      ctx.fillStyle = event.visual?.accent ?? "#ffd700";
+      ctx.fillStyle = event.visual.accent;
       ctx.font = "700 18px sans-serif";
       ctx.textAlign = "center";
-      ctx.fillText(event.visual?.label ?? "", event.position.x, event.position.y + 6);
+      ctx.fillText(event.visual.label, event.position.x, event.position.y + 6);
       ctx.restore();
     }
   }
@@ -647,7 +619,7 @@ export class CanvasGameRenderer {
 
       if (crate.isLanding) {
         ctx.beginPath();
-        ctx.arc(0, -22, 18, Math.PI, 0);
+        ctx.arc(0, -38, 18, Math.PI, 0);
         ctx.fillStyle = "rgba(244, 63, 94, 0.85)";
         ctx.fill();
         ctx.strokeStyle = "#ffffff";
@@ -655,12 +627,12 @@ export class CanvasGameRenderer {
         ctx.stroke();
 
         ctx.beginPath();
-        ctx.moveTo(-18, -22);
-        ctx.lineTo(-8, -10);
-        ctx.moveTo(18, -22);
-        ctx.lineTo(8, -10);
-        ctx.moveTo(0, -22);
-        ctx.lineTo(0, -10);
+        ctx.moveTo(-18, -38);
+        ctx.lineTo(-8, -24);
+        ctx.moveTo(18, -38);
+        ctx.lineTo(8, -24);
+        ctx.moveTo(0, -38);
+        ctx.lineTo(0, -24);
         ctx.strokeStyle = "rgba(255, 255, 255, 0.6)";
         ctx.lineWidth = 1;
         ctx.stroke();
@@ -677,7 +649,7 @@ export class CanvasGameRenderer {
       ctx.strokeStyle = color;
       ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.roundRect(-12, -12, 24, 24, 4);
+      ctx.roundRect(-12, -24, 24, 24, 4);
       ctx.fill();
       ctx.stroke();
 
@@ -687,7 +659,7 @@ export class CanvasGameRenderer {
       ctx.fillText(
         crate.crateType === "hp" ? "HP" : crate.crateType === "fuel" ? "F" : "A",
         0,
-        4,
+        -8,
       );
 
       ctx.restore();
@@ -736,7 +708,10 @@ export class CanvasGameRenderer {
     ctx: CanvasRenderingContext2D,
     gameState: GameState,
   ): void {
-    if (gameState.match.phase !== "thinking") {
+    if (
+      gameState.match.phase !== "thinking" ||
+      (gameState.projectiles && gameState.projectiles.length > 0)
+    ) {
       return;
     }
 
@@ -745,13 +720,7 @@ export class CanvasGameRenderer {
       (t) => t.playerId === activePlayerId && t.alive,
     );
 
-    if (
-      this.localPlayerId !== undefined &&
-      activePlayerId !== this.localPlayerId
-    ) {
-      return;
-    }
-    if (activeTank && activeTank.controllerKind === "remote") {
+    if (!activeTank || activeTank.controllerKind === "remote") {
       return;
     }
 
@@ -769,47 +738,44 @@ export class CanvasGameRenderer {
     }
 
     const lastPoint = points[points.length - 1];
-    if (lastPoint) {
-      ctx.save();
-      let targetY = lastPoint.y;
-      if (gameState.terrain.kind === "heightmap") {
-        const clampedX = Math.max(
-          0,
-          Math.min(gameState.terrain.width - 1, Math.floor(lastPoint.x)),
-        );
-        const surfaceY = gameState.terrain.surface[clampedX] ?? lastPoint.y;
-        targetY = surfaceY;
+    if (lastPoint && gameState.terrain.kind === "heightmap") {
+      const clampedX = Math.max(
+        0,
+        Math.min(gameState.terrain.width - 1, Math.floor(lastPoint.x)),
+      );
+      const surfaceY = gameState.terrain.surface[clampedX];
+      if (surfaceY !== undefined && Math.abs(lastPoint.y - surfaceY) <= 4) {
+        ctx.save();
+        ctx.translate(lastPoint.x, surfaceY);
+
+        // Target Crosshair at terrain level
+        const radius = 10;
+        ctx.beginPath();
+        ctx.arc(0, 0, radius, 0, Math.PI * 2);
+        ctx.strokeStyle = "#00f0ff";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(-radius - 3, 0);
+        ctx.lineTo(-radius + 3, 0);
+        ctx.moveTo(radius - 3, 0);
+        ctx.lineTo(radius + 3, 0);
+        ctx.moveTo(0, -radius - 3);
+        ctx.lineTo(0, -radius + 3);
+        ctx.moveTo(0, radius - 3);
+        ctx.lineTo(0, radius + 3);
+        ctx.strokeStyle = "#facc15";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(0, 0, 2.5, 0, Math.PI * 2);
+        ctx.fillStyle = "#ffffff";
+        ctx.fill();
+
+        ctx.restore();
       }
-
-      ctx.translate(lastPoint.x, targetY);
-
-      // Target Crosshair at terrain level
-      const radius = 10;
-      ctx.beginPath();
-      ctx.arc(0, 0, radius, 0, Math.PI * 2);
-      ctx.strokeStyle = "#00f0ff";
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
-
-      ctx.beginPath();
-      ctx.moveTo(-radius - 3, 0);
-      ctx.lineTo(-radius + 3, 0);
-      ctx.moveTo(radius - 3, 0);
-      ctx.lineTo(radius + 3, 0);
-      ctx.moveTo(0, -radius - 3);
-      ctx.lineTo(0, -radius + 3);
-      ctx.moveTo(0, radius - 3);
-      ctx.lineTo(0, radius + 3);
-      ctx.strokeStyle = "#facc15";
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
-
-      ctx.beginPath();
-      ctx.arc(0, 0, 2.5, 0, Math.PI * 2);
-      ctx.fillStyle = "#ffffff";
-      ctx.fill();
-
-      ctx.restore();
     }
   }
 
@@ -982,13 +948,15 @@ export class CanvasGameRenderer {
 
     const activeTank = gameState.tanks.find(
       (entry) =>
-        entry.playerId === gameState.match.activePlayerId && entry.alive,
+        entry.playerId === gameState.match.activePlayerId &&
+        entry.alive &&
+        entry.controllerKind !== "remote",
     );
     if (!activeTank) return;
 
     const screenX = activeTank.position.x - this.cameraX;
     const bubbleY = Math.max(92, activeTank.position.y - 120);
-    const power = Math.round((activeTank.power / 680) * 100);
+    const power = Math.round((activeTank.power / MAX_AIM_POWER) * 100);
     const angle = Math.round(Math.abs((activeTank.aimAngle * 180) / Math.PI));
 
     this.drawMetricBubble(ctx, screenX - 42, bubbleY, `${power}`, "POWER");
@@ -1027,7 +995,9 @@ export class CanvasGameRenderer {
 
     const activeTank = gameState.tanks.find(
       (entry) =>
-        entry.playerId === gameState.match.activePlayerId && entry.alive,
+        entry.playerId === gameState.match.activePlayerId &&
+        entry.alive &&
+        entry.controllerKind !== "remote",
     );
     if (!activeTank) return;
 
@@ -1052,7 +1022,7 @@ export class CanvasGameRenderer {
       const size = layout.slotSize + (selected ? 10 : 0);
       const offset = selected ? -5 : 0;
 
-      const ammo = activeTank.weaponAmmo?.[slotId] ?? -1;
+      const ammo = activeTank.weaponAmmo[slotId];
       const isDepleted = ammo === 0;
 
       ctx.fillStyle = isDepleted
@@ -1075,8 +1045,9 @@ export class CanvasGameRenderer {
       ctx.fillStyle = isDepleted ? "#64748b" : selected ? "#111827" : "#cbd5e1";
       ctx.font = "700 10px Inter, sans-serif";
       ctx.textAlign = "center";
+      const label = projDef ? projDef.label : slotId;
       ctx.fillText(
-        `${projDef?.label ?? slotId} (${ammoText})`,
+        `${label} (${ammoText})`,
         x + layout.slotSize / 2,
         y + layout.slotSize - 9,
       );
@@ -1095,10 +1066,11 @@ export class CanvasGameRenderer {
     const fireH = layout.slotSize;
 
     const currentSlotId =
-      activeTank.selectedProjectileSlotId ?? activeTank.loadout[0];
-    const currentAmmo = currentSlotId
-      ? activeTank.weaponAmmo?.[currentSlotId] ?? 1
-      : 0;
+      activeTank.selectedProjectileSlotId || activeTank.loadout[0];
+    const currentAmmo =
+      currentSlotId && activeTank.weaponAmmo[currentSlotId] !== undefined
+        ? activeTank.weaponAmmo[currentSlotId]
+        : 0;
     const canFire = currentAmmo !== 0 && gameState.match.phase === "thinking";
 
     ctx.save();
@@ -1113,12 +1085,12 @@ export class CanvasGameRenderer {
     ctx.fill();
     ctx.stroke();
 
-    ctx.fillStyle = "#ffffff";
+    ctx.fillStyle = canFire ? "#ffffff" : "#94a3b8";
     ctx.font = "700 13px Orbitron, sans-serif";
     ctx.textAlign = "center";
     ctx.fillText("FIRE", fireX + fireW / 2, fireY + fireH / 2 + 2);
     ctx.font = "700 9px Inter, sans-serif";
-    ctx.fillStyle = canFire ? "#fca5a5" : "#94a3b8";
+    ctx.fillStyle = canFire ? "#fca5a5" : "#64748b";
     ctx.fillText("[Space]", fireX + fireW / 2, fireY + fireH - 6);
     ctx.restore();
   }

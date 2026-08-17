@@ -112,7 +112,7 @@ export class GameEngine {
     while (this.accumulator >= FIXED_TIMESTEP_SECONDS) {
       const stateBeforeInput = this.gameManager.getState();
       const actions = this.localInput.poll(
-        stateBeforeInput.match.cameraX ?? 0,
+        this.renderer.getCameraX(),
         stateBeforeInput,
       );
       this.submitActions(actions);

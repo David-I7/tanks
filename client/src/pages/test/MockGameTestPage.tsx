@@ -15,6 +15,7 @@ import { GameEngine } from "../../game";
 import useGameSession from "../game/useGameSession";
 import type { GameManager } from "../../game";
 import type { SessionStatus } from "../game/useGameSession";
+import { useAssetQuery } from "../../hooks/useAssetQuery";
 
 // ─── Module-level synchronous pre-init ────────────────────────────────────────
 // This runs once when the module is first evaluated (before any React renders).
@@ -40,6 +41,7 @@ import type { SessionStatus } from "../game/useGameSession";
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function MockGameTestPage() {
+  const { data, isLoading } = useAssetQuery();
   const [searchParams] = useSearchParams();
   const gameIdParam = searchParams.get("gameId");
   const tokenParam = searchParams.get("token");
@@ -175,7 +177,7 @@ export default function MockGameTestPage() {
   if (isPlayerTab && gameIdParam && playerNumParam) {
     const pNum = Number(playerNumParam);
 
-    if (!initialized) {
+    if (!initialized || isLoading || !data) {
       return (
         <div className="fixed inset-0 bg-gray-950 text-white font-mono flex items-center justify-center">
           Initializing Player {pNum} Tab Session...
@@ -204,8 +206,8 @@ export default function MockGameTestPage() {
         </div>
         <button
           onClick={setupMatch}
-          disabled={loading}
-          className="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-lg font-bold text-white shadow-lg disabled:opacity-50 transition"
+          disabled={loading || isLoading || !data || gameSessionId !== null}
+          className="cursor-pointer px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-lg font-bold text-white shadow-lg disabled:opacity-50 transition"
         >
           {loading ? "Creating Match..." : "Launch 2-Player Match (Open 2 Tabs)"}
         </button>

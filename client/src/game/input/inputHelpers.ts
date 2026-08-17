@@ -1,7 +1,12 @@
-import type { GameAction, GameState } from "../types";
+import {
+  type GameAction,
+  type GameState,
+  MIN_AIM_POWER,
+  MAX_AIM_POWER,
+} from "../types";
 import type { DomCanvasRect, GameViewport } from "../world/worldSizing";
 import { domPointToGameViewportPoint } from "../world/worldSizing";
-import { clampAimAngle } from "../simulation/ballistics";
+import { clampAimAngle, TURRET_Y_OFFSET } from "../simulation/ballistics";
 
 export type CanvasAimInput = {
   clientX: number;
@@ -20,9 +25,11 @@ export function calculateAimIntent(
     input.activeTank ??
     input.gameState.tanks.find(
       (entry) =>
-        entry.playerId === input.gameState.match.activePlayerId && entry.alive,
+        entry.playerId === input.gameState.match.activePlayerId &&
+        entry.alive &&
+        entry.controllerKind !== "remote",
     );
-  if (!activeTank) return null;
+  if (!activeTank || activeTank.controllerKind === "remote") return null;
 
   const point = domPointToGameViewportPoint({
     clientX: input.clientX,
@@ -33,31 +40,19 @@ export function calculateAimIntent(
   const worldX = point.x + input.cameraX;
   const worldY = point.y;
 
-  const originX = activeTank.position.x;
-  const originY = activeTank.position.y - 22;
+  const bodyAngle = activeTank.bodyAngle ?? 0;
+  const originX = activeTank.position.x - TURRET_Y_OFFSET * Math.sin(bodyAngle);
+  const originY = activeTank.position.y + TURRET_Y_OFFSET * Math.cos(bodyAngle);
 
-  const d = worldX - originX;
-  const h = originY - worldY;
+  const dx = worldX - originX;
+  const dy = worldY - originY;
+  const angle = Math.atan2(dy, dx);
+  const distance = Math.hypot(dx, dy);
 
-  const muzzleVelocityScale = 1;
-
-  let angle: number;
-  let power: number;
-
-  const GRAVITY = 520;
-  if (h > 5 && Math.abs(d) > 5) {
-    angle = Math.atan2(-2 * h, d);
-    const v0 = Math.sqrt(GRAVITY * ((d * d) / (2 * h) + 2 * h));
-    const rawPower = v0 / muzzleVelocityScale;
-    power = Math.max(120, Math.min(rawPower, 680));
-  } else {
-    const dx = d;
-    const dy = worldY - originY;
-    angle = Math.atan2(dy, dx);
-    const distance = Math.hypot(dx, dy);
-    const rawPower = (distance * 1.5) / muzzleVelocityScale;
-    power = Math.max(120, Math.min(rawPower, 680));
-  }
+  const power = Math.max(
+    MIN_AIM_POWER,
+    Math.min(Math.round(distance * 1.8), MAX_AIM_POWER),
+  );
 
   return {
     type: "aim",
@@ -105,9 +100,11 @@ export function findProjectileSlotAtCanvasPoint(
     activeTank ??
     gameState.tanks.find(
       (entry) =>
-        entry.playerId === gameState.match.activePlayerId && entry.alive,
+        entry.playerId === gameState.match.activePlayerId &&
+        entry.alive &&
+        entry.controllerKind !== "remote",
     );
-  if (!targetTank) return null;
+  if (!targetTank || targetTank.controllerKind === "remote") return null;
 
   const layout = getProjectileSelectorLayout(
     canvasWidth,
@@ -152,9 +149,11 @@ export function isFireButtonClickedAtCanvasPoint(
     activeTank ??
     gameState.tanks.find(
       (entry) =>
-        entry.playerId === gameState.match.activePlayerId && entry.alive,
+        entry.playerId === gameState.match.activePlayerId &&
+        entry.alive &&
+        entry.controllerKind !== "remote",
     );
-  if (!targetTank) return false;
+  if (!targetTank || targetTank.controllerKind === "remote") return false;
 
   const layout = getProjectileSelectorLayout(
     canvasWidth,
