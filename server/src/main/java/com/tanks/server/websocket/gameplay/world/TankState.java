@@ -7,9 +7,9 @@ import lombok.NoArgsConstructor;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 @Builder
-@AllArgsConstructor
 @NoArgsConstructor
 public class TankState {
     private long entityId;
@@ -18,43 +18,37 @@ public class TankState {
     private String definitionId;
     private OnlineVec2Dto position;
     private int facing;
-    @Builder.Default
-    private double aimAngle = 45;
-    @Builder.Default
-    private double power = .5;
+    private double aimAngle;
+    private double power;
     private String selectedProjectileSlotId;
     private int health;
     private int fuel;
-    @Builder.Default
-    private Map<String, Integer> weaponAmmo = new HashMap<>();
+    private Map<String, Integer> weaponAmmo;
 
     public TankState(long entityId, long playerId, String displayName, String definitionId,
-            OnlineVec2Dto position, int facing, String selectedProjectileSlotId, int health, int fuel) {
-        this(entityId, playerId, displayName, definitionId, position, facing, selectedProjectileSlotId, health, fuel, new HashMap<>());
-    }
-
-    public TankState(long entityId, long playerId, String displayName, String definitionId,
-            OnlineVec2Dto position, int facing, String selectedProjectileSlotId, int health, int fuel,
+            OnlineVec2Dto position, int facing, double aimAngle, double power,
+            String selectedProjectileSlotId, int health, int fuel,
             Map<String, Integer> weaponAmmo) {
         this.entityId = entityId;
         this.playerId = playerId;
         this.displayName = displayName;
         this.definitionId = definitionId;
-        this.position = position;
+        this.position = Objects.requireNonNull(position, "position is required");
         this.facing = facing;
-        this.selectedProjectileSlotId = selectedProjectileSlotId;
+        this.aimAngle = aimAngle;
+        this.power = power;
+        this.selectedProjectileSlotId = Objects.requireNonNull(selectedProjectileSlotId, "selectedProjectileSlotId is required");
         this.health = health;
         this.fuel = fuel;
-        this.weaponAmmo = weaponAmmo != null ? new HashMap<>(weaponAmmo) : new HashMap<>();
+        this.weaponAmmo = new HashMap<>(Objects.requireNonNull(weaponAmmo, "weaponAmmo is required"));
     }
 
     public TankState(TankState other) {
         this(other.entityId, other.playerId, other.displayName, other.definitionId,
                 new OnlineVec2Dto(other.position.x(), other.position.y()), other.facing,
+                other.aimAngle, other.power,
                 other.selectedProjectileSlotId, other.health, other.fuel,
-                other.weaponAmmo != null ? new HashMap<>(other.weaponAmmo) : new HashMap<>());
-        aimAngle = other.aimAngle;
-        power = other.power;
+                other.weaponAmmo);
     }
 
     public long entityId() { return entityId; }
@@ -62,7 +56,7 @@ public class TankState {
     public String displayName() { return displayName; }
     public String definitionId() { return definitionId; }
     public OnlineVec2Dto position() { return position; }
-    public void position(OnlineVec2Dto value) { position = value; }
+    public void position(OnlineVec2Dto value) { position = Objects.requireNonNull(value, "position is required"); }
     public int facing() { return facing; }
     public void facing(int value) { facing = value; }
     public double aimAngle() { return aimAngle; }
@@ -70,14 +64,14 @@ public class TankState {
     public double power() { return power; }
     public void power(double value) { power = value; }
     public String selectedProjectileSlotId() { return selectedProjectileSlotId; }
-    public void selectedProjectileSlotId(String value) { selectedProjectileSlotId = value; }
+    public void selectedProjectileSlotId(String value) { selectedProjectileSlotId = Objects.requireNonNull(value, "selectedProjectileSlotId is required"); }
     public int health() { return health; }
     public void health(int value) { health = Math.max(0, value); }
     public int fuel() { return fuel; }
     public void fuel(int value) { fuel = Math.max(0, value); }
     public Map<String, Integer> weaponAmmo() { return weaponAmmo; }
     public void weaponAmmo(Map<String, Integer> value) {
-        this.weaponAmmo = value != null ? new HashMap<>(value) : new HashMap<>();
+        this.weaponAmmo = new HashMap<>(Objects.requireNonNull(value, "weaponAmmo is required"));
     }
     public boolean alive() { return health > 0; }
 }

@@ -19,6 +19,7 @@ import com.tanks.server.websocket.entities.gameSession.GameSessionState;
 import com.tanks.server.websocket.events.OnlineGameplayEvent;
 import com.tanks.server.websocket.gameplay.content.GameContent;
 import com.tanks.server.websocket.gameplay.content.GameContentCatalog;
+import com.tanks.server.websocket.gameplay.content.definitions.LootCrateConfig;
 import com.tanks.server.websocket.gameplay.content.definitions.ProjectileDefinition;
 import com.tanks.server.websocket.gameplay.content.definitions.TankDefinition;
 import com.tanks.server.websocket.gameplay.content.definitions.ValidationRules;
@@ -36,6 +37,7 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.context.ApplicationEventPublisher;
 
 import java.time.OffsetDateTime;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -152,11 +154,12 @@ public class GameSessionServiceBatchTest {
 
         TankDefinition tankDef =
                 new TankDefinition(
-                        "vanguard-cyber", "Vanguard Cyber", 100, 240, 24, 1, 5, 24, 24, null, List.of("basicShell")
+                        "vanguard-cyber", "Vanguard Cyber", 100, 240, 24, 1, 5, 24, 24, 28.0, -14.0, null, List.of("basicShell")
                 );
         WorldDefinition worldDef =
                 new WorldDefinition(
-                        "forest", 2400, 768, 30, 260.0, 0.033, 10, 15, null, null, -50.0, 50.0
+                        "forest", 2400, 768, 30, 260.0, 0.033, 10, 15, null, null, -50.0, 50.0,
+                        30, 180, 0.55, new LootCrateConfig(25, 50, 1, 35.0, 150.0, List.of(120, 60, 30), 100.0, 3)
                 );
         GameContent content =
                 new GameContent("v1.0", worldDef, Map.of("vanguard-cyber", tankDef), Map.of(), null);
@@ -184,6 +187,8 @@ public class GameSessionServiceBatchTest {
                 .playerId(2L)
                 .definitionId("vanguard-cyber")
                 .position(new OnlineVec2Dto(1800, 400))
+                .selectedProjectileSlotId("basicShell")
+                .weaponAmmo(new HashMap<>(Map.of("basicShell", -1)))
                 .fuel(10) // Depleted fuel
                 .health(100)
                 .build();
@@ -222,11 +227,12 @@ public class GameSessionServiceBatchTest {
 
         TankDefinition tankDef =
                 new TankDefinition(
-                        "vanguard-cyber", "Vanguard Cyber", 100, 240, 24, 1, 5, 24, 24, null, List.of("basicShell")
+                        "vanguard-cyber", "Vanguard Cyber", 100, 240, 24, 1, 5, 24, 24, 28.0, -14.0, null, List.of("basicShell")
                 );
         WorldDefinition worldDef =
                 new WorldDefinition(
-                        "forest", 2400, 768, 30, 260.0, 0.033, 10, 15, null, null, -50.0, 50.0
+                        "forest", 2400, 768, 30, 260.0, 0.033, 10, 15, null, null, -50.0, 50.0,
+                        30, 180, 0.55, new LootCrateConfig(25, 50, 1, 35.0, 150.0, List.of(120, 60, 30), 100.0, 3)
                 );
         ProjectileDefinition projDef =
                 new ProjectileDefinition(
@@ -258,6 +264,8 @@ public class GameSessionServiceBatchTest {
                 .playerId(1L)
                 .definitionId("vanguard-cyber")
                 .position(new OnlineVec2Dto(200, 400))
+                .selectedProjectileSlotId("basicShell")
+                .weaponAmmo(new HashMap<>(Map.of("basicShell", -1)))
                 .fuel(240)
                 .health(100)
                 .build();
@@ -266,6 +274,8 @@ public class GameSessionServiceBatchTest {
                 .playerId(2L)
                 .definitionId("vanguard-cyber")
                 .position(new OnlineVec2Dto(1800, 400))
+                .selectedProjectileSlotId("basicShell")
+                .weaponAmmo(new HashMap<>(Map.of("basicShell", -1)))
                 .fuel(240)
                 .health(100)
                 .build();
@@ -345,11 +355,12 @@ public class GameSessionServiceBatchTest {
 
         TankDefinition tankDef =
                 new TankDefinition(
-                        "vanguard-cyber", "Vanguard Cyber", 100, 240, 24, 1, 5, 24, 24, null, List.of("basicShell")
+                        "vanguard-cyber", "Vanguard Cyber", 100, 240, 24, 1, 5, 24, 24, 28.0, -14.0, null, List.of("basicShell")
                 );
         WorldDefinition worldDef =
                 new WorldDefinition(
-                        "forest", 2400, 768, 30, 260.0, 0.033, 10, 15, null, null, -50.0, 50.0
+                        "forest", 2400, 768, 30, 260.0, 0.033, 10, 15, null, null, -50.0, 50.0,
+                        30, 180, 0.55, new LootCrateConfig(25, 50, 1, 35.0, 150.0, List.of(120, 60, 30), 100.0, 3)
                 );
         ValidationRules validation =
                 new ValidationRules(10.0, 1000.0, -Math.PI, 0.0);
@@ -379,6 +390,8 @@ public class GameSessionServiceBatchTest {
                 .playerId(1L)
                 .definitionId("vanguard-cyber")
                 .position(new OnlineVec2Dto(200, 400))
+                .selectedProjectileSlotId("basicShell")
+                .weaponAmmo(new HashMap<>(Map.of("basicShell", -1)))
                 .fuel(240)
                 .health(100)
                 .build();

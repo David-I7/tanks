@@ -303,21 +303,22 @@ class ActiveOnlineGameManager {
             crate.x - tank.position.x,
             crate.y - tank.position.y,
           );
-          if (dist <= 36) {
+          const collectionRadius = this.ctx.gameContent.world.lootCrates?.collectionRadius ?? 35.0;
+          if (dist <= collectionRadius) {
             crate.collected = true;
             pickedUp = true;
             if (crate.crateType === "hp") {
-              tank.health = Math.min(tank.maxHealth, tank.health + 35);
+              tank.health = Math.min(tank.maxHealth, tank.health + crate.value);
               this.visualSim.spawnFloatingText(
-                "+35 HP",
+                `+${crate.value} HP`,
                 "#22c55e",
                 tank.position.x,
                 tank.position.y - 36,
               );
             } else if (crate.crateType === "fuel") {
-              tank.fuel = Math.min(tank.maxFuel, tank.fuel + 60);
+              tank.fuel = Math.min(tank.maxFuel, tank.fuel + crate.value);
               this.visualSim.spawnFloatingText(
-                "+60 Fuel",
+                `+${crate.value} Fuel`,
                 "#f59e0b",
                 tank.position.x,
                 tank.position.y - 36,
@@ -325,18 +326,18 @@ class ActiveOnlineGameManager {
             } else if (crate.crateType === "ammo") {
               if (tank.weaponAmmo) {
                 const uniqueSlots = tank.loadout.filter(
-                  (s) => s !== "basicShell" && s !== "standard",
+                  (s) => s !== tank.loadout[0],
                 );
                 if (uniqueSlots.length > 0) {
                   const slot =
                     uniqueSlots[Math.floor(Math.random() * uniqueSlots.length)];
                   if (slot && tank.weaponAmmo[slot] !== undefined) {
-                    tank.weaponAmmo[slot] = tank.weaponAmmo[slot] + 1;
+                    tank.weaponAmmo[slot] = tank.weaponAmmo[slot] + crate.value;
                   }
                 }
               }
               this.visualSim.spawnFloatingText(
-                "+1 Ammo",
+                `+${crate.value} Ammo`,
                 "#a855f7",
                 tank.position.x,
                 tank.position.y - 36,

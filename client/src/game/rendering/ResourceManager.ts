@@ -10,7 +10,7 @@ export function createInitialWeaponAmmo(
   const weaponAmmo: Record<string, number> = {};
   for (const slotId of loadout) {
     weaponAmmo[slotId] =
-      slotId === "basicShell" || slotId === "standard" ? -1 : 1;
+      slotId === "basicShell" || slotId === loadout[0] ? -1 : 1;
   }
   return weaponAmmo;
 }

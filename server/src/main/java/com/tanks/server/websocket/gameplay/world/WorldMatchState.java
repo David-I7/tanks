@@ -13,8 +13,7 @@ public class WorldMatchState {
     private long turnEndsAtServerTick;
     private Long winnerPlayerId;
     private double wind;
-    @Builder.Default
-    private String biome = "forest";
+    private String biome;
 
     public WorldMatchState(WorldMatchState other) {
         this(other.activePlayerId, other.turnNumber, other.turnEndsAtServerTick, other.winnerPlayerId, other.wind, other.biome);

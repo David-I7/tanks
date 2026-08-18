@@ -11,6 +11,11 @@ import com.tanks.server.websocket.gameplay.content.definitions.SpawnRegion;
 
 @Service
 public class InitialWorldFactory {
+    public static final long PLAYER_A_ENTITY_ID = 10L;
+    public static final long PLAYER_B_ENTITY_ID = 11L;
+    public static final long PLAYER_A_ID = 1L;
+    public static final long PLAYER_B_ID = 2L;
+
     public InitialWorld create(GameContent content, long seed, String playerA, String playerB, String tankDefA, String tankDefB) {
         Random random = new Random(seed);
         var definition = content.world();
@@ -26,13 +31,13 @@ public class InitialWorldFactory {
         TerrainModel terrain = new TerrainModel(definition, surface);
         World world = new World();
 
-        addTank(world, terrain, content, random, 10, 1, playerA, tankDefA, 1,
+        addTank(world, terrain, content, random, PLAYER_A_ENTITY_ID, PLAYER_A_ID, playerA, tankDefA, 1,
                 definition.playerASpawnRegion());
-        addTank(world, terrain, content, random, 11, 2, playerB, tankDefB, -1,
+        addTank(world, terrain, content, random, PLAYER_B_ENTITY_ID, PLAYER_B_ID, playerB, tankDefB, -1,
                 definition.playerBSpawnRegion());
-        world.match().activePlayerId(1);
+        world.match().activePlayerId(PLAYER_A_ID);
         world.match().turnNumber(1);
-        world.match().turnEndsAtServerTick(definition.tickRateHz() * 30L);
+        world.match().turnEndsAtServerTick((long) definition.tickRateHz() * definition.turnDurationSeconds());
         world.match().biome(definition.biome());
         return new InitialWorld(world, terrain);
     }
@@ -52,6 +57,8 @@ public class InitialWorldFactory {
                 .definitionId(definitionId)
                 .position(new OnlineVec2Dto(x, terrain.surfaceY(x) - definition.trackGroundOffset()))
                 .facing(facing)
+                .aimAngle(facing == 1 ? -Math.PI / 4 : -Math.PI * 0.75)
+                .power(360.0)
                 .selectedProjectileSlotId(definition.loadout().getFirst())
                 .health(definition.maxHealth())
                 .fuel(definition.maxFuel())

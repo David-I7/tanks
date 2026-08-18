@@ -15,11 +15,15 @@ public record WorldDefinitionResponseDto(
         SpawnRegionResponseDto playerASpawnRegion,
         SpawnRegionResponseDto playerBSpawnRegion,
         double minWind,
-        double maxWind) {
+        double maxWind,
+        int turnDurationSeconds,
+        int matchDurationSeconds,
+        double postImpactDelaySeconds,
+        LootCrateConfigResponseDto lootCrates) {
 
     public static WorldDefinitionResponseDto from(WorldDefinition value) {
         return new WorldDefinitionResponseDto(
-                value.biome() != null ? value.biome() : "forest",
+                value.biome(),
                 value.width(),
                 value.height(),
                 value.tickRateHz(),
@@ -30,7 +34,11 @@ public record WorldDefinitionResponseDto(
                 region(value.playerASpawnRegion()),
                 region(value.playerBSpawnRegion()),
                 value.minWind(),
-                value.maxWind());
+                value.maxWind(),
+                value.turnDurationSeconds(),
+                value.matchDurationSeconds(),
+                value.postImpactDelaySeconds(),
+                LootCrateConfigResponseDto.from(value.lootCrates()));
     }
 
     private static SpawnRegionResponseDto region(SpawnRegion value) {

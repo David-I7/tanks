@@ -11,13 +11,6 @@ import {
   type DamageTrail,
   type LootCrate,
   type LootCrateType,
-  MAX_TURN_SECONDS,
-  MIN_AIM_POWER,
-  MAX_AIM_POWER,
-  CRATE_HP_VALUE,
-  CRATE_FUEL_VALUE,
-  CRATE_AMMO_VALUE,
-  CRATE_COLLECTION_RADIUS,
 } from "../types";
 import type { GameContent } from "../rendering/ResourceManager";
 import {
@@ -149,8 +142,10 @@ export class LocalSimulation {
       return true;
     }
 
+    const minPower = this.content.validation?.minFirePower ?? 0;
+    const maxPower = this.content.validation?.maxFirePower ?? 1000;
     tank.aimAngle = clampAimAngle(action.angle);
-    tank.power = Math.max(MIN_AIM_POWER, Math.min(action.power, MAX_AIM_POWER));
+    tank.power = Math.max(minPower, Math.min(action.power, maxPower));
 
     if (action.type === "fire") {
       const currentAmmo = tank.weaponAmmo[action.projectileSlotId];
@@ -187,26 +182,29 @@ export class LocalSimulation {
         this.world.match.matchTimeRemaining = 0;
       }
 
-      if (
-        this.world.match.matchTimeRemaining <= 120.001 &&
-        !this.cratesSpawned.minute1
-      ) {
-        this.cratesSpawned.minute1 = true;
-        this.spawnLootCrate();
-      }
-      if (
-        this.world.match.matchTimeRemaining <= 60.001 &&
-        !this.cratesSpawned.minute2
-      ) {
-        this.cratesSpawned.minute2 = true;
-        this.spawnLootCrate();
-      }
-      if (
-        this.world.match.matchTimeRemaining <= 30.001 &&
-        !this.cratesSpawned.minute3
-      ) {
-        this.cratesSpawned.minute3 = true;
-        this.spawnLootCrate();
+      const schedule = this.content.world.lootCrates?.spawnScheduleSeconds ?? [120, 60, 30];
+      if (schedule.length >= 3) {
+        if (
+          this.world.match.matchTimeRemaining <= schedule[0] + 0.001 &&
+          !this.cratesSpawned.minute1
+        ) {
+          this.cratesSpawned.minute1 = true;
+          this.spawnLootCrate();
+        }
+        if (
+          this.world.match.matchTimeRemaining <= schedule[1] + 0.001 &&
+          !this.cratesSpawned.minute2
+        ) {
+          this.cratesSpawned.minute2 = true;
+          this.spawnLootCrate();
+        }
+        if (
+          this.world.match.matchTimeRemaining <= schedule[2] + 0.001 &&
+          !this.cratesSpawned.minute3
+        ) {
+          this.cratesSpawned.minute3 = true;
+          this.spawnLootCrate();
+        }
       }
       if (
         this.world.match.matchTimeRemaining <= 0.001
@@ -267,7 +265,8 @@ export class LocalSimulation {
 
     if (this.world.match.phase === "transition") {
       this.transitionTimer += dt;
-      if (this.transitionTimer >= 0.55) {
+      const delay = this.content.world.postImpactDelaySeconds ?? 0.55;
+      if (this.transitionTimer >= delay) {
         this.transitionTimer = 0;
         this.advanceTurn();
       }
@@ -374,13 +373,22 @@ export class LocalSimulation {
     aimAngle: number,
     bodyAngle: number,
   ): void {
+    const activeTank = this.world.tanks.get(
+      this.world.tankEntitiesByPlayer.get(ownerPlayerId) ?? 0,
+    );
+    const tankDef = activeTank
+      ? this.content.tanks[activeTank.tankDefinitionId]
+      : null;
+    const barrelLength = tankDef?.barrelLength ?? BARREL_LENGTH;
+    const turretYOffset = tankDef?.turretYOffset ?? TURRET_Y_OFFSET;
+
     const muzzle = getMuzzlePosition(
       tankX,
       tankY,
       aimAngle,
       bodyAngle,
-      TURRET_Y_OFFSET,
-      BARREL_LENGTH,
+      turretYOffset,
+      barrelLength,
     );
     const speed = power * projectileDefinition.baseVelocity;
     this.world.createProjectile(
@@ -678,8 +686,11 @@ export class LocalSimulation {
       if (nextTank?.alive) {
         this.world.match.activePlayerId = nextPlayerId;
         this.world.match.turnNumber += 1;
-        this.world.match.turnTimeRemaining = MAX_TURN_SECONDS;
-        this.world.match.wind = Math.round((Math.random() * 14 - 7) * 10) / 10;
+        this.world.match.turnTimeRemaining = this.content.world.turnDurationSeconds;
+        const minWind = this.content.world.minWind;
+        const maxWind = this.content.world.maxWind;
+        this.world.match.wind =
+          Math.round((minWind + Math.random() * (maxWind - minWind)) * 10) / 10;
         nextTank.fuel = nextTank.maxFuel;
         this.world.match.phase = "thinking";
         return;
@@ -718,16 +729,18 @@ export class LocalSimulation {
   }
 
   private spawnLootCrate(): void {
-    const x = Math.floor(100 + Math.random() * (this.terrain.width - 200));
+    const crateConfig = this.content.world.lootCrates;
+    const edgeMargin = crateConfig?.spawnEdgeMargin ?? 100;
+    const x = Math.floor(edgeMargin + Math.random() * (this.terrain.width - 2 * edgeMargin));
     const types: LootCrateType[] = ["hp", "fuel", "ammo"];
     const type = types[Math.floor(Math.random() * types.length)] ?? "hp";
     const targetY = this.terrain.getSurfaceY(x);
     const crateValue =
       type === "hp"
-        ? CRATE_HP_VALUE
+        ? (crateConfig?.hpValue ?? 25)
         : type === "fuel"
-          ? CRATE_FUEL_VALUE
-          : CRATE_AMMO_VALUE;
+          ? (crateConfig?.fuelValue ?? 50)
+          : (crateConfig?.ammoValue ?? 1);
     this.lootCrates.push({
       crateId: `crate-${Date.now()}-${Math.random()}`,
       crateType: type,
@@ -759,11 +772,12 @@ export class LocalSimulation {
       }
 
       if (activeTank && activePos && activeTank.alive) {
+        const collectionRadius = this.content.world.lootCrates?.collectionRadius ?? 35.0;
         const dist = Math.hypot(
           crate.x - activePos.x,
           crate.y - 12 - activePos.y,
         );
-        if (dist <= CRATE_COLLECTION_RADIUS) {
+        if (dist <= collectionRadius) {
           crate.collected = true;
           if (crate.crateType === "hp") {
             activeTank.health = Math.min(activeTank.maxHealth, activeTank.health + crate.value);
@@ -772,7 +786,7 @@ export class LocalSimulation {
             activeTank.fuel = Math.min(activeTank.maxFuel, activeTank.fuel + crate.value);
             this.spawnFloatingText(`+${crate.value} Fuel`, "#f59e0b", activePos.x, activePos.y - 36);
           } else if (crate.crateType === "ammo") {
-            const uniqueSlots = activeTank.loadout.filter((s) => s !== "basicShell" && s !== "standard");
+            const uniqueSlots = activeTank.loadout.filter((s) => s !== activeTank.loadout[0]);
             if (uniqueSlots.length > 0) {
               const slot = uniqueSlots[Math.floor(Math.random() * uniqueSlots.length)];
               if (slot && activeTank.weaponAmmo[slot] !== undefined) {
@@ -797,17 +811,6 @@ export class LocalSimulation {
 
   private spawnFloatingText(text: string, color: string, x: number, y: number): void {
     this.visualSim.spawnFloatingText(text, color, x, y);
-  }
-
-  addTankAmmo(playerId: number, slotId: string, amount: number): void {
-    const entityId = this.world.tankEntitiesByPlayer.get(playerId);
-    if (!entityId) return;
-    const tank = this.world.tanks.get(entityId);
-    if (!tank) return;
-    const current = tank.weaponAmmo[slotId];
-    if (current !== undefined && current !== -1) {
-      tank.weaponAmmo[slotId] = current + amount;
-    }
   }
 }
 

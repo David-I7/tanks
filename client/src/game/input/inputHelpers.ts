@@ -1,12 +1,13 @@
-import {
-  type GameAction,
-  type GameState,
-  MIN_AIM_POWER,
-  MAX_AIM_POWER,
+import type {
+  GameAction,
+  GameState,
 } from "../types";
 import type { DomCanvasRect, GameViewport } from "../world/worldSizing";
 import { domPointToGameViewportPoint } from "../world/worldSizing";
 import { clampAimAngle, TURRET_Y_OFFSET } from "../simulation/ballistics";
+
+export const DEFAULT_MIN_AIM_POWER = 120;
+export const DEFAULT_MAX_AIM_POWER = 680;
 
 export type CanvasAimInput = {
   clientX: number;
@@ -43,8 +44,8 @@ export function calculateAimIntent(
   const distance = Math.hypot(dx, dy);
 
   const power = Math.max(
-    MIN_AIM_POWER,
-    Math.min(Math.round(distance * 1.8), MAX_AIM_POWER),
+    DEFAULT_MIN_AIM_POWER,
+    Math.min(Math.round(distance * 1.8), DEFAULT_MAX_AIM_POWER),
   );
 
   return {

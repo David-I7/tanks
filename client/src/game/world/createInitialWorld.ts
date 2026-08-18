@@ -6,7 +6,6 @@ import {
   type MatchSetup,
   type DecorType,
   type MapBiome,
-  MAX_TURN_SECONDS,
 } from "../types";
 
 export type LocalInitialWorld = {
@@ -45,9 +44,11 @@ export function createLocalInitialWorld(
     content.world.width,
     content.world.height,
   );
-  const initialWind = Math.round((Math.random() * 14 - 7) * 10) / 10;
-  const biomes: MapBiome[] = ["forest", "desert", "ice"];
-  const biome = biomes[Math.floor(Math.random() * biomes.length)];
+  const minWind = content.world.minWind;
+  const maxWind = content.world.maxWind;
+  const rawWind = minWind + Math.random() * (maxWind - minWind);
+  const initialWind = Math.round(rawWind * 10) / 10;
+  const biome: MapBiome = content.world.biome ?? "forest";
 
   const world = new LocalWorld({
     mode: setup.mode,
@@ -55,8 +56,8 @@ export function createLocalInitialWorld(
     activePlayerId: setup.players[0]?.id ?? 0,
     playerCount: setup.players.length,
     turnNumber: 1,
-    turnTimeRemaining: MAX_TURN_SECONDS,
-    matchTimeRemaining: 180,
+    turnTimeRemaining: content.world.turnDurationSeconds,
+    matchTimeRemaining: content.world.matchDurationSeconds,
     wind: initialWind,
     winnerPlayerId: null,
     biome,

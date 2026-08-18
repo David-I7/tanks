@@ -14,7 +14,11 @@ public record WorldDefinition(
         SpawnRegion playerASpawnRegion,
         SpawnRegion playerBSpawnRegion,
         double minWind,
-        double maxWind) {
+        double maxWind,
+        int turnDurationSeconds,
+        int matchDurationSeconds,
+        double postImpactDelaySeconds,
+        LootCrateConfig lootCrates) {
 
     public double generateWind() {
         if (Double.compare(minWind, maxWind) == 0) {
@@ -24,4 +28,3 @@ public record WorldDefinition(
         return Math.round(raw * 1000.0) / 1000.0;
     }
 }
-

@@ -1,5 +1,5 @@
 import type { GameContentResponseDto } from "../../api/ws/dto/gameplay/onlineGameplayProtocol";
-import type { GameContent } from "../rendering/ResourceManager";
+import type { GameContent } from "../types";
 
 export function onlineGameContentFromResponse(
   response: GameContentResponseDto,
@@ -25,6 +25,32 @@ export function onlineGameContentFromResponse(
       },
       minWind: response.world.minWind,
       maxWind: response.world.maxWind,
+      turnDurationSeconds: response.world.turnDurationSeconds ?? 30,
+      matchDurationSeconds: response.world.matchDurationSeconds ?? 180,
+      postImpactDelaySeconds: response.world.postImpactDelaySeconds ?? 0.55,
+      lootCrates: response.world.lootCrates
+        ? {
+            hpValue: response.world.lootCrates.hpValue,
+            fuelValue: response.world.lootCrates.fuelValue,
+            ammoValue: response.world.lootCrates.ammoValue,
+            collectionRadius: response.world.lootCrates.collectionRadius,
+            dropSpeed: response.world.lootCrates.dropSpeed,
+            spawnScheduleSeconds: [
+              ...response.world.lootCrates.spawnScheduleSeconds,
+            ],
+            spawnEdgeMargin: response.world.lootCrates.spawnEdgeMargin,
+            maxActiveCrates: response.world.lootCrates.maxActiveCrates,
+          }
+        : {
+            hpValue: 25,
+            fuelValue: 50,
+            ammoValue: 1,
+            collectionRadius: 35.0,
+            dropSpeed: 150.0,
+            spawnScheduleSeconds: [120, 60, 30],
+            spawnEdgeMargin: 100.0,
+            maxActiveCrates: 3,
+          },
     },
     tanks: Object.fromEntries(
       Object.entries(response.tanks).map(([id, tank]) => [
@@ -39,6 +65,8 @@ export function onlineGameContentFromResponse(
           climbCapability: tank.climbCapability,
           width: tank.width,
           height: tank.height,
+          barrelLength: tank.barrelLength ?? 28.0,
+          turretYOffset: tank.turretYOffset ?? -14.0,
           loadout: tank.loadout,
           visual: {
             fill: tank.visual.fillStyle,
@@ -71,5 +99,6 @@ export function onlineGameContentFromResponse(
         },
       ]),
     ),
+    validation: response.validation,
   };
 }

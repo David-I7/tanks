@@ -158,7 +158,7 @@ public class DefaultGameSimulation implements GameSimulation {
                 continue;
             }
             double dist = Math.hypot(x - crate.x(), y - crate.y());
-            if (dist <= 35.0) {
+            if (dist <= content.world().lootCrates().collectionRadius()) {
                 int val = crate.value();
                 if ("hp".equalsIgnoreCase(crate.crateType())) {
                     tankState.health(Math.min(tankDef.maxHealth(), tankState.health() + val));
@@ -200,8 +200,8 @@ public class DefaultGameSimulation implements GameSimulation {
         }
 
         double angleRad = request.getAngle();
-        double barrelLength = tankDef.muzzleForwardOffset();
-        double turretYOffset = -tankDef.muzzleVerticalOffset();
+        double barrelLength = tankDef.barrelLength();
+        double turretYOffset = tankDef.turretYOffset();
         double bodyAngle = terrain.slopeAngle(state.position().x(), tankDef.width());
         double pivotX = state.position().x() - turretYOffset * Math.sin(bodyAngle);
         double pivotY = state.position().y() + turretYOffset * Math.cos(bodyAngle);
@@ -267,10 +267,8 @@ public class DefaultGameSimulation implements GameSimulation {
             baseDamage = (int) Math.round(radial.damage());
         } else if (projectileDef.damageEffect() instanceof Focused focused) {
             baseDamage = (int) Math.round(focused.damage());
-        } else if (projectileDef.damageEffect() == null) {
-            baseDamage = 0;
         } else {
-            throw new IllegalStateException("Unsupported damage effect for projectile: " + projectileDef.id());
+            throw new IllegalStateException("Projectile " + projectileDef.id() + " is missing a valid damageEffect");
         }
 
         for (TankState tank : world.tanks().values()) {
@@ -363,10 +361,8 @@ public class DefaultGameSimulation implements GameSimulation {
                         damage = (int) Math.round(radial.damage());
                     } else if (subProjDef.damageEffect() instanceof Focused focused) {
                         damage = (int) Math.round(focused.damage());
-                    } else if (subProjDef.damageEffect() == null) {
-                        damage = 0;
                     } else {
-                        throw new IllegalStateException("Unsupported damage effect for submunition: " + subProjDef.id());
+                        throw new IllegalStateException("Submunition " + subProjDef.id() + " is missing a valid damageEffect");
                     }
                     int healthBefore = subHitTankState.health();
                     int healthAfter = Math.max(0, healthBefore - damage);

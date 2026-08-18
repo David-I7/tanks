@@ -8,8 +8,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-import com.tanks.server.websocket.dto.gameplay.diffResponse.payloads.TerminalGame;
-import com.tanks.server.websocket.dto.gameplay.diffResponse.payloads.TurnTransition;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationListener;
 import org.springframework.context.ApplicationEventPublisher;
@@ -18,12 +16,8 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
-import com.tanks.server.websocket.dto.gameplay.diffResponse.OnlineDiffResponseDto;
-import com.tanks.server.websocket.dto.gameplay.diffResponse.enums.*;
-import com.tanks.server.websocket.dto.gameplay.diffResponse.OnlineStateDiffResponseType;
 import com.tanks.server.websocket.entities.gameSession.GameSession;
 import com.tanks.server.websocket.entities.gameSession.GameSessionState;
-import com.tanks.server.websocket.events.OnlineGameplayEvent;
 import com.tanks.server.websocket.repositories.GameSessionRepository;
 import com.tanks.server.websocket.gameplay.content.GameContentCatalog;
 

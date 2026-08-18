@@ -1,6 +1,7 @@
-import { type GameState, MAX_AIM_POWER } from "../types";
+import type { GameState } from "../types";
 import { simulateTrajectoryPreview } from "../simulation/ballistics";
-import { getProjectileSelectorLayout } from "../input/inputHelpers";
+import { getProjectileSelectorLayout, DEFAULT_MAX_AIM_POWER } from "../input/inputHelpers";
+import { ResourceManager } from "./ResourceManager";
 import type { DpiViewport, GameViewport } from "../world/worldSizing";
 
 type RenderContext = {
@@ -956,7 +957,10 @@ export class CanvasGameRenderer {
 
     const screenX = activeTank.position.x - this.cameraX;
     const bubbleY = Math.max(92, activeTank.position.y - 120);
-    const power = Math.round((activeTank.power / MAX_AIM_POWER) * 100);
+    const maxPower = ResourceManager.getInstance().isLoaded()
+      ? (ResourceManager.getInstance().getGameContent().validation?.maxFirePower ?? DEFAULT_MAX_AIM_POWER)
+      : DEFAULT_MAX_AIM_POWER;
+    const power = Math.round((activeTank.power / maxPower) * 100);
     const angle = Math.round(Math.abs((activeTank.aimAngle * 180) / Math.PI));
 
     this.drawMetricBubble(ctx, screenX - 42, bubbleY, `${power}`, "POWER");

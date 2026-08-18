@@ -1,5 +1,9 @@
 package com.tanks.server.websocket.services;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
+
 import com.tanks.server.websocket.entities.gameSession.GameSession;
 import com.tanks.server.websocket.entities.gameSession.GameSessionState;
 import com.tanks.server.websocket.gameplay.content.GameContentCatalog;
@@ -8,19 +12,18 @@ import com.tanks.server.websocket.gameplay.world.LootCrateState;
 import com.tanks.server.websocket.gameplay.world.TankState;
 import com.tanks.server.websocket.repositories.GameSessionRepository;
 
-import java.util.List;
-import java.util.Random;
-
 public class GameBatchTickTask implements Runnable {
 
-    private final List<GameSession> games;
+    private final List<GameSession> sessions;
     private final GameSessionService gameSessionService;
-    private final GameContentCatalog contentCatalog;
     private final GameSessionRepository gameSessionRepository;
+    private final GameContentCatalog contentCatalog;
 
-    public GameBatchTickTask(List<GameSession> games, GameSessionService gameSessionService,
-            GameSessionRepository gameSessionRepository, GameContentCatalog contentCatalog) {
-        this.games = games;
+    public GameBatchTickTask(List<GameSession> sessions,
+                             GameSessionService gameSessionService,
+                             GameSessionRepository gameSessionRepository,
+                             GameContentCatalog contentCatalog) {
+        this.sessions = sessions;
         this.gameSessionService = gameSessionService;
         this.gameSessionRepository = gameSessionRepository;
         this.contentCatalog = contentCatalog;
@@ -28,16 +31,16 @@ public class GameBatchTickTask implements Runnable {
 
     @Override
     public void run() {
-        for (GameSession gameSession : games) {
+        for (GameSession gameSession : sessions) {
             try {
-                advance(gameSession);
+                runTickTask(gameSession);
             } catch (Exception e) {
-                gameSessionRepository.delete(gameSession);
+                // Log and continue to process other sessions in the batch
             }
         }
     }
 
-    void advance(GameSession gameSession) {
+    public void runTickTask(GameSession gameSession) {
         long nextServerTick = gameSession.getServerTick() + 1;
         gameSession.setServerTick(nextServerTick);
 
@@ -49,16 +52,20 @@ public class GameBatchTickTask implements Runnable {
 
         if (gameSession.getMatchEndsAtServerTick() > 0 && gameSession.getState() == GameSessionState.STARTED) {
             long remainingTicks = gameSession.getMatchEndsAtServerTick() - nextServerTick;
-            int tickRateHz = contentCatalog.require(gameSession.getGameContentVersion()).world().tickRateHz();
-            if (remainingTicks <= 120 * tickRateHz && !gameSession.isCrateSpawnedMinute1()) {
-                gameSession.setCrateSpawnedMinute1(true);
-                gameSessionService.spawnLootCrate(gameSession);
-            } else if (remainingTicks <= 60 * tickRateHz && !gameSession.isCrateSpawnedMinute2()) {
-                gameSession.setCrateSpawnedMinute2(true);
-                gameSessionService.spawnLootCrate(gameSession);
-            } else if (remainingTicks <= 30 * tickRateHz && !gameSession.isCrateSpawnedMinute3()) {
-                gameSession.setCrateSpawnedMinute3(true);
-                gameSessionService.spawnLootCrate(gameSession);
+            var worldDef = contentCatalog.require(gameSession.getGameContentVersion()).world();
+            int tickRateHz = worldDef.tickRateHz();
+            var schedule = worldDef.lootCrates().spawnScheduleSeconds();
+            if (schedule.size() >= 3) {
+                if (remainingTicks <= (long) schedule.get(0) * tickRateHz && !gameSession.isCrateSpawnedMinute1()) {
+                    gameSession.setCrateSpawnedMinute1(true);
+                    gameSessionService.spawnLootCrate(gameSession);
+                } else if (remainingTicks <= (long) schedule.get(1) * tickRateHz && !gameSession.isCrateSpawnedMinute2()) {
+                    gameSession.setCrateSpawnedMinute2(true);
+                    gameSessionService.spawnLootCrate(gameSession);
+                } else if (remainingTicks <= (long) schedule.get(2) * tickRateHz && !gameSession.isCrateSpawnedMinute3()) {
+                    gameSession.setCrateSpawnedMinute3(true);
+                    gameSessionService.spawnLootCrate(gameSession);
+                }
             }
         }
 
@@ -97,7 +104,10 @@ public class GameBatchTickTask implements Runnable {
                 || gameSession.getWorld().lootCrates().isEmpty()) {
             return;
         }
-        int tickRateHz = contentCatalog.require(gameSession.getGameContentVersion()).world().tickRateHz();
+        var worldDef = contentCatalog.require(gameSession.getGameContentVersion()).world();
+        int tickRateHz = worldDef.tickRateHz();
+        double dropSpeed = worldDef.lootCrates().dropSpeed();
+        double collectionRadius = worldDef.lootCrates().collectionRadius();
         var iterator = gameSession.getWorld().lootCrates().iterator();
         while (iterator.hasNext()) {
             LootCrateState crate = iterator.next();
@@ -107,7 +117,7 @@ public class GameBatchTickTask implements Runnable {
             }
 
             if (crate.isLanding()) {
-                double dropSpeedPerTick = 150.0 / (double) tickRateHz;
+                double dropSpeedPerTick = dropSpeed / (double) tickRateHz;
                 double newY = crate.y() + dropSpeedPerTick;
                 if (newY >= crate.targetY()) {
                     crate.y(crate.targetY());
@@ -121,7 +131,7 @@ public class GameBatchTickTask implements Runnable {
                 if (!tank.alive())
                     continue;
                 double dist = Math.hypot(tank.position().x() - crate.x(), tank.position().y() - crate.y());
-                if (dist <= 35.0) {
+                if (dist <= collectionRadius) {
                     applyCrateRefill(tank, crate, gameSession);
                     crate.collected(true);
                     iterator.remove();
@@ -158,27 +168,34 @@ public class GameBatchTickTask implements Runnable {
         if (world == null || world.damageTrails() == null || world.damageTrails().isEmpty()) {
             return;
         }
-        int tickRateHz = contentCatalog.require(gameSession.getGameContentVersion()).world().tickRateHz();
+
+        var content = contentCatalog.require(gameSession.getGameContentVersion());
+        int tickRateHz = content.world().tickRateHz();
         var iterator = world.damageTrails().iterator();
+
         while (iterator.hasNext()) {
             DamageTrailState trail = iterator.next();
             trail.remainingTicks(trail.remainingTicks() - 1);
 
-            double dpsPerTick = trail.damagePerSecond() / (double) tickRateHz;
+            double dps = trail.damagePerSecond();
+            double damagePerTick = dps / (double) tickRateHz;
 
             for (TankState tank : world.tanks().values()) {
                 if (!tank.alive())
                     continue;
+
                 double dist = Math.hypot(tank.position().x() - trail.position().x(),
                         tank.position().y() - trail.position().y());
-                if (dist <= trail.radius()) {
-                    double currentBuffer = trail.damageBuffers().getOrDefault(tank.entityId(), 0.0) + dpsPerTick;
-                    if (currentBuffer >= 1.0) {
-                        int damageToApply = (int) Math.floor(currentBuffer);
-                        tank.health(tank.health() - damageToApply);
-                        currentBuffer -= damageToApply;
+                double tankRadius = content.requireTank(tank.definitionId()).collisionRadius();
+
+                if (dist <= trail.radius() + tankRadius) {
+                    double accumulated = trail.damageBuffers().getOrDefault(tank.entityId(), 0.0) + damagePerTick;
+                    if (accumulated >= 1.0) {
+                        int intDamage = (int) Math.floor(accumulated);
+                        accumulated -= intDamage;
+                        tank.health(Math.max(0, tank.health() - intDamage));
                     }
-                    trail.damageBuffers().put(tank.entityId(), currentBuffer);
+                    trail.damageBuffers().put(tank.entityId(), accumulated);
                 }
             }
 
@@ -197,10 +214,10 @@ public class GameBatchTickTask implements Runnable {
         if (gameSession.getWorld() == null) {
             return null;
         }
-        var tankA = gameSession.getWorld().tanks().get(1L);
-        var tankB = gameSession.getWorld().tanks().get(2L);
-        int healthA = tankA != null ? tankA.health() : 0;
-        int healthB = tankB != null ? tankB.health() : 0;
+        var tankA = gameSession.getWorld().requireTankByPlayer(1L);
+        var tankB = gameSession.getWorld().requireTankByPlayer(2L);
+        int healthA = tankA.health();
+        int healthB = tankB.health();
         if (healthA > healthB) {
             return 1L;
         } else if (healthB > healthA) {

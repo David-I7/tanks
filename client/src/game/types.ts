@@ -9,10 +9,6 @@ export type Vec2 = {
   y: number;
 };
 
-export type LifetimeComponent = {
-  active: boolean;
-};
-
 export type PositionComponent = Vec2;
 export type VelocityComponent = Vec2;
 
@@ -34,6 +30,17 @@ export type SpawnRegion = {
   maxX: number;
 };
 
+export type LootCrateConfig = {
+  hpValue: number;
+  fuelValue: number;
+  ammoValue: number;
+  collectionRadius: number;
+  dropSpeed: number;
+  spawnScheduleSeconds: number[];
+  spawnEdgeMargin: number;
+  maxActiveCrates: number;
+};
+
 export type WorldDefinition = {
   biome: MapBiome;
   width: number;
@@ -47,6 +54,10 @@ export type WorldDefinition = {
   playerBSpawnRegion: SpawnRegion;
   minWind: number;
   maxWind: number;
+  turnDurationSeconds: number;
+  matchDurationSeconds: number;
+  postImpactDelaySeconds: number;
+  lootCrates: LootCrateConfig;
 };
 
 export type TerrainEffect =
@@ -95,12 +106,6 @@ export type ProjectileDefinition = {
   damageTrail: DamageTrailConfig | null;
 };
 
-export type ProjectileSlot = {
-  id: string;
-  projectileDefinitionId: string;
-  label: string;
-};
-
 export type TankDefinition = {
   id: string;
   name: string;
@@ -111,8 +116,17 @@ export type TankDefinition = {
   climbCapability: number;
   width: number;
   height: number;
+  barrelLength: number;
+  turretYOffset: number;
   visual: VisualIdentity;
   loadout: string[];
+};
+
+export type ValidationRules = {
+  minFirePower: number;
+  maxFirePower: number;
+  minAimAngle: number;
+  maxAimAngle: number;
 };
 
 export type GameContent = {
@@ -120,6 +134,7 @@ export type GameContent = {
   world: WorldDefinition;
   tanks: Record<string, TankDefinition>;
   projectiles: Record<string, ProjectileDefinition>;
+  validation?: ValidationRules;
 };
 
 // ============================================================================
@@ -183,11 +198,6 @@ export type GameAction =
     }
   | { type: "panCamera"; deltaX: number }
   | { type: "relockCamera" };
-
-export type RemoteGameAction = {
-  playerId: number;
-  intent: GameAction;
-};
 
 // ============================================================================
 // 5. Entity Components & World Objects
@@ -390,16 +400,3 @@ export type GameContext = {
   generateIntentId: () => string;
   gameContent: GameContent;
 };
-
-// ============================================================================
-// 9. Constants
-// ============================================================================
-
-export const MAX_TURN_SECONDS = 30;
-export const MATCH_DURATION_SECONDS = 180;
-export const MIN_AIM_POWER = 120;
-export const MAX_AIM_POWER = 680;
-export const CRATE_HP_VALUE = 25;
-export const CRATE_FUEL_VALUE = 50;
-export const CRATE_AMMO_VALUE = 1;
-export const CRATE_COLLECTION_RADIUS = 36;

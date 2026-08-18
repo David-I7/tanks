@@ -139,15 +139,16 @@ public class GameSessionService {
             return;
         }
 
+        var worldDef = contentCatalog.require(gameSession.getGameContentVersion()).world();
         gameSession.setStartedAt(OffsetDateTime.now());
         gameSession.setServerTick(0);
         gameSession.getWorld().match().activePlayerId(PLAYER_A_ID);
         gameSession.getWorld().match().turnNumber(1);
         gameSession.getWorld().match().turnEndsAtServerTick(
-                contentCatalog.require(gameSession.getGameContentVersion()).world().tickRateHz() * 30L);
+                (long) worldDef.tickRateHz() * worldDef.turnDurationSeconds());
         gameSession.getWorld().match()
-                .wind(contentCatalog.require(gameSession.getGameContentVersion()).world().generateWind());
-        gameSession.setMatchEndsAtServerTick(gameSession.getServerTick() + 5400L);
+                .wind(worldDef.generateWind());
+        gameSession.setMatchEndsAtServerTick(gameSession.getServerTick() + (long) worldDef.tickRateHz() * worldDef.matchDurationSeconds());
         gameSession.setNextDiffSequence(2);
         gameSession.setTurnStartDiffSequence(1);
         gameSession.setLastDiffServerTick(0);
@@ -254,11 +255,10 @@ public class GameSessionService {
                 int slot = select.getSlot();
                 if (slot >= 0 && slot < tankDef.loadout().size()) {
                     tank.selectedProjectileSlotId(tankDef.loadout().get(slot));
-                } else {
-                    tank.selectedProjectileSlotId(String.valueOf(slot));
+                    log.debug("Select projectile slot accepted: {}", intent);
+                    return true;
                 }
-                log.debug("Select projectile slot accepted: {}", intent);
-                return true;
+                return false;
             }
         }
 
@@ -344,8 +344,7 @@ public class GameSessionService {
             String username,
             OnlinePlayerIntentRequestDto<?> intent) {
         if (!GameSessionState.STARTED.equals(gameSession.getState())
-                || !gameSession.getId().toString().equals(intent.gameSessionId())
-                || !validPayload(gameSession, intent)) {
+                || !gameSession.getId().toString().equals(intent.gameSessionId())) {
             return IntentRejectionReason.INVALID_PAYLOAD;
         }
 
@@ -356,6 +355,10 @@ public class GameSessionService {
 
         if (gameSession.getPendingTurnTransitionAtServerTick() > 0) {
             return IntentRejectionReason.NOT_ACTIVE_PLAYER;
+        }
+
+        if (!validPayload(gameSession, intent)) {
+            return IntentRejectionReason.INVALID_PAYLOAD;
         }
 
         if (intent.lastConfirmedDiffSequence() < gameSession.getTurnStartDiffSequence()
@@ -398,7 +401,15 @@ public class GameSessionService {
         }
         if (intent.type() == OnlinePlayerIntentRequestType.SELECT_PROJECTILE_SLOT) {
             SelectProjectileIntentRequestPayload select = extractSelectProjectileSlotPayload(intent);
-            return select != null;
+            if (select == null)
+                return false;
+            var tank = gameSession.getWorld().tanks().get(intent.playerId());
+            if (tank == null)
+                return false;
+            var content = contentCatalog.require(gameSession.getGameContentVersion());
+            var tankDef = content.requireTank(tank.definitionId());
+            int slot = select.getSlot();
+            return slot >= 0 && slot < tankDef.loadout().size();
         }
         if (intent.type() == OnlinePlayerIntentRequestType.FIRE) {
             FireIntentIntentRequestPayload fire = extractFirePayload(intent);
@@ -554,7 +565,7 @@ public class GameSessionService {
                 .mapToInt(s -> s.trajectory() != null ? Math.max(0, s.trajectory().size() - 1) : 0)
                 .max().orElse(0) : 0;
         int flightTicks = trajectorySteps + maxSubSteps;
-        int impactTicks = (int) Math.ceil(0.55 * content.world().tickRateHz());
+        int impactTicks = (int) Math.ceil(content.world().postImpactDelaySeconds() * content.world().tickRateHz());
         int settlementTicks = settlements.isEmpty() ? 0 : (int) content.world().movementSegmentDurationTicks();
         long totalDelayTicks = Math.max(15, flightTicks + impactTicks + settlementTicks);
 
@@ -581,12 +592,12 @@ public class GameSessionService {
             String intentId,
             List<OnlineDiffResponseDto> diffs) {
         var content = contentCatalog.require(gameSession.getGameContentVersion());
-        double wind = Math.round(ThreadLocalRandom.current().nextDouble(-30.0, 30.0) * 100.0) / 100.0;
+        double wind = content.world().generateWind();
         gameSession.getWorld().match().wind(wind);
         gameSession.getWorld().match().activePlayerId(activePlayerId);
         gameSession.getWorld().match().turnNumber(gameSession.getWorld().match().turnNumber() + 1);
         gameSession.getWorld().match().turnEndsAtServerTick(
-                gameSession.getServerTick() + ServerSimulationLoopService.TURN_TIMER_TICKS);
+                gameSession.getServerTick() + (long) content.world().tickRateHz() * content.world().turnDurationSeconds());
 
         var activeTank = gameSession.getWorld().requireTankByPlayer(activePlayerId);
         if (activeTank != null) {
@@ -737,28 +748,30 @@ public class GameSessionService {
     }
 
     private OffsetDateTime gameStartedAt(GameSession gameSession) {
-        if (gameSession.getStartedAt() != null) {
-            return gameSession.getStartedAt();
+        if (gameSession.getStartedAt() == null) {
+            throw new IllegalStateException("Game session " + gameSession.getId() + " has not been started yet");
         }
-        return gameSession.getCreatedAt();
+        return gameSession.getStartedAt();
     }
 
     private OnlineDiffResponseDto createCrateSpawnDiff(GameSession gameSession) {
         if (gameSession == null || gameSession.getWorld() == null || gameSession.getTerrainModel() == null) {
             return null;
         }
-        if (gameSession.getWorld().lootCrates() != null && gameSession.getWorld().lootCrates().size() >= 3) {
+        var content = contentCatalog.require(gameSession.getGameContentVersion());
+        var crateConfig = content.world().lootCrates();
+        if (gameSession.getWorld().lootCrates() != null && gameSession.getWorld().lootCrates().size() >= crateConfig.maxActiveCrates()) {
             return null;
         }
-        var content = contentCatalog.require(gameSession.getGameContentVersion());
-        double minX = 100.0;
-        double maxX = content.world().width() - 100.0;
+        double edgeMargin = crateConfig.spawnEdgeMargin();
+        double minX = edgeMargin;
+        double maxX = content.world().width() - edgeMargin;
         double dropX = Math.round((minX + ThreadLocalRandom.current().nextDouble() * (maxX - minX)) * 1000.0) / 1000.0;
         double targetY = gameSession.getTerrainModel().surfaceY(dropX);
 
         String[] crateTypes = { "hp", "fuel", "ammo" };
         String crateType = crateTypes[ThreadLocalRandom.current().nextInt(crateTypes.length)];
-        int value = "hp".equals(crateType) ? 25 : 50;
+        int value = "hp".equals(crateType) ? crateConfig.hpValue() : ("fuel".equals(crateType) ? crateConfig.fuelValue() : crateConfig.ammoValue());
         String crateId = "crate-" + UUID.randomUUID().toString().substring(0, 8);
 
         LootCrateState crateState = LootCrateState.builder()
@@ -817,8 +830,10 @@ public class GameSessionService {
                         .build());
     }
 
+    private static final long BASE_PROJECTILE_ENTITY_ID = 20L;
+
     private long projectileEntityId(GameSession gameSession) {
-        return 20 + gameSession.getNextDiffSequence() - 2;
+        return BASE_PROJECTILE_ENTITY_ID + gameSession.getNextDiffSequence() - 2;
     }
 
     private OnlineDiffResponseDto createDiffDto(

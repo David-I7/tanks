@@ -1,6 +1,5 @@
 import {
   type EntityId,
-  type LifetimeComponent,
   type MatchState,
   type PositionComponent,
   type ProjectileDefinition,
@@ -21,7 +20,6 @@ export class LocalWorld {
   readonly velocities = new Map<EntityId, VelocityComponent>();
   readonly tanks = new Map<EntityId, TankComponent>();
   readonly projectiles = new Map<EntityId, ProjectileComponent>();
-  readonly lifetimes = new Map<EntityId, LifetimeComponent>();
   readonly impactEvents = new Map<number, ImpactEvent>();
 
   readonly tankEntitiesByPlayer = new Map<number, EntityId>();
@@ -42,7 +40,6 @@ export class LocalWorld {
     this.velocities.delete(entityId);
     this.tanks.delete(entityId);
     this.projectiles.delete(entityId);
-    this.lifetimes.delete(entityId);
 
     for (const [playerId, tankEntityId] of this.tankEntitiesByPlayer) {
       if (tankEntityId === entityId) {
@@ -139,7 +136,6 @@ export class LocalWorld {
       position: { x, y },
       velocity: { x: vx, y: vy },
     });
-    this.lifetimes.set(entityId, { active: true });
     return entityId;
   }
 

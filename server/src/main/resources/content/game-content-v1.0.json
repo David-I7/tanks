@@ -17,7 +17,20 @@
       "maxX": 2160
     },
     "minWind": -50.0,
-    "maxWind": 50.0
+    "maxWind": 50.0,
+    "turnDurationSeconds": 30,
+    "matchDurationSeconds": 180,
+    "postImpactDelaySeconds": 0.55,
+    "lootCrates": {
+      "hpValue": 25,
+      "fuelValue": 50,
+      "ammoValue": 1,
+      "collectionRadius": 35.0,
+      "dropSpeed": 150.0,
+      "spawnScheduleSeconds": [120, 60, 30],
+      "spawnEdgeMargin": 100.0,
+      "maxActiveCrates": 3
+    }
   },
   "tanks": {
     "vanguard-cyber": {
@@ -30,6 +43,8 @@
       "climbCapability": 5,
       "width": 24,
       "height": 24,
+      "barrelLength": 28.0,
+      "turretYOffset": -14.0,
       "visual": {
         "fillStyle": "#3b82f6",
         "strokeStyle": "#1d4ed8",
@@ -54,6 +69,8 @@
       "climbCapability": 5,
       "width": 24,
       "height": 24,
+      "barrelLength": 28.0,
+      "turretYOffset": -14.0,
       "visual": {
         "fillStyle": "#ef4444",
         "strokeStyle": "#b91c1c",
@@ -78,6 +95,8 @@
       "climbCapability": 5,
       "width": 24,
       "height": 24,
+      "barrelLength": 28.0,
+      "turretYOffset": -14.0,
       "visual": {
         "fillStyle": "#f59e0b",
         "strokeStyle": "#b45309",
@@ -102,6 +121,8 @@
       "climbCapability": 5,
       "width": 24,
       "height": 24,
+      "barrelLength": 28.0,
+      "turretYOffset": -14.0,
       "visual": {
         "fillStyle": "#8b5cf6",
         "strokeStyle": "#6d28d9",
