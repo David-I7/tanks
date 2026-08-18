@@ -72,12 +72,13 @@ export function createLocalInitialWorld(
         `Missing tank definition "${player.tankSelection.tankDefinitionId}"`,
       );
     }
-    const x =
-      setup.players.length === 1
-        ? Math.floor(terrain.width * 0.25)
-        : Math.floor(
-            140 + (terrain.width * 0.62 * index) / (setup.players.length - 1),
-          );
+    const region =
+      index === 0
+        ? content.world.playerASpawnRegion
+        : content.world.playerBSpawnRegion;
+    const x = Math.floor(
+      region.minX + Math.random() * (region.maxX - region.minX + 1),
+    );
     world.createTank(
       player,
       tankDefinition,
@@ -85,6 +86,16 @@ export function createLocalInitialWorld(
       terrain.getSurfaceY(x) - tankDefinition.height / 2,
     );
   });
+
+  const initialActiveTankId = world.tankEntitiesByPlayer.get(
+    world.match.activePlayerId,
+  );
+  if (initialActiveTankId !== undefined) {
+    const initialPos = world.positions.get(initialActiveTankId);
+    if (initialPos) {
+      world.match.cameraX = initialPos.x;
+    }
+  }
 
   for (const [entityId, tank] of world.tanks) {
     const position = world.positions.get(entityId);

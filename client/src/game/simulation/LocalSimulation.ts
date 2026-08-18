@@ -221,11 +221,7 @@ export class LocalSimulation {
         ? this.world.positions.get(activeProjId)
         : null;
     const focusX = projPos?.x ?? this.lastImpactX ?? pos?.x ?? null;
-    this.visualSim.updateCamera(
-      dt,
-      focusX,
-      this.terrain.width,
-    );
+    this.visualSim.updateCamera(dt, focusX);
 
     const visState = this.visualSim.getState();
     this.world.match.cameraX = visState.cameraX;
@@ -317,11 +313,11 @@ export class LocalSimulation {
         ? this.world.positions.get(activeTankEntityId)
         : null;
       if (pos) {
-        this.visualSim.setCameraPosition(pos.x, this.terrain.width);
+        this.visualSim.setCameraPosition(pos.x);
       }
     }
 
-    this.visualSim.panCamera(deltaX, this.terrain.width);
+    this.visualSim.panCamera(deltaX);
     const visState = this.visualSim.getState();
     this.world.match.cameraX = visState.cameraX;
     this.world.match.isCameraLocked = visState.isCameraLocked;
@@ -336,10 +332,7 @@ export class LocalSimulation {
       ? this.world.positions.get(activeTankEntityId)
       : null;
     if (pos) {
-      this.visualSim.setCameraPosition(
-        pos.x,
-        this.terrain.width,
-      );
+      this.visualSim.setCameraPosition(pos.x);
     }
     const visState = this.visualSim.getState();
     this.world.match.cameraX = visState.cameraX;

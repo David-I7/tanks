@@ -15,6 +15,14 @@ export function onlineGameContentFromResponse(
       projectileTimeStepSeconds: response.world.deltaTime,
       maxProjectileSteps: response.world.maxProjectileSteps,
       movementSegmentDurationTicks: response.world.movementSegmentDurationTicks,
+      playerASpawnRegion: {
+        minX: response.world.playerASpawnRegion.minX,
+        maxX: response.world.playerASpawnRegion.maxX,
+      },
+      playerBSpawnRegion: {
+        minX: response.world.playerBSpawnRegion.minX,
+        maxX: response.world.playerBSpawnRegion.maxX,
+      },
       minWind: response.world.minWind,
       maxWind: response.world.maxWind,
     },

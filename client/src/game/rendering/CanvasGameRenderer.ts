@@ -271,7 +271,7 @@ export class CanvasGameRenderer {
     // 2. Dynamic Twinkling & Glowing Star Field (world-space, behind sun)
     ctx.save();
     const now = Date.now();
-    const worldWidth = gameState.terrain.kind === "heightmap" ? gameState.terrain.width : 2400;
+    const worldWidth = gameState.terrain.width;
     const starParallax = this.cameraX * 0.25;
     for (let i = 0; i < 65; i++) {
       const hashX = Math.sin(i * 12.9898 + 1.5) * 43758.5453;

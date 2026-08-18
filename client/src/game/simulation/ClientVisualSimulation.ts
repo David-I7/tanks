@@ -29,7 +29,6 @@ export type ClientVisualState = {
 };
 
 const CAMERA_SMOOTHING_SPEED = 10;
-export const DEFAULT_TERRAIN_WIDTH = 2400;
 
 export class ClientVisualSimulation {
   private cameraX: number;
@@ -42,7 +41,7 @@ export class ClientVisualSimulation {
   private aimTargets = new Map<number, { angle: number; power: number }>();
   private terrainWidth: number;
 
-  constructor(initialCameraX = 0, terrainWidth = DEFAULT_TERRAIN_WIDTH) {
+  constructor(initialCameraX: number, terrainWidth: number) {
     this.cameraX = initialCameraX;
     this.isCameraLocked = true;
     this.terrainWidth = terrainWidth;
@@ -159,35 +158,25 @@ export class ClientVisualSimulation {
     };
   }
 
-  panCamera(
-    deltaX: number,
-    terrainWidth: number = this.terrainWidth,
-  ): void {
+  panCamera(deltaX: number): void {
     this.isCameraLocked = false;
-    this.cameraX = Math.max(0, Math.min(terrainWidth, this.cameraX + deltaX));
+    this.cameraX = Math.max(0, Math.min(this.terrainWidth, this.cameraX + deltaX));
   }
 
   relockCamera(): void {
     this.isCameraLocked = true;
   }
 
-  setCameraPosition(
-    x: number,
-    terrainWidth: number = this.terrainWidth,
-  ): void {
-    this.cameraX = Math.max(0, Math.min(terrainWidth, x));
+  setCameraPosition(x: number): void {
+    this.cameraX = Math.max(0, Math.min(this.terrainWidth, x));
   }
 
-  updateCamera(
-    dt: number,
-    focusX: number | null,
-    terrainWidth: number = this.terrainWidth,
-  ): void {
+  updateCamera(dt: number, focusX: number | null): void {
     if (!this.isCameraLocked || focusX === null) return;
-    const target = Math.max(0, Math.min(terrainWidth, focusX));
+    const target = Math.max(0, Math.min(this.terrainWidth, focusX));
     const lerpFactor = 1 - Math.exp(-CAMERA_SMOOTHING_SPEED * dt);
     this.cameraX += (target - this.cameraX) * lerpFactor;
-    this.cameraX = Math.max(0, Math.min(terrainWidth, this.cameraX));
+    this.cameraX = Math.max(0, Math.min(this.terrainWidth, this.cameraX));
   }
 
   updateLootCrates(dt: number, crates: LootCrate[]): void {

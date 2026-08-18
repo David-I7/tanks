@@ -29,6 +29,11 @@ export type VisualIdentity = {
 
 export type MapBiome = "forest" | "desert" | "ice";
 
+export type SpawnRegion = {
+  minX: number;
+  maxX: number;
+};
+
 export type WorldDefinition = {
   biome: MapBiome;
   width: number;
@@ -38,6 +43,8 @@ export type WorldDefinition = {
   projectileTimeStepSeconds: number;
   maxProjectileSteps: number;
   movementSegmentDurationTicks: number;
+  playerASpawnRegion: SpawnRegion;
+  playerBSpawnRegion: SpawnRegion;
   minWind: number;
   maxWind: number;
 };

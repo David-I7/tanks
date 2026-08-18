@@ -43,16 +43,16 @@ const router = createBrowserRouter([
         ),
       },
       {
+        path: "game/local",
+        element: <LocalGamePage />,
+      },
+      {
         path: "game/:id",
         element: (
           <AuthenticatedRoute>
             <GamePage />
           </AuthenticatedRoute>
         ),
-      },
-      {
-        path: "game/local",
-        element: <LocalGamePage />,
       },
       {
         path: "test/mock-game",

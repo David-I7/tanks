@@ -162,10 +162,7 @@ class ActiveOnlineGameManager {
 
   submitAction(action: GameAction): boolean {
     if (action.type === "panCamera") {
-      this.visualSim.panCamera(
-        action.deltaX,
-        this.confirmedState.state.terrain.width,
-      );
+      this.visualSim.panCamera(action.deltaX);
       this.publishConfirmed(this.confirmedState);
       return true;
     }
@@ -387,11 +384,7 @@ class ActiveOnlineGameManager {
       (tank) => tank.playerId === this.confirmedState.state.match.activePlayerId,
     );
     const focusX = flightRes?.position.x ?? this.lastImpactX ?? activeTank?.position.x ?? null;
-    this.visualSim.updateCamera(
-      dt,
-      focusX,
-      this.confirmedState.state.terrain.width,
-    );
+    this.visualSim.updateCamera(dt, focusX);
 
     this.publishConfirmed(this.confirmedState, flightRes);
   }

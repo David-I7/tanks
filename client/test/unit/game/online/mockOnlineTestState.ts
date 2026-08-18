@@ -15,6 +15,8 @@ export const testGameContent: GameContent = {
     projectileTimeStepSeconds: 0.03333333333333333,
     maxProjectileSteps: 400,
     movementSegmentDurationTicks: 3,
+    playerASpawnRegion: { minX: 240, maxX: 800 },
+    playerBSpawnRegion: { minX: 1600, maxX: 2160 },
     minWind: -50,
     maxWind: 50,
   },
