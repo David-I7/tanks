@@ -5,6 +5,9 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.NoArgsConstructor;
 
+import java.util.HashMap;
+import java.util.Map;
+
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
@@ -23,16 +26,16 @@ public class TankState {
     private int health;
     private int fuel;
     @Builder.Default
-    private java.util.Map<String, Integer> weaponAmmo = new java.util.HashMap<>();
+    private Map<String, Integer> weaponAmmo = new HashMap<>();
 
     public TankState(long entityId, long playerId, String displayName, String definitionId,
             OnlineVec2Dto position, int facing, String selectedProjectileSlotId, int health, int fuel) {
-        this(entityId, playerId, displayName, definitionId, position, facing, selectedProjectileSlotId, health, fuel, new java.util.HashMap<>());
+        this(entityId, playerId, displayName, definitionId, position, facing, selectedProjectileSlotId, health, fuel, new HashMap<>());
     }
 
     public TankState(long entityId, long playerId, String displayName, String definitionId,
             OnlineVec2Dto position, int facing, String selectedProjectileSlotId, int health, int fuel,
-            java.util.Map<String, Integer> weaponAmmo) {
+            Map<String, Integer> weaponAmmo) {
         this.entityId = entityId;
         this.playerId = playerId;
         this.displayName = displayName;
@@ -42,14 +45,14 @@ public class TankState {
         this.selectedProjectileSlotId = selectedProjectileSlotId;
         this.health = health;
         this.fuel = fuel;
-        this.weaponAmmo = weaponAmmo != null ? new java.util.HashMap<>(weaponAmmo) : new java.util.HashMap<>();
+        this.weaponAmmo = weaponAmmo != null ? new HashMap<>(weaponAmmo) : new HashMap<>();
     }
 
     public TankState(TankState other) {
         this(other.entityId, other.playerId, other.displayName, other.definitionId,
                 new OnlineVec2Dto(other.position.x(), other.position.y()), other.facing,
                 other.selectedProjectileSlotId, other.health, other.fuel,
-                other.weaponAmmo != null ? new java.util.HashMap<>(other.weaponAmmo) : new java.util.HashMap<>());
+                other.weaponAmmo != null ? new HashMap<>(other.weaponAmmo) : new HashMap<>());
         aimAngle = other.aimAngle;
         power = other.power;
     }
@@ -72,9 +75,9 @@ public class TankState {
     public void health(int value) { health = Math.max(0, value); }
     public int fuel() { return fuel; }
     public void fuel(int value) { fuel = Math.max(0, value); }
-    public java.util.Map<String, Integer> weaponAmmo() { return weaponAmmo; }
-    public void weaponAmmo(java.util.Map<String, Integer> value) {
-        this.weaponAmmo = value != null ? new java.util.HashMap<>(value) : new java.util.HashMap<>();
+    public Map<String, Integer> weaponAmmo() { return weaponAmmo; }
+    public void weaponAmmo(Map<String, Integer> value) {
+        this.weaponAmmo = value != null ? new HashMap<>(value) : new HashMap<>();
     }
     public boolean alive() { return health > 0; }
 }

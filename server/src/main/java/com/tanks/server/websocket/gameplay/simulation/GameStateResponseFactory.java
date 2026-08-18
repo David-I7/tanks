@@ -1,5 +1,6 @@
 package com.tanks.server.websocket.gameplay.simulation;
 
+import java.util.Comparator;
 import java.util.List;
 import org.springframework.stereotype.Service;
 import com.tanks.server.websocket.dto.gameplay.diffResponse.OnlineDiffResponseDto;
@@ -18,6 +19,7 @@ import com.tanks.server.websocket.entities.gameSession.GameSessionState;
 import com.tanks.server.websocket.gameplay.content.GameContent;
 import com.tanks.server.websocket.gameplay.content.GameContentCatalog;
 import com.tanks.server.websocket.gameplay.content.definitions.TankDefinition;
+import com.tanks.server.websocket.gameplay.world.ProjectileState;
 import com.tanks.server.websocket.gameplay.world.TankState;
 
 @Service
@@ -81,10 +83,10 @@ public class GameStateResponseFactory {
                 .terrain(new Heightmap(TerrainSnapshotKind.HEIGHTMAP,
                         session.getTerrainModel().width(), session.getTerrainModel().height(), session.getTerrainModel().surface()))
                 .tanks(session.getWorld().tanks().values().stream()
-                        .sorted(java.util.Comparator.comparingLong(TankState::playerId))
+                        .sorted(Comparator.comparingLong(TankState::playerId))
                         .map(tank -> tankSnapshot(content, tank)).toList())
                 .projectiles(session.getWorld().projectiles().values().stream()
-                        .sorted(java.util.Comparator.comparingLong(com.tanks.server.websocket.gameplay.world.ProjectileState::entityId))
+                        .sorted(Comparator.comparingLong(ProjectileState::entityId))
                         .map(projectile -> {
                     var definition = content.requireProjectile(projectile.definitionId());
                     return new OnlineProjectileSnapshotResponseDto(projectile.entityId(), projectile.ownerPlayerId(),

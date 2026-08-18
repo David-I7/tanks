@@ -29,6 +29,8 @@ import com.tanks.server.websocket.exceptions.ProblemDetailException;
 import com.tanks.server.websocket.gameplay.content.GameContentCatalog;
 import com.tanks.server.websocket.gameplay.simulation.GameSimulation;
 import com.tanks.server.websocket.gameplay.world.InitialWorldFactory;
+import com.tanks.server.websocket.gameplay.world.LootCrateState;
+import com.tanks.server.websocket.gameplay.world.TankState;
 import com.tanks.server.websocket.repositories.GameSessionRepository;
 import com.tanks.server.websocket.repositories.LobbyRepository;
 import lombok.RequiredArgsConstructor;
@@ -143,7 +145,8 @@ public class GameSessionService {
         gameSession.getWorld().match().turnNumber(1);
         gameSession.getWorld().match().turnEndsAtServerTick(
                 contentCatalog.require(gameSession.getGameContentVersion()).world().tickRateHz() * 30L);
-        gameSession.getWorld().match().wind(contentCatalog.require(gameSession.getGameContentVersion()).world().generateWind());
+        gameSession.getWorld().match()
+                .wind(contentCatalog.require(gameSession.getGameContentVersion()).world().generateWind());
         gameSession.setMatchEndsAtServerTick(gameSession.getServerTick() + 5400L);
         gameSession.setNextDiffSequence(2);
         gameSession.setTurnStartDiffSequence(1);
@@ -328,7 +331,8 @@ public class GameSessionService {
         return null;
     }
 
-    private SelectProjectileIntentRequestPayload extractSelectProjectileSlotPayload(OnlinePlayerIntentRequestDto<?> intent) {
+    private SelectProjectileIntentRequestPayload extractSelectProjectileSlotPayload(
+            OnlinePlayerIntentRequestDto<?> intent) {
         if (intent != null && intent.payload() instanceof SelectProjectileIntentRequestPayload select) {
             return select;
         }
@@ -386,7 +390,8 @@ public class GameSessionService {
         }
         if (intent.type() == OnlinePlayerIntentRequestType.AIM) {
             AimIntentRequestPayload aim = extractAimPayload(intent);
-            if (aim == null) return false;
+            if (aim == null)
+                return false;
             var validation = contentCatalog.require(gameSession.getGameContentVersion()).validation();
             return aim.getPower() >= validation.minFirePower() && aim.getPower() <= validation.maxFirePower()
                     && aim.getAngle() >= -Math.PI && aim.getAngle() <= 0.0;
@@ -438,7 +443,7 @@ public class GameSessionService {
                 .gameSessionId(gameSession.getId().toString())
                 .sequence(sequence)
                 .serverTick(gameSession.getServerTick())
-                    .type(OnlineStateDiffResponseType.INTENT_REJECTION)
+                .type(OnlineStateDiffResponseType.INTENT_REJECTION)
                 .intentId(intent.intentId())
                 .payload(IntentRejection.builder()
                         .playerId(intent.playerId())
@@ -542,7 +547,8 @@ public class GameSessionService {
                     settlement));
         }
 
-        // Schedule turn transition or game completion after flight + impact + settlement animation
+        // Schedule turn transition or game completion after flight + impact +
+        // settlement animation
         int trajectorySteps = projectile.trajectory() != null ? Math.max(0, projectile.trajectory().size() - 1) : 0;
         int maxSubSteps = projectile.subMunitions() != null ? projectile.subMunitions().stream()
                 .mapToInt(s -> s.trajectory() != null ? Math.max(0, s.trajectory().size() - 1) : 0)
@@ -614,8 +620,8 @@ public class GameSessionService {
         String intentId = gameSession.getPendingTurnTransitionIntentId();
         gameSession.setPendingTurnTransitionIntentId(null);
 
-        com.tanks.server.websocket.gameplay.world.TankState tank1 = gameSession.getWorld().requireTankByPlayer(1L);
-        com.tanks.server.websocket.gameplay.world.TankState tank2 = gameSession.getWorld().requireTankByPlayer(2L);
+        TankState tank1 = gameSession.getWorld().requireTankByPlayer(1L);
+        TankState tank2 = gameSession.getWorld().requireTankByPlayer(2L);
 
         boolean tank1Alive = tank1 != null && tank1.alive();
         boolean tank2Alive = tank2 != null && tank2.alive();
@@ -747,15 +753,15 @@ public class GameSessionService {
         var content = contentCatalog.require(gameSession.getGameContentVersion());
         double minX = 100.0;
         double maxX = content.world().width() - 100.0;
-        double dropX = Math.round((minX + java.util.concurrent.ThreadLocalRandom.current().nextDouble() * (maxX - minX)) * 1000.0) / 1000.0;
+        double dropX = Math.round((minX + ThreadLocalRandom.current().nextDouble() * (maxX - minX)) * 1000.0) / 1000.0;
         double targetY = gameSession.getTerrainModel().surfaceY(dropX);
 
-        String[] crateTypes = {"hp", "fuel", "ammo"};
-        String crateType = crateTypes[java.util.concurrent.ThreadLocalRandom.current().nextInt(crateTypes.length)];
+        String[] crateTypes = { "hp", "fuel", "ammo" };
+        String crateType = crateTypes[ThreadLocalRandom.current().nextInt(crateTypes.length)];
         int value = "hp".equals(crateType) ? 25 : 50;
         String crateId = "crate-" + UUID.randomUUID().toString().substring(0, 8);
 
-        com.tanks.server.websocket.gameplay.world.LootCrateState crateState = com.tanks.server.websocket.gameplay.world.LootCrateState.builder()
+        LootCrateState crateState = LootCrateState.builder()
                 .crateId(crateId)
                 .crateType(crateType)
                 .x(dropX)

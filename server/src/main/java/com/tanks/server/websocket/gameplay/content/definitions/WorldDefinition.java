@@ -1,5 +1,7 @@
 package com.tanks.server.websocket.gameplay.content.definitions;
 
+import java.util.concurrent.ThreadLocalRandom;
+
 public record WorldDefinition(
         String biome,
         int width,
@@ -18,7 +20,7 @@ public record WorldDefinition(
         if (Double.compare(minWind, maxWind) == 0) {
             return minWind;
         }
-        double raw = minWind + java.util.concurrent.ThreadLocalRandom.current().nextDouble() * (maxWind - minWind);
+        double raw = minWind + ThreadLocalRandom.current().nextDouble() * (maxWind - minWind);
         return Math.round(raw * 1000.0) / 1000.0;
     }
 }

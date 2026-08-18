@@ -3,6 +3,8 @@ package com.tanks.server.websocket.repositories;
 import com.tanks.server.websocket.entities.userSession.UserSession;
 import org.springframework.stereotype.Repository;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -43,12 +45,12 @@ public class InMemoryUserSessionRepository implements UserSessionRepository {
 
     @Override
     public Iterable<UserSession> findAll() {
-        return new java.util.ArrayList<>(store.values());
+        return new ArrayList<>(store.values());
     }
 
     @Override
     public Iterable<UserSession> findAllById(Iterable<Long> ids) {
-        java.util.List<UserSession> list = new java.util.ArrayList<>();
+        List<UserSession> list = new ArrayList<>();
         for (Long id : ids) {
             findById(id).ifPresent(list::add);
         }

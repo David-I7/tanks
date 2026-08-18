@@ -3,6 +3,8 @@ package com.tanks.server.websocket.gameplay.simulation;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Random;
+import java.util.UUID;
 import org.springframework.stereotype.Service;
 import com.tanks.server.websocket.dto.gameplay.OnlineVec2Dto;
 import com.tanks.server.websocket.dto.gameplay.diffResponse.payloads.MovementSegment;
@@ -20,6 +22,8 @@ import com.tanks.server.websocket.gameplay.content.damage.Radial;
 import com.tanks.server.websocket.gameplay.content.definitions.ProjectileDefinition;
 import com.tanks.server.websocket.gameplay.content.definitions.TankDefinition;
 import com.tanks.server.websocket.gameplay.validation.MovementPathValidator;
+import com.tanks.server.websocket.gameplay.world.DamageTrailState;
+import com.tanks.server.websocket.gameplay.world.LootCrateState;
 import com.tanks.server.websocket.gameplay.world.TankState;
 import com.tanks.server.websocket.gameplay.world.TerrainModel;
 import com.tanks.server.websocket.gameplay.world.World;
@@ -27,8 +31,6 @@ import com.tanks.server.websocket.gameplay.world.World;
 import com.tanks.server.websocket.dto.gameplay.diffResponse.SubMunitionTrajectoryDto;
 import com.tanks.server.websocket.gameplay.content.definitions.DamageTrailConfig;
 import com.tanks.server.websocket.gameplay.content.definitions.SubMunitionConfig;
-import com.tanks.server.websocket.gameplay.world.DamageTrailState;
-import java.util.UUID;
 
 @Service
 public class DefaultGameSimulation implements GameSimulation {
@@ -150,7 +152,7 @@ public class DefaultGameSimulation implements GameSimulation {
         if (world == null || world.lootCrates() == null || world.lootCrates().isEmpty()) return;
         var iterator = world.lootCrates().iterator();
         while (iterator.hasNext()) {
-            com.tanks.server.websocket.gameplay.world.LootCrateState crate = iterator.next();
+            LootCrateState crate = iterator.next();
             if (crate.collected()) {
                 iterator.remove();
                 continue;
@@ -167,7 +169,7 @@ public class DefaultGameSimulation implements GameSimulation {
                             .filter(s -> !s.equals(tankDef.loadout().getFirst()))
                             .toList();
                     if (!nonInfiniteSlots.isEmpty()) {
-                        String slot = nonInfiniteSlots.get(new java.util.Random().nextInt(nonInfiniteSlots.size()));
+                        String slot = nonInfiniteSlots.get(new Random().nextInt(nonInfiniteSlots.size()));
                         int currentAmmo = tankState.weaponAmmo().getOrDefault(slot, 0);
                         tankState.weaponAmmo().put(slot, currentAmmo + 1);
                     }

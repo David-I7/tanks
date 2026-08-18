@@ -1,6 +1,8 @@
 package com.tanks.server.websocket.gameplay.world;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Random;
 import org.springframework.stereotype.Service;
 import com.tanks.server.websocket.dto.gameplay.OnlineVec2Dto;
@@ -39,7 +41,7 @@ public class InitialWorldFactory {
             long entityId, long playerId, String displayName, String definitionId, int facing, SpawnRegion region) {
         int x = random.nextInt(region.minX(), region.maxX() + 1);
         var definition = content.requireTank(definitionId);
-        java.util.Map<String, Integer> weaponAmmo = new java.util.HashMap<>();
+        Map<String, Integer> weaponAmmo = new HashMap<>();
         for (String slotId : definition.loadout()) {
             weaponAmmo.put(slotId, slotId.equals(definition.loadout().getFirst()) ? -1 : 1);
         }

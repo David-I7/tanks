@@ -3,9 +3,13 @@ package com.tanks.server.websocket.services;
 import com.tanks.server.websocket.entities.gameSession.GameSession;
 import com.tanks.server.websocket.entities.gameSession.GameSessionState;
 import com.tanks.server.websocket.gameplay.content.GameContentCatalog;
+import com.tanks.server.websocket.gameplay.world.DamageTrailState;
+import com.tanks.server.websocket.gameplay.world.LootCrateState;
+import com.tanks.server.websocket.gameplay.world.TankState;
 import com.tanks.server.websocket.repositories.GameSessionRepository;
 
 import java.util.List;
+import java.util.Random;
 
 public class GameBatchTickTask implements Runnable {
 
@@ -14,7 +18,8 @@ public class GameBatchTickTask implements Runnable {
     private final GameContentCatalog contentCatalog;
     private final GameSessionRepository gameSessionRepository;
 
-    public GameBatchTickTask(List<GameSession> games, GameSessionService gameSessionService, GameSessionRepository gameSessionRepository, GameContentCatalog contentCatalog) {
+    public GameBatchTickTask(List<GameSession> games, GameSessionService gameSessionService,
+            GameSessionRepository gameSessionRepository, GameContentCatalog contentCatalog) {
         this.games = games;
         this.gameSessionService = gameSessionService;
         this.gameSessionRepository = gameSessionRepository;
@@ -88,13 +93,14 @@ public class GameBatchTickTask implements Runnable {
     }
 
     public void tickLootCrates(GameSession gameSession) {
-        if (gameSession.getWorld() == null || gameSession.getWorld().lootCrates() == null || gameSession.getWorld().lootCrates().isEmpty()) {
+        if (gameSession.getWorld() == null || gameSession.getWorld().lootCrates() == null
+                || gameSession.getWorld().lootCrates().isEmpty()) {
             return;
         }
         int tickRateHz = contentCatalog.require(gameSession.getGameContentVersion()).world().tickRateHz();
         var iterator = gameSession.getWorld().lootCrates().iterator();
         while (iterator.hasNext()) {
-            com.tanks.server.websocket.gameplay.world.LootCrateState crate = iterator.next();
+            LootCrateState crate = iterator.next();
             if (crate.collected()) {
                 iterator.remove();
                 continue;
@@ -111,8 +117,9 @@ public class GameBatchTickTask implements Runnable {
                 }
             }
 
-            for (com.tanks.server.websocket.gameplay.world.TankState tank : gameSession.getWorld().tanks().values()) {
-                if (!tank.alive()) continue;
+            for (TankState tank : gameSession.getWorld().tanks().values()) {
+                if (!tank.alive())
+                    continue;
                 double dist = Math.hypot(tank.position().x() - crate.x(), tank.position().y() - crate.y());
                 if (dist <= 35.0) {
                     applyCrateRefill(tank, crate, gameSession);
@@ -124,7 +131,7 @@ public class GameBatchTickTask implements Runnable {
         }
     }
 
-    private void applyCrateRefill(com.tanks.server.websocket.gameplay.world.TankState tank, com.tanks.server.websocket.gameplay.world.LootCrateState crate, GameSession session) {
+    private void applyCrateRefill(TankState tank, LootCrateState crate, GameSession session) {
         int val = crate.value();
         var content = contentCatalog.require(session.getGameContentVersion());
         var tankDef = content.requireTank(tank.definitionId());
@@ -135,11 +142,11 @@ public class GameBatchTickTask implements Runnable {
         } else if ("fuel".equalsIgnoreCase(crate.crateType())) {
             tank.fuel(Math.min(maxFuel, tank.fuel() + val));
         } else if ("ammo".equalsIgnoreCase(crate.crateType())) {
-            java.util.List<String> nonInfiniteSlots = tankDef.loadout().stream()
+            List<String> nonInfiniteSlots = tankDef.loadout().stream()
                     .filter(s -> !s.equals(tankDef.loadout().getFirst()))
                     .toList();
             if (!nonInfiniteSlots.isEmpty()) {
-                String slot = nonInfiniteSlots.get(new java.util.Random().nextInt(nonInfiniteSlots.size()));
+                String slot = nonInfiniteSlots.get(new Random().nextInt(nonInfiniteSlots.size()));
                 int currentAmmo = tank.weaponAmmo().getOrDefault(slot, 0);
                 tank.weaponAmmo().put(slot, currentAmmo + 1);
             }
@@ -154,14 +161,16 @@ public class GameBatchTickTask implements Runnable {
         int tickRateHz = contentCatalog.require(gameSession.getGameContentVersion()).world().tickRateHz();
         var iterator = world.damageTrails().iterator();
         while (iterator.hasNext()) {
-            com.tanks.server.websocket.gameplay.world.DamageTrailState trail = iterator.next();
+            DamageTrailState trail = iterator.next();
             trail.remainingTicks(trail.remainingTicks() - 1);
 
             double dpsPerTick = trail.damagePerSecond() / (double) tickRateHz;
 
-            for (com.tanks.server.websocket.gameplay.world.TankState tank : world.tanks().values()) {
-                if (!tank.alive()) continue;
-                double dist = Math.hypot(tank.position().x() - trail.position().x(), tank.position().y() - trail.position().y());
+            for (TankState tank : world.tanks().values()) {
+                if (!tank.alive())
+                    continue;
+                double dist = Math.hypot(tank.position().x() - trail.position().x(),
+                        tank.position().y() - trail.position().y());
                 if (dist <= trail.radius()) {
                     double currentBuffer = trail.damageBuffers().getOrDefault(tank.entityId(), 0.0) + dpsPerTick;
                     if (currentBuffer >= 1.0) {
