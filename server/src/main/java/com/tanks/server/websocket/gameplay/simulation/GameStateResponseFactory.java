@@ -76,7 +76,7 @@ public class GameStateResponseFactory {
                         .winnerPlayerId(winnerPlayerId(session))
                         .matchEndsAtServerTick(session.getMatchEndsAtServerTick())
                         .wind(session.getWorld().match().wind())
-                        .biome(session.getWorld().match().biome() != null ? session.getWorld().match().biome() : (content.world().biome() != null ? content.world().biome() : "forest"))
+                        .biome(session.getWorld().match().biome())
                         .build())
                 .terrain(new Heightmap(TerrainSnapshotKind.HEIGHTMAP,
                         session.getTerrainModel().width(), session.getTerrainModel().height(), session.getTerrainModel().surface()))

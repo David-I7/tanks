@@ -33,22 +33,25 @@ export function getMuzzlePosition(
   tankX: number,
   tankY: number,
   aimAngle: number,
-  bodyAngle = 0,
-  turretYOffset = TURRET_Y_OFFSET,
-  barrelLength = BARREL_LENGTH,
+  bodyAngle: number,
+  turretYOffset: number,
+  barrelLength: number,
 ): TrajectoryPoint {
+  // Pivot point around which the turret rotates, shifted by the tank body tilt
   const pivotX = tankX - turretYOffset * Math.sin(bodyAngle);
   const pivotY = tankY + turretYOffset * Math.cos(bodyAngle);
-  return {
-    x: pivotX + Math.cos(aimAngle) * barrelLength,
-    y: pivotY + Math.sin(aimAngle) * barrelLength,
-  };
+
+  // Muzzle endpoint calculated directly along the aimAngle from the pivot
+  const muzzleX = pivotX + Math.cos(aimAngle) * barrelLength;
+  const muzzleY = pivotY + Math.sin(aimAngle) * barrelLength;
+
+  return { x: muzzleX, y: muzzleY };
 }
 
 export function simulateTrajectoryPreview(
   snapshot: GameState,
   playerId: number,
-  maxPoints = 300,
+  maxPoints: number,
 ): TrajectoryPoint[] {
   const activeTank = snapshot.tanks.find(
     (entry) => entry.playerId === playerId && entry.alive,
@@ -73,7 +76,9 @@ export function simulateTrajectoryPreview(
     activeTank.position.x,
     activeTank.position.y,
     angleRad,
-    activeTank.bodyAngle ?? 0,
+    activeTank.bodyAngle,
+    TURRET_Y_OFFSET,
+    BARREL_LENGTH,
   );
 
   const speed = activeTank.power * baseVelocity;

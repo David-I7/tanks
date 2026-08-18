@@ -162,7 +162,7 @@ describe("Online World Scaling, Slope Angles & Movement Consistency", () => {
     };
 
     const confirmed = initializeOnlineConfirmedState(diff);
-    const gameState = onlineSnapshotToGameState(confirmed.state, 1, [], ctx);
+    const gameState = onlineSnapshotToGameState(confirmed.state, 1, [], ctx, null, null);
 
     const tank1 = gameState.tanks.find((t) => t.playerId === 1);
     expect(tank1).toBeDefined();
@@ -179,7 +179,7 @@ describe("Online World Scaling, Slope Angles & Movement Consistency", () => {
     };
 
     const confirmed = initializeOnlineConfirmedState(diff);
-    const gameState = onlineSnapshotToGameState(confirmed.state, 1, [], ctx);
+    const gameState = onlineSnapshotToGameState(confirmed.state, 1, [], ctx, null, null);
 
     expect(gameState.terrain.width).toBe(2400);
     // Server position 200 should map 1:1 to client position 200
@@ -230,7 +230,7 @@ describe("Online World Scaling, Slope Angles & Movement Consistency", () => {
     // Midway through interpolation (250ms into 500ms duration)
     clockMs = 1250;
     const renderSnapshot = projectOnlineRenderState(confirmed, ctx);
-    const midState = onlineSnapshotToGameState(renderSnapshot, 1, [], ctx);
+    const midState = onlineSnapshotToGameState(renderSnapshot, 1, [], ctx, null, null);
     const p2Tank = midState.tanks.find((t) => t.playerId === 2);
     
     // Position should be smoothly interpolated in client coordinates (server 1800 -> 1750, mid ~1775)

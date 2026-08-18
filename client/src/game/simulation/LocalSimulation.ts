@@ -20,8 +20,16 @@ import {
   CRATE_COLLECTION_RADIUS,
 } from "../types";
 import type { GameContent } from "../rendering/ResourceManager";
-import { getMuzzlePosition, clampAimAngle } from "./ballistics";
-import { ClientVisualSimulation } from "./ClientVisualSimulation";
+import {
+  getMuzzlePosition,
+  clampAimAngle,
+  TURRET_Y_OFFSET,
+  BARREL_LENGTH,
+} from "./ballistics";
+import {
+  ClientVisualSimulation,
+  DEFAULT_EXPLOSION_PALETTE,
+} from "./ClientVisualSimulation";
 
 export class LocalSimulation {
   private transitionTimer = 0;
@@ -33,6 +41,7 @@ export class LocalSimulation {
     tankX: number;
     tankY: number;
     aimAngle: number;
+    bodyAngle: number;
   }> = [];
   private damageTrails: DamageTrail[] = [];
   private lootCrates: LootCrate[] = [];
@@ -363,9 +372,16 @@ export class LocalSimulation {
     tankX: number,
     tankY: number,
     aimAngle: number,
-    bodyAngle: number = 0,
+    bodyAngle: number,
   ): void {
-    const muzzle = getMuzzlePosition(tankX, tankY, aimAngle, bodyAngle);
+    const muzzle = getMuzzlePosition(
+      tankX,
+      tankY,
+      aimAngle,
+      bodyAngle,
+      TURRET_Y_OFFSET,
+      BARREL_LENGTH,
+    );
     const speed = power * projectileDefinition.baseVelocity;
     this.world.createProjectile(
       ownerPlayerId,
@@ -391,6 +407,7 @@ export class LocalSimulation {
           pending.tankX,
           pending.tankY,
           pending.aimAngle,
+          pending.bodyAngle,
         );
       } else {
         nextPending.push(pending);
@@ -495,13 +512,13 @@ export class LocalSimulation {
     x: number,
     y: number,
     projectile: ProjectileComponent,
-    directHitTankEntityId: EntityId | null = null,
+    directHitTankEntityId: EntityId | null,
   ): void {
     this.lastImpactX = x;
     this.terrain.applyTerrainEffect(x, y, projectile.terrainEffect);
     this.world.createImpactEvent(x, y, projectile);
     this.applyDamageEffect(x, y, projectile.damageEffect, directHitTankEntityId);
-    this.spawnExplosionParticles(x, y);
+    this.spawnExplosionParticles(x, y, DEFAULT_EXPLOSION_PALETTE);
     this.screenShake = 12;
 
     const blastRadius = Math.max(
@@ -562,7 +579,7 @@ export class LocalSimulation {
     x: number,
     y: number,
     damageEffect: DamageEffect,
-    directHitTankEntityId: EntityId | null = null,
+    directHitTankEntityId: EntityId | null,
   ): void {
     const damageRadius = damageEffect.radius;
 
@@ -774,15 +791,15 @@ export class LocalSimulation {
     this.lootCrates = remainingCrates;
   }
 
-  private spawnExplosionParticles(x: number, y: number): void {
-    this.visualSim.spawnExplosionParticles(x, y);
+  private spawnExplosionParticles(x: number, y: number, colors: readonly string[]): void {
+    this.visualSim.spawnExplosionParticles(x, y, colors);
   }
 
   private spawnFloatingText(text: string, color: string, x: number, y: number): void {
     this.visualSim.spawnFloatingText(text, color, x, y);
   }
 
-  addTankAmmo(playerId: number, slotId: string, amount = 1): void {
+  addTankAmmo(playerId: number, slotId: string, amount: number): void {
     const entityId = this.world.tankEntitiesByPlayer.get(playerId);
     if (!entityId) return;
     const tank = this.world.tanks.get(entityId);

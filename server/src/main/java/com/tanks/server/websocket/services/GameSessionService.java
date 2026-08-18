@@ -77,7 +77,7 @@ public class GameSessionService {
             UUID gameSessionId = IdFactory.randomUUID();
             var content = contentCatalog.current();
             var initialWorld = initialWorldFactory.create(content, 0, host.getUsername(),
-                    opponent.getUsername());
+                    opponent.getUsername(), "vanguard-cyber", "specter");
             GameSession gameSession = GameSession.builder()
                     .id(gameSessionId)
                     .hostId(host.getId())

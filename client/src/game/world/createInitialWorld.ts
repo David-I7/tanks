@@ -16,7 +16,7 @@ export type LocalInitialWorld = {
 };
 
 export function createDefaultMatchSetup(
-  mode: GameMode = "localTwoPlayer",
+  mode: GameMode,
 ): MatchSetup {
   return {
     mode,
@@ -40,7 +40,6 @@ export function createDefaultMatchSetup(
 export function createLocalInitialWorld(
   setup: MatchSetup,
   content: GameContent,
-  overrideBiome?: MapBiome,
 ): LocalInitialWorld {
   const terrain = new LocalTerrainModel(
     content.world.width,
@@ -48,7 +47,7 @@ export function createLocalInitialWorld(
   );
   const initialWind = Math.round((Math.random() * 14 - 7) * 10) / 10;
   const biomes: MapBiome[] = ["forest", "desert", "ice"];
-  const biome = overrideBiome ?? biomes[Math.floor(Math.random() * biomes.length)];
+  const biome = biomes[Math.floor(Math.random() * biomes.length)];
 
   const world = new LocalWorld({
     mode: setup.mode,

@@ -322,7 +322,7 @@ export function createTestSnapshot(): OnlineGameStateSnapshotResponse {
   };
 }
 
-export function createInitialDiff(sequence = 1): OnlineDiffResponseDto {
+export function createInitialDiff(sequence: number): OnlineDiffResponseDto {
   return {
     gameSessionId: "test-session-123",
     sequence,

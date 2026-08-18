@@ -9,10 +9,6 @@ import com.tanks.server.websocket.gameplay.content.definitions.SpawnRegion;
 
 @Service
 public class InitialWorldFactory {
-    public InitialWorld create(GameContent content, long seed, String playerA, String playerB) {
-        return create(content, seed, playerA, playerB, "vanguard-cyber", "specter");
-    }
-
     public InitialWorld create(GameContent content, long seed, String playerA, String playerB, String tankDefA, String tankDefB) {
         Random random = new Random(seed);
         var definition = content.world();
@@ -28,16 +24,14 @@ public class InitialWorldFactory {
         TerrainModel terrain = new TerrainModel(definition, surface);
         World world = new World();
 
-        String resolvedTankA = tankDefA != null && content.tanks().containsKey(tankDefA) ? tankDefA : "vanguard-cyber";
-        String resolvedTankB = tankDefB != null && content.tanks().containsKey(tankDefB) ? tankDefB : "specter";
-
-        addTank(world, terrain, content, random, 10, 1, playerA, resolvedTankA, 1,
+        addTank(world, terrain, content, random, 10, 1, playerA, tankDefA, 1,
                 definition.playerASpawnRegion());
-        addTank(world, terrain, content, random, 11, 2, playerB, resolvedTankB, -1,
+        addTank(world, terrain, content, random, 11, 2, playerB, tankDefB, -1,
                 definition.playerBSpawnRegion());
         world.match().activePlayerId(1);
         world.match().turnNumber(1);
         world.match().turnEndsAtServerTick(definition.tickRateHz() * 30L);
+        world.match().biome(definition.biome());
         return new InitialWorld(world, terrain);
     }
 

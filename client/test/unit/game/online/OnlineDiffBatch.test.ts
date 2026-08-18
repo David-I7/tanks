@@ -5,6 +5,7 @@ import {
   type OnlineDiffResponseDto,
 } from "../../../../src/api/ws/dto/gameplay/onlineGameplayProtocol";
 import { createOnlineGameManager } from "../../../../src/game/authority/OnlineGameManager";
+import { IntentThrottler } from "../../../../src/game/online/IntentThrottler";
 import { createOnlineGameplayTransport } from "../../../../src/game/online/OnlineGameplayTransport";
 
 describe("OnlineDiffBatchResponseDto & Batch Handling", () => {
@@ -260,6 +261,7 @@ describe("OnlineDiffBatchResponseDto & Batch Handling", () => {
     const manager = createOnlineGameManager({
       transport: mockTransport as any,
       ctx,
+      throttler: new IntentThrottler({ aimIntervalMs: 80, moveIntervalMs: 100 }),
     });
 
     expect(manager.isReady()).toBe(true);

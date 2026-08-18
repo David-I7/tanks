@@ -249,6 +249,7 @@ describe("OnlineGameManager Throttling Integration", () => {
     const manager = createOnlineGameManager({
       transport: transportMock,
       ctx: ctx as any,
+      throttler: new IntentThrottler({ aimIntervalMs: 80, moveIntervalMs: 100 }),
     });
 
     diffSubscriber!(createMockInitialStateDiff());

@@ -39,6 +39,7 @@ describe("FIRE button click interaction", () => {
       canvasHeight,
       fireX + 10,
       fireY + 10,
+      mockGameState.tanks[0],
     );
 
     expect(hit).toBe(true);

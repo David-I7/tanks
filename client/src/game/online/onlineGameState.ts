@@ -27,8 +27,8 @@ export function toGameState(
   confirmed: OnlineConfirmedState,
   renderState: OnlineGameStateSnapshotResponse,
   ctx: GameContext,
-  visualState?: ClientVisualState,
-  flightState?: { position: Vec2; velocity: Vec2 } | null,
+  visualState: ClientVisualState | null,
+  flightState: { position: Vec2; velocity: Vec2 } | null,
 ): GameState {
   return onlineSnapshotToGameState(
     renderState,
@@ -45,8 +45,8 @@ export function onlineSnapshotToGameState(
   localPlayerId: number | null,
   impactEvents: OnlineImpactProjectionEvent[],
   ctx: GameContext,
-  visualState?: ClientVisualState,
-  flightState?: { position: Vec2; velocity: Vec2 } | null,
+  visualState: ClientVisualState | null,
+  flightState: { position: Vec2; velocity: Vec2 } | null,
 ): GameState {
   const content = ctx.gameContent;
 
@@ -338,7 +338,7 @@ function mapOnlineDamageTrails(
 function computeSlopeAngleFromSurface(
   surface: number[],
   x: number,
-  tankWidth: number = 32,
+  tankWidth: number,
 ): number {
   if (!surface || surface.length === 0) return 0;
   const halfWidth = Math.max(1, Math.floor(tankWidth / 2));

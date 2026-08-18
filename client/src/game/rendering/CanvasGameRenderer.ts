@@ -724,7 +724,7 @@ export class CanvasGameRenderer {
       return;
     }
 
-    const points = simulateTrajectoryPreview(gameState, activePlayerId);
+    const points = simulateTrajectoryPreview(gameState, activePlayerId, 300);
     if (points.length === 0) return;
 
     ctx.fillStyle = "rgba(255, 255, 255, 0.65)";

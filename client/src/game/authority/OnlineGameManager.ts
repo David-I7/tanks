@@ -10,7 +10,10 @@ import type { GameAction, GameContext, GameState, Vec2 } from "../types";
 import type { OnlineGameplayTransport } from "../online/OnlineGameplayTransport";
 import { toGameState } from "../online/onlineGameState";
 import { onlineGameContentFromResponse } from "../online/onlineGameContent";
-import { ClientVisualSimulation } from "../simulation/ClientVisualSimulation";
+import {
+  ClientVisualSimulation,
+  DEFAULT_EXPLOSION_PALETTE,
+} from "../simulation/ClientVisualSimulation";
 import {
   OnlineDiffSequenceError,
   applyOnlineStateDiffResponse,
@@ -27,7 +30,7 @@ import { IntentThrottler } from "../online/IntentThrottler";
 export function createOnlineGameManager(options: {
   transport: OnlineGameplayTransport;
   ctx: GameContext;
-  throttler?: IntentThrottler;
+  throttler: IntentThrottler;
 }): GameManager {
   return new TransportBackedOnlineGameManager(options);
 }
@@ -38,12 +41,12 @@ class TransportBackedOnlineGameManager implements GameManager {
   private readonly unsubscribeTransport: () => void;
   private readonly transport: OnlineGameplayTransport;
   private readonly ctx: GameContext;
-  private readonly throttler?: IntentThrottler;
+  private readonly throttler: IntentThrottler;
 
   constructor(options: {
     transport: OnlineGameplayTransport;
     ctx: GameContext;
-    throttler?: IntentThrottler;
+    throttler: IntentThrottler;
   }) {
     this.transport = options.transport;
     this.ctx = options.ctx;
@@ -59,7 +62,7 @@ class TransportBackedOnlineGameManager implements GameManager {
     return this.activeState.submitAction(action);
   }
 
-  update(dt: number = 1 / 60): void {
+  update(dt: number): void {
     this.activeState?.update(dt);
   }
 
@@ -147,9 +150,9 @@ class ActiveOnlineGameManager {
     private readonly transport: OnlineGameplayTransport,
     private readonly ctx: GameContext,
     private readonly publish: (state: GameState) => void,
-    throttler?: IntentThrottler,
+    throttler: IntentThrottler,
   ) {
-    this.throttler = throttler ?? new IntentThrottler();
+    this.throttler = throttler;
     this.confirmedState = initialState;
     this.visualSim = new ClientVisualSimulation(
       0,
@@ -157,19 +160,19 @@ class ActiveOnlineGameManager {
     );
     // Generate biome decorations from the terrain surface
     this.visualSim.generateDecors(initialState.state.terrain.surface);
-    this.publishConfirmed(initialState);
+    this.publishConfirmed(initialState, null);
   }
 
   submitAction(action: GameAction): boolean {
     if (action.type === "panCamera") {
       this.visualSim.panCamera(action.deltaX);
-      this.publishConfirmed(this.confirmedState);
+      this.publishConfirmed(this.confirmedState, null);
       return true;
     }
 
     if (action.type === "relockCamera") {
       this.visualSim.relockCamera();
-      this.publishConfirmed(this.confirmedState);
+      this.publishConfirmed(this.confirmedState, null);
       return true;
     }
 
@@ -187,7 +190,7 @@ class ActiveOnlineGameManager {
       if (activeTank) {
         activeTank.aimAngle = action.angle;
         activeTank.power = action.power;
-        this.publishConfirmed(this.confirmedState);
+        this.publishConfirmed(this.confirmedState, null);
       }
       const nowMs = this.ctx.clock();
       if (this.throttler.shouldSendAim(nowMs)) {
@@ -213,6 +216,7 @@ class ActiveOnlineGameManager {
               { direction: action.direction },
               nowMs,
             ),
+            null,
           );
         }
       }
@@ -225,7 +229,7 @@ class ActiveOnlineGameManager {
       );
       if (activeTank) {
         activeTank.selectedProjectileSlotId = action.projectileSlotId;
-        this.publishConfirmed(this.confirmedState);
+        this.publishConfirmed(this.confirmedState, null);
       }
       const envelope = this.createIntentEnvelope(action);
       if (envelope) {
@@ -251,7 +255,7 @@ class ActiveOnlineGameManager {
   } | null = null;
   private postImpactDelaySeconds = 0;
 
-  update(dt: number = 1 / 60): void {
+  update(dt: number): void {
     this.visualSim.updateEffects(dt, this.confirmedState.state.terrain.width);
 
     // Client-side timer countdown between server diffs
@@ -268,6 +272,21 @@ class ActiveOnlineGameManager {
         0,
         match.matchTimeRemainingTicks - ticksDelta,
       );
+    }
+
+    // Smoothly interpolate remote player aim angles and power
+    const interpolatedAim = this.visualSim.updateAimInterpolation(
+      dt,
+      this.confirmedState.state.tanks,
+    );
+    for (const tank of this.confirmedState.state.tanks) {
+      if (tank.playerId !== this.confirmedState.localPlayerId) {
+        const interp = interpolatedAim.get(tank.playerId);
+        if (interp) {
+          tank.aimAngle = interp.angle;
+          tank.power = interp.power;
+        }
+      }
     }
 
     if (this.confirmedState.state.lootCrates) {
@@ -334,33 +353,26 @@ class ActiveOnlineGameManager {
       this.confirmedState.state.lootCrates = remainingCrates;
     }
 
-    // Smoothly interpolate remote player aim angles and power
-    const interpolatedAim = this.visualSim.updateAimInterpolation(
-      dt,
-      this.confirmedState.state.tanks,
-    );
-    for (const tank of this.confirmedState.state.tanks) {
-      if (tank.playerId !== this.confirmedState.localPlayerId) {
-        const interp = interpolatedAim.get(tank.playerId);
-        if (interp) {
-          tank.aimAngle = interp.angle;
-          tank.power = interp.power;
-        }
-      }
-    }
-
     const flightRes = this.visualSim.updateProjectileFlight(dt);
 
     if (this.pendingImpactFx && !this.visualSim.getState().activeFlight) {
       const fx = this.pendingImpactFx;
       this.pendingImpactFx = null;
       this.lastImpactX = fx.impact.x;
-      this.visualSim.spawnExplosionParticles(fx.impact.x, fx.impact.y);
+      this.visualSim.spawnExplosionParticles(
+        fx.impact.x,
+        fx.impact.y,
+        DEFAULT_EXPLOSION_PALETTE,
+      );
       this.visualSim.destroyDecorsNear(fx.impact.x, fx.impact.y, 45);
       this.spawnDamageFloatingTexts(fx.damagedTanks);
       if (fx.subMunitions) {
         for (const sub of fx.subMunitions) {
-          this.visualSim.spawnExplosionParticles(sub.impact.x, sub.impact.y);
+          this.visualSim.spawnExplosionParticles(
+            sub.impact.x,
+            sub.impact.y,
+            DEFAULT_EXPLOSION_PALETTE,
+          );
           this.visualSim.destroyDecorsNear(sub.impact.x, sub.impact.y, 35);
           this.spawnDamageFloatingTexts(sub.damagedTanks);
         }
@@ -474,6 +486,7 @@ class ActiveOnlineGameManager {
           diff,
           this.ctx,
         ),
+        null,
       );
     } catch (error) {
       if (
@@ -484,7 +497,7 @@ class ActiveOnlineGameManager {
         this.pendingImpactFx = null;
         this.postImpactDelaySeconds = 0;
         this.transport.requestResyncState();
-        this.publishConfirmed(requestOnlineResyncState(this.confirmedState));
+        this.publishConfirmed(requestOnlineResyncState(this.confirmedState), null);
         return;
       }
 
@@ -580,7 +593,7 @@ class ActiveOnlineGameManager {
 
   private publishConfirmed(
     state: OnlineConfirmedState,
-    flightRes?: { position: Vec2; velocity: Vec2 } | null,
+    flightRes: { position: Vec2; velocity: Vec2 } | null,
   ): void {
     this.confirmedState = state;
     const renderContent = onlineGameContentFromResponse(

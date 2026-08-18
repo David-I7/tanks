@@ -28,6 +28,14 @@ export type ClientVisualState = {
   aimTargets: Map<number, { angle: number; power: number }>;
 };
 
+export const DEFAULT_EXPLOSION_PALETTE: readonly string[] = [
+  "#fbbf24",
+  "#f97316",
+  "#ef4444",
+  "#78716c",
+  "#44403c",
+];
+
 const CAMERA_SMOOTHING_SPEED = 10;
 
 export class ClientVisualSimulation {
@@ -247,8 +255,7 @@ export class ClientVisualSimulation {
     return { position, velocity };
   }
 
-  spawnExplosionParticles(x: number, y: number, colors?: string[]): void {
-    const palette = colors ?? ["#fbbf24", "#f97316", "#ef4444", "#78716c", "#44403c"];
+  spawnExplosionParticles(x: number, y: number, colors: readonly string[]): void {
     for (let i = 0; i < 18; i += 1) {
       const angle = Math.random() * Math.PI * 2;
       const speed = 40 + Math.random() * 160;
@@ -258,7 +265,7 @@ export class ClientVisualSimulation {
         y,
         vx: Math.cos(angle) * speed,
         vy: Math.sin(angle) * speed - 60,
-        color: palette[Math.floor(Math.random() * palette.length)] ?? "#fbbf24",
+        color: colors[Math.floor(Math.random() * colors.length)] ?? "#fbbf24",
         size: 2 + Math.random() * 3,
         life: 1.0,
         maxLife: 1.0,
