@@ -157,14 +157,14 @@ public class DefaultGameSimulation implements GameSimulation {
             }
             double dist = Math.hypot(x - crate.x(), y - crate.y());
             if (dist <= 35.0) {
-                int val = crate.value() != null ? crate.value() : 25;
+                int val = crate.value();
                 if ("hp".equalsIgnoreCase(crate.crateType())) {
                     tankState.health(Math.min(tankDef.maxHealth(), tankState.health() + val));
                 } else if ("fuel".equalsIgnoreCase(crate.crateType())) {
                     tankState.fuel(Math.min(tankDef.maxFuel(), tankState.fuel() + val));
                 } else if ("ammo".equalsIgnoreCase(crate.crateType())) {
                     List<String> nonInfiniteSlots = tankDef.loadout().stream()
-                            .filter(s -> !s.equals("basicShell") && !s.equals("standard"))
+                            .filter(s -> !s.equals(tankDef.loadout().getFirst()))
                             .toList();
                     if (!nonInfiniteSlots.isEmpty()) {
                         String slot = nonInfiniteSlots.get(new java.util.Random().nextInt(nonInfiniteSlots.size()));
@@ -184,7 +184,10 @@ public class DefaultGameSimulation implements GameSimulation {
         TankState state = world.requireTankByPlayer(playerId);
         TankDefinition tankDef = content.requireTank(state.definitionId());
         
-        String projectileId = state.selectedProjectileSlotId() != null ? state.selectedProjectileSlotId() : tankDef.loadout().getFirst();
+        String projectileId = state.selectedProjectileSlotId();
+        if (projectileId == null || !tankDef.loadout().contains(projectileId)) {
+            throw new IllegalStateException("Tank " + playerId + " has no valid selected projectile slot");
+        }
         ProjectileDefinition projectileDef = content.requireProjectile(projectileId);
 
         if (state.weaponAmmo() != null && state.weaponAmmo().containsKey(projectileId)) {
@@ -195,8 +198,8 @@ public class DefaultGameSimulation implements GameSimulation {
         }
 
         double angleRad = request.getAngle();
-        double barrelLength = 28.0;
-        double turretYOffset = -14.0;
+        double barrelLength = tankDef.muzzleForwardOffset();
+        double turretYOffset = -tankDef.muzzleVerticalOffset();
         double bodyAngle = terrain.slopeAngle(state.position().x(), tankDef.width());
         double pivotX = state.position().x() - turretYOffset * Math.sin(bodyAngle);
         double pivotY = state.position().y() + turretYOffset * Math.cos(bodyAngle);
@@ -256,12 +259,16 @@ public class DefaultGameSimulation implements GameSimulation {
 
         List<OnlineTankDamageResponseDto> damagedTanks = new ArrayList<>();
         double blastRadius = projectileDef.radius();
-        int baseDamage = 50;
+        int baseDamage;
         if (projectileDef.damageEffect() instanceof Radial radial) {
             blastRadius = Math.max(blastRadius, radial.radius());
             baseDamage = (int) Math.round(radial.damage());
         } else if (projectileDef.damageEffect() instanceof Focused focused) {
             baseDamage = (int) Math.round(focused.damage());
+        } else if (projectileDef.damageEffect() == null) {
+            baseDamage = 0;
+        } else {
+            throw new IllegalStateException("Unsupported damage effect for projectile: " + projectileDef.id());
         }
 
         for (TankState tank : world.tanks().values()) {
@@ -349,11 +356,15 @@ public class DefaultGameSimulation implements GameSimulation {
 
                 List<OnlineTankDamageResponseDto> subDamagedTanks = new ArrayList<>();
                 if (subHitTankState != null) {
-                    int damage = 30;
+                    int damage;
                     if (subProjDef.damageEffect() instanceof Radial radial) {
                         damage = (int) Math.round(radial.damage());
                     } else if (subProjDef.damageEffect() instanceof Focused focused) {
                         damage = (int) Math.round(focused.damage());
+                    } else if (subProjDef.damageEffect() == null) {
+                        damage = 0;
+                    } else {
+                        throw new IllegalStateException("Unsupported damage effect for submunition: " + subProjDef.id());
                     }
                     int healthBefore = subHitTankState.health();
                     int healthAfter = Math.max(0, healthBefore - damage);

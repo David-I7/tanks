@@ -76,8 +76,10 @@ public class GameSessionService {
         try {
             UUID gameSessionId = IdFactory.randomUUID();
             var content = contentCatalog.current();
+            String tankDefA = lobby.getHost().getTankDefinitionId();
+            String tankDefB = lobby.getOpponent().getTankDefinitionId();
             var initialWorld = initialWorldFactory.create(content, 0, host.getUsername(),
-                    opponent.getUsername(), "vanguard-cyber", "specter");
+                    opponent.getUsername(), tankDefA, tankDefB);
             GameSession gameSession = GameSession.builder()
                     .id(gameSessionId)
                     .hostId(host.getId())
@@ -165,15 +167,9 @@ public class GameSessionService {
         log.debug("Initial state sent to player: {}", username);
     }
 
-    public boolean sendResyncStateToPlayer(UUID gameSessionId, String username,
+    public void sendResyncStateToPlayer(UUID gameSessionId, String username,
             ResyncReason reason) {
         GameSession gameSession = findById(gameSessionId);
-        if (!GameSessionState.CREATED.equals(gameSession.getState())
-                && !GameSessionState.STARTED.equals(gameSession.getState())
-                && !GameSessionState.ENDED.equals(gameSession.getState())) {
-            return false;
-        }
-
         var resyncDiff = initialStateFactory.createResyncForPlayer(gameSession, reason,
                 localPlayerId(gameSession, username));
 
@@ -184,7 +180,6 @@ public class GameSessionService {
                 resyncDiff));
 
         log.debug("Resync state sent to player: {}", username);
-        return true;
     }
 
     private long localPlayerId(GameSession gameSession, String username) {
@@ -194,7 +189,10 @@ public class GameSessionService {
         if (gameSession.getPlayerB().equals(username)) {
             return PLAYER_B_ID;
         }
-        return 0;
+        throw new ProblemDetailException(
+                HttpStatus.BAD_REQUEST,
+                "User " + username + " is not a participant in game session " + gameSession.getId(),
+                URI.create("about:blank"));
     }
 
     public boolean processPlayerIntent(GameSession gameSession, OnlinePlayerIntentRequestDto<?> intent) {
@@ -274,21 +272,8 @@ public class GameSessionService {
         return true;
     }
 
-    public boolean acceptPlayerIntent(String username, UUID gameSessionId, OnlinePlayerIntentRequestDto<?> intent) {
-        if (intent == null || intent.intentId() == null || intent.intentId().isBlank() || intent.type() == null) {
-            return false;
-        }
-        if (gameSessionId == null || !gameSessionId.toString().equals(intent.gameSessionId())) {
-            return false;
-        }
+    public boolean acceptPlayerIntent(UUID gameSessionId, OnlinePlayerIntentRequestDto<?> intent) {
         GameSession gameSession = findById(gameSessionId);
-        if (!GameSessionState.STARTED.equals(gameSession.getState())) {
-            return false;
-        }
-        if (!playerUsername(gameSession, intent.playerId()).equals(username)) {
-            return false;
-        }
-
         boolean processed = processPlayerIntent(gameSession, intent);
         gameRepository.save(gameSession);
         return processed;
@@ -318,74 +303,34 @@ public class GameSessionService {
             return;
         }
         GameSession gameSession = gameSessionOpt.get();
-        if (userId != null) {
-            gameSession.getConnectedUserIds().remove(userId);
-        }
+        gameSession.getConnectedUserIds().remove(userId);
         gameRepository.save(gameSession);
     }
 
     private MoveIntentRequestPayload extractMovePayload(OnlinePlayerIntentRequestDto<?> intent) {
-        if (intent == null || intent.payload() == null) {
-            return null;
-        }
-        if (intent.payload() instanceof MoveIntentRequestPayload move) {
+        if (intent != null && intent.payload() instanceof MoveIntentRequestPayload move) {
             return move;
-        }
-        if (intent.payload() instanceof java.util.Map<?, ?> map) {
-            Object dirObj = map.get("direction");
-            if (dirObj instanceof Number num) {
-                return new MoveIntentRequestPayload(num.intValue());
-            }
         }
         return null;
     }
 
     private AimIntentRequestPayload extractAimPayload(OnlinePlayerIntentRequestDto<?> intent) {
-        if (intent == null || intent.payload() == null) {
-            return null;
-        }
-        if (intent.payload() instanceof AimIntentRequestPayload aim) {
+        if (intent != null && intent.payload() instanceof AimIntentRequestPayload aim) {
             return aim;
-        }
-        if (intent.payload() instanceof java.util.Map<?, ?> map) {
-            Object angleObj = map.get("angle");
-            Object powerObj = map.get("power");
-            if (angleObj instanceof Number angleNum && powerObj instanceof Number powerNum) {
-                return new AimIntentRequestPayload(angleNum.doubleValue(), powerNum.doubleValue());
-            }
         }
         return null;
     }
 
     private FireIntentIntentRequestPayload extractFirePayload(OnlinePlayerIntentRequestDto<?> intent) {
-        if (intent == null || intent.payload() == null) {
-            return null;
-        }
-        if (intent.payload() instanceof FireIntentIntentRequestPayload fire) {
+        if (intent != null && intent.payload() instanceof FireIntentIntentRequestPayload fire) {
             return fire;
-        }
-        if (intent.payload() instanceof java.util.Map<?, ?> map) {
-            Object angleObj = map.get("angle");
-            Object powerObj = map.get("power");
-            if (angleObj instanceof Number angleNum && powerObj instanceof Number powerNum) {
-                return new FireIntentIntentRequestPayload(angleNum.doubleValue(), powerNum.doubleValue());
-            }
         }
         return null;
     }
 
     private SelectProjectileIntentRequestPayload extractSelectProjectileSlotPayload(OnlinePlayerIntentRequestDto<?> intent) {
-        if (intent == null || intent.payload() == null) {
-            return null;
-        }
-        if (intent.payload() instanceof SelectProjectileIntentRequestPayload select) {
+        if (intent != null && intent.payload() instanceof SelectProjectileIntentRequestPayload select) {
             return select;
-        }
-        if (intent.payload() instanceof java.util.Map<?, ?> map) {
-            Object slotObj = map.get("slot");
-            if (slotObj instanceof Number slotNum) {
-                return new SelectProjectileIntentRequestPayload(slotNum.intValue());
-            }
         }
         return null;
     }
@@ -468,13 +413,16 @@ public class GameSessionService {
     }
 
     private String playerUsername(GameSession gameSession, long playerId) {
-        if (playerId == 1) {
+        if (playerId == PLAYER_A_ID) {
             return gameSession.getPlayerA();
         }
-        if (playerId == 2) {
+        if (playerId == PLAYER_B_ID) {
             return gameSession.getPlayerB();
         }
-        return "";
+        throw new ProblemDetailException(
+                HttpStatus.BAD_REQUEST,
+                "Invalid player id: " + playerId,
+                URI.create("about:blank"));
     }
 
     private void publishIntentRejection(
@@ -658,52 +606,6 @@ public class GameSessionService {
         gameSession.setTurnStartDiffSequence(turnDiff.sequence());
     }
 
-    public void finalizeDamageTrailKills(GameSession gameSession) {
-        com.tanks.server.websocket.gameplay.world.TankState tank1 = gameSession.getWorld().requireTankByPlayer(1L);
-        com.tanks.server.websocket.gameplay.world.TankState tank2 = gameSession.getWorld().requireTankByPlayer(2L);
-
-        boolean tank1Alive = tank1 != null && tank1.alive();
-        boolean tank2Alive = tank2 != null && tank2.alive();
-
-        if (!tank1Alive && !tank2Alive) {
-            finalizeDrawResult(gameSession);
-            publishDiff(
-                    gameSession,
-                    OnlineStateDiffResponseType.TERMINAL_GAME,
-                    null,
-                    gameSession.getServerTick(),
-                    TerminalGame.builder()
-                            .winnerPlayerId(null)
-                            .reason(TerminalGameReason.DRAW)
-                            .finalState(initialStateFactory.createStateSnapshot(gameSession))
-                            .build());
-        } else if (!tank1Alive) {
-            finalizeWinResult(gameSession, 2L);
-            publishDiff(
-                    gameSession,
-                    OnlineStateDiffResponseType.TERMINAL_GAME,
-                    null,
-                    gameSession.getServerTick(),
-                    TerminalGame.builder()
-                            .winnerPlayerId(2L)
-                            .reason(TerminalGameReason.LAST_TANK_STANDING)
-                            .finalState(initialStateFactory.createStateSnapshot(gameSession))
-                            .build());
-        } else if (!tank2Alive) {
-            finalizeWinResult(gameSession, 1L);
-            publishDiff(
-                    gameSession,
-                    OnlineStateDiffResponseType.TERMINAL_GAME,
-                    null,
-                    gameSession.getServerTick(),
-                    TerminalGame.builder()
-                            .winnerPlayerId(1L)
-                            .reason(TerminalGameReason.LAST_TANK_STANDING)
-                            .finalState(initialStateFactory.createStateSnapshot(gameSession))
-                            .build());
-        }
-    }
-
     public void executePendingTurnTransition(GameSession gameSession) {
         if (gameSession.getPendingTurnTransitionAtServerTick() <= 0) {
             return;
@@ -762,19 +664,8 @@ public class GameSessionService {
     }
 
     public void forfeitGame(UUID gameId, String forfeitingUsername) {
-        GameSession gameSession = gameRepository.findById(gameId).orElse(null);
-        if (gameSession == null || gameSession.getState() != GameSessionState.STARTED) {
-            return;
-        }
-
-        Long winnerPlayerId = null;
-        if (forfeitingUsername.equals(gameSession.getPlayerA())) {
-            winnerPlayerId = 2L;
-        } else if (forfeitingUsername.equals(gameSession.getPlayerB())) {
-            winnerPlayerId = 1L;
-        } else {
-            return;
-        }
+        GameSession gameSession = findById(gameId);
+        long winnerPlayerId = forfeitingUsername.equals(gameSession.getPlayerA()) ? PLAYER_B_ID : PLAYER_A_ID;
 
         finalizeWinResult(gameSession, winnerPlayerId);
         publishDiff(
@@ -800,7 +691,7 @@ public class GameSessionService {
                 .playerB(playerB)
                 .winner(null)
                 .outcome(GameOutcome.DRAW)
-                .gameStartedAt(gameStartedAt(gameSession, endedAt))
+                .gameStartedAt(gameStartedAt(gameSession))
                 .gameEndedAt(endedAt)
                 .build());
 
@@ -814,14 +705,14 @@ public class GameSessionService {
         OffsetDateTime endedAt = OffsetDateTime.now();
         User playerA = userByUsername(gameSession.getPlayerA());
         User playerB = userByUsername(gameSession.getPlayerB());
-        User winner = winnerPlayerId == 1 ? playerA : playerB;
+        User winner = winnerPlayerId == PLAYER_A_ID ? playerA : playerB;
 
         gameResultRepository.save(GameResult.builder()
                 .playerA(playerA)
                 .playerB(playerB)
                 .winner(winner)
                 .outcome(GameOutcome.WIN)
-                .gameStartedAt(gameStartedAt(gameSession, endedAt))
+                .gameStartedAt(gameStartedAt(gameSession))
                 .gameEndedAt(endedAt)
                 .build());
 
@@ -839,14 +730,11 @@ public class GameSessionService {
                         URI.create("about:blank")));
     }
 
-    private OffsetDateTime gameStartedAt(GameSession gameSession, OffsetDateTime endedAt) {
+    private OffsetDateTime gameStartedAt(GameSession gameSession) {
         if (gameSession.getStartedAt() != null) {
             return gameSession.getStartedAt();
         }
-        if (gameSession.getCreatedAt() != null) {
-            return gameSession.getCreatedAt();
-        }
-        return endedAt;
+        return gameSession.getCreatedAt();
     }
 
     private OnlineDiffResponseDto createCrateSpawnDiff(GameSession gameSession) {
@@ -906,7 +794,11 @@ public class GameSessionService {
     }
 
     public void finalizeMatchTimeExpired(GameSession gameSession, Long winnerPlayerId) {
-        finalizeWinResult(gameSession, winnerPlayerId != null ? winnerPlayerId : 0);
+        if (winnerPlayerId != null) {
+            finalizeWinResult(gameSession, winnerPlayerId);
+        } else {
+            finalizeDrawResult(gameSession);
+        }
         publishDiff(
                 gameSession,
                 OnlineStateDiffResponseType.TERMINAL_GAME,

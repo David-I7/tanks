@@ -41,7 +41,7 @@ public class InitialWorldFactory {
         var definition = content.requireTank(definitionId);
         java.util.Map<String, Integer> weaponAmmo = new java.util.HashMap<>();
         for (String slotId : definition.loadout()) {
-            weaponAmmo.put(slotId, slotId.equals("basicShell") || slotId.equals("standard") ? -1 : 1);
+            weaponAmmo.put(slotId, slotId.equals(definition.loadout().getFirst()) ? -1 : 1);
         }
         world.tanks().put(entityId, TankState.builder()
                 .entityId(entityId)

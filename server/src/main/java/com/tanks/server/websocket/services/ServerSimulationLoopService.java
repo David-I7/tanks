@@ -79,12 +79,12 @@ public class ServerSimulationLoopService implements ApplicationListener<ContextC
             List<List<GameSession>> batches = partition(activeGames, BATCH_SIZE);
             if (executorService == null || executorService.isShutdown()) {
                 for (List<GameSession> batch : batches) {
-                    new GameBatchTickTask(batch, eventPublisher,gameSessionService,gameRepository,contentCatalog).run();
+                    new GameBatchTickTask(batch, gameSessionService, gameRepository, contentCatalog).run();
                 }
             } else {
                 List<CompletableFuture<Void>> futures = new ArrayList<>();
                 for (List<GameSession> batch : batches) {
-                    futures.add(CompletableFuture.runAsync(new GameBatchTickTask(batch, eventPublisher,gameSessionService,gameRepository,contentCatalog), executorService));
+                    futures.add(CompletableFuture.runAsync(new GameBatchTickTask(batch, gameSessionService, gameRepository, contentCatalog), executorService));
                 }
                 CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
             }

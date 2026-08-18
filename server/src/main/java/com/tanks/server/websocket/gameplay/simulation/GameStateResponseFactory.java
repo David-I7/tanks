@@ -147,9 +147,6 @@ public class GameStateResponseFactory {
     }
     private static Long winnerPlayerId(GameSession session) {
         if (!GameSessionState.ENDED.equals(session.getState())) return null;
-        boolean a = session.getWorld().requireTankByPlayer(1).alive();
-        boolean b = session.getWorld().requireTankByPlayer(2).alive();
-        return session.getWorld().match().winnerPlayerId() != null
-                ? session.getWorld().match().winnerPlayerId() : a == b ? null : a ? 1L : 2L;
+        return session.getWorld().match().winnerPlayerId();
     }
 }

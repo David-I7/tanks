@@ -26,16 +26,16 @@ public class GameSessionController {
     private final LobbyService lobbyService;
 
     @MessageMapping("/game/{id}/intent")
-    @PreAuthorize("@gameAuthorizationService.canSendMessageToTopic(authentication, '/topic/game/' + #id)")
+    @PreAuthorize("@gameAuthorizationService.canSendIntent(authentication, #id, #intent)")
     public void acceptPlayerIntent(
             @DestinationVariable UUID id,
             @Payload OnlinePlayerIntentRequestDto<?> intent,
             Authentication authentication) {
-        gameSessionService.acceptPlayerIntent(authentication.getName(), id, intent);
+        gameSessionService.acceptPlayerIntent(id, intent);
     }
 
     @MessageMapping("/game/{id}/resync")
-    @PreAuthorize("@gameAuthorizationService.canSendMessageToTopic(authentication, '/topic/game/' + #id)")
+    @PreAuthorize("@gameAuthorizationService.canRequestResync(authentication, #id)")
     public void requestResyncState(
             @DestinationVariable UUID id,
             Authentication authentication) {
@@ -43,7 +43,7 @@ public class GameSessionController {
     }
 
     @MessageMapping("/game/{id}/forfeit")
-    @PreAuthorize("@gameAuthorizationService.canSendMessageToTopic(authentication, '/topic/game/' + #id)")
+    @PreAuthorize("@gameAuthorizationService.canForfeitGame(authentication, #id)")
     public void forfeitGame(
             @DestinationVariable UUID id,
             Authentication authentication) {

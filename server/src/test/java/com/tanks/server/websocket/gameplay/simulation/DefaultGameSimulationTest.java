@@ -184,4 +184,93 @@ class DefaultGameSimulationTest {
         assertTrue(crate.collected());
         assertTrue(world.lootCrates().isEmpty());
     }
+
+    @Test
+    void fireThrowsWhenSelectedProjectileSlotIsNull() {
+        DefaultGameSimulation simulation = new DefaultGameSimulation();
+
+        TankDefinition tankDef = new TankDefinition(
+                "cyber", "Cyber", 100, 200, 8, 1, 5, 24, 24, null, List.of("basicShell")
+        );
+        WorldDefinition rules = new WorldDefinition(
+                "forest", 2400, 768, 30, 0.0, 0.033, 10, 15, null, null, 0.0, 0.0
+        );
+        GameContent content = new GameContent(
+                "v1.0", rules, Map.of("cyber", tankDef), Map.of(), null
+        );
+
+        List<Integer> surface = new ArrayList<>(Collections.nCopies(2400, 600));
+        TerrainModel terrain = new TerrainModel(rules, surface);
+
+        TankState tank = TankState.builder()
+                .entityId(1L)
+                .playerId(1L)
+                .definitionId("cyber")
+                .position(new OnlineVec2Dto(500, 400))
+                .selectedProjectileSlotId(null)
+                .build();
+
+        World world = new World();
+        world.tanks().put(1L, tank);
+
+        FireIntentIntentRequestPayload fireIntent = new FireIntentIntentRequestPayload(-Math.PI / 4, 1.0);
+        assertThrows(IllegalStateException.class, () ->
+                simulation.fire(content, world, terrain, "intent-invalid", 100L, 1L, fireIntent));
+    }
+
+    @Test
+    void fireCalculatesDamageFromDamageEffectWithoutFallback() {
+        DefaultGameSimulation simulation = new DefaultGameSimulation();
+
+        TankDefinition tankDef = new TankDefinition(
+                "cyber", "Cyber", 100, 200, 8, 1, 5, 24, 24, null, List.of("heavyShell")
+        );
+        ProjectileDefinition projDef = new ProjectileDefinition(
+                "heavyShell", "Heavy Shell", "HS", 4, 600.0, 1.0, 0.0,
+                new com.tanks.server.websocket.gameplay.content.terrain.Crater(30.0),
+                new com.tanks.server.websocket.gameplay.content.damage.Focused(30.0, 75.0),
+                null, null
+        );
+        WorldDefinition rules = new WorldDefinition(
+                "forest", 2400, 768, 30, 0.0, 0.033, 10, 15, null, null, 0.0, 0.0
+        );
+        GameContent content = new GameContent(
+                "v1.0", rules, Map.of("cyber", tankDef), Map.of("heavyShell", projDef), null
+        );
+
+        List<Integer> surface = new ArrayList<>(Collections.nCopies(2400, 600));
+        TerrainModel terrain = new TerrainModel(rules, surface);
+
+        TankState shooter = TankState.builder()
+                .entityId(1L)
+                .playerId(1L)
+                .definitionId("cyber")
+                .position(new OnlineVec2Dto(500, 400))
+                .selectedProjectileSlotId("heavyShell")
+                .health(100)
+                .fuel(200)
+                .build();
+
+        TankState target = TankState.builder()
+                .entityId(2L)
+                .playerId(2L)
+                .definitionId("cyber")
+                .position(new OnlineVec2Dto(530, 400))
+                .health(100)
+                .fuel(200)
+                .build();
+
+        World world = new World();
+        world.match().activePlayerId(1L);
+        world.tanks().put(1L, shooter);
+        world.tanks().put(2L, target);
+
+        // Aim directly at target (angle 0 rad, power 1.0)
+        FireIntentIntentRequestPayload fireIntent = new FireIntentIntentRequestPayload(0.0, 1.0);
+        var res = simulation.fire(content, world, terrain, "intent-focused", 100L, 1L, fireIntent);
+
+        assertFalse(res.damagedTanks().isEmpty());
+        assertEquals(75, res.damagedTanks().getFirst().damageDealt());
+        assertEquals(25, target.health());
+    }
 }
