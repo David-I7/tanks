@@ -48,7 +48,9 @@ export function createLocalInitialWorld(
   const maxWind = content.world.maxWind;
   const rawWind = minWind + Math.random() * (maxWind - minWind);
   const initialWind = Math.round(rawWind * 10) / 10;
-  const biome: MapBiome = content.world.biome ?? "forest";
+  const biome: MapBiome = content.world.biomes[
+    Math.floor(Math.random() * content.world.biomes.length)
+  ];
 
   const world = new LocalWorld({
     mode: setup.mode,
@@ -84,6 +86,7 @@ export function createLocalInitialWorld(
       tankDefinition,
       x,
       terrain.getSurfaceY(x) - tankDefinition.height / 2,
+      content.projectiles,
     );
   });
 

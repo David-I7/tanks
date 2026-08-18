@@ -455,8 +455,6 @@ export class LocalSimulation {
       const velocity = this.world.velocities.get(entityId);
       if (!position || !velocity) continue;
 
-      velocity.x *= Math.max(0, 1 - projectile.physics.drag * dt);
-      velocity.y *= Math.max(0, 1 - projectile.physics.drag * dt);
       velocity.x += (this.world.match.wind ?? 0) * dt;
       velocity.y += this.content.world.gravity * projectile.physics.gravityScale * dt;
       position.x += velocity.x * dt;

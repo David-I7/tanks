@@ -11,7 +11,7 @@ function createMockInitialStateDiff(): OnlineDiffResponseDto {
     gameContent: {
       version: testGameContent.version,
       world: {
-        biome: testGameContent.world.biome,
+        biomes: testGameContent.world.biomes,
         width: testGameContent.world.width,
         height: testGameContent.world.height,
         tickRateHz: testGameContent.world.tickRateHz,
@@ -23,6 +23,10 @@ function createMockInitialStateDiff(): OnlineDiffResponseDto {
         playerBSpawnRegion: { minX: 1600, maxX: 2160 },
         minWind: testGameContent.world.minWind,
         maxWind: testGameContent.world.maxWind,
+        turnDurationSeconds: testGameContent.world.turnDurationSeconds,
+        matchDurationSeconds: testGameContent.world.matchDurationSeconds,
+        postImpactDelaySeconds: testGameContent.world.postImpactDelaySeconds,
+        lootCrates: testGameContent.world.lootCrates,
       },
       tanks: Object.fromEntries(
         Object.entries(testGameContent.tanks).map(([id, tank]) => [
@@ -37,6 +41,8 @@ function createMockInitialStateDiff(): OnlineDiffResponseDto {
             climbCapability: tank.climbCapability,
             width: tank.width,
             height: tank.height,
+            barrelLength: tank.barrelLength,
+            turretYOffset: tank.turretYOffset,
             visual: {
               fillStyle: tank.visual.fill,
               strokeStyle: tank.visual.stroke,
@@ -57,7 +63,7 @@ function createMockInitialStateDiff(): OnlineDiffResponseDto {
             radius: proj.radius,
             baseVelocity: proj.baseVelocity,
             gravityScale: proj.gravityScale,
-            drag: proj.drag,
+            isDefault: proj.isDefault,
             terrainEffectType: proj.terrainEffectType,
             terrainRadius: proj.terrainRadius,
             terrainDepth: proj.terrainDepth,

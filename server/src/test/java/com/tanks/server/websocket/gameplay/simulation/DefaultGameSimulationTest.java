@@ -31,7 +31,7 @@ class DefaultGameSimulationTest {
 
     private static WorldDefinition defaultWorld() {
         return new WorldDefinition(
-                "forest", 2400, 768, 30, 0.0, 0.033, 10, 15, null, null, 0.0, 0.0,
+                List.of("forest"), 2400, 768, 30, 0.0, 10, 15, null, null, 0.0, 0.0,
                 30, 180, 0.55, defaultCrates()
         );
     }
@@ -45,7 +45,7 @@ class DefaultGameSimulationTest {
         );
 
         ProjectileDefinition projDef = new ProjectileDefinition(
-                "basicShell", "Basic Shell", "BS", 4, 600.0, 1.0, 0.0,
+                "basicShell", "Basic Shell", "BS", true, 4, 600.0, 1.0,
                 new Crater(30.0),
                 new Focused(30.0, 50.0),
                 null, null
@@ -54,7 +54,7 @@ class DefaultGameSimulationTest {
         WorldDefinition rules = defaultWorld();
 
         GameContent content = new GameContent(
-                "v1.0", rules, Map.of("cyber", tankDef), Map.of("basicShell", projDef), null
+                "v1.0", rules, null, Map.of("cyber", tankDef), Map.of("basicShell", projDef), null
         );
 
         List<Integer> surface = new ArrayList<>(Collections.nCopies(2400, 600));
@@ -118,7 +118,7 @@ class DefaultGameSimulationTest {
         );
 
         ProjectileDefinition projDef = new ProjectileDefinition(
-                "cluster", "Cluster Bomb", "CB", 4, 600.0, 1.0, 0.0,
+                "cluster", "Cluster Bomb", "CB", false, 4, 600.0, 1.0,
                 new Crater(30.0),
                 new Focused(30.0, 50.0),
                 null, null
@@ -127,7 +127,7 @@ class DefaultGameSimulationTest {
         WorldDefinition rules = defaultWorld();
 
         GameContent content = new GameContent(
-                "v1.0", rules, Map.of("cyber", tankDef), Map.of("cluster", projDef), null
+                "v1.0", rules, null, Map.of("cyber", tankDef), Map.of("cluster", projDef), null
         );
 
         List<Integer> surface = new ArrayList<>(Collections.nCopies(2400, 600));
@@ -172,7 +172,7 @@ class DefaultGameSimulationTest {
         WorldDefinition rules = defaultWorld();
 
         GameContent content = new GameContent(
-                "v1.0", rules, Map.of("cyber", tankDef), Map.of(), null
+                "v1.0", rules, null, Map.of("cyber", tankDef), Map.of(), null
         );
 
         Map<String, Integer> ammo = new HashMap<>();
@@ -213,7 +213,7 @@ class DefaultGameSimulationTest {
         );
         WorldDefinition rules = defaultWorld();
         GameContent content = new GameContent(
-                "v1.0", rules, Map.of("cyber", tankDef), Map.of(), null
+                "v1.0", rules, null, Map.of("cyber", tankDef), Map.of(), null
         );
 
         List<Integer> surface = new ArrayList<>(Collections.nCopies(2400, 600));
@@ -244,14 +244,14 @@ class DefaultGameSimulationTest {
                 "cyber", "Cyber", 100, 200, 8, 1, 5, 24, 24, 28.0, -14.0, null, List.of("heavyShell")
         );
         ProjectileDefinition projDef = new ProjectileDefinition(
-                "heavyShell", "Heavy Shell", "HS", 4, 1.0, 1.0, 0.0,
+                "heavyShell", "Heavy Shell", "HS", false, 4, 1.0, 1.0,
                 new Crater(30.0),
                 new Focused(30.0, 75.0),
                 null, null
         );
         WorldDefinition rules = defaultWorld();
         GameContent content = new GameContent(
-                "v1.0", rules, Map.of("cyber", tankDef), Map.of("heavyShell", projDef), null
+                "v1.0", rules, null, Map.of("cyber", tankDef), Map.of("heavyShell", projDef), null
         );
 
         List<Integer> surface = new ArrayList<>(Collections.nCopies(2400, 600));

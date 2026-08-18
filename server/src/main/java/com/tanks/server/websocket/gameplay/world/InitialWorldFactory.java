@@ -38,7 +38,7 @@ public class InitialWorldFactory {
         world.match().activePlayerId(PLAYER_A_ID);
         world.match().turnNumber(1);
         world.match().turnEndsAtServerTick((long) definition.tickRateHz() * definition.turnDurationSeconds());
-        world.match().biome(definition.biome());
+        world.match().biome(definition.selectBiome());
         return new InitialWorld(world, terrain);
     }
 
@@ -48,7 +48,8 @@ public class InitialWorldFactory {
         var definition = content.requireTank(definitionId);
         Map<String, Integer> weaponAmmo = new HashMap<>();
         for (String slotId : definition.loadout()) {
-            weaponAmmo.put(slotId, slotId.equals(definition.loadout().getFirst()) ? -1 : 1);
+            var projDef = content.requireProjectile(slotId);
+            weaponAmmo.put(slotId, projDef.isDefault() ? -1 : 1);
         }
         world.tanks().put(entityId, TankState.builder()
                 .entityId(entityId)

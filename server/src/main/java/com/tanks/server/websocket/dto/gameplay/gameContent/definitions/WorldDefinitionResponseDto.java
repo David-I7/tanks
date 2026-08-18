@@ -1,10 +1,11 @@
 package com.tanks.server.websocket.dto.gameplay.gameContent.definitions;
 
+import java.util.List;
 import com.tanks.server.websocket.gameplay.content.definitions.SpawnRegion;
 import com.tanks.server.websocket.gameplay.content.definitions.WorldDefinition;
 
 public record WorldDefinitionResponseDto(
-        String biome,
+        List<String> biomes,
         int width,
         int height,
         int tickRateHz,
@@ -23,7 +24,7 @@ public record WorldDefinitionResponseDto(
 
     public static WorldDefinitionResponseDto from(WorldDefinition value) {
         return new WorldDefinitionResponseDto(
-                value.biome(),
+                value.biomes(),
                 value.width(),
                 value.height(),
                 value.tickRateHz(),

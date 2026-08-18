@@ -42,7 +42,7 @@ export type LootCrateConfig = {
 };
 
 export type WorldDefinition = {
-  biome: MapBiome;
+  biomes: MapBiome[];
   width: number;
   height: number;
   tickRateHz: number;
@@ -84,7 +84,6 @@ export type DamageTrailConfig = {
 export type ProjectilePhysics = {
   radius: number;
   gravityScale: number;
-  drag: number;
   muzzleVelocityScale: number;
 };
 
@@ -92,10 +91,10 @@ export type ProjectileDefinition = {
   id: string;
   name: string;
   label: string;
+  isDefault: boolean;
   radius: number;
   baseVelocity: number;
   gravityScale: number;
-  drag: number;
   terrainEffectType: "CRATER" | "DRILL";
   terrainRadius: number;
   terrainDepth: number;

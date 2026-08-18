@@ -1,11 +1,15 @@
 {
   "version": "v1.0",
   "world": {
+    "biomes": [
+      "forest",
+      "desert",
+      "ice"
+    ],
     "width": 2400,
     "height": 768,
     "tickRateHz": 30,
     "gravity": 260.0,
-    "deltaTime": 0.03333333333333333,
     "maxProjectileSteps": 400,
     "movementSegmentDurationTicks": 3,
     "playerASpawnRegion": {
@@ -27,24 +31,29 @@
       "ammoValue": 1,
       "collectionRadius": 35.0,
       "dropSpeed": 150.0,
-      "spawnScheduleSeconds": [120, 60, 30],
+      "spawnScheduleSeconds": [
+        120,
+        60,
+        30
+      ],
       "spawnEdgeMargin": 100.0,
       "maxActiveCrates": 3
     }
   },
+  "tankDefaults": {
+    "maxHealth": 100,
+    "maxFuel": 240,
+    "movementQuantum": 24,
+    "fuelRate": 1,
+    "climbCapability": 5,
+    "width": 24,
+    "height": 24,
+    "barrelLength": 28.0,
+    "turretYOffset": -14.0
+  },
   "tanks": {
     "vanguard-cyber": {
-      "id": "vanguard-cyber",
       "name": "Vanguard Cyber",
-      "maxHealth": 100,
-      "maxFuel": 240,
-      "movementQuantum": 24,
-      "fuelRate": 1,
-      "climbCapability": 5,
-      "width": 24,
-      "height": 24,
-      "barrelLength": 28.0,
-      "turretYOffset": -14.0,
       "visual": {
         "fillStyle": "#3b82f6",
         "strokeStyle": "#1d4ed8",
@@ -60,17 +69,7 @@
       ]
     },
     "heavy-armor": {
-      "id": "heavy-armor",
       "name": "Heavy Armor",
-      "maxHealth": 100,
-      "maxFuel": 180,
-      "movementQuantum": 24,
-      "fuelRate": 1,
-      "climbCapability": 5,
-      "width": 24,
-      "height": 24,
-      "barrelLength": 28.0,
-      "turretYOffset": -14.0,
       "visual": {
         "fillStyle": "#ef4444",
         "strokeStyle": "#b91c1c",
@@ -86,17 +85,7 @@
       ]
     },
     "desert-striker": {
-      "id": "desert-striker",
       "name": "Desert Striker",
-      "maxHealth": 100,
-      "maxFuel": 280,
-      "movementQuantum": 24,
-      "fuelRate": 1,
-      "climbCapability": 5,
-      "width": 24,
-      "height": 24,
-      "barrelLength": 28.0,
-      "turretYOffset": -14.0,
       "visual": {
         "fillStyle": "#f59e0b",
         "strokeStyle": "#b45309",
@@ -112,17 +101,7 @@
       ]
     },
     "specter": {
-      "id": "specter",
       "name": "Specter",
-      "maxHealth": 100,
-      "maxFuel": 240,
-      "movementQuantum": 24,
-      "fuelRate": 1,
-      "climbCapability": 5,
-      "width": 24,
-      "height": 24,
-      "barrelLength": 28.0,
-      "turretYOffset": -14.0,
       "visual": {
         "fillStyle": "#8b5cf6",
         "strokeStyle": "#6d28d9",
@@ -140,81 +119,124 @@
   },
   "projectiles": {
     "basicShell": {
-      "id": "basicShell",
       "name": "Basic Shell",
       "label": "BS",
+      "isDefault": true,
       "radius": 4,
       "baseVelocity": 1.0,
       "gravityScale": 1.0,
-      "drag": 0.0,
-      "terrainEffect": { "type": "CRATER", "radius": 46 },
-      "damageEffect": { "type": "RADIAL", "radius": 46, "damage": 48 }
+      "terrainEffect": {
+        "type": "CRATER",
+        "radius": 46
+      },
+      "damageEffect": {
+        "type": "RADIAL",
+        "radius": 46,
+        "damage": 48
+      }
     },
     "titanShell": {
-      "id": "titanShell",
       "name": "Titan Shell",
       "label": "TS",
+      "isDefault": false,
       "radius": 9,
       "baseVelocity": 1.25,
       "gravityScale": 1.0,
-      "drag": 0.0,
-      "terrainEffect": { "type": "CRATER", "radius": 85 },
-      "damageEffect": { "type": "RADIAL", "radius": 85, "damage": 85 }
+      "terrainEffect": {
+        "type": "CRATER",
+        "radius": 85
+      },
+      "damageEffect": {
+        "type": "RADIAL",
+        "radius": 85,
+        "damage": 85
+      }
     },
     "autocannonStream": {
-      "id": "autocannonStream",
       "name": "0.08s Autocannon",
       "label": "AC",
+      "isDefault": false,
       "radius": 3,
       "baseVelocity": 0.9,
       "gravityScale": 1.0,
-      "drag": 0.0,
-      "terrainEffect": { "type": "CRATER", "radius": 25 },
-      "damageEffect": { "type": "RADIAL", "radius": 25, "damage": 20 }
+      "terrainEffect": {
+        "type": "CRATER",
+        "radius": 25
+      },
+      "damageEffect": {
+        "type": "RADIAL",
+        "radius": 25,
+        "damage": 20
+      }
     },
     "siegeVolley": {
-      "id": "siegeVolley",
       "name": "3-Shot Siege Volley",
       "label": "SV",
+      "isDefault": false,
       "radius": 4,
       "baseVelocity": 1.0,
       "gravityScale": 1.0,
-      "drag": 0.0,
-      "terrainEffect": { "type": "CRATER", "radius": 30 },
-      "damageEffect": { "type": "RADIAL", "radius": 30, "damage": 25 }
+      "terrainEffect": {
+        "type": "CRATER",
+        "radius": 30
+      },
+      "damageEffect": {
+        "type": "RADIAL",
+        "radius": 30,
+        "damage": 25
+      }
     },
     "heavyBounce": {
-      "id": "heavyBounce",
       "name": "Bouncing Bomb",
       "label": "BB",
+      "isDefault": false,
       "radius": 5,
       "baseVelocity": 1.1,
       "gravityScale": 1.0,
-      "drag": 0.0,
-      "terrainEffect": { "type": "CRATER", "radius": 35 },
-      "damageEffect": { "type": "RADIAL", "radius": 35, "damage": 40 }
+      "terrainEffect": {
+        "type": "CRATER",
+        "radius": 35
+      },
+      "damageEffect": {
+        "type": "RADIAL",
+        "radius": 35,
+        "damage": 40
+      }
     },
     "precisionLaser": {
-      "id": "precisionLaser",
       "name": "Plasma Penetrator",
       "label": "PP",
+      "isDefault": false,
       "radius": 3,
       "baseVelocity": 1.5,
       "gravityScale": 0.3,
-      "drag": 0.0,
-      "terrainEffect": { "type": "DRILL", "radius": 35, "depth": 70 },
-      "damageEffect": { "type": "FOCUSED", "radius": 35, "damage": 65 }
+      "terrainEffect": {
+        "type": "DRILL",
+        "radius": 35,
+        "depth": 70
+      },
+      "damageEffect": {
+        "type": "FOCUSED",
+        "radius": 35,
+        "damage": 65
+      }
     },
     "sandstormCluster": {
-      "id": "sandstormCluster",
       "name": "Sandstorm Cluster",
       "label": "SC",
+      "isDefault": false,
       "radius": 4,
       "baseVelocity": 0.9,
       "gravityScale": 1.0,
-      "drag": 0.0,
-      "terrainEffect": { "type": "CRATER", "radius": 30 },
-      "damageEffect": { "type": "RADIAL", "radius": 30, "damage": 25 },
+      "terrainEffect": {
+        "type": "CRATER",
+        "radius": 30
+      },
+      "damageEffect": {
+        "type": "RADIAL",
+        "radius": 30,
+        "damage": 25
+      },
       "subMunitions": {
         "count": 3,
         "projectileDefinitionId": "basicShell",
@@ -223,26 +245,38 @@
       }
     },
     "scatterShotgun": {
-      "id": "scatterShotgun",
       "name": "Turret Shotgun",
       "label": "TS",
+      "isDefault": false,
       "radius": 3,
       "baseVelocity": 1.0,
       "gravityScale": 1.0,
-      "drag": 0.0,
-      "terrainEffect": { "type": "CRATER", "radius": 20 },
-      "damageEffect": { "type": "RADIAL", "radius": 20, "damage": 18 }
+      "terrainEffect": {
+        "type": "CRATER",
+        "radius": 20
+      },
+      "damageEffect": {
+        "type": "RADIAL",
+        "radius": 20,
+        "damage": 18
+      }
     },
     "thermalHazard": {
-      "id": "thermalHazard",
       "name": "Thermal Hazard",
       "label": "TH",
+      "isDefault": false,
       "radius": 5,
       "baseVelocity": 1.0,
       "gravityScale": 1.0,
-      "drag": 0.0,
-      "terrainEffect": { "type": "CRATER", "radius": 25 },
-      "damageEffect": { "type": "RADIAL", "radius": 45, "damage": 15 },
+      "terrainEffect": {
+        "type": "CRATER",
+        "radius": 25
+      },
+      "damageEffect": {
+        "type": "RADIAL",
+        "radius": 45,
+        "damage": 15
+      },
       "damageTrail": {
         "radius": 45.0,
         "damagePerSecond": 10.0,
@@ -250,37 +284,56 @@
       }
     },
     "mortar": {
-      "id": "mortar",
       "name": "Hyper Autocannon",
       "label": "HA",
+      "isDefault": false,
       "radius": 5,
       "baseVelocity": 1.36,
       "gravityScale": 1.0,
-      "drag": 0.0,
-      "terrainEffect": { "type": "CRATER", "radius": 25 },
-      "damageEffect": { "type": "RADIAL", "radius": 25, "damage": 22 }
+      "terrainEffect": {
+        "type": "CRATER",
+        "radius": 25
+      },
+      "damageEffect": {
+        "type": "RADIAL",
+        "radius": 25,
+        "damage": 22
+      }
     },
     "heavyShell": {
-      "id": "heavyShell",
       "name": "Cyber Laser",
       "label": "CL",
+      "isDefault": false,
       "radius": 7,
       "baseVelocity": 1.14,
       "gravityScale": 1.0,
-      "drag": 0.0,
-      "terrainEffect": { "type": "DRILL", "radius": 38, "depth": 42 },
-      "damageEffect": { "type": "FOCUSED", "radius": 34, "damage": 72 }
+      "terrainEffect": {
+        "type": "DRILL",
+        "radius": 38,
+        "depth": 42
+      },
+      "damageEffect": {
+        "type": "FOCUSED",
+        "radius": 34,
+        "damage": 72
+      }
     },
     "cluster": {
-      "id": "cluster",
       "name": "Cluster",
       "label": "C",
+      "isDefault": false,
       "radius": 3,
       "baseVelocity": 0.92,
       "gravityScale": 1.0,
-      "drag": 0.0,
-      "terrainEffect": { "type": "CRATER", "radius": 30 },
-      "damageEffect": { "type": "RADIAL", "radius": 78, "damage": 30 },
+      "terrainEffect": {
+        "type": "CRATER",
+        "radius": 30
+      },
+      "damageEffect": {
+        "type": "RADIAL",
+        "radius": 78,
+        "damage": 30
+      },
       "subMunitions": {
         "count": 3,
         "projectileDefinitionId": "basicShell",
@@ -289,59 +342,90 @@
       }
     },
     "needle": {
-      "id": "needle",
       "name": "Ricochet Spike",
       "label": "RS",
+      "isDefault": false,
       "radius": 2,
       "baseVelocity": 0.8,
       "gravityScale": 1.0,
-      "drag": 0.0,
-      "terrainEffect": { "type": "DRILL", "radius": 16, "depth": 56 },
-      "damageEffect": { "type": "FOCUSED", "radius": 22, "damage": 58 }
+      "terrainEffect": {
+        "type": "DRILL",
+        "radius": 16,
+        "depth": 56
+      },
+      "damageEffect": {
+        "type": "FOCUSED",
+        "radius": 22,
+        "damage": 58
+      }
     },
     "phantomNuke": {
-      "id": "phantomNuke",
       "name": "Phantom Nuke",
       "label": "PN",
+      "isDefault": false,
       "radius": 8,
       "baseVelocity": 1.2,
       "gravityScale": 1.0,
-      "drag": 0.0,
-      "terrainEffect": { "type": "CRATER", "radius": 80 },
-      "damageEffect": { "type": "RADIAL", "radius": 80, "damage": 80 }
+      "terrainEffect": {
+        "type": "CRATER",
+        "radius": 80
+      },
+      "damageEffect": {
+        "type": "RADIAL",
+        "radius": 80,
+        "damage": 80
+      }
     },
     "ghostShotgun": {
-      "id": "ghostShotgun",
       "name": "Ghost Shotgun",
       "label": "GS",
+      "isDefault": false,
       "radius": 3,
       "baseVelocity": 1.0,
       "gravityScale": 1.0,
-      "drag": 0.0,
-      "terrainEffect": { "type": "CRATER", "radius": 22 },
-      "damageEffect": { "type": "RADIAL", "radius": 22, "damage": 20 }
+      "terrainEffect": {
+        "type": "CRATER",
+        "radius": 22
+      },
+      "damageEffect": {
+        "type": "RADIAL",
+        "radius": 22,
+        "damage": 20
+      }
     },
     "spectreVolley": {
-      "id": "spectreVolley",
       "name": "Spectre Volley",
       "label": "SV",
+      "isDefault": false,
       "radius": 4,
       "baseVelocity": 0.95,
       "gravityScale": 1.0,
-      "drag": 0.0,
-      "terrainEffect": { "type": "CRATER", "radius": 28 },
-      "damageEffect": { "type": "RADIAL", "radius": 28, "damage": 26 }
+      "terrainEffect": {
+        "type": "CRATER",
+        "radius": 28
+      },
+      "damageEffect": {
+        "type": "RADIAL",
+        "radius": 28,
+        "damage": 26
+      }
     },
     "toxicTrail": {
-      "id": "toxicTrail",
       "name": "Toxic Trail",
       "label": "TT",
+      "isDefault": false,
       "radius": 5,
       "baseVelocity": 1.0,
       "gravityScale": 1.0,
-      "drag": 0.0,
-      "terrainEffect": { "type": "CRATER", "radius": 25 },
-      "damageEffect": { "type": "RADIAL", "radius": 50, "damage": 15 },
+      "terrainEffect": {
+        "type": "CRATER",
+        "radius": 25
+      },
+      "damageEffect": {
+        "type": "RADIAL",
+        "radius": 50,
+        "damage": 15
+      },
       "damageTrail": {
         "radius": 50.0,
         "damagePerSecond": 10.0,

@@ -99,7 +99,7 @@ export type LootCrateConfigDto = {
 };
 
 export type WorldDefinitionDto = {
-  biome: OnlineBiome;
+  biomes: OnlineBiome[];
   width: number;
   height: number;
   tickRateHz: number;
@@ -131,10 +131,10 @@ export type ProjectileDefinitionDto = {
   id: string;
   name: string;
   label: string;
+  isDefault: boolean;
   radius: number;
   baseVelocity: number;
   gravityScale: number;
-  drag: number;
   terrainEffectType: "CRATER" | "DRILL";
   terrainRadius: number;
   terrainDepth: number;

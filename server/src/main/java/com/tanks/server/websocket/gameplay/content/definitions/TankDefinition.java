@@ -20,7 +20,7 @@ public record TankDefinition(
         List<String> loadout) {
 
     public TankDefinition {
-        loadout = List.copyOf(loadout);
+        loadout = loadout != null ? List.copyOf(loadout) : List.of();
     }
 
     public double collisionRadius() {

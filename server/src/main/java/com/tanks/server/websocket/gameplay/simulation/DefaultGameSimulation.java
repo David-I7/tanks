@@ -233,11 +233,6 @@ public class DefaultGameSimulation implements GameSimulation {
             currVx += wind * dt;
             currVy += g * dt;
 
-            if (projectileDef.drag() > 0) {
-                currVx *= (1 - projectileDef.drag() * dt);
-                currVy *= (1 - projectileDef.drag() * dt);
-            }
-
             impact = new OnlineVec2Dto(round(currX), round(currY));
             trajectory.add(impact);
 
@@ -327,11 +322,6 @@ public class DefaultGameSimulation implements GameSimulation {
                     subCurrY += subCurrVy * dt;
                     subCurrVx += wind * dt;
                     subCurrVy += subG * dt;
-
-                    if (subProjDef.drag() > 0) {
-                        subCurrVx *= (1 - subProjDef.drag() * dt);
-                        subCurrVy *= (1 - subProjDef.drag() * dt);
-                    }
 
                     subImpact = new OnlineVec2Dto(round(subCurrX), round(subCurrY));
                     subTrajectory.add(subImpact);

@@ -66,7 +66,6 @@ export function simulateTrajectoryPreview(
     : undefined;
 
   const gravityScale = projectileDef ? projectileDef.gravityScale : 1;
-  const drag = projectileDef ? projectileDef.drag : 0;
   const baseVelocity = projectileDef ? projectileDef.baseVelocity : 1.0;
 
   const rawAngle = activeTank.aimAngle;
@@ -115,11 +114,6 @@ export function simulateTrajectoryPreview(
     currY += currVy * dt;
     currVx += wind * dt;
     currVy += g * dt;
-
-    if (drag > 0) {
-      currVx *= 1 - drag * dt;
-      currVy *= 1 - drag * dt;
-    }
 
     if (currX < 0 || currX >= width) break;
 

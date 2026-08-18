@@ -1,6 +1,5 @@
 package com.tanks.server.websocket.services;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
@@ -20,9 +19,9 @@ public class GameBatchTickTask implements Runnable {
     private final GameContentCatalog contentCatalog;
 
     public GameBatchTickTask(List<GameSession> sessions,
-                             GameSessionService gameSessionService,
-                             GameSessionRepository gameSessionRepository,
-                             GameContentCatalog contentCatalog) {
+            GameSessionService gameSessionService,
+            GameSessionRepository gameSessionRepository,
+            GameContentCatalog contentCatalog) {
         this.sessions = sessions;
         this.gameSessionService = gameSessionService;
         this.gameSessionRepository = gameSessionRepository;
@@ -59,10 +58,12 @@ public class GameBatchTickTask implements Runnable {
                 if (remainingTicks <= (long) schedule.get(0) * tickRateHz && !gameSession.isCrateSpawnedMinute1()) {
                     gameSession.setCrateSpawnedMinute1(true);
                     gameSessionService.spawnLootCrate(gameSession);
-                } else if (remainingTicks <= (long) schedule.get(1) * tickRateHz && !gameSession.isCrateSpawnedMinute2()) {
+                } else if (remainingTicks <= (long) schedule.get(1) * tickRateHz
+                        && !gameSession.isCrateSpawnedMinute2()) {
                     gameSession.setCrateSpawnedMinute2(true);
                     gameSessionService.spawnLootCrate(gameSession);
-                } else if (remainingTicks <= (long) schedule.get(2) * tickRateHz && !gameSession.isCrateSpawnedMinute3()) {
+                } else if (remainingTicks <= (long) schedule.get(2) * tickRateHz
+                        && !gameSession.isCrateSpawnedMinute3()) {
                     gameSession.setCrateSpawnedMinute3(true);
                     gameSessionService.spawnLootCrate(gameSession);
                 }

@@ -101,6 +101,7 @@ describe("LocalSimulation angle range enforcement", () => {
       testGameContent.tanks["heavy-armor"]!,
       200,
       400,
+      testGameContent.projectiles,
     );
 
     const sim = new LocalSimulation(world, terrain, testGameContent);
@@ -142,9 +143,9 @@ describe("simulateTrajectoryPreview", () => {
           id: "basicShell",
           name: "Basic Shell",
           label: "BS",
+          isDefault: true,
           baseVelocity: 1.0,
           gravityScale: 1,
-          drag: 0,
           radius: 4,
           terrainRadius: 20,
           terrainDepth: 10,

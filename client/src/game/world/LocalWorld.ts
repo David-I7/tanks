@@ -53,6 +53,7 @@ export class LocalWorld {
     tankDefinition: TankDefinition,
     x: number,
     y: number,
+    projectiles: Record<string, ProjectileDefinition>,
   ): EntityId {
     const entityId = this.createEntity();
     this.positions.set(entityId, { x, y });
@@ -62,7 +63,10 @@ export class LocalWorld {
         `Tank definition "${tankDefinition.id}" has no loadout slots`,
       );
     }
-    const weaponAmmo = createInitialWeaponAmmo(tankDefinition.loadout);
+    const weaponAmmo = createInitialWeaponAmmo(
+      tankDefinition.loadout,
+      projectiles,
+    );
     this.tanks.set(entityId, {
       playerId: player.id,
       displayName: player.displayName,
@@ -110,7 +114,6 @@ export class LocalWorld {
       physics: {
         radius: projectileDefinition.radius,
         gravityScale: projectileDefinition.gravityScale,
-        drag: projectileDefinition.drag,
         muzzleVelocityScale: 1,
       },
       terrainEffect:

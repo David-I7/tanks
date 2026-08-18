@@ -158,11 +158,11 @@ public class GameSessionServiceBatchTest {
                 );
         WorldDefinition worldDef =
                 new WorldDefinition(
-                        "forest", 2400, 768, 30, 260.0, 0.033, 10, 15, null, null, -50.0, 50.0,
+                        List.of("forest"), 2400, 768, 30, 260.0, 10, 15, null, null, -50.0, 50.0,
                         30, 180, 0.55, new LootCrateConfig(25, 50, 1, 35.0, 150.0, List.of(120, 60, 30), 100.0, 3)
                 );
         GameContent content =
-                new GameContent("v1.0", worldDef, Map.of("vanguard-cyber", tankDef), Map.of(), null);
+                new GameContent("v1.0", worldDef, null, Map.of("vanguard-cyber", tankDef), Map.of(), null);
         when(contentCatalog.require("v1.0")).thenReturn(content);
 
         GameSessionService service = new GameSessionService(
@@ -231,15 +231,15 @@ public class GameSessionServiceBatchTest {
                 );
         WorldDefinition worldDef =
                 new WorldDefinition(
-                        "forest", 2400, 768, 30, 260.0, 0.033, 10, 15, null, null, -50.0, 50.0,
+                        List.of("forest"), 2400, 768, 30, 260.0, 10, 15, null, null, -50.0, 50.0,
                         30, 180, 0.55, new LootCrateConfig(25, 50, 1, 35.0, 150.0, List.of(120, 60, 30), 100.0, 3)
                 );
         ProjectileDefinition projDef =
                 new ProjectileDefinition(
-                        "basicShell", "Basic Shell", "BS", 4, 1.0, 1.0, 0, null, null, null, null
+                        "basicShell", "Basic Shell", "BS", true, 4, 1.0, 1.0, null, null, null, null
                 );
         GameContent content =
-                new GameContent("v1.0", worldDef, Map.of("vanguard-cyber", tankDef), Map.of("basicShell", projDef), null);
+                new GameContent("v1.0", worldDef, null, Map.of("vanguard-cyber", tankDef), Map.of("basicShell", projDef), null);
         when(contentCatalog.require("v1.0")).thenReturn(content);
 
         GameSessionService service = new GameSessionService(
@@ -359,13 +359,13 @@ public class GameSessionServiceBatchTest {
                 );
         WorldDefinition worldDef =
                 new WorldDefinition(
-                        "forest", 2400, 768, 30, 260.0, 0.033, 10, 15, null, null, -50.0, 50.0,
+                        List.of("forest"), 2400, 768, 30, 260.0, 10, 15, null, null, -50.0, 50.0,
                         30, 180, 0.55, new LootCrateConfig(25, 50, 1, 35.0, 150.0, List.of(120, 60, 30), 100.0, 3)
                 );
         ValidationRules validation =
                 new ValidationRules(10.0, 1000.0, -Math.PI, 0.0);
         GameContent content =
-                new GameContent("v1.0", worldDef, Map.of("vanguard-cyber", tankDef), Map.of(), validation);
+                new GameContent("v1.0", worldDef, null, Map.of("vanguard-cyber", tankDef), Map.of(), validation);
         when(contentCatalog.require("v1.0")).thenReturn(content);
 
         GameSessionService service = new GameSessionService(

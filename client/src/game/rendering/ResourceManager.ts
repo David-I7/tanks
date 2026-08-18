@@ -1,16 +1,18 @@
 import type {
-  GameContent
+  GameContent,
+  ProjectileDefinition,
 } from "../types";
 
 export type { GameContent };
 
 export function createInitialWeaponAmmo(
   loadout: string[],
+  projectiles: Record<string, ProjectileDefinition>,
 ): Record<string, number> {
   const weaponAmmo: Record<string, number> = {};
   for (const slotId of loadout) {
-    weaponAmmo[slotId] =
-      slotId === "basicShell" || slotId === loadout[0] ? -1 : 1;
+    const proj = projectiles[slotId];
+    weaponAmmo[slotId] = proj && proj.isDefault ? -1 : 1;
   }
   return weaponAmmo;
 }

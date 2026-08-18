@@ -7,7 +7,7 @@ export function onlineGameContentFromResponse(
   return {
     version: response.version,
     world: {
-      biome: response.world.biome,
+      biomes: response.world.biomes,
       width: response.world.width,
       height: response.world.height,
       tickRateHz: response.world.tickRateHz,
@@ -25,32 +25,21 @@ export function onlineGameContentFromResponse(
       },
       minWind: response.world.minWind,
       maxWind: response.world.maxWind,
-      turnDurationSeconds: response.world.turnDurationSeconds ?? 30,
-      matchDurationSeconds: response.world.matchDurationSeconds ?? 180,
-      postImpactDelaySeconds: response.world.postImpactDelaySeconds ?? 0.55,
-      lootCrates: response.world.lootCrates
-        ? {
-            hpValue: response.world.lootCrates.hpValue,
-            fuelValue: response.world.lootCrates.fuelValue,
-            ammoValue: response.world.lootCrates.ammoValue,
-            collectionRadius: response.world.lootCrates.collectionRadius,
-            dropSpeed: response.world.lootCrates.dropSpeed,
-            spawnScheduleSeconds: [
-              ...response.world.lootCrates.spawnScheduleSeconds,
-            ],
-            spawnEdgeMargin: response.world.lootCrates.spawnEdgeMargin,
-            maxActiveCrates: response.world.lootCrates.maxActiveCrates,
-          }
-        : {
-            hpValue: 25,
-            fuelValue: 50,
-            ammoValue: 1,
-            collectionRadius: 35.0,
-            dropSpeed: 150.0,
-            spawnScheduleSeconds: [120, 60, 30],
-            spawnEdgeMargin: 100.0,
-            maxActiveCrates: 3,
-          },
+      turnDurationSeconds: response.world.turnDurationSeconds,
+      matchDurationSeconds: response.world.matchDurationSeconds,
+      postImpactDelaySeconds: response.world.postImpactDelaySeconds,
+      lootCrates: {
+        hpValue: response.world.lootCrates.hpValue,
+        fuelValue: response.world.lootCrates.fuelValue,
+        ammoValue: response.world.lootCrates.ammoValue,
+        collectionRadius: response.world.lootCrates.collectionRadius,
+        dropSpeed: response.world.lootCrates.dropSpeed,
+        spawnScheduleSeconds: [
+          ...response.world.lootCrates.spawnScheduleSeconds,
+        ],
+        spawnEdgeMargin: response.world.lootCrates.spawnEdgeMargin,
+        maxActiveCrates: response.world.lootCrates.maxActiveCrates,
+      },
     },
     tanks: Object.fromEntries(
       Object.entries(response.tanks).map(([id, tank]) => [
@@ -65,8 +54,8 @@ export function onlineGameContentFromResponse(
           climbCapability: tank.climbCapability,
           width: tank.width,
           height: tank.height,
-          barrelLength: tank.barrelLength ?? 28.0,
-          turretYOffset: tank.turretYOffset ?? -14.0,
+          barrelLength: tank.barrelLength,
+          turretYOffset: tank.turretYOffset,
           loadout: tank.loadout,
           visual: {
             fill: tank.visual.fillStyle,
@@ -84,10 +73,10 @@ export function onlineGameContentFromResponse(
           id: projectile.id,
           name: projectile.name,
           label: projectile.label,
+          isDefault: projectile.isDefault,
           radius: projectile.radius,
           baseVelocity: projectile.baseVelocity,
           gravityScale: projectile.gravityScale,
-          drag: projectile.drag,
           terrainEffectType: projectile.terrainEffectType,
           terrainRadius: projectile.terrainRadius,
           terrainDepth: projectile.terrainDepth,

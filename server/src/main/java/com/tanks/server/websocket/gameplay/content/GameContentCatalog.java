@@ -28,7 +28,8 @@ public class GameContentCatalog {
             Map<String, GameContent> map = new HashMap<>();
             for (Resource resource : resources) {
                 try (InputStream is = resource.getInputStream()) {
-                    GameContent content = objectMapper.readValue(is, GameContent.class);
+                    RawGameContent raw = objectMapper.readValue(is, RawGameContent.class);
+                    GameContent content = raw.toGameContent();
                     map.put(content.version(), content);
                 }
             }

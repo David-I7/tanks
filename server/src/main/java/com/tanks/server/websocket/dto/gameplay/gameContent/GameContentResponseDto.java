@@ -2,14 +2,18 @@ package com.tanks.server.websocket.dto.gameplay.gameContent;
 
 import java.util.Map;
 import java.util.stream.Collectors;
-import com.tanks.server.websocket.dto.gameplay.gameContent.definitions.*;
+import com.tanks.server.websocket.dto.gameplay.gameContent.definitions.ProjectileDefinitionResponseDto;
+import com.tanks.server.websocket.dto.gameplay.gameContent.definitions.TankDefinitionResponseDto;
+import com.tanks.server.websocket.dto.gameplay.gameContent.definitions.ValidationRulesResponseDto;
+import com.tanks.server.websocket.dto.gameplay.gameContent.definitions.WorldDefinitionResponseDto;
 import com.tanks.server.websocket.gameplay.content.GameContent;
 
 public record GameContentResponseDto(
         String version,
         WorldDefinitionResponseDto world,
         Map<String, TankDefinitionResponseDto> tanks,
-        Map<String, ProjectileDefinitionResponseDto> projectiles) {
+        Map<String, ProjectileDefinitionResponseDto> projectiles,
+        ValidationRulesResponseDto validation) {
 
     public static GameContentResponseDto from(GameContent content) {
         return new GameContentResponseDto(
@@ -18,6 +22,7 @@ public record GameContentResponseDto(
                 content.tanks().entrySet().stream().collect(Collectors.toUnmodifiableMap(
                         Map.Entry::getKey, entry -> TankDefinitionResponseDto.from(entry.getValue()))),
                 content.projectiles().entrySet().stream().collect(Collectors.toUnmodifiableMap(
-                        Map.Entry::getKey, entry -> ProjectileDefinitionResponseDto.from(entry.getValue()))));
+                        Map.Entry::getKey, entry -> ProjectileDefinitionResponseDto.from(entry.getValue()))),
+                ValidationRulesResponseDto.from(content.validation()));
     }
 }
