@@ -4,6 +4,7 @@ import com.tanks.server.websocket.entities.gameSession.GameSession;
 import com.tanks.server.websocket.entities.gameSession.GameSessionState;
 import org.springframework.stereotype.Repository;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -56,12 +57,12 @@ public class InMemoryGameSessionRepository implements GameSessionRepository {
 
     @Override
     public Iterable<GameSession> findAll() {
-        return new java.util.ArrayList<>(store.values());
+        return new ArrayList<>(store.values());
     }
 
     @Override
     public Iterable<GameSession> findAllById(Iterable<UUID> ids) {
-        java.util.List<GameSession> list = new java.util.ArrayList<>();
+        List<GameSession> list = new ArrayList<>();
         for (UUID id : ids) {
             findById(id).ifPresent(list::add);
         }

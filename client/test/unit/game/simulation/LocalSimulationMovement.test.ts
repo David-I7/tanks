@@ -38,6 +38,7 @@ describe("LocalSimulation movement physics (server parity)", () => {
       tankDef,
       200,
       400 - tankDef.height / 2,
+      testGameContent.projectiles,
     );
 
     const sim = new LocalSimulation(world, terrain, testGameContent);
@@ -93,6 +94,7 @@ describe("LocalSimulation movement physics (server parity)", () => {
       tankDef,
       200,
       400 - tankDef.height / 2,
+      testGameContent.projectiles,
     );
 
     const sim = new LocalSimulation(world, terrain, testGameContent);

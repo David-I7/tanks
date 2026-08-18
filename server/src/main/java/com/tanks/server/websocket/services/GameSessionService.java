@@ -29,6 +29,8 @@ import com.tanks.server.websocket.exceptions.ProblemDetailException;
 import com.tanks.server.websocket.gameplay.content.GameContentCatalog;
 import com.tanks.server.websocket.gameplay.simulation.GameSimulation;
 import com.tanks.server.websocket.gameplay.world.InitialWorldFactory;
+import com.tanks.server.websocket.gameplay.world.LootCrateState;
+import com.tanks.server.websocket.gameplay.world.TankState;
 import com.tanks.server.websocket.repositories.GameSessionRepository;
 import com.tanks.server.websocket.repositories.LobbyRepository;
 import lombok.RequiredArgsConstructor;
@@ -76,8 +78,10 @@ public class GameSessionService {
         try {
             UUID gameSessionId = IdFactory.randomUUID();
             var content = contentCatalog.current();
+            String tankDefA = lobby.getHost().getTankDefinitionId();
+            String tankDefB = lobby.getOpponent().getTankDefinitionId();
             var initialWorld = initialWorldFactory.create(content, 0, host.getUsername(),
-                    opponent.getUsername());
+                    opponent.getUsername(), tankDefA, tankDefB);
             GameSession gameSession = GameSession.builder()
                     .id(gameSessionId)
                     .hostId(host.getId())
@@ -135,14 +139,16 @@ public class GameSessionService {
             return;
         }
 
+        var worldDef = contentCatalog.require(gameSession.getGameContentVersion()).world();
         gameSession.setStartedAt(OffsetDateTime.now());
         gameSession.setServerTick(0);
         gameSession.getWorld().match().activePlayerId(PLAYER_A_ID);
         gameSession.getWorld().match().turnNumber(1);
         gameSession.getWorld().match().turnEndsAtServerTick(
-                contentCatalog.require(gameSession.getGameContentVersion()).world().tickRateHz() * 30L);
-        gameSession.getWorld().match().wind(contentCatalog.require(gameSession.getGameContentVersion()).world().generateWind());
-        gameSession.setMatchEndsAtServerTick(gameSession.getServerTick() + 5400L);
+                (long) worldDef.tickRateHz() * worldDef.turnDurationSeconds());
+        gameSession.getWorld().match()
+                .wind(worldDef.generateWind());
+        gameSession.setMatchEndsAtServerTick(gameSession.getServerTick() + (long) worldDef.tickRateHz() * worldDef.matchDurationSeconds());
         gameSession.setNextDiffSequence(2);
         gameSession.setTurnStartDiffSequence(1);
         gameSession.setLastDiffServerTick(0);
@@ -165,15 +171,9 @@ public class GameSessionService {
         log.debug("Initial state sent to player: {}", username);
     }
 
-    public boolean sendResyncStateToPlayer(UUID gameSessionId, String username,
+    public void sendResyncStateToPlayer(UUID gameSessionId, String username,
             ResyncReason reason) {
         GameSession gameSession = findById(gameSessionId);
-        if (!GameSessionState.CREATED.equals(gameSession.getState())
-                && !GameSessionState.STARTED.equals(gameSession.getState())
-                && !GameSessionState.ENDED.equals(gameSession.getState())) {
-            return false;
-        }
-
         var resyncDiff = initialStateFactory.createResyncForPlayer(gameSession, reason,
                 localPlayerId(gameSession, username));
 
@@ -184,7 +184,6 @@ public class GameSessionService {
                 resyncDiff));
 
         log.debug("Resync state sent to player: {}", username);
-        return true;
     }
 
     private long localPlayerId(GameSession gameSession, String username) {
@@ -194,7 +193,10 @@ public class GameSessionService {
         if (gameSession.getPlayerB().equals(username)) {
             return PLAYER_B_ID;
         }
-        return 0;
+        throw new ProblemDetailException(
+                HttpStatus.BAD_REQUEST,
+                "User " + username + " is not a participant in game session " + gameSession.getId(),
+                URI.create("about:blank"));
     }
 
     public boolean processPlayerIntent(GameSession gameSession, OnlinePlayerIntentRequestDto<?> intent) {
@@ -227,8 +229,8 @@ public class GameSessionService {
             AimIntentRequestPayload aim = extractAimPayload(intent);
             if (aim != null) {
                 var tank = gameSession.getWorld().requireTankByPlayer(intent.playerId());
-                tank.aimAngle(aim.getAngle());
-                tank.power(aim.getPower());
+                tank.aimAngle(aim.angle());
+                tank.power(aim.power());
                 publishDiff(
                         gameSession,
                         OnlineStateDiffResponseType.AIM_UPDATE,
@@ -236,8 +238,8 @@ public class GameSessionService {
                         gameSession.getServerTick(),
                         AimUpdate.builder()
                                 .playerId(intent.playerId())
-                                .angle(aim.getAngle())
-                                .power(aim.getPower())
+                                .angle(aim.angle())
+                                .power(aim.power())
                                 .build());
                 log.debug("Aim accepted: {}", intent);
                 return true;
@@ -250,14 +252,13 @@ public class GameSessionService {
                 var tank = gameSession.getWorld().requireTankByPlayer(intent.playerId());
                 var content = contentCatalog.require(gameSession.getGameContentVersion());
                 var tankDef = content.requireTank(tank.definitionId());
-                int slot = select.getSlot();
+                int slot = select.slot();
                 if (slot >= 0 && slot < tankDef.loadout().size()) {
                     tank.selectedProjectileSlotId(tankDef.loadout().get(slot));
-                } else {
-                    tank.selectedProjectileSlotId(String.valueOf(slot));
+                    log.debug("Select projectile slot accepted: {}", intent);
+                    return true;
                 }
-                log.debug("Select projectile slot accepted: {}", intent);
-                return true;
+                return false;
             }
         }
 
@@ -274,21 +275,8 @@ public class GameSessionService {
         return true;
     }
 
-    public boolean acceptPlayerIntent(String username, UUID gameSessionId, OnlinePlayerIntentRequestDto<?> intent) {
-        if (intent == null || intent.intentId() == null || intent.intentId().isBlank() || intent.type() == null) {
-            return false;
-        }
-        if (gameSessionId == null || !gameSessionId.toString().equals(intent.gameSessionId())) {
-            return false;
-        }
+    public boolean acceptPlayerIntent(UUID gameSessionId, OnlinePlayerIntentRequestDto<?> intent) {
         GameSession gameSession = findById(gameSessionId);
-        if (!GameSessionState.STARTED.equals(gameSession.getState())) {
-            return false;
-        }
-        if (!playerUsername(gameSession, intent.playerId()).equals(username)) {
-            return false;
-        }
-
         boolean processed = processPlayerIntent(gameSession, intent);
         gameRepository.save(gameSession);
         return processed;
@@ -318,74 +306,35 @@ public class GameSessionService {
             return;
         }
         GameSession gameSession = gameSessionOpt.get();
-        if (userId != null) {
-            gameSession.getConnectedUserIds().remove(userId);
-        }
+        gameSession.getConnectedUserIds().remove(userId);
         gameRepository.save(gameSession);
     }
 
     private MoveIntentRequestPayload extractMovePayload(OnlinePlayerIntentRequestDto<?> intent) {
-        if (intent == null || intent.payload() == null) {
-            return null;
-        }
-        if (intent.payload() instanceof MoveIntentRequestPayload move) {
+        if (intent != null && intent.payload() instanceof MoveIntentRequestPayload move) {
             return move;
-        }
-        if (intent.payload() instanceof java.util.Map<?, ?> map) {
-            Object dirObj = map.get("direction");
-            if (dirObj instanceof Number num) {
-                return new MoveIntentRequestPayload(num.intValue());
-            }
         }
         return null;
     }
 
     private AimIntentRequestPayload extractAimPayload(OnlinePlayerIntentRequestDto<?> intent) {
-        if (intent == null || intent.payload() == null) {
-            return null;
-        }
-        if (intent.payload() instanceof AimIntentRequestPayload aim) {
+        if (intent != null && intent.payload() instanceof AimIntentRequestPayload aim) {
             return aim;
-        }
-        if (intent.payload() instanceof java.util.Map<?, ?> map) {
-            Object angleObj = map.get("angle");
-            Object powerObj = map.get("power");
-            if (angleObj instanceof Number angleNum && powerObj instanceof Number powerNum) {
-                return new AimIntentRequestPayload(angleNum.doubleValue(), powerNum.doubleValue());
-            }
         }
         return null;
     }
 
     private FireIntentIntentRequestPayload extractFirePayload(OnlinePlayerIntentRequestDto<?> intent) {
-        if (intent == null || intent.payload() == null) {
-            return null;
-        }
-        if (intent.payload() instanceof FireIntentIntentRequestPayload fire) {
+        if (intent != null && intent.payload() instanceof FireIntentIntentRequestPayload fire) {
             return fire;
-        }
-        if (intent.payload() instanceof java.util.Map<?, ?> map) {
-            Object angleObj = map.get("angle");
-            Object powerObj = map.get("power");
-            if (angleObj instanceof Number angleNum && powerObj instanceof Number powerNum) {
-                return new FireIntentIntentRequestPayload(angleNum.doubleValue(), powerNum.doubleValue());
-            }
         }
         return null;
     }
 
-    private SelectProjectileIntentRequestPayload extractSelectProjectileSlotPayload(OnlinePlayerIntentRequestDto<?> intent) {
-        if (intent == null || intent.payload() == null) {
-            return null;
-        }
-        if (intent.payload() instanceof SelectProjectileIntentRequestPayload select) {
+    private SelectProjectileIntentRequestPayload extractSelectProjectileSlotPayload(
+            OnlinePlayerIntentRequestDto<?> intent) {
+        if (intent != null && intent.payload() instanceof SelectProjectileIntentRequestPayload select) {
             return select;
-        }
-        if (intent.payload() instanceof java.util.Map<?, ?> map) {
-            Object slotObj = map.get("slot");
-            if (slotObj instanceof Number slotNum) {
-                return new SelectProjectileIntentRequestPayload(slotNum.intValue());
-            }
         }
         return null;
     }
@@ -395,8 +344,7 @@ public class GameSessionService {
             String username,
             OnlinePlayerIntentRequestDto<?> intent) {
         if (!GameSessionState.STARTED.equals(gameSession.getState())
-                || !gameSession.getId().toString().equals(intent.gameSessionId())
-                || !validPayload(gameSession, intent)) {
+                || !gameSession.getId().toString().equals(intent.gameSessionId())) {
             return IntentRejectionReason.INVALID_PAYLOAD;
         }
 
@@ -407,6 +355,10 @@ public class GameSessionService {
 
         if (gameSession.getPendingTurnTransitionAtServerTick() > 0) {
             return IntentRejectionReason.NOT_ACTIVE_PLAYER;
+        }
+
+        if (!validPayload(gameSession, intent)) {
+            return IntentRejectionReason.INVALID_PAYLOAD;
         }
 
         if (intent.lastConfirmedDiffSequence() < gameSession.getTurnStartDiffSequence()
@@ -437,18 +389,27 @@ public class GameSessionService {
 
         if (intent.type() == OnlinePlayerIntentRequestType.MOVE) {
             MoveIntentRequestPayload move = extractMovePayload(intent);
-            return move != null && (move.getDirection() == -1 || move.getDirection() == 1);
+            return move != null && (move.direction() == -1 || move.direction() == 1);
         }
         if (intent.type() == OnlinePlayerIntentRequestType.AIM) {
             AimIntentRequestPayload aim = extractAimPayload(intent);
-            if (aim == null) return false;
+            if (aim == null)
+                return false;
             var validation = contentCatalog.require(gameSession.getGameContentVersion()).validation();
-            return aim.getPower() >= validation.minFirePower() && aim.getPower() <= validation.maxFirePower()
-                    && aim.getAngle() >= -Math.PI && aim.getAngle() <= 0.0;
+            return aim.power() >= validation.minFirePower() && aim.power() <= validation.maxFirePower()
+                    && aim.angle() >= -Math.PI && aim.angle() <= 0.0;
         }
         if (intent.type() == OnlinePlayerIntentRequestType.SELECT_PROJECTILE_SLOT) {
             SelectProjectileIntentRequestPayload select = extractSelectProjectileSlotPayload(intent);
-            return select != null;
+            if (select == null)
+                return false;
+            var tank = gameSession.getWorld().requireTankByPlayer(intent.playerId());
+            if (tank == null)
+                return false;
+            var content = contentCatalog.require(gameSession.getGameContentVersion());
+            var tankDef = content.requireTank(tank.definitionId());
+            int slot = select.slot();
+            return slot >= 0 && slot < tankDef.loadout().size();
         }
         if (intent.type() == OnlinePlayerIntentRequestType.FIRE) {
             FireIntentIntentRequestPayload fire = extractFirePayload(intent);
@@ -456,8 +417,8 @@ public class GameSessionService {
                 return false;
             }
             var validation = contentCatalog.require(gameSession.getGameContentVersion()).validation();
-            return fire.getPower() >= validation.minFirePower() && fire.getPower() <= validation.maxFirePower()
-                    && fire.getAngle() >= -Math.PI && fire.getAngle() <= 0.0;
+            return fire.power() >= validation.minFirePower() && fire.power() <= validation.maxFirePower()
+                    && fire.angle() >= -Math.PI && fire.angle() <= 0.0;
         }
 
         return false;
@@ -468,13 +429,16 @@ public class GameSessionService {
     }
 
     private String playerUsername(GameSession gameSession, long playerId) {
-        if (playerId == 1) {
+        if (playerId == PLAYER_A_ID) {
             return gameSession.getPlayerA();
         }
-        if (playerId == 2) {
+        if (playerId == PLAYER_B_ID) {
             return gameSession.getPlayerB();
         }
-        return "";
+        throw new ProblemDetailException(
+                HttpStatus.BAD_REQUEST,
+                "Invalid player id: " + playerId,
+                URI.create("about:blank"));
     }
 
     private void publishIntentRejection(
@@ -490,7 +454,7 @@ public class GameSessionService {
                 .gameSessionId(gameSession.getId().toString())
                 .sequence(sequence)
                 .serverTick(gameSession.getServerTick())
-                    .type(OnlineStateDiffResponseType.INTENT_REJECTION)
+                .type(OnlineStateDiffResponseType.INTENT_REJECTION)
                 .intentId(intent.intentId())
                 .payload(IntentRejection.builder()
                         .playerId(intent.playerId())
@@ -556,8 +520,8 @@ public class GameSessionService {
             FireIntentIntentRequestPayload fire) {
         long firingPlayerId = intent.playerId();
         var firingTank = gameSession.getWorld().requireTankByPlayer(firingPlayerId);
-        firingTank.aimAngle(fire.getAngle());
-        firingTank.power(fire.getPower());
+        firingTank.aimAngle(fire.angle());
+        firingTank.power(fire.power());
 
         var content = contentCatalog.require(gameSession.getGameContentVersion());
         var projectile = gameSimulation.fire(content, gameSession.getWorld(), gameSession.getTerrainModel(),
@@ -594,13 +558,14 @@ public class GameSessionService {
                     settlement));
         }
 
-        // Schedule turn transition or game completion after flight + impact + settlement animation
+        // Schedule turn transition or game completion after flight + impact +
+        // settlement animation
         int trajectorySteps = projectile.trajectory() != null ? Math.max(0, projectile.trajectory().size() - 1) : 0;
         int maxSubSteps = projectile.subMunitions() != null ? projectile.subMunitions().stream()
                 .mapToInt(s -> s.trajectory() != null ? Math.max(0, s.trajectory().size() - 1) : 0)
                 .max().orElse(0) : 0;
         int flightTicks = trajectorySteps + maxSubSteps;
-        int impactTicks = (int) Math.ceil(0.55 * content.world().tickRateHz());
+        int impactTicks = (int) Math.ceil(content.world().postImpactDelaySeconds() * content.world().tickRateHz());
         int settlementTicks = settlements.isEmpty() ? 0 : (int) content.world().movementSegmentDurationTicks();
         long totalDelayTicks = Math.max(15, flightTicks + impactTicks + settlementTicks);
 
@@ -627,12 +592,12 @@ public class GameSessionService {
             String intentId,
             List<OnlineDiffResponseDto> diffs) {
         var content = contentCatalog.require(gameSession.getGameContentVersion());
-        double wind = Math.round(ThreadLocalRandom.current().nextDouble(-30.0, 30.0) * 100.0) / 100.0;
+        double wind = content.world().generateWind();
         gameSession.getWorld().match().wind(wind);
         gameSession.getWorld().match().activePlayerId(activePlayerId);
         gameSession.getWorld().match().turnNumber(gameSession.getWorld().match().turnNumber() + 1);
         gameSession.getWorld().match().turnEndsAtServerTick(
-                gameSession.getServerTick() + ServerSimulationLoopService.TURN_TIMER_TICKS);
+                gameSession.getServerTick() + (long) content.world().tickRateHz() * content.world().turnDurationSeconds());
 
         var activeTank = gameSession.getWorld().requireTankByPlayer(activePlayerId);
         if (activeTank != null) {
@@ -658,52 +623,6 @@ public class GameSessionService {
         gameSession.setTurnStartDiffSequence(turnDiff.sequence());
     }
 
-    public void finalizeDamageTrailKills(GameSession gameSession) {
-        com.tanks.server.websocket.gameplay.world.TankState tank1 = gameSession.getWorld().requireTankByPlayer(1L);
-        com.tanks.server.websocket.gameplay.world.TankState tank2 = gameSession.getWorld().requireTankByPlayer(2L);
-
-        boolean tank1Alive = tank1 != null && tank1.alive();
-        boolean tank2Alive = tank2 != null && tank2.alive();
-
-        if (!tank1Alive && !tank2Alive) {
-            finalizeDrawResult(gameSession);
-            publishDiff(
-                    gameSession,
-                    OnlineStateDiffResponseType.TERMINAL_GAME,
-                    null,
-                    gameSession.getServerTick(),
-                    TerminalGame.builder()
-                            .winnerPlayerId(null)
-                            .reason(TerminalGameReason.DRAW)
-                            .finalState(initialStateFactory.createStateSnapshot(gameSession))
-                            .build());
-        } else if (!tank1Alive) {
-            finalizeWinResult(gameSession, 2L);
-            publishDiff(
-                    gameSession,
-                    OnlineStateDiffResponseType.TERMINAL_GAME,
-                    null,
-                    gameSession.getServerTick(),
-                    TerminalGame.builder()
-                            .winnerPlayerId(2L)
-                            .reason(TerminalGameReason.LAST_TANK_STANDING)
-                            .finalState(initialStateFactory.createStateSnapshot(gameSession))
-                            .build());
-        } else if (!tank2Alive) {
-            finalizeWinResult(gameSession, 1L);
-            publishDiff(
-                    gameSession,
-                    OnlineStateDiffResponseType.TERMINAL_GAME,
-                    null,
-                    gameSession.getServerTick(),
-                    TerminalGame.builder()
-                            .winnerPlayerId(1L)
-                            .reason(TerminalGameReason.LAST_TANK_STANDING)
-                            .finalState(initialStateFactory.createStateSnapshot(gameSession))
-                            .build());
-        }
-    }
-
     public void executePendingTurnTransition(GameSession gameSession) {
         if (gameSession.getPendingTurnTransitionAtServerTick() <= 0) {
             return;
@@ -712,8 +631,8 @@ public class GameSessionService {
         String intentId = gameSession.getPendingTurnTransitionIntentId();
         gameSession.setPendingTurnTransitionIntentId(null);
 
-        com.tanks.server.websocket.gameplay.world.TankState tank1 = gameSession.getWorld().requireTankByPlayer(1L);
-        com.tanks.server.websocket.gameplay.world.TankState tank2 = gameSession.getWorld().requireTankByPlayer(2L);
+        TankState tank1 = gameSession.getWorld().requireTankByPlayer(1L);
+        TankState tank2 = gameSession.getWorld().requireTankByPlayer(2L);
 
         boolean tank1Alive = tank1 != null && tank1.alive();
         boolean tank2Alive = tank2 != null && tank2.alive();
@@ -762,19 +681,8 @@ public class GameSessionService {
     }
 
     public void forfeitGame(UUID gameId, String forfeitingUsername) {
-        GameSession gameSession = gameRepository.findById(gameId).orElse(null);
-        if (gameSession == null || gameSession.getState() != GameSessionState.STARTED) {
-            return;
-        }
-
-        Long winnerPlayerId = null;
-        if (forfeitingUsername.equals(gameSession.getPlayerA())) {
-            winnerPlayerId = 2L;
-        } else if (forfeitingUsername.equals(gameSession.getPlayerB())) {
-            winnerPlayerId = 1L;
-        } else {
-            return;
-        }
+        GameSession gameSession = findById(gameId);
+        long winnerPlayerId = forfeitingUsername.equals(gameSession.getPlayerA()) ? PLAYER_B_ID : PLAYER_A_ID;
 
         finalizeWinResult(gameSession, winnerPlayerId);
         publishDiff(
@@ -800,7 +708,7 @@ public class GameSessionService {
                 .playerB(playerB)
                 .winner(null)
                 .outcome(GameOutcome.DRAW)
-                .gameStartedAt(gameStartedAt(gameSession, endedAt))
+                .gameStartedAt(gameStartedAt(gameSession))
                 .gameEndedAt(endedAt)
                 .build());
 
@@ -814,14 +722,14 @@ public class GameSessionService {
         OffsetDateTime endedAt = OffsetDateTime.now();
         User playerA = userByUsername(gameSession.getPlayerA());
         User playerB = userByUsername(gameSession.getPlayerB());
-        User winner = winnerPlayerId == 1 ? playerA : playerB;
+        User winner = winnerPlayerId == PLAYER_A_ID ? playerA : playerB;
 
         gameResultRepository.save(GameResult.builder()
                 .playerA(playerA)
                 .playerB(playerB)
                 .winner(winner)
                 .outcome(GameOutcome.WIN)
-                .gameStartedAt(gameStartedAt(gameSession, endedAt))
+                .gameStartedAt(gameStartedAt(gameSession))
                 .gameEndedAt(endedAt)
                 .build());
 
@@ -839,35 +747,34 @@ public class GameSessionService {
                         URI.create("about:blank")));
     }
 
-    private OffsetDateTime gameStartedAt(GameSession gameSession, OffsetDateTime endedAt) {
-        if (gameSession.getStartedAt() != null) {
-            return gameSession.getStartedAt();
+    private OffsetDateTime gameStartedAt(GameSession gameSession) {
+        if (gameSession.getStartedAt() == null) {
+            throw new IllegalStateException("Game session " + gameSession.getId() + " has not been started yet");
         }
-        if (gameSession.getCreatedAt() != null) {
-            return gameSession.getCreatedAt();
-        }
-        return endedAt;
+        return gameSession.getStartedAt();
     }
 
     private OnlineDiffResponseDto createCrateSpawnDiff(GameSession gameSession) {
         if (gameSession == null || gameSession.getWorld() == null || gameSession.getTerrainModel() == null) {
             return null;
         }
-        if (gameSession.getWorld().lootCrates() != null && gameSession.getWorld().lootCrates().size() >= 3) {
+        var content = contentCatalog.require(gameSession.getGameContentVersion());
+        var crateConfig = content.world().lootCrates();
+        if (gameSession.getWorld().lootCrates() != null && gameSession.getWorld().lootCrates().size() >= crateConfig.maxActiveCrates()) {
             return null;
         }
-        var content = contentCatalog.require(gameSession.getGameContentVersion());
-        double minX = 100.0;
-        double maxX = content.world().width() - 100.0;
-        double dropX = Math.round((minX + java.util.concurrent.ThreadLocalRandom.current().nextDouble() * (maxX - minX)) * 1000.0) / 1000.0;
+        double edgeMargin = crateConfig.spawnEdgeMargin();
+        double minX = edgeMargin;
+        double maxX = content.world().width() - edgeMargin;
+        double dropX = Math.round((minX + ThreadLocalRandom.current().nextDouble() * (maxX - minX)) * 1000.0) / 1000.0;
         double targetY = gameSession.getTerrainModel().surfaceY(dropX);
 
-        String[] crateTypes = {"hp", "fuel", "ammo"};
-        String crateType = crateTypes[java.util.concurrent.ThreadLocalRandom.current().nextInt(crateTypes.length)];
-        int value = "hp".equals(crateType) ? 25 : 50;
+        String[] crateTypes = { "hp", "fuel", "ammo" };
+        String crateType = crateTypes[ThreadLocalRandom.current().nextInt(crateTypes.length)];
+        int value = "hp".equals(crateType) ? crateConfig.hpValue() : ("fuel".equals(crateType) ? crateConfig.fuelValue() : crateConfig.ammoValue());
         String crateId = "crate-" + UUID.randomUUID().toString().substring(0, 8);
 
-        com.tanks.server.websocket.gameplay.world.LootCrateState crateState = com.tanks.server.websocket.gameplay.world.LootCrateState.builder()
+        LootCrateState crateState = LootCrateState.builder()
                 .crateId(crateId)
                 .crateType(crateType)
                 .x(dropX)
@@ -906,7 +813,11 @@ public class GameSessionService {
     }
 
     public void finalizeMatchTimeExpired(GameSession gameSession, Long winnerPlayerId) {
-        finalizeWinResult(gameSession, winnerPlayerId != null ? winnerPlayerId : 0);
+        if (winnerPlayerId != null) {
+            finalizeWinResult(gameSession, winnerPlayerId);
+        } else {
+            finalizeDrawResult(gameSession);
+        }
         publishDiff(
                 gameSession,
                 OnlineStateDiffResponseType.TERMINAL_GAME,
@@ -919,8 +830,10 @@ public class GameSessionService {
                         .build());
     }
 
+    private static final long BASE_PROJECTILE_ENTITY_ID = 20L;
+
     private long projectileEntityId(GameSession gameSession) {
-        return 20 + gameSession.getNextDiffSequence() - 2;
+        return BASE_PROJECTILE_ENTITY_ID + gameSession.getNextDiffSequence() - 2;
     }
 
     private OnlineDiffResponseDto createDiffDto(

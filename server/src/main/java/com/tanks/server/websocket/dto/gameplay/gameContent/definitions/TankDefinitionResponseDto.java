@@ -14,6 +14,8 @@ public record TankDefinitionResponseDto(
         int climbCapability,
         int width,
         int height,
+        double barrelLength,
+        double turretYOffset,
         TankVisual visual,
         List<String> loadout) {
 
@@ -28,6 +30,8 @@ public record TankDefinitionResponseDto(
                 value.climbCapability(),
                 value.width(),
                 value.height(),
+                value.barrelLength(),
+                value.turretYOffset(),
                 value.visual(),
                 value.loadout());
     }

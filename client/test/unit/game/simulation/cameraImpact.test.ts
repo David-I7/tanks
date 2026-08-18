@@ -30,6 +30,7 @@ describe("Camera impact tracking and turn transition", () => {
       testGameContent.tanks["heavy-armor"]!,
       500,
       500,
+      testGameContent.projectiles,
     );
 
     world.createTank(
@@ -37,6 +38,7 @@ describe("Camera impact tracking and turn transition", () => {
       testGameContent.tanks["heavy-armor"]!,
       1000,
       500,
+      testGameContent.projectiles,
     );
 
     const sim = new LocalSimulation(world, terrain, testGameContent);

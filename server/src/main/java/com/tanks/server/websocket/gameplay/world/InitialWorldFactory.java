@@ -1,6 +1,8 @@
 package com.tanks.server.websocket.gameplay.world;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Random;
 import org.springframework.stereotype.Service;
 import com.tanks.server.websocket.dto.gameplay.OnlineVec2Dto;
@@ -9,9 +11,10 @@ import com.tanks.server.websocket.gameplay.content.definitions.SpawnRegion;
 
 @Service
 public class InitialWorldFactory {
-    public InitialWorld create(GameContent content, long seed, String playerA, String playerB) {
-        return create(content, seed, playerA, playerB, "vanguard-cyber", "specter");
-    }
+    public static final long PLAYER_A_ENTITY_ID = 10L;
+    public static final long PLAYER_B_ENTITY_ID = 11L;
+    public static final long PLAYER_A_ID = 1L;
+    public static final long PLAYER_B_ID = 2L;
 
     public InitialWorld create(GameContent content, long seed, String playerA, String playerB, String tankDefA, String tankDefB) {
         Random random = new Random(seed);
@@ -28,16 +31,14 @@ public class InitialWorldFactory {
         TerrainModel terrain = new TerrainModel(definition, surface);
         World world = new World();
 
-        String resolvedTankA = tankDefA != null && content.tanks().containsKey(tankDefA) ? tankDefA : "vanguard-cyber";
-        String resolvedTankB = tankDefB != null && content.tanks().containsKey(tankDefB) ? tankDefB : "specter";
-
-        addTank(world, terrain, content, random, 10, 1, playerA, resolvedTankA, 1,
+        addTank(world, terrain, content, random, PLAYER_A_ENTITY_ID, PLAYER_A_ID, playerA, tankDefA, 1,
                 definition.playerASpawnRegion());
-        addTank(world, terrain, content, random, 11, 2, playerB, resolvedTankB, -1,
+        addTank(world, terrain, content, random, PLAYER_B_ENTITY_ID, PLAYER_B_ID, playerB, tankDefB, -1,
                 definition.playerBSpawnRegion());
-        world.match().activePlayerId(1);
+        world.match().activePlayerId(PLAYER_A_ID);
         world.match().turnNumber(1);
-        world.match().turnEndsAtServerTick(definition.tickRateHz() * 30L);
+        world.match().turnEndsAtServerTick((long) definition.tickRateHz() * definition.turnDurationSeconds());
+        world.match().biome(definition.selectBiome());
         return new InitialWorld(world, terrain);
     }
 
@@ -45,9 +46,10 @@ public class InitialWorldFactory {
             long entityId, long playerId, String displayName, String definitionId, int facing, SpawnRegion region) {
         int x = random.nextInt(region.minX(), region.maxX() + 1);
         var definition = content.requireTank(definitionId);
-        java.util.Map<String, Integer> weaponAmmo = new java.util.HashMap<>();
+        Map<String, Integer> weaponAmmo = new HashMap<>();
         for (String slotId : definition.loadout()) {
-            weaponAmmo.put(slotId, slotId.equals("basicShell") || slotId.equals("standard") ? -1 : 1);
+            var projDef = content.requireProjectile(slotId);
+            weaponAmmo.put(slotId, projDef.isDefault() ? -1 : 1);
         }
         world.tanks().put(entityId, TankState.builder()
                 .entityId(entityId)
@@ -56,6 +58,8 @@ public class InitialWorldFactory {
                 .definitionId(definitionId)
                 .position(new OnlineVec2Dto(x, terrain.surfaceY(x) - definition.trackGroundOffset()))
                 .facing(facing)
+                .aimAngle(facing == 1 ? -Math.PI / 4 : -Math.PI * 0.75)
+                .power(360.0)
                 .selectedProjectileSlotId(definition.loadout().getFirst())
                 .health(definition.maxHealth())
                 .fuel(definition.maxFuel())

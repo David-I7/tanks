@@ -33,22 +33,25 @@ export function getMuzzlePosition(
   tankX: number,
   tankY: number,
   aimAngle: number,
-  bodyAngle = 0,
-  turretYOffset = TURRET_Y_OFFSET,
-  barrelLength = BARREL_LENGTH,
+  bodyAngle: number,
+  turretYOffset: number,
+  barrelLength: number,
 ): TrajectoryPoint {
+  // Pivot point around which the turret rotates, shifted by the tank body tilt
   const pivotX = tankX - turretYOffset * Math.sin(bodyAngle);
   const pivotY = tankY + turretYOffset * Math.cos(bodyAngle);
-  return {
-    x: pivotX + Math.cos(aimAngle) * barrelLength,
-    y: pivotY + Math.sin(aimAngle) * barrelLength,
-  };
+
+  // Muzzle endpoint calculated directly along the aimAngle from the pivot
+  const muzzleX = pivotX + Math.cos(aimAngle) * barrelLength;
+  const muzzleY = pivotY + Math.sin(aimAngle) * barrelLength;
+
+  return { x: muzzleX, y: muzzleY };
 }
 
 export function simulateTrajectoryPreview(
   snapshot: GameState,
   playerId: number,
-  maxPoints = 300,
+  maxPoints: number,
 ): TrajectoryPoint[] {
   const activeTank = snapshot.tanks.find(
     (entry) => entry.playerId === playerId && entry.alive,
@@ -63,32 +66,39 @@ export function simulateTrajectoryPreview(
     : undefined;
 
   const gravityScale = projectileDef ? projectileDef.gravityScale : 1;
-  const drag = projectileDef ? projectileDef.drag : 0;
   const baseVelocity = projectileDef ? projectileDef.baseVelocity : 1.0;
 
   const rawAngle = activeTank.aimAngle;
   const angleRad = clampAimAngle(rawAngle);
 
+  let barrelLength = BARREL_LENGTH;
+  let turretYOffset = TURRET_Y_OFFSET;
+  let worldGravity = 260;
+  let dt = 1 / 30;
+
+  if (ResourceManager.getInstance().isLoaded()) {
+    const content = ResourceManager.getInstance().getGameContent();
+    const tankDef = content.tanks[activeTank.tankDefinitionId];
+    if (tankDef) {
+      barrelLength = tankDef.barrelLength;
+      turretYOffset = tankDef.turretYOffset;
+    }
+    worldGravity = content.world.gravity;
+    dt = content.world.projectileTimeStepSeconds;
+  }
+
   const muzzle = getMuzzlePosition(
     activeTank.position.x,
     activeTank.position.y,
     angleRad,
-    activeTank.bodyAngle ?? 0,
+    activeTank.bodyAngle,
+    turretYOffset,
+    barrelLength,
   );
 
   const speed = activeTank.power * baseVelocity;
   let currVx = speed * Math.cos(angleRad);
   let currVy = speed * Math.sin(angleRad);
-
-  let worldGravity = 260;
-  let dt = 1 / 30;
-  if (ResourceManager.getInstance().isLoaded()) {
-    const worldContent = ResourceManager.getInstance().getGameContent().world;
-    worldGravity = worldContent.gravity;
-    dt =
-      worldContent.projectileTimeStepSeconds ||
-      1 / (worldContent.tickRateHz || 30);
-  }
 
   const g = worldGravity * gravityScale;
   const wind = snapshot.match.wind;
@@ -104,11 +114,6 @@ export function simulateTrajectoryPreview(
     currY += currVy * dt;
     currVx += wind * dt;
     currVy += g * dt;
-
-    if (drag > 0) {
-      currVx *= 1 - drag * dt;
-      currVy *= 1 - drag * dt;
-    }
 
     if (currX < 0 || currX >= width) break;
 

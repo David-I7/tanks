@@ -113,11 +113,13 @@ describe("GameEngine Fixed-Timestep Accumulator", () => {
       removeEventListener: vi.fn(),
     } as unknown as HTMLCanvasElement;
 
+    let currentTimestamp = 1000;
+    vi.spyOn(performance, "now").mockImplementation(() => currentTimestamp);
+
     const engine = new GameEngine({ canvas, gameManager: mockManager });
     engine.start();
 
     // Simulate 144 Hz frame intervals (~6.94ms per frame)
-    let currentTimestamp = 1000;
     const frameIntervalMs = 1000 / 144; // ~6.944ms
 
     // Run 144 frames (1 second of display time)

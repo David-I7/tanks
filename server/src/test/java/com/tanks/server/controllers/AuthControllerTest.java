@@ -30,6 +30,7 @@ import tools.jackson.databind.ObjectMapper;
 import java.util.HashMap;
 import java.util.Map;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -410,7 +411,7 @@ class AuthControllerTest {
                         .cookie(testUserCache.refreshCookie()))
                 .andExpect(status().isOk())
                 .andExpect(cookie().maxAge("refreshToken", 0))
-                .andExpect(header().string(HttpHeaders.SET_COOKIE, org.hamcrest.Matchers.containsString("Max-Age=0")));
+                .andExpect(header().string(HttpHeaders.SET_COOKIE, containsString("Max-Age=0")));
     }
 
     @Test

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { createOnlineGameManager } from "../../../../src/game/authority/OnlineGameManager";
+import { IntentThrottler } from "../../../../src/game/online/IntentThrottler";
 import type { OnlineGameplayTransport } from "../../../../src/game/online/OnlineGameplayTransport";
 import type {
   OnlineDiffResponseDto,
@@ -8,6 +9,9 @@ import type {
 import { createInitialDiff, testGameContent } from "./mockOnlineTestState";
 
 describe("OnlineGameManager Intent Handling & Batch Processing", () => {
+  const createThrottler = () =>
+    new IntentThrottler({ aimIntervalMs: 80, moveIntervalMs: 100 });
+
   it("initializes successfully and reports ready status", () => {
     let diffListener: (diff: OnlineDiffResponseDto) => void = () => {};
     const mockTransport: OnlineGameplayTransport = {
@@ -25,7 +29,11 @@ describe("OnlineGameManager Intent Handling & Batch Processing", () => {
       gameContent: testGameContent,
     };
 
-    const manager = createOnlineGameManager({ transport: mockTransport, ctx });
+    const manager = createOnlineGameManager({
+      transport: mockTransport,
+      ctx,
+      throttler: createThrottler(),
+    });
     expect(manager.isReady()).toBe(false);
 
     diffListener(createInitialDiff(1));
@@ -53,7 +61,11 @@ describe("OnlineGameManager Intent Handling & Batch Processing", () => {
       gameContent: testGameContent,
     };
 
-    const manager = createOnlineGameManager({ transport: mockTransport, ctx });
+    const manager = createOnlineGameManager({
+      transport: mockTransport,
+      ctx,
+      throttler: createThrottler(),
+    });
     diffListener(createInitialDiff(1));
 
     // First aim intent sent immediately
@@ -100,7 +112,11 @@ describe("OnlineGameManager Intent Handling & Batch Processing", () => {
       gameContent: testGameContent,
     };
 
-    const manager = createOnlineGameManager({ transport: mockTransport, ctx });
+    const manager = createOnlineGameManager({
+      transport: mockTransport,
+      ctx,
+      throttler: createThrottler(),
+    });
     diffListener(createInitialDiff(1));
 
     // Submit invalid positive angle (pointing into ground) e.g. Math.PI / 2
@@ -128,7 +144,11 @@ describe("OnlineGameManager Intent Handling & Batch Processing", () => {
       gameContent: testGameContent,
     };
 
-    const manager = createOnlineGameManager({ transport: mockTransport, ctx });
+    const manager = createOnlineGameManager({
+      transport: mockTransport,
+      ctx,
+      throttler: createThrottler(),
+    });
     diffListener(createInitialDiff(1));
 
     const batchDiff: OnlineDiffBatchResponseDto = {
@@ -189,7 +209,11 @@ describe("OnlineGameManager Intent Handling & Batch Processing", () => {
       gameContent: testGameContent,
     };
 
-    const manager = createOnlineGameManager({ transport: mockTransport, ctx });
+    const manager = createOnlineGameManager({
+      transport: mockTransport,
+      ctx,
+      throttler: createThrottler(),
+    });
     diffListener(createInitialDiff(1));
 
     // Player 1 has loadout ["basicShell", "titanShell", "heavyShell", "cluster"]
@@ -226,7 +250,11 @@ describe("OnlineGameManager Intent Handling & Batch Processing", () => {
       gameContent: testGameContent,
     };
 
-    const manager = createOnlineGameManager({ transport: mockTransport, ctx });
+    const manager = createOnlineGameManager({
+      transport: mockTransport,
+      ctx,
+      throttler: createThrottler(),
+    });
     diffListener(createInitialDiff(1));
 
     // Damage tank 1 first

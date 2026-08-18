@@ -248,7 +248,7 @@ export function predictOnlineMovement(
   intentId: string,
   playerId: number,
   move: OnlineMoveRequest["payload"],
-  predictedAtMonotonicMs?: number,
+  predictedAtMonotonicMs: number,
 ): OnlineConfirmedState {
   const tank = confirmed.state.tanks.find(
     (candidate) => candidate.playerId === playerId,
@@ -260,7 +260,7 @@ export function predictOnlineMovement(
   const definition = confirmed.state.gameContent.tanks[tank.tankDefinitionId];
   if (!definition) return confirmed;
 
-  const now = predictedAtMonotonicMs ?? (typeof performance !== "undefined" ? performance.now() : 0);
+  const now = predictedAtMonotonicMs;
   const activePendingPredictions = confirmed.pendingPredictions.filter((p) => {
     if (p.confirmedByServer) {
       const endTime = (p.predictedAtMonotonicMs ?? 0) + (p.durationMs ?? 0);
@@ -573,7 +573,7 @@ function applyMovementInterpolation(
   state: OnlineGameStateSnapshotResponse,
   segments: OnlineConfirmedMovementSegment[],
   monotonicNowMs: number,
-  localPlayerId?: number | null,
+  localPlayerId: number | null,
 ): OnlineGameStateSnapshotResponse {
   const activeSegments = segments.filter(
     (segment) =>

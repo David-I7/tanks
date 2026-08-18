@@ -6,6 +6,7 @@ import type ProblemDetailDto from "../../api/http/dto/ProblemDetailDto";
 import {
   createOnlineGameManager,
   createOnlineGameplayTransport,
+  IntentThrottler,
   type GameManager,
   type OnlineGameplayTransport,
   ResourceManager,
@@ -88,6 +89,7 @@ export default function useGameSession(gameSessionId: string) {
 
     const manager = createOnlineGameManager({
       transport,
+      throttler: new IntentThrottler({ aimIntervalMs: 80, moveIntervalMs: 100 }),
       ctx: {
         clock: () => performance.now(),
         generateIntentId: () =>

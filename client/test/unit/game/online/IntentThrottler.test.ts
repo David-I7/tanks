@@ -3,7 +3,7 @@ import { IntentThrottler } from "../../../../src/game/online/IntentThrottler";
 
 describe("IntentThrottler", () => {
   it("allows first AIM intent immediately and throttles within 80ms default interval", () => {
-    const throttler = new IntentThrottler();
+    const throttler = new IntentThrottler({ aimIntervalMs: 80, moveIntervalMs: 100 });
     const t0 = 1000;
 
     expect(throttler.shouldSendAim(t0)).toBe(true);
@@ -15,7 +15,7 @@ describe("IntentThrottler", () => {
   });
 
   it("allows first MOVE intent immediately and throttles within 100ms default interval", () => {
-    const throttler = new IntentThrottler();
+    const throttler = new IntentThrottler({ aimIntervalMs: 80, moveIntervalMs: 100 });
     const t0 = 1000;
 
     expect(throttler.shouldSendMove(t0)).toBe(true);
@@ -40,7 +40,7 @@ describe("IntentThrottler", () => {
   });
 
   it("tracks AIM and MOVE independently", () => {
-    const throttler = new IntentThrottler();
+    const throttler = new IntentThrottler({ aimIntervalMs: 80, moveIntervalMs: 100 });
     const t0 = 1000;
 
     expect(throttler.shouldSendAim(t0)).toBe(true);
@@ -56,7 +56,7 @@ describe("IntentThrottler", () => {
   });
 
   it("resets throttle timers when reset() is called", () => {
-    const throttler = new IntentThrottler();
+    const throttler = new IntentThrottler({ aimIntervalMs: 80, moveIntervalMs: 100 });
     const t0 = 1000;
 
     expect(throttler.shouldSendAim(t0)).toBe(true);

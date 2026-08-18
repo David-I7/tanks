@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { createOnlineGameManager } from "../../../../src/game/authority/OnlineGameManager";
+import { IntentThrottler } from "../../../../src/game/online/IntentThrottler";
 import type { OnlineGameplayTransport } from "../../../../src/game/online/OnlineGameplayTransport";
 import type { OnlineDiffResponseDto, OnlineGameStateSnapshotResponse } from "../../../../src/api/ws/dto/gameplay/onlineGameplayProtocol";
 import { createInitialDiff, testGameContent } from "./mockOnlineTestState";
@@ -10,7 +11,7 @@ function createMockInitialStateDiff(): OnlineDiffResponseDto {
     gameContent: {
       version: testGameContent.version,
       world: {
-        biome: testGameContent.world.biome,
+        biomes: testGameContent.world.biomes,
         width: testGameContent.world.width,
         height: testGameContent.world.height,
         tickRateHz: testGameContent.world.tickRateHz,
@@ -22,6 +23,10 @@ function createMockInitialStateDiff(): OnlineDiffResponseDto {
         playerBSpawnRegion: { minX: 1600, maxX: 2160 },
         minWind: testGameContent.world.minWind,
         maxWind: testGameContent.world.maxWind,
+        turnDurationSeconds: testGameContent.world.turnDurationSeconds,
+        matchDurationSeconds: testGameContent.world.matchDurationSeconds,
+        postImpactDelaySeconds: testGameContent.world.postImpactDelaySeconds,
+        lootCrates: testGameContent.world.lootCrates,
       },
       tanks: Object.fromEntries(
         Object.entries(testGameContent.tanks).map(([id, tank]) => [
@@ -36,6 +41,8 @@ function createMockInitialStateDiff(): OnlineDiffResponseDto {
             climbCapability: tank.climbCapability,
             width: tank.width,
             height: tank.height,
+            barrelLength: tank.barrelLength,
+            turretYOffset: tank.turretYOffset,
             visual: {
               fillStyle: tank.visual.fill,
               strokeStyle: tank.visual.stroke,
@@ -56,7 +63,7 @@ function createMockInitialStateDiff(): OnlineDiffResponseDto {
             radius: proj.radius,
             baseVelocity: proj.baseVelocity,
             gravityScale: proj.gravityScale,
-            drag: proj.drag,
+            isDefault: proj.isDefault,
             terrainEffectType: proj.terrainEffectType,
             terrainRadius: proj.terrainRadius,
             terrainDepth: proj.terrainDepth,
@@ -76,7 +83,7 @@ function createMockInitialStateDiff(): OnlineDiffResponseDto {
       turnNumber: 1,
       turnTimeRemainingTicks: 900,
       winnerPlayerId: null,
-      matchTimeRemainingTicks: 5400,
+      matchEndsAtServerTick: 5400,
       wind: 0,
       biome: "forest",
     },
@@ -94,7 +101,7 @@ function createMockInitialStateDiff(): OnlineDiffResponseDto {
         tankDefinitionId: "vanguard-cyber",
         width: 24,
         height: 24,
-        visual: { fillStyle: "#3b82f6", strokeStyle: "#1d4ed8", accentColor: "#60a5fa", label: "P1" },
+        visual: { fillStyle: "#3b82f6", strokeStyle: "#1d4ed8", accentColor: "#60a5fa", label: "VC" },
         position: { x: 200, y: 388 },
         facing: 1,
         aimAngle: 45,
@@ -107,16 +114,16 @@ function createMockInitialStateDiff(): OnlineDiffResponseDto {
         alive: true,
       },
       {
-        entityId: 20,
+        entityId: 11,
         playerId: 2,
         displayName: "Player 2",
-        tankDefinitionId: "vanguard-cyber",
+        tankDefinitionId: "specter",
         width: 24,
         height: 24,
-        visual: { fillStyle: "#ef4444", strokeStyle: "#b91c1c", accentColor: "#f87171", label: "P2" },
+        visual: { fillStyle: "#8b5cf6", strokeStyle: "#6d28d9", accentColor: "#a78bfa", label: "S" },
         position: { x: 1800, y: 388 },
         facing: -1,
-        aimAngle: 135,
+        aimAngle: 45,
         power: 300,
         selectedProjectileSlotId: "basicShell",
         loadout: ["basicShell"],
@@ -138,8 +145,8 @@ function createMockInitialStateDiff(): OnlineDiffResponseDto {
     type: "INITIAL_STATE",
     intentId: null,
     payload: {
-      expectedNextDiffSequence: 2,
       localPlayerId: 1,
+      expectedNextDiffSequence: 2,
       state: mockSnapshot,
     },
   };
@@ -167,6 +174,7 @@ describe("OnlineGameManager Playback Pipeline", () => {
     const manager = createOnlineGameManager({
       transport: mockTransport,
       ctx,
+      throttler: new IntentThrottler({ aimIntervalMs: 80, moveIntervalMs: 100 }),
     });
 
     // 1. Initial State arrives
@@ -190,7 +198,7 @@ describe("OnlineGameManager Playback Pipeline", () => {
         ownerPlayerId: 1,
         projectileDefinitionId: "basicShell",
         impact: { x: 1200, y: 400 },
-        damagedTanks: [{ entityId: 20, playerId: 2, damageDealt: 30, healthAfter: 70 }],
+        damagedTanks: [{ entityId: 11, playerId: 2, damageDealt: 30, healthAfter: 70 }],
         trajectory: [
           { x: 200, y: 400 },
           { x: 700, y: 200 },

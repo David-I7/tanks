@@ -1,9 +1,13 @@
 package com.tanks.server.websocket.security.services;
 
+import com.tanks.server.websocket.dto.gameplay.playerIntent.OnlinePlayerIntentRequestDto;
+import com.tanks.server.websocket.entities.gameSession.GameSession;
+import com.tanks.server.websocket.entities.gameSession.GameSessionState;
 import com.tanks.server.websocket.entities.lobby.Lobby;
 import com.tanks.server.websocket.entities.lobby.LobbyStatus;
 import com.tanks.server.websocket.entities.userSession.UserSession;
 import com.tanks.server.websocket.exceptions.ProblemDetailException;
+import com.tanks.server.websocket.repositories.GameSessionRepository;
 import com.tanks.server.websocket.security.entites.WebSocketPrincipal;
 import com.tanks.server.websocket.services.LobbyService;
 import com.tanks.server.websocket.services.UserSessionService;
@@ -13,6 +17,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 
 import java.net.URI;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -23,6 +28,8 @@ public class GameAuthorizationService {
     private final LobbyService lobbyService;
 
     private final UserSessionService userSessionService;
+
+    private final GameSessionRepository gameSessionRepository;
 
     public boolean canJoinTopic(Authentication authentication, String uri) {
         UserSession userSession = getUserSession(authentication);
@@ -112,6 +119,126 @@ public class GameAuthorizationService {
             throw new ProblemDetailException(
                     HttpStatus.UNAUTHORIZED,
                     "User is not in the provided game.",
+                    URI.create(uri)
+            );
+        }
+
+        return true;
+    }
+
+    public boolean canSendIntent(Authentication authentication, UUID gameId, OnlinePlayerIntentRequestDto<?> intent) {
+        UserSession userSession = getUserSession(authentication);
+        if (userSession == null) return false;
+        String uri = Game_PREFIX + gameId;
+
+        if (!userSessionService.isConnectedToGame(userSession) || !userSessionService.isInGame(userSession, gameId.toString())) {
+            throw new ProblemDetailException(
+                    HttpStatus.UNAUTHORIZED,
+                    "User is not in the provided game.",
+                    URI.create(uri)
+            );
+        }
+
+        if (intent == null || intent.intentId() == null || intent.intentId().isBlank() || intent.type() == null) {
+            throw new ProblemDetailException(
+                    HttpStatus.BAD_REQUEST,
+                    "Invalid intent payload.",
+                    URI.create(uri)
+            );
+        }
+
+        if (intent.gameSessionId() == null || !intent.gameSessionId().equals(gameId.toString())) {
+            throw new ProblemDetailException(
+                    HttpStatus.BAD_REQUEST,
+                    "Intent game session ID does not match destination.",
+                    URI.create(uri)
+            );
+        }
+
+        GameSession gameSession = gameSessionRepository.findById(gameId)
+                .orElseThrow(() -> new ProblemDetailException(
+                        HttpStatus.NOT_FOUND,
+                        "Game session not found.",
+                        URI.create(uri)
+                ));
+
+        if (gameSession.getState() != GameSessionState.STARTED) {
+            throw new ProblemDetailException(
+                    HttpStatus.BAD_REQUEST,
+                    "Game session is not started.",
+                    URI.create(uri)
+            );
+        }
+
+        String expectedUsername = intent.playerId() == 1 ? gameSession.getPlayerA() : (intent.playerId() == 2 ? gameSession.getPlayerB() : null);
+        if (expectedUsername == null || !expectedUsername.equals(authentication.getName())) {
+            throw new ProblemDetailException(
+                    HttpStatus.FORBIDDEN,
+                    "Player ID does not match authenticated user.",
+                    URI.create(uri)
+            );
+        }
+
+        return true;
+    }
+
+    public boolean canForfeitGame(Authentication authentication, UUID gameId) {
+        UserSession userSession = getUserSession(authentication);
+        if (userSession == null) return false;
+        String uri = Game_PREFIX + gameId;
+
+        if (!userSessionService.isConnectedToGame(userSession) || !userSessionService.isInGame(userSession, gameId.toString())) {
+            throw new ProblemDetailException(
+                    HttpStatus.UNAUTHORIZED,
+                    "User is not in the provided game.",
+                    URI.create(uri)
+            );
+        }
+
+        GameSession gameSession = gameSessionRepository.findById(gameId)
+                .orElseThrow(() -> new ProblemDetailException(
+                        HttpStatus.NOT_FOUND,
+                        "Game session not found.",
+                        URI.create(uri)
+                ));
+
+        if (gameSession.getState() != GameSessionState.STARTED) {
+            throw new ProblemDetailException(
+                    HttpStatus.BAD_REQUEST,
+                    "Game session is not started.",
+                    URI.create(uri)
+            );
+        }
+
+        String username = authentication.getName();
+        if (!username.equals(gameSession.getPlayerA()) && !username.equals(gameSession.getPlayerB())) {
+            throw new ProblemDetailException(
+                    HttpStatus.FORBIDDEN,
+                    "User is not a participant in this game.",
+                    URI.create(uri)
+            );
+        }
+
+        return true;
+    }
+
+    public boolean canRequestResync(Authentication authentication, UUID gameId) {
+        UserSession userSession = getUserSession(authentication);
+        if (userSession == null) return false;
+        String uri = Game_PREFIX + gameId;
+
+        if (!userSessionService.isConnectedToGame(userSession) || !userSessionService.isInGame(userSession, gameId.toString())) {
+            throw new ProblemDetailException(
+                    HttpStatus.UNAUTHORIZED,
+                    "User is not in the provided game.",
+                    URI.create(uri)
+            );
+        }
+
+        if (!gameSessionRepository.existsById(gameId)) {
+            throw new ProblemDetailException(
+                    HttpStatus.NOT_FOUND,
+                    "Game session not found.",
                     URI.create(uri)
             );
         }

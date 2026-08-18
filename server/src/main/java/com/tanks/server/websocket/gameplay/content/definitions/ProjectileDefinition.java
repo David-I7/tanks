@@ -7,12 +7,27 @@ public record ProjectileDefinition(
         String id,
         String name,
         String label,
+        boolean isDefault,
         double radius,
         double baseVelocity,
         double gravityScale,
-        double drag,
         TerrainEffect terrainEffect,
         DamageEffect damageEffect,
         SubMunitionConfig subMunitions,
         DamageTrailConfig damageTrail) {
+
+    public ProjectileDefinition withId(String id) {
+        return new ProjectileDefinition(
+                id,
+                name(),
+                label(),
+                isDefault(),
+                radius(),
+                baseVelocity(),
+                gravityScale(),
+                terrainEffect(),
+                damageEffect(),
+                subMunitions(),
+                damageTrail());
+    }
 }

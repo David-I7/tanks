@@ -28,8 +28,15 @@ export type ClientVisualState = {
   aimTargets: Map<number, { angle: number; power: number }>;
 };
 
+export const DEFAULT_EXPLOSION_PALETTE: readonly string[] = [
+  "#fbbf24",
+  "#f97316",
+  "#ef4444",
+  "#78716c",
+  "#44403c",
+];
+
 const CAMERA_SMOOTHING_SPEED = 10;
-export const DEFAULT_TERRAIN_WIDTH = 2400;
 
 export class ClientVisualSimulation {
   private cameraX: number;
@@ -42,7 +49,7 @@ export class ClientVisualSimulation {
   private aimTargets = new Map<number, { angle: number; power: number }>();
   private terrainWidth: number;
 
-  constructor(initialCameraX = 0, terrainWidth = DEFAULT_TERRAIN_WIDTH) {
+  constructor(initialCameraX: number, terrainWidth: number) {
     this.cameraX = initialCameraX;
     this.isCameraLocked = true;
     this.terrainWidth = terrainWidth;
@@ -159,35 +166,25 @@ export class ClientVisualSimulation {
     };
   }
 
-  panCamera(
-    deltaX: number,
-    terrainWidth: number = this.terrainWidth,
-  ): void {
+  panCamera(deltaX: number): void {
     this.isCameraLocked = false;
-    this.cameraX = Math.max(0, Math.min(terrainWidth, this.cameraX + deltaX));
+    this.cameraX = Math.max(0, Math.min(this.terrainWidth, this.cameraX + deltaX));
   }
 
   relockCamera(): void {
     this.isCameraLocked = true;
   }
 
-  setCameraPosition(
-    x: number,
-    terrainWidth: number = this.terrainWidth,
-  ): void {
-    this.cameraX = Math.max(0, Math.min(terrainWidth, x));
+  setCameraPosition(x: number): void {
+    this.cameraX = Math.max(0, Math.min(this.terrainWidth, x));
   }
 
-  updateCamera(
-    dt: number,
-    focusX: number | null,
-    terrainWidth: number = this.terrainWidth,
-  ): void {
+  updateCamera(dt: number, focusX: number | null): void {
     if (!this.isCameraLocked || focusX === null) return;
-    const target = Math.max(0, Math.min(terrainWidth, focusX));
+    const target = Math.max(0, Math.min(this.terrainWidth, focusX));
     const lerpFactor = 1 - Math.exp(-CAMERA_SMOOTHING_SPEED * dt);
     this.cameraX += (target - this.cameraX) * lerpFactor;
-    this.cameraX = Math.max(0, Math.min(terrainWidth, this.cameraX));
+    this.cameraX = Math.max(0, Math.min(this.terrainWidth, this.cameraX));
   }
 
   updateLootCrates(dt: number, crates: LootCrate[]): void {
@@ -258,8 +255,7 @@ export class ClientVisualSimulation {
     return { position, velocity };
   }
 
-  spawnExplosionParticles(x: number, y: number, colors?: string[]): void {
-    const palette = colors ?? ["#fbbf24", "#f97316", "#ef4444", "#78716c", "#44403c"];
+  spawnExplosionParticles(x: number, y: number, colors: readonly string[]): void {
     for (let i = 0; i < 18; i += 1) {
       const angle = Math.random() * Math.PI * 2;
       const speed = 40 + Math.random() * 160;
@@ -269,7 +265,7 @@ export class ClientVisualSimulation {
         y,
         vx: Math.cos(angle) * speed,
         vy: Math.sin(angle) * speed - 60,
-        color: palette[Math.floor(Math.random() * palette.length)] ?? "#fbbf24",
+        color: colors[Math.floor(Math.random() * colors.length)] ?? "#fbbf24",
         size: 2 + Math.random() * 3,
         life: 1.0,
         maxLife: 1.0,

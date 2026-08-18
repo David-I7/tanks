@@ -1,7 +1,5 @@
 package com.tanks.server.websocket.security.interceptors;
 
-
-import com.tanks.server.dto.UserDto;
 import com.tanks.server.websocket.entities.userSession.UserSession;
 import com.tanks.server.websocket.entities.userSession.UserSessionState;
 import com.tanks.server.websocket.exceptions.ProblemDetailException;
@@ -27,7 +25,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.locks.ReentrantLock;
 
-
 @Component
 @RequiredArgsConstructor
 @Slf4j
@@ -51,8 +48,7 @@ public class AuthorizationInterceptor implements ChannelInterceptor {
             MessageChannel channel,
             boolean sent,
             Exception ex) {
-        StompHeaderAccessor accessor =
-                MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
+        StompHeaderAccessor accessor = MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
 
         if (accessor == null || accessor.getUser() == null) {
             return;
@@ -70,8 +66,7 @@ public class AuthorizationInterceptor implements ChannelInterceptor {
     @Override
     public @Nullable Message<?> preSend(Message<?> message, MessageChannel channel) {
 
-        StompHeaderAccessor accessor =
-                MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
+        StompHeaderAccessor accessor = MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
 
         if (accessor == null) {
             return message;
@@ -90,11 +85,13 @@ public class AuthorizationInterceptor implements ChannelInterceptor {
         }
 
         WebSocketAuthentication authentication = (WebSocketAuthentication) accessor.getUser();
-        if (authentication == null) return message;
+        if (authentication == null)
+            return message;
 
         WebSocketPrincipal principal = (WebSocketPrincipal) authentication.getPrincipal();
         UserSession userSession = principal.getUserSession();
-        if (userSession == null) return message;
+        if (userSession == null)
+            return message;
 
         ReentrantLock lock = claimService.getSocketLock(userSession.getId());
 
@@ -113,7 +110,8 @@ public class AuthorizationInterceptor implements ChannelInterceptor {
             sessionAttributes.put("socketLock", lock);
         }
 
-        // If a disconnect event happened while acquiring the lock, the user is already disconnected, so there is no need to fulfil this request
+        // If a disconnect event happened while acquiring the lock, the user is already
+        // disconnected, so there is no need to fulfil this request
         ReentrantLock activeSocketLock = claimService.getSocketLock(userSession.getId());
         if (activeSocketLock == null) {
             lock.unlock();
@@ -132,8 +130,9 @@ public class AuthorizationInterceptor implements ChannelInterceptor {
         return message;
     }
 
-    private void handleConnect(StompHeaderAccessor accessor){
-        WebSocketPrincipal principal = (WebSocketPrincipal) ((WebSocketAuthentication) accessor.getUser()).getPrincipal();
+    private void handleConnect(StompHeaderAccessor accessor) {
+        WebSocketPrincipal principal = (WebSocketPrincipal) ((WebSocketAuthentication) accessor.getUser())
+                .getPrincipal();
         String sessionId = accessor.getSessionId();
         Long userId = principal.getUserDto().id();
 
@@ -159,20 +158,21 @@ public class AuthorizationInterceptor implements ChannelInterceptor {
 
                 principal.setUserSession(userSession);
                 userSessionService.save(userSession);
-            }else throw ex;
+            } else
+                throw ex;
         } catch (Exception e) {
             claimService.releaseSocket(userId, sessionId);
             throw e;
         }
     }
 
-    private void handlePreSubscribe(WebSocketAuthentication authentication, StompHeaderAccessor accessor){
+    private void handlePreSubscribe(WebSocketAuthentication authentication, StompHeaderAccessor accessor) {
         WebSocketPrincipal principal = (WebSocketPrincipal) authentication.getPrincipal();
         UserSession userSession = principal.getUserSession();
         Map<String, String> topicSubscriptions = userSession.getTopicSubscriptions();
         String destination = accessor.getDestination();
 
-        if(topicSubscriptions != null && topicSubscriptions.containsKey(destination)){
+        if (topicSubscriptions != null && topicSubscriptions.containsKey(destination)) {
             log.debug("User {} is already subscribed to this topic", principal.getUserDto().username());
             throw new ProblemDetailException(HttpStatus.BAD_REQUEST, "User is already subscribed to this topic");
         }
@@ -183,18 +183,18 @@ public class AuthorizationInterceptor implements ChannelInterceptor {
             gameAuthorizationService.canJoinTopic(authentication, destination);
         }
 
-        if(topicSubscriptions == null){
+        if (topicSubscriptions == null) {
             topicSubscriptions = new HashMap<>();
         }
 
-        topicSubscriptions.put(destination,accessor.getSubscriptionId());
+        topicSubscriptions.put(destination, accessor.getSubscriptionId());
         userSession.setTopicSubscriptions(topicSubscriptions);
         userSessionService.save(userSession);
     }
 
-    private void handlePreSend(WebSocketAuthentication authentication,StompHeaderAccessor accessor){
+    private void handlePreSend(WebSocketAuthentication authentication, StompHeaderAccessor accessor) {
         String destination = accessor.getDestination();
-        log.debug("User {} is sending a request to {}", authentication.getName(),destination);
+        log.debug("User {} is sending a request to {}", authentication.getName(), destination);
     }
 
 }

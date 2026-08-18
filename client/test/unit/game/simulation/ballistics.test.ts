@@ -47,23 +47,30 @@ describe("getMuzzlePosition", () => {
     const tankY = 400;
 
     // Aiming straight right (0 rad)
-    const right = getMuzzlePosition(tankX, tankY, 0);
+    const right = getMuzzlePosition(tankX, tankY, 0, 0, TURRET_Y_OFFSET, BARREL_LENGTH);
     expect(right.x).toBeCloseTo(tankX + BARREL_LENGTH);
     expect(right.y).toBeCloseTo(tankY + TURRET_Y_OFFSET);
 
     // Aiming straight up (-π/2 rad)
-    const up = getMuzzlePosition(tankX, tankY, -Math.PI / 2);
+    const up = getMuzzlePosition(tankX, tankY, -Math.PI / 2, 0, TURRET_Y_OFFSET, BARREL_LENGTH);
     expect(up.x).toBeCloseTo(tankX);
     expect(up.y).toBeCloseTo(tankY + TURRET_Y_OFFSET - BARREL_LENGTH);
 
     // Aiming straight left (-π rad)
-    const left = getMuzzlePosition(tankX, tankY, -Math.PI);
+    const left = getMuzzlePosition(tankX, tankY, -Math.PI, 0, TURRET_Y_OFFSET, BARREL_LENGTH);
     expect(left.x).toBeCloseTo(tankX - BARREL_LENGTH);
     expect(left.y).toBeCloseTo(tankY + TURRET_Y_OFFSET);
 
     // Rotated tank on slope (bodyAngle = 45 deg = π/4)
     const slopeAngle = Math.PI / 4;
-    const rotatedMuzzle = getMuzzlePosition(tankX, tankY, -Math.PI / 2, slopeAngle);
+    const rotatedMuzzle = getMuzzlePosition(
+      tankX,
+      tankY,
+      -Math.PI / 2,
+      slopeAngle,
+      TURRET_Y_OFFSET,
+      BARREL_LENGTH,
+    );
     const expectedPivotX = tankX - TURRET_Y_OFFSET * Math.sin(slopeAngle);
     const expectedPivotY = tankY + TURRET_Y_OFFSET * Math.cos(slopeAngle);
     expect(rotatedMuzzle.x).toBeCloseTo(expectedPivotX);
@@ -94,6 +101,7 @@ describe("LocalSimulation angle range enforcement", () => {
       testGameContent.tanks["heavy-armor"]!,
       200,
       400,
+      testGameContent.projectiles,
     );
 
     const sim = new LocalSimulation(world, terrain, testGameContent);
@@ -135,9 +143,9 @@ describe("simulateTrajectoryPreview", () => {
           id: "basicShell",
           name: "Basic Shell",
           label: "BS",
+          isDefault: true,
           baseVelocity: 1.0,
           gravityScale: 1,
-          drag: 0,
           radius: 4,
           terrainRadius: 20,
           terrainDepth: 10,
@@ -185,7 +193,7 @@ describe("simulateTrajectoryPreview", () => {
     expect(points.length).toBeGreaterThan(1);
 
     // Trajectory must start at muzzle position
-    const muzzle = getMuzzlePosition(500, 400, -Math.PI / 4);
+    const muzzle = getMuzzlePosition(500, 400, -Math.PI / 4, 0, TURRET_Y_OFFSET, BARREL_LENGTH);
     expect(points[0].x).toBeCloseTo(muzzle.x);
     expect(points[0].y).toBeCloseTo(muzzle.y);
 

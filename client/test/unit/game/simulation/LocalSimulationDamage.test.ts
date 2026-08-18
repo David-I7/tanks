@@ -28,6 +28,7 @@ describe("LocalSimulation damage calculation", () => {
       testGameContent.tanks["heavy-armor"]!,
       200,
       terrain.getSurfaceY(200),
+      testGameContent.projectiles,
     );
 
     const tank1Id = world.createTank(
@@ -35,6 +36,7 @@ describe("LocalSimulation damage calculation", () => {
       testGameContent.tanks["heavy-armor"]!,
       300,
       terrain.getSurfaceY(300),
+      testGameContent.projectiles,
     );
 
     const sim = new LocalSimulation(world, terrain, testGameContent);
@@ -87,6 +89,7 @@ describe("LocalSimulation damage calculation", () => {
       testGameContent.tanks["heavy-armor"]!,
       100,
       500,
+      testGameContent.projectiles,
     );
 
     const tank1Id = world.createTank(
@@ -94,6 +97,7 @@ describe("LocalSimulation damage calculation", () => {
       testGameContent.tanks["heavy-armor"]!,
       150,
       500,
+      testGameContent.projectiles,
     );
 
     const sim = new LocalSimulation(world, terrain, testGameContent);
@@ -144,6 +148,7 @@ describe("LocalSimulation damage calculation", () => {
       testGameContent.tanks["vanguard-cyber"]!,
       100,
       500,
+      testGameContent.projectiles,
     );
 
     const sim = new LocalSimulation(world, terrain, testGameContent);
@@ -210,6 +215,7 @@ describe("LocalSimulation damage calculation", () => {
       testGameContent.tanks["vanguard-cyber"]!,
       100,
       500,
+      testGameContent.projectiles,
     );
 
     const tank1Id = world.createTank(
@@ -217,6 +223,7 @@ describe("LocalSimulation damage calculation", () => {
       testGameContent.tanks["heavy-armor"]!,
       300,
       500,
+      testGameContent.projectiles,
     );
 
     const sim = new LocalSimulation(world, terrain, testGameContent);

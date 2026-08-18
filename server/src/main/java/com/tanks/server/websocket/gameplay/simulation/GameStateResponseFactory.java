@@ -1,5 +1,6 @@
 package com.tanks.server.websocket.gameplay.simulation;
 
+import java.util.Comparator;
 import java.util.List;
 import org.springframework.stereotype.Service;
 import com.tanks.server.websocket.dto.gameplay.diffResponse.OnlineDiffResponseDto;
@@ -18,6 +19,7 @@ import com.tanks.server.websocket.entities.gameSession.GameSessionState;
 import com.tanks.server.websocket.gameplay.content.GameContent;
 import com.tanks.server.websocket.gameplay.content.GameContentCatalog;
 import com.tanks.server.websocket.gameplay.content.definitions.TankDefinition;
+import com.tanks.server.websocket.gameplay.world.ProjectileState;
 import com.tanks.server.websocket.gameplay.world.TankState;
 
 @Service
@@ -76,15 +78,15 @@ public class GameStateResponseFactory {
                         .winnerPlayerId(winnerPlayerId(session))
                         .matchEndsAtServerTick(session.getMatchEndsAtServerTick())
                         .wind(session.getWorld().match().wind())
-                        .biome(session.getWorld().match().biome() != null ? session.getWorld().match().biome() : (content.world().biome() != null ? content.world().biome() : "forest"))
+                        .biome(session.getWorld().match().biome())
                         .build())
                 .terrain(new Heightmap(TerrainSnapshotKind.HEIGHTMAP,
                         session.getTerrainModel().width(), session.getTerrainModel().height(), session.getTerrainModel().surface()))
                 .tanks(session.getWorld().tanks().values().stream()
-                        .sorted(java.util.Comparator.comparingLong(TankState::playerId))
+                        .sorted(Comparator.comparingLong(TankState::playerId))
                         .map(tank -> tankSnapshot(content, tank)).toList())
                 .projectiles(session.getWorld().projectiles().values().stream()
-                        .sorted(java.util.Comparator.comparingLong(com.tanks.server.websocket.gameplay.world.ProjectileState::entityId))
+                        .sorted(Comparator.comparingLong(ProjectileState::entityId))
                         .map(projectile -> {
                     var definition = content.requireProjectile(projectile.definitionId());
                     return new OnlineProjectileSnapshotResponseDto(projectile.entityId(), projectile.ownerPlayerId(),
@@ -147,9 +149,6 @@ public class GameStateResponseFactory {
     }
     private static Long winnerPlayerId(GameSession session) {
         if (!GameSessionState.ENDED.equals(session.getState())) return null;
-        boolean a = session.getWorld().requireTankByPlayer(1).alive();
-        boolean b = session.getWorld().requireTankByPlayer(2).alive();
-        return session.getWorld().match().winnerPlayerId() != null
-                ? session.getWorld().match().winnerPlayerId() : a == b ? null : a ? 1L : 2L;
+        return session.getWorld().match().winnerPlayerId();
     }
 }

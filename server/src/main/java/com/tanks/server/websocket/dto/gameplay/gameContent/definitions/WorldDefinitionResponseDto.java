@@ -1,10 +1,11 @@
 package com.tanks.server.websocket.dto.gameplay.gameContent.definitions;
 
+import java.util.List;
 import com.tanks.server.websocket.gameplay.content.definitions.SpawnRegion;
 import com.tanks.server.websocket.gameplay.content.definitions.WorldDefinition;
 
 public record WorldDefinitionResponseDto(
-        String biome,
+        List<String> biomes,
         int width,
         int height,
         int tickRateHz,
@@ -15,11 +16,15 @@ public record WorldDefinitionResponseDto(
         SpawnRegionResponseDto playerASpawnRegion,
         SpawnRegionResponseDto playerBSpawnRegion,
         double minWind,
-        double maxWind) {
+        double maxWind,
+        int turnDurationSeconds,
+        int matchDurationSeconds,
+        double postImpactDelaySeconds,
+        LootCrateConfigResponseDto lootCrates) {
 
     public static WorldDefinitionResponseDto from(WorldDefinition value) {
         return new WorldDefinitionResponseDto(
-                value.biome() != null ? value.biome() : "forest",
+                value.biomes(),
                 value.width(),
                 value.height(),
                 value.tickRateHz(),
@@ -30,7 +35,11 @@ public record WorldDefinitionResponseDto(
                 region(value.playerASpawnRegion()),
                 region(value.playerBSpawnRegion()),
                 value.minWind(),
-                value.maxWind());
+                value.maxWind(),
+                value.turnDurationSeconds(),
+                value.matchDurationSeconds(),
+                value.postImpactDelaySeconds(),
+                LootCrateConfigResponseDto.from(value.lootCrates()));
     }
 
     private static SpawnRegionResponseDto region(SpawnRegion value) {

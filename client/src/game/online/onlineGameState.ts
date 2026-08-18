@@ -27,8 +27,8 @@ export function toGameState(
   confirmed: OnlineConfirmedState,
   renderState: OnlineGameStateSnapshotResponse,
   ctx: GameContext,
-  visualState?: ClientVisualState,
-  flightState?: { position: Vec2; velocity: Vec2 } | null,
+  visualState: ClientVisualState | null,
+  flightState: { position: Vec2; velocity: Vec2 } | null,
 ): GameState {
   return onlineSnapshotToGameState(
     renderState,
@@ -45,8 +45,8 @@ export function onlineSnapshotToGameState(
   localPlayerId: number | null,
   impactEvents: OnlineImpactProjectionEvent[],
   ctx: GameContext,
-  visualState?: ClientVisualState,
-  flightState?: { position: Vec2; velocity: Vec2 } | null,
+  visualState: ClientVisualState | null,
+  flightState: { position: Vec2; velocity: Vec2 } | null,
 ): GameState {
   const content = ctx.gameContent;
 
@@ -71,7 +71,7 @@ export function onlineSnapshotToGameState(
     projectileDefinitions: content.projectiles,
     tanks: snapshot.tanks.map((tank) => {
       const weaponAmmo =
-        tank.weaponAmmo ?? createInitialWeaponAmmo(tank.loadout);
+        tank.weaponAmmo ?? createInitialWeaponAmmo(tank.loadout, content.projectiles);
       const visual: VisualIdentity = {
         fill: tank.visual.fillStyle,
         stroke: tank.visual.strokeStyle,
@@ -88,10 +88,6 @@ export function onlineSnapshotToGameState(
         tankName: content.tanks[tank.tankDefinitionId]?.name ?? tank.tankDefinitionId,
         width: tank.width,
         height: tank.height,
-        visual,
-        loadout: tank.loadout,
-        selectedProjectileSlotId: tank.selectedProjectileSlotId,
-        weaponAmmo,
         maxHealth: tank.maxHealth,
         health: tank.health,
         facing: tank.facing,
@@ -105,138 +101,132 @@ export function onlineSnapshotToGameState(
         maxFuel: tank.maxFuel ?? tank.fuel,
         fuel: tank.fuel,
         alive: tank.alive,
-        position: {
-          x: tank.position.x,
-          y: tank.position.y,
-        },
+        position: tank.position,
+        selectedProjectileSlotId: tank.selectedProjectileSlotId,
+        weaponAmmo,
+        visual,
+        loadout: tank.loadout,
       };
     }),
-    projectiles:
-      visualState?.activeFlight && flightState
-        ? [
-            {
-              entityId: visualState.activeFlight.projectileEntityId,
-              ownerPlayerId: visualState.activeFlight.ownerPlayerId,
-              projectileDefinitionId:
-                visualState.activeFlight.projectileDefinitionId,
-              name:
-                content.projectiles[
-                  visualState.activeFlight.projectileDefinitionId
-                ].name,
-              power: DEFAULT_PROJECTILE_POWER,
+    projectiles: visualState?.activeFlight && flightState
+      ? [
+          {
+            entityId: -1,
+            ownerPlayerId: snapshot.match.activePlayerId,
+            projectileDefinitionId:
+              visualState.activeFlight.projectileDefinitionId,
+            name: content.projectiles[
+              visualState.activeFlight.projectileDefinitionId
+            ].name,
+            power: DEFAULT_PROJECTILE_POWER,
+            radius:
+              content.projectiles[
+                visualState.activeFlight.projectileDefinitionId
+              ].radius,
+            physics: {
               radius:
                 content.projectiles[
                   visualState.activeFlight.projectileDefinitionId
                 ].radius,
-              physics: {
-                radius:
-                  content.projectiles[
-                    visualState.activeFlight.projectileDefinitionId
-                  ].radius,
-                gravityScale:
-                  content.projectiles[
-                    visualState.activeFlight.projectileDefinitionId
-                  ].gravityScale,
-                drag:
-                  content.projectiles[
-                    visualState.activeFlight.projectileDefinitionId
-                  ].drag,
-                muzzleVelocityScale: 1,
-              },
-              terrainEffect:
+              gravityScale:
                 content.projectiles[
                   visualState.activeFlight.projectileDefinitionId
-                ].terrainEffectType === "DRILL"
-                  ? {
-                      type: "drill",
-                      radius:
-                        content.projectiles[
-                          visualState.activeFlight.projectileDefinitionId
-                        ].terrainRadius,
-                      depth:
-                        content.projectiles[
-                          visualState.activeFlight.projectileDefinitionId
-                        ].terrainDepth,
-                    }
-                  : {
-                      type: "crater",
-                      radius:
-                        content.projectiles[
-                          visualState.activeFlight.projectileDefinitionId
-                        ].terrainRadius,
-                    },
-              damageEffect:
-                content.projectiles[
-                  visualState.activeFlight.projectileDefinitionId
-                ].damageEffectType === "FOCUSED"
-                  ? {
-                      type: "focused",
-                      radius:
-                        content.projectiles[
-                          visualState.activeFlight.projectileDefinitionId
-                        ].damageRadius,
-                      damage:
-                        content.projectiles[
-                          visualState.activeFlight.projectileDefinitionId
-                        ].damage,
-                    }
-                  : {
-                      type: "radial",
-                      radius:
-                        content.projectiles[
-                          visualState.activeFlight.projectileDefinitionId
-                        ].damageRadius,
-                      damage:
-                        content.projectiles[
-                          visualState.activeFlight.projectileDefinitionId
-                        ].damage,
-                    },
-              position: flightState.position,
-              velocity: flightState.velocity,
+                ].gravityScale,
+              muzzleVelocityScale: 1,
             },
-          ]
-        : snapshot.projectiles.map((projectile) => {
-            const definition = content.projectiles[projectile.projectileDefinitionId];
-            return {
-              entityId: projectile.entityId,
-              ownerPlayerId: projectile.ownerPlayerId,
-              projectileDefinitionId: projectile.projectileDefinitionId,
-              name: definition.name,
-              power: DEFAULT_PROJECTILE_POWER,
+            terrainEffect:
+              content.projectiles[
+                visualState.activeFlight.projectileDefinitionId
+              ].terrainEffectType === "DRILL"
+                ? {
+                    type: "drill",
+                    radius:
+                      content.projectiles[
+                        visualState.activeFlight.projectileDefinitionId
+                      ].terrainRadius,
+                    depth:
+                      content.projectiles[
+                        visualState.activeFlight.projectileDefinitionId
+                      ].terrainDepth,
+                  }
+                : {
+                    type: "crater",
+                    radius:
+                      content.projectiles[
+                        visualState.activeFlight.projectileDefinitionId
+                      ].terrainRadius,
+                  },
+            damageEffect:
+              content.projectiles[
+                visualState.activeFlight.projectileDefinitionId
+              ].damageEffectType === "FOCUSED"
+                ? {
+                    type: "focused",
+                    radius:
+                      content.projectiles[
+                        visualState.activeFlight.projectileDefinitionId
+                      ].damageRadius,
+                    damage:
+                      content.projectiles[
+                        visualState.activeFlight.projectileDefinitionId
+                      ].damage,
+                  }
+                : {
+                    type: "radial",
+                    radius:
+                      content.projectiles[
+                        visualState.activeFlight.projectileDefinitionId
+                      ].damageRadius,
+                    damage:
+                      content.projectiles[
+                        visualState.activeFlight.projectileDefinitionId
+                      ].damage,
+                  },
+            position: flightState.position,
+            velocity: flightState.velocity,
+          },
+        ]
+      : snapshot.projectiles.map((projectile) => {
+          const definition = content.projectiles[projectile.projectileDefinitionId];
+          return {
+            entityId: projectile.entityId,
+            ownerPlayerId: projectile.ownerPlayerId,
+            projectileDefinitionId: projectile.projectileDefinitionId,
+            name: definition.name,
+            power: DEFAULT_PROJECTILE_POWER,
+            radius: definition.radius,
+            physics: {
               radius: definition.radius,
-              physics: {
-                radius: definition.radius,
-                gravityScale: definition.gravityScale,
-                drag: definition.drag,
-                muzzleVelocityScale: 1,
-              },
-              terrainEffect:
-                definition.terrainEffectType === "DRILL"
-                  ? {
-                      type: "drill",
-                      radius: definition.terrainRadius,
-                      depth: definition.terrainDepth,
-                    }
-                  : {
-                      type: "crater",
-                      radius: definition.terrainRadius,
-                    },
-              damageEffect:
-                definition.damageEffectType === "FOCUSED"
-                  ? {
-                      type: "focused",
-                      radius: definition.damageRadius,
-                      damage: definition.damage,
-                    }
-                  : {
-                      type: "radial",
-                      radius: definition.damageRadius,
-                      damage: definition.damage,
-                    },
-              position: { ...projectile.position },
-              velocity: { ...projectile.velocity },
-            };
-          }),
+              gravityScale: definition.gravityScale,
+              muzzleVelocityScale: 1,
+            },
+            terrainEffect:
+              definition.terrainEffectType === "DRILL"
+                ? {
+                    type: "drill",
+                    radius: definition.terrainRadius,
+                    depth: definition.terrainDepth,
+                  }
+                : {
+                    type: "crater",
+                    radius: definition.terrainRadius,
+                  },
+            damageEffect:
+              definition.damageEffectType === "FOCUSED"
+                ? {
+                    type: "focused",
+                    radius: definition.damageRadius,
+                    damage: definition.damage,
+                  }
+                : {
+                    type: "radial",
+                    radius: definition.damageRadius,
+                    damage: definition.damage,
+                  },
+            position: { ...projectile.position },
+            velocity: { ...projectile.velocity },
+          };
+        }),
     impactEvents: mapOnlineImpactEvents(impactEvents, ctx),
     lootCrates: mapOnlineLootCrates(snapshot),
     damageTrails: mapOnlineDamageTrails(snapshot),
@@ -338,7 +328,7 @@ function mapOnlineDamageTrails(
 function computeSlopeAngleFromSurface(
   surface: number[],
   x: number,
-  tankWidth: number = 32,
+  tankWidth: number,
 ): number {
   if (!surface || surface.length === 0) return 0;
   const halfWidth = Math.max(1, Math.floor(tankWidth / 2));

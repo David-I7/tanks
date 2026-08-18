@@ -1,24 +1,46 @@
 package com.tanks.server.websocket.gameplay;
 
+import com.tanks.server.entities.User;
+import com.tanks.server.repositories.GameResultRepository;
+import com.tanks.server.repositories.UserRepository;
+import com.tanks.server.websocket.dto.gameplay.OnlineVec2Dto;
 import com.tanks.server.websocket.dto.gameplay.diffResponse.OnlineDiffBatchResponseDto;
 import com.tanks.server.websocket.dto.gameplay.diffResponse.OnlineDiffResponseDto;
 import com.tanks.server.websocket.dto.gameplay.diffResponse.OnlineStateDiffResponseType;
+import com.tanks.server.websocket.dto.gameplay.diffResponse.enums.ResyncReason;
+import com.tanks.server.websocket.dto.gameplay.diffResponse.payloads.ProjectileResolution;
+import com.tanks.server.websocket.dto.gameplay.diffResponse.payloads.TerrainPatch;
+import com.tanks.server.websocket.dto.gameplay.playerIntent.OnlinePlayerIntentRequestDto;
+import com.tanks.server.websocket.dto.gameplay.playerIntent.OnlinePlayerIntentRequestType;
+import com.tanks.server.websocket.dto.gameplay.playerIntent.payloads.AimIntentRequestPayload;
+import com.tanks.server.websocket.dto.gameplay.playerIntent.payloads.FireIntentIntentRequestPayload;
 import com.tanks.server.websocket.entities.gameSession.GameSession;
+import com.tanks.server.websocket.entities.gameSession.GameSessionState;
 import com.tanks.server.websocket.events.OnlineGameplayEvent;
+import com.tanks.server.websocket.gameplay.content.GameContent;
 import com.tanks.server.websocket.gameplay.content.GameContentCatalog;
+import com.tanks.server.websocket.gameplay.content.definitions.LootCrateConfig;
+import com.tanks.server.websocket.gameplay.content.definitions.ProjectileDefinition;
+import com.tanks.server.websocket.gameplay.content.definitions.TankDefinition;
+import com.tanks.server.websocket.gameplay.content.definitions.ValidationRules;
+import com.tanks.server.websocket.gameplay.content.definitions.WorldDefinition;
 import com.tanks.server.websocket.gameplay.simulation.GameSimulation;
 import com.tanks.server.websocket.gameplay.simulation.GameStateResponseFactory;
 import com.tanks.server.websocket.gameplay.world.InitialWorldFactory;
+import com.tanks.server.websocket.gameplay.world.TankState;
+import com.tanks.server.websocket.gameplay.world.World;
 import com.tanks.server.websocket.repositories.GameSessionRepository;
 import com.tanks.server.websocket.repositories.LobbyRepository;
 import com.tanks.server.websocket.services.*;
-import com.tanks.server.repositories.GameResultRepository;
-import com.tanks.server.repositories.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.context.ApplicationEventPublisher;
 
+import java.time.OffsetDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -130,16 +152,17 @@ public class GameSessionServiceBatchTest {
         GameResultRepository gameResultRepository = mock(GameResultRepository.class);
         UserRepository userRepository = mock(UserRepository.class);
 
-        com.tanks.server.websocket.gameplay.content.definitions.TankDefinition tankDef =
-                new com.tanks.server.websocket.gameplay.content.definitions.TankDefinition(
-                        "vanguard-cyber", "Vanguard Cyber", 100, 240, 24, 1, 5, 24, 24, null, List.of("basicShell")
+        TankDefinition tankDef =
+                new TankDefinition(
+                        "vanguard-cyber", "Vanguard Cyber", 100, 240, 24, 1, 5, 24, 24, 28.0, -14.0, null, List.of("basicShell")
                 );
-        com.tanks.server.websocket.gameplay.content.definitions.WorldDefinition worldDef =
-                new com.tanks.server.websocket.gameplay.content.definitions.WorldDefinition(
-                        "forest", 2400, 768, 30, 260.0, 0.033, 10, 15, null, null, -50.0, 50.0
+        WorldDefinition worldDef =
+                new WorldDefinition(
+                        List.of("forest"), 2400, 768, 30, 260.0, 10, 15, null, null, -50.0, 50.0,
+                        30, 180, 0.55, new LootCrateConfig(25, 50, 1, 35.0, 150.0, List.of(120, 60, 30), 100.0, 3)
                 );
-        com.tanks.server.websocket.gameplay.content.GameContent content =
-                new com.tanks.server.websocket.gameplay.content.GameContent("v1.0", worldDef, java.util.Map.of("vanguard-cyber", tankDef), java.util.Map.of(), null);
+        GameContent content =
+                new GameContent("v1.0", worldDef, null, Map.of("vanguard-cyber", tankDef), Map.of(), null);
         when(contentCatalog.require("v1.0")).thenReturn(content);
 
         GameSessionService service = new GameSessionService(
@@ -158,12 +181,14 @@ public class GameSessionServiceBatchTest {
         );
 
         UUID sessionId = UUID.randomUUID();
-        com.tanks.server.websocket.gameplay.world.World world = new com.tanks.server.websocket.gameplay.world.World();
-        com.tanks.server.websocket.gameplay.world.TankState tank2 = com.tanks.server.websocket.gameplay.world.TankState.builder()
+        World world = new World();
+        TankState tank2 = TankState.builder()
                 .entityId(2L)
                 .playerId(2L)
                 .definitionId("vanguard-cyber")
-                .position(new com.tanks.server.websocket.dto.gameplay.OnlineVec2Dto(1800, 400))
+                .position(new OnlineVec2Dto(1800, 400))
+                .selectedProjectileSlotId("basicShell")
+                .weaponAmmo(new HashMap<>(Map.of("basicShell", -1)))
                 .fuel(10) // Depleted fuel
                 .health(100)
                 .build();
@@ -200,20 +225,21 @@ public class GameSessionServiceBatchTest {
         GameResultRepository gameResultRepository = mock(GameResultRepository.class);
         UserRepository userRepository = mock(UserRepository.class);
 
-        com.tanks.server.websocket.gameplay.content.definitions.TankDefinition tankDef =
-                new com.tanks.server.websocket.gameplay.content.definitions.TankDefinition(
-                        "vanguard-cyber", "Vanguard Cyber", 100, 240, 24, 1, 5, 24, 24, null, List.of("basicShell")
+        TankDefinition tankDef =
+                new TankDefinition(
+                        "vanguard-cyber", "Vanguard Cyber", 100, 240, 24, 1, 5, 24, 24, 28.0, -14.0, null, List.of("basicShell")
                 );
-        com.tanks.server.websocket.gameplay.content.definitions.WorldDefinition worldDef =
-                new com.tanks.server.websocket.gameplay.content.definitions.WorldDefinition(
-                        "forest", 2400, 768, 30, 260.0, 0.033, 10, 15, null, null, -50.0, 50.0
+        WorldDefinition worldDef =
+                new WorldDefinition(
+                        List.of("forest"), 2400, 768, 30, 260.0, 10, 15, null, null, -50.0, 50.0,
+                        30, 180, 0.55, new LootCrateConfig(25, 50, 1, 35.0, 150.0, List.of(120, 60, 30), 100.0, 3)
                 );
-        com.tanks.server.websocket.gameplay.content.definitions.ProjectileDefinition projDef =
-                new com.tanks.server.websocket.gameplay.content.definitions.ProjectileDefinition(
-                        "basicShell", "Basic Shell", "BS", 4, 1.0, 1.0, 0, null, null, null, null
+        ProjectileDefinition projDef =
+                new ProjectileDefinition(
+                        "basicShell", "Basic Shell", "BS", true, 4, 1.0, 1.0, null, null, null, null
                 );
-        com.tanks.server.websocket.gameplay.content.GameContent content =
-                new com.tanks.server.websocket.gameplay.content.GameContent("v1.0", worldDef, java.util.Map.of("vanguard-cyber", tankDef), java.util.Map.of("basicShell", projDef), null);
+        GameContent content =
+                new GameContent("v1.0", worldDef, null, Map.of("vanguard-cyber", tankDef), Map.of("basicShell", projDef), null);
         when(contentCatalog.require("v1.0")).thenReturn(content);
 
         GameSessionService service = new GameSessionService(
@@ -232,20 +258,24 @@ public class GameSessionServiceBatchTest {
         );
 
         UUID sessionId = UUID.randomUUID();
-        com.tanks.server.websocket.gameplay.world.World world = new com.tanks.server.websocket.gameplay.world.World();
-        com.tanks.server.websocket.gameplay.world.TankState tank1 = com.tanks.server.websocket.gameplay.world.TankState.builder()
+        World world = new World();
+        TankState tank1 = TankState.builder()
                 .entityId(1L)
                 .playerId(1L)
                 .definitionId("vanguard-cyber")
-                .position(new com.tanks.server.websocket.dto.gameplay.OnlineVec2Dto(200, 400))
+                .position(new OnlineVec2Dto(200, 400))
+                .selectedProjectileSlotId("basicShell")
+                .weaponAmmo(new HashMap<>(Map.of("basicShell", -1)))
                 .fuel(240)
                 .health(100)
                 .build();
-        com.tanks.server.websocket.gameplay.world.TankState tank2 = com.tanks.server.websocket.gameplay.world.TankState.builder()
+        TankState tank2 = TankState.builder()
                 .entityId(2L)
                 .playerId(2L)
                 .definitionId("vanguard-cyber")
-                .position(new com.tanks.server.websocket.dto.gameplay.OnlineVec2Dto(1800, 400))
+                .position(new OnlineVec2Dto(1800, 400))
+                .selectedProjectileSlotId("basicShell")
+                .weaponAmmo(new HashMap<>(Map.of("basicShell", -1)))
                 .fuel(240)
                 .health(100)
                 .build();
@@ -262,31 +292,31 @@ public class GameSessionServiceBatchTest {
                 .serverTick(100L)
                 .build();
 
-        var projectileResolution = com.tanks.server.websocket.dto.gameplay.diffResponse.payloads.ProjectileResolution.builder()
+        var projectileResolution = ProjectileResolution.builder()
                 .projectileEntityId(10L)
                 .ownerPlayerId(1L)
                 .projectileDefinitionId("basicShell")
-                .launch(new com.tanks.server.websocket.dto.gameplay.OnlineVec2Dto(200, 400))
+                .launch(new OnlineVec2Dto(200, 400))
                 .trajectory(List.of(
-                        new com.tanks.server.websocket.dto.gameplay.OnlineVec2Dto(200, 400),
-                        new com.tanks.server.websocket.dto.gameplay.OnlineVec2Dto(400, 300),
-                        new com.tanks.server.websocket.dto.gameplay.OnlineVec2Dto(600, 400)
+                        new OnlineVec2Dto(200, 400),
+                        new OnlineVec2Dto(400, 300),
+                        new OnlineVec2Dto(600, 400)
                 ))
-                .impact(new com.tanks.server.websocket.dto.gameplay.OnlineVec2Dto(600, 400))
+                .impact(new OnlineVec2Dto(600, 400))
                 .damagedTanks(List.of())
                 .subMunitions(List.of())
                 .build();
 
         when(gameSimulation.fire(any(), any(), any(), any(), anyLong(), anyLong(), any())).thenReturn(projectileResolution);
-        when(gameSimulation.deformTerrain(any(), any(), any(), any(), any())).thenReturn(new com.tanks.server.websocket.dto.gameplay.diffResponse.payloads.TerrainPatch(List.of()));
+        when(gameSimulation.deformTerrain(any(), any(), any(), any(), any())).thenReturn(new TerrainPatch(List.of()));
         when(gameSimulation.settleUnsupportedTanks(any(), any(), any(), anyLong())).thenReturn(List.of());
 
-        var firePayload = new com.tanks.server.websocket.dto.gameplay.playerIntent.payloads.FireIntentIntentRequestPayload(-Math.PI / 4, 300);
-        var intent = com.tanks.server.websocket.dto.gameplay.playerIntent.OnlinePlayerIntentRequestDto.<com.tanks.server.websocket.dto.gameplay.playerIntent.payloads.FireIntentIntentRequestPayload>builder()
+        var firePayload = new FireIntentIntentRequestPayload(-Math.PI / 4, 300);
+        var intent = OnlinePlayerIntentRequestDto.<FireIntentIntentRequestPayload>builder()
                 .gameSessionId(sessionId.toString())
                 .playerId(1L)
                 .intentId("intent-fire-1")
-                .type(com.tanks.server.websocket.dto.gameplay.playerIntent.OnlinePlayerIntentRequestType.FIRE)
+                .type(OnlinePlayerIntentRequestType.FIRE)
                 .lastConfirmedDiffSequence(5L)
                 .lastConfirmedDiffServerTick(100L)
                 .payload(firePayload)
@@ -306,5 +336,267 @@ public class GameSessionServiceBatchTest {
         assertNotNull(batch);
         assertEquals(2, batch.getDiffs().size());
         assertTrue(batch.getDiffs().stream().noneMatch(d -> d.type() == OnlineStateDiffResponseType.TURN_TRANSITION));
+    }
+
+    @Test
+    public void testAcceptPlayerIntentProcessesAndSaves() {
+        ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
+        GameSessionRepository gameRepository = mock(GameSessionRepository.class);
+        UserSessionService userSessionService = mock(UserSessionService.class);
+        LobbyRepository lobbyRepository = mock(LobbyRepository.class);
+        QuickMatchService quickMatchService = mock(QuickMatchService.class);
+        ClaimService claimService = mock(ClaimService.class);
+        GameContentCatalog contentCatalog = mock(GameContentCatalog.class);
+        InitialWorldFactory initialWorldFactory = mock(InitialWorldFactory.class);
+        GameSimulation gameSimulation = mock(GameSimulation.class);
+        GameStateResponseFactory initialStateFactory = mock(GameStateResponseFactory.class);
+        GameResultRepository gameResultRepository = mock(GameResultRepository.class);
+        UserRepository userRepository = mock(UserRepository.class);
+
+        TankDefinition tankDef =
+                new TankDefinition(
+                        "vanguard-cyber", "Vanguard Cyber", 100, 240, 24, 1, 5, 24, 24, 28.0, -14.0, null, List.of("basicShell")
+                );
+        WorldDefinition worldDef =
+                new WorldDefinition(
+                        List.of("forest"), 2400, 768, 30, 260.0, 10, 15, null, null, -50.0, 50.0,
+                        30, 180, 0.55, new LootCrateConfig(25, 50, 1, 35.0, 150.0, List.of(120, 60, 30), 100.0, 3)
+                );
+        ValidationRules validation =
+                new ValidationRules(10.0, 1000.0, -Math.PI, 0.0);
+        GameContent content =
+                new GameContent("v1.0", worldDef, null, Map.of("vanguard-cyber", tankDef), Map.of(), validation);
+        when(contentCatalog.require("v1.0")).thenReturn(content);
+
+        GameSessionService service = new GameSessionService(
+                gameRepository,
+                userSessionService,
+                lobbyRepository,
+                quickMatchService,
+                eventPublisher,
+                claimService,
+                contentCatalog,
+                initialWorldFactory,
+                gameSimulation,
+                initialStateFactory,
+                gameResultRepository,
+                userRepository
+        );
+
+        UUID sessionId = UUID.randomUUID();
+        World world = new World();
+        TankState tank1 = TankState.builder()
+                .entityId(1L)
+                .playerId(1L)
+                .definitionId("vanguard-cyber")
+                .position(new OnlineVec2Dto(200, 400))
+                .selectedProjectileSlotId("basicShell")
+                .weaponAmmo(new HashMap<>(Map.of("basicShell", -1)))
+                .fuel(240)
+                .health(100)
+                .build();
+        world.tanks().put(1L, tank1);
+        world.match().activePlayerId(1L);
+        world.match().turnNumber(1);
+
+        GameSession gameSession = GameSession.builder()
+                .id(sessionId)
+                .playerA("player1")
+                .playerB("player2")
+                .gameContentVersion("v1.0")
+                .world(world)
+                .state(GameSessionState.STARTED)
+                .nextDiffSequence(2L)
+                .turnStartDiffSequence(1L)
+                .serverTick(100L)
+                .build();
+
+        when(gameRepository.findById(sessionId)).thenReturn(Optional.of(gameSession));
+
+        var aimPayload = new AimIntentRequestPayload(-Math.PI / 4, 300);
+        var intent = OnlinePlayerIntentRequestDto.<AimIntentRequestPayload>builder()
+                .gameSessionId(sessionId.toString())
+                .playerId(1L)
+                .intentId("intent-aim-1")
+                .type(OnlinePlayerIntentRequestType.AIM)
+                .lastConfirmedDiffSequence(1L)
+                .lastConfirmedDiffServerTick(100L)
+                .payload(aimPayload)
+                .build();
+
+        boolean processed = service.acceptPlayerIntent(sessionId, intent);
+
+        assertTrue(processed);
+        verify(gameRepository).save(gameSession);
+        assertEquals(-Math.PI / 4, tank1.aimAngle());
+        assertEquals(300.0, tank1.power());
+    }
+
+    @Test
+    public void testForfeitGameEndsSessionAndAwardsWin() {
+        ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
+        GameSessionRepository gameRepository = mock(GameSessionRepository.class);
+        UserSessionService userSessionService = mock(UserSessionService.class);
+        LobbyRepository lobbyRepository = mock(LobbyRepository.class);
+        QuickMatchService quickMatchService = mock(QuickMatchService.class);
+        ClaimService claimService = mock(ClaimService.class);
+        GameContentCatalog contentCatalog = mock(GameContentCatalog.class);
+        InitialWorldFactory initialWorldFactory = mock(InitialWorldFactory.class);
+        GameSimulation gameSimulation = mock(GameSimulation.class);
+        GameStateResponseFactory initialStateFactory = mock(GameStateResponseFactory.class);
+        GameResultRepository gameResultRepository = mock(GameResultRepository.class);
+        UserRepository userRepository = mock(UserRepository.class);
+
+        User userA = User.builder().id(1L).username("player1").build();
+        User userB = User.builder().id(2L).username("player2").build();
+        when(userRepository.findByUsername("player1")).thenReturn(Optional.of(userA));
+        when(userRepository.findByUsername("player2")).thenReturn(Optional.of(userB));
+
+        GameSessionService service = new GameSessionService(
+                gameRepository,
+                userSessionService,
+                lobbyRepository,
+                quickMatchService,
+                eventPublisher,
+                claimService,
+                contentCatalog,
+                initialWorldFactory,
+                gameSimulation,
+                initialStateFactory,
+                gameResultRepository,
+                userRepository
+        );
+
+        UUID sessionId = UUID.randomUUID();
+        World world = new World();
+        GameSession gameSession = GameSession.builder()
+                .id(sessionId)
+                .playerA("player1")
+                .playerB("player2")
+                .gameContentVersion("v1.0")
+                .world(world)
+                .state(GameSessionState.STARTED)
+                .nextDiffSequence(2L)
+                .serverTick(100L)
+                .createdAt(OffsetDateTime.now())
+                .startedAt(OffsetDateTime.now())
+                .build();
+
+        when(gameRepository.findById(sessionId)).thenReturn(Optional.of(gameSession));
+
+        service.forfeitGame(sessionId, "player1");
+
+        assertEquals(GameSessionState.ENDED, gameSession.getState());
+        assertEquals(2L, gameSession.getWorld().match().winnerPlayerId());
+        verify(gameResultRepository).save(any());
+        verify(eventPublisher).publishEvent(any(OnlineGameplayEvent.class));
+    }
+
+    @Test
+    public void testSendResyncStateToPlayerPublishesDiff() {
+        ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
+        GameSessionRepository gameRepository = mock(GameSessionRepository.class);
+        UserSessionService userSessionService = mock(UserSessionService.class);
+        LobbyRepository lobbyRepository = mock(LobbyRepository.class);
+        QuickMatchService quickMatchService = mock(QuickMatchService.class);
+        ClaimService claimService = mock(ClaimService.class);
+        GameContentCatalog contentCatalog = mock(GameContentCatalog.class);
+        InitialWorldFactory initialWorldFactory = mock(InitialWorldFactory.class);
+        GameSimulation gameSimulation = mock(GameSimulation.class);
+        GameStateResponseFactory initialStateFactory = mock(GameStateResponseFactory.class);
+        GameResultRepository gameResultRepository = mock(GameResultRepository.class);
+        UserRepository userRepository = mock(UserRepository.class);
+
+        GameSessionService service = new GameSessionService(
+                gameRepository,
+                userSessionService,
+                lobbyRepository,
+                quickMatchService,
+                eventPublisher,
+                claimService,
+                contentCatalog,
+                initialWorldFactory,
+                gameSimulation,
+                initialStateFactory,
+                gameResultRepository,
+                userRepository
+        );
+
+        UUID sessionId = UUID.randomUUID();
+        GameSession gameSession = GameSession.builder()
+                .id(sessionId)
+                .playerA("player1")
+                .playerB("player2")
+                .state(GameSessionState.STARTED)
+                .build();
+
+        when(gameRepository.findById(sessionId)).thenReturn(Optional.of(gameSession));
+        OnlineDiffResponseDto resyncDiff = new OnlineDiffResponseDto(sessionId.toString(), 1L, 0L, OnlineStateDiffResponseType.RESYNC_STATE, null, null);
+        when(initialStateFactory.createResyncForPlayer(eq(gameSession), eq(ResyncReason.MISSED_DIFF), eq(1L)))
+                .thenReturn(resyncDiff);
+
+        service.sendResyncStateToPlayer(sessionId, "player1", ResyncReason.MISSED_DIFF);
+
+        ArgumentCaptor<OnlineGameplayEvent> captor = ArgumentCaptor.forClass(OnlineGameplayEvent.class);
+        verify(eventPublisher).publishEvent(captor.capture());
+        assertEquals("player1", captor.getValue().getUsername());
+        assertEquals("/queue/replies", captor.getValue().getDestination());
+        assertEquals(resyncDiff, captor.getValue().getPayload());
+    }
+
+    @Test
+    public void testFinalizeMatchTimeExpiredDraw() {
+        ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
+        GameSessionRepository gameRepository = mock(GameSessionRepository.class);
+        UserSessionService userSessionService = mock(UserSessionService.class);
+        LobbyRepository lobbyRepository = mock(LobbyRepository.class);
+        QuickMatchService quickMatchService = mock(QuickMatchService.class);
+        ClaimService claimService = mock(ClaimService.class);
+        GameContentCatalog contentCatalog = mock(GameContentCatalog.class);
+        InitialWorldFactory initialWorldFactory = mock(InitialWorldFactory.class);
+        GameSimulation gameSimulation = mock(GameSimulation.class);
+        GameStateResponseFactory initialStateFactory = mock(GameStateResponseFactory.class);
+        GameResultRepository gameResultRepository = mock(GameResultRepository.class);
+        UserRepository userRepository = mock(UserRepository.class);
+
+        User userA = User.builder().id(1L).username("player1").build();
+        User userB = User.builder().id(2L).username("player2").build();
+        when(userRepository.findByUsername("player1")).thenReturn(Optional.of(userA));
+        when(userRepository.findByUsername("player2")).thenReturn(Optional.of(userB));
+
+        GameSessionService service = new GameSessionService(
+                gameRepository,
+                userSessionService,
+                lobbyRepository,
+                quickMatchService,
+                eventPublisher,
+                claimService,
+                contentCatalog,
+                initialWorldFactory,
+                gameSimulation,
+                initialStateFactory,
+                gameResultRepository,
+                userRepository
+        );
+
+        UUID sessionId = UUID.randomUUID();
+        World world = new World();
+        GameSession gameSession = GameSession.builder()
+                .id(sessionId)
+                .playerA("player1")
+                .playerB("player2")
+                .world(world)
+                .nextDiffSequence(2L)
+                .serverTick(100L)
+                .createdAt(OffsetDateTime.now())
+                .startedAt(OffsetDateTime.now())
+                .build();
+
+        service.finalizeMatchTimeExpired(gameSession, null);
+
+        assertEquals(GameSessionState.ENDED, gameSession.getState());
+        assertNull(gameSession.getWorld().match().winnerPlayerId());
+        verify(gameResultRepository).save(any());
+        verify(eventPublisher).publishEvent(any(OnlineGameplayEvent.class));
     }
 }

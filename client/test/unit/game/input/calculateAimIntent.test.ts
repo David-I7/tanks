@@ -64,6 +64,7 @@ describe("calculateAimIntent", () => {
       gameViewport,
       cameraX: 0,
       gameState: mockGameState as GameState,
+      activeTank: mockGameState.tanks![0] as GameState["tanks"][number],
     });
 
     expect(targetRight).toBeDefined();
@@ -77,6 +78,7 @@ describe("calculateAimIntent", () => {
       gameViewport,
       cameraX: 0,
       gameState: mockGameState as GameState,
+      activeTank: mockGameState.tanks![0] as GameState["tanks"][number],
     });
 
     expect(targetUpRight).toBeDefined();
@@ -90,6 +92,7 @@ describe("calculateAimIntent", () => {
       gameViewport,
       cameraX: 0,
       gameState: mockGameState as GameState,
+      activeTank: mockGameState.tanks![0] as GameState["tanks"][number],
     });
 
     expect(targetUp).toBeDefined();
@@ -107,6 +110,7 @@ describe("calculateAimIntent", () => {
       gameViewport,
       cameraX: 0,
       gameState: mockGameState as GameState,
+      activeTank: mockGameState.tanks![0] as GameState["tanks"][number],
     });
 
     expect(targetDownRight).toBeDefined();
@@ -125,6 +129,7 @@ describe("calculateAimIntent", () => {
       gameViewport,
       cameraX: 0,
       gameState: mockGameState as GameState,
+      activeTank: mockGameState.tanks![0] as GameState["tanks"][number],
     });
     expect(minIntent?.power).toBe(120);
 
@@ -136,6 +141,7 @@ describe("calculateAimIntent", () => {
       gameViewport,
       cameraX: 0,
       gameState: mockGameState as GameState,
+      activeTank: mockGameState.tanks![0] as GameState["tanks"][number],
     });
     expect(maxIntent?.power).toBe(680);
   });

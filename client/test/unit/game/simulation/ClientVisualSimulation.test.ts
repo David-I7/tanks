@@ -21,22 +21,22 @@ describe("ClientVisualSimulation", () => {
     });
 
     it("should unlock camera and adjust offset when panCamera is called", () => {
-      simulation.panCamera(100, 2400);
+      simulation.panCamera(100);
       const state = simulation.getState();
       expect(state.isCameraLocked).toBe(false);
       expect(state.cameraX).toBe(100);
     });
 
     it("should clamp camera position within terrain bounds during panning", () => {
-      simulation.panCamera(-50, 2400);
+      simulation.panCamera(-50);
       expect(simulation.getState().cameraX).toBe(0);
 
-      simulation.panCamera(3000, 2400);
+      simulation.panCamera(3000);
       expect(simulation.getState().cameraX).toBe(2400);
     });
 
     it("should relock camera when relockCamera is called", () => {
-      simulation.panCamera(100, 2400);
+      simulation.panCamera(100);
       expect(simulation.getState().isCameraLocked).toBe(false);
 
       simulation.relockCamera();
@@ -45,7 +45,7 @@ describe("ClientVisualSimulation", () => {
 
     it("should smoothly interpolate camera position towards focus target when locked", () => {
       const targetFocusX = 1000;
-      simulation.updateCamera(0.1, targetFocusX, 2400);
+      simulation.updateCamera(0.1, targetFocusX);
       const state = simulation.getState();
       expect(state.cameraX).toBeGreaterThan(0);
       expect(state.cameraX).toBeLessThanOrEqual(1000);

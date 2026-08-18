@@ -14,11 +14,13 @@ public record TankDefinition(
         int climbCapability,
         int width,
         int height,
+        double barrelLength,
+        double turretYOffset,
         TankVisual visual,
         List<String> loadout) {
 
     public TankDefinition {
-        loadout = List.copyOf(loadout);
+        loadout = loadout != null ? List.copyOf(loadout) : List.of();
     }
 
     public double collisionRadius() {
@@ -34,10 +36,10 @@ public record TankDefinition(
     }
 
     public double muzzleForwardOffset() {
-        return width / 2.0;
+        return barrelLength;
     }
 
     public double muzzleVerticalOffset() {
-        return height / 2.0;
+        return turretYOffset;
     }
 }

@@ -109,36 +109,29 @@ function GameView({ gameSessionId }: { gameSessionId: string }) {
       : null;
 
   return (
-    <main className="relative z-10 flex min-h-screen flex-col bg-background p-4 text-text-body-high">
-      <header className="mb-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <IconButton
-            onClick={() => navigate("/")}
-            icon={<ArrowLeft size={16} />}
-          />
-          <h1 className="font-heading text-xl font-bold tracking-wide text-primary">
-            Online Game
-          </h1>
-        </div>
-        <div className="text-sm font-medium text-text-body-muted">
-          {sessionStatus === "in_game" || sessionStatus === "game_over"
-            ? "Online Mode"
-            : "Connecting"}
-        </div>
-      </header>
+    <main className="fixed inset-0 w-screen h-screen overflow-hidden bg-background text-text-body-high">
+      <div className="absolute top-3 left-3 z-30 flex items-center gap-2">
+        <IconButton
+          onClick={() => navigate("/")}
+          icon={<ArrowLeft size={16} />}
+        />
+        <span className="font-heading text-xs font-bold tracking-wider uppercase text-text-body-high bg-background/80 px-2.5 py-1 rounded backdrop-blur-md shadow border border-border-low">
+          Online Match
+        </span>
+      </div>
 
       {opponentDisconnected && sessionStatus === "in_game" && (
-        <div className="mb-3 rounded bg-amber-500/10 border border-amber-500/30 px-4 py-2 text-center text-sm font-semibold text-amber-400 animate-pulse">
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-30 rounded bg-amber-500/20 backdrop-blur-md border border-amber-500/40 px-4 py-1.5 text-center text-xs font-semibold text-amber-300 animate-pulse shadow-md">
           Opponent disconnected! Waiting for them to reconnect (Match clock
           continues running...)
         </div>
       )}
 
-      <div className="relative flex min-h-[560px] flex-1">
+      <div className="relative w-full h-full overflow-hidden">
         {(sessionStatus === "connecting_to_game" ||
           sessionStatus === "reconnecting_to_game" ||
           sessionStatus === "starting_game") && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center rounded bg-background/70 gap-3">
+          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-background/80 gap-3 backdrop-blur-sm">
             {sessionStatus === "connecting_to_game" && (
               <p className="text-lg font-medium text-text-body-muted">
                 Connecting to game...
@@ -168,7 +161,7 @@ function GameView({ gameSessionId }: { gameSessionId: string }) {
 
         <canvas
           ref={canvasRef}
-          className="min-h-[560px] min-w-[320px] flex-1 rounded border border-border-main bg-background-high shadow-lg"
+          className="w-full h-full block bg-black"
         />
       </div>
     </main>

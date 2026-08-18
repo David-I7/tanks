@@ -102,8 +102,7 @@ describe("onlineConfirmedState & onlineGameState", () => {
       payload: { expectedNextDiffSequence: 2, localPlayerId: 1, state: snapshot },
     };
     const confirmed = initializeOnlineConfirmedState(initDiff);
-
-    const gameState = toGameState(confirmed, snapshot, ctx);
+    const gameState = toGameState(confirmed, snapshot, ctx, null, null);
     expect(gameState.tanks[0]!.bodyAngle).not.toBe(0);
     expect(gameState.match.cameraX).toBe(0);
     expect(gameState.terrain.width).toBe(2400);

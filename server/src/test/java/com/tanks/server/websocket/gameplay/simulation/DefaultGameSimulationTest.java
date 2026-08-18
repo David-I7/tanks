@@ -6,38 +6,55 @@ import static org.junit.jupiter.api.Assertions.*;
 import com.tanks.server.websocket.dto.gameplay.OnlineVec2Dto;
 import com.tanks.server.websocket.dto.gameplay.playerIntent.payloads.FireIntentIntentRequestPayload;
 import com.tanks.server.websocket.gameplay.content.GameContent;
+import com.tanks.server.websocket.gameplay.content.damage.Focused;
+import com.tanks.server.websocket.gameplay.content.definitions.LootCrateConfig;
 import com.tanks.server.websocket.gameplay.content.definitions.ProjectileDefinition;
 import com.tanks.server.websocket.gameplay.content.definitions.TankDefinition;
 import com.tanks.server.websocket.gameplay.content.definitions.WorldDefinition;
+import com.tanks.server.websocket.gameplay.content.terrain.Crater;
+import com.tanks.server.websocket.gameplay.world.LootCrateState;
 import com.tanks.server.websocket.gameplay.world.TankState;
 import com.tanks.server.websocket.gameplay.world.TerrainModel;
 import com.tanks.server.websocket.gameplay.world.World;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 class DefaultGameSimulationTest {
+
+    private static LootCrateConfig defaultCrates() {
+        return new LootCrateConfig(25, 50, 1, 35.0, 150.0, List.of(120, 60, 30), 100.0, 3);
+    }
+
+    private static WorldDefinition defaultWorld() {
+        return new WorldDefinition(
+                List.of("forest"), 2400, 768, 30, 0.0, 10, 15, null, null, 0.0, 0.0,
+                30, 180, 0.55, defaultCrates()
+        );
+    }
 
     @Test
     void fireCalculatesVelocityUsingStandardRadiansWithoutFacingMultiplication() {
         DefaultGameSimulation simulation = new DefaultGameSimulation();
 
         TankDefinition tankDef = new TankDefinition(
-                "cyber", "Cyber", 100, 200, 8, 1, 5, 32, 16, null, List.of("basicShell")
+                "cyber", "Cyber", 100, 200, 8, 1, 5, 32, 16, 28.0, -14.0, null, List.of("basicShell")
         );
 
         ProjectileDefinition projDef = new ProjectileDefinition(
-                "basicShell", "Basic Shell", "BS", 4, 600.0, 1.0, 0.0, null, null, null, null
+                "basicShell", "Basic Shell", "BS", true, 4, 600.0, 1.0,
+                new Crater(30.0),
+                new Focused(30.0, 50.0),
+                null, null
         );
 
-        WorldDefinition rules = new WorldDefinition(
-                "forest", 2400, 768, 30, 0.0, 0.033, 10, 15, null, null, 0.0, 0.0
-        );
+        WorldDefinition rules = defaultWorld();
 
         GameContent content = new GameContent(
-                "v1.0", rules, Map.of("cyber", tankDef), Map.of("basicShell", projDef), null
+                "v1.0", rules, null, Map.of("cyber", tankDef), Map.of("basicShell", projDef), null
         );
 
         List<Integer> surface = new ArrayList<>(Collections.nCopies(2400, 600));
@@ -54,6 +71,7 @@ class DefaultGameSimulationTest {
                 .selectedProjectileSlotId("basicShell")
                 .health(100)
                 .fuel(200)
+                .weaponAmmo(Map.of("basicShell", -1))
                 .build();
 
         World worldRight = new World();
@@ -71,6 +89,7 @@ class DefaultGameSimulationTest {
                 .selectedProjectileSlotId("basicShell")
                 .health(100)
                 .fuel(200)
+                .weaponAmmo(Map.of("basicShell", -1))
                 .build();
 
         World worldLeft = new World();
@@ -95,25 +114,26 @@ class DefaultGameSimulationTest {
         DefaultGameSimulation simulation = new DefaultGameSimulation();
 
         TankDefinition tankDef = new TankDefinition(
-                "cyber", "Cyber", 100, 200, 8, 1, 5, 24, 24, null, List.of("basicShell", "cluster")
+                "cyber", "Cyber", 100, 200, 8, 1, 5, 24, 24, 28.0, -14.0, null, List.of("basicShell", "cluster")
         );
 
         ProjectileDefinition projDef = new ProjectileDefinition(
-                "cluster", "Cluster Bomb", "CB", 4, 600.0, 1.0, 0.0, null, null, null, null
+                "cluster", "Cluster Bomb", "CB", false, 4, 600.0, 1.0,
+                new Crater(30.0),
+                new Focused(30.0, 50.0),
+                null, null
         );
 
-        WorldDefinition rules = new WorldDefinition(
-                "forest", 2400, 768, 30, 0.0, 0.033, 10, 15, null, null, 0.0, 0.0
-        );
+        WorldDefinition rules = defaultWorld();
 
         GameContent content = new GameContent(
-                "v1.0", rules, Map.of("cyber", tankDef), Map.of("cluster", projDef), null
+                "v1.0", rules, null, Map.of("cyber", tankDef), Map.of("cluster", projDef), null
         );
 
         List<Integer> surface = new ArrayList<>(Collections.nCopies(2400, 600));
         TerrainModel terrain = new TerrainModel(rules, surface);
 
-        java.util.Map<String, Integer> ammo = new java.util.HashMap<>();
+        Map<String, Integer> ammo = new HashMap<>();
         ammo.put("basicShell", -1);
         ammo.put("cluster", 1);
 
@@ -146,18 +166,16 @@ class DefaultGameSimulationTest {
     @Test
     void checkLootCratePickupRefillsAmmo() {
         TankDefinition tankDef = new TankDefinition(
-                "cyber", "Cyber", 100, 200, 8, 1, 5, 24, 24, null, List.of("basicShell", "cluster")
+                "cyber", "Cyber", 100, 200, 8, 1, 5, 24, 24, 28.0, -14.0, null, List.of("basicShell", "cluster")
         );
 
-        WorldDefinition rules = new WorldDefinition(
-                "forest", 2400, 768, 30, 0.0, 0.033, 10, 15, null, null, 0.0, 0.0
-        );
+        WorldDefinition rules = defaultWorld();
 
         GameContent content = new GameContent(
-                "v1.0", rules, Map.of("cyber", tankDef), Map.of(), null
+                "v1.0", rules, null, Map.of("cyber", tankDef), Map.of(), null
         );
 
-        java.util.Map<String, Integer> ammo = new java.util.HashMap<>();
+        Map<String, Integer> ammo = new HashMap<>();
         ammo.put("basicShell", -1);
         ammo.put("cluster", 0);
 
@@ -166,6 +184,7 @@ class DefaultGameSimulationTest {
                 .playerId(1L)
                 .definitionId("cyber")
                 .position(new OnlineVec2Dto(500, 400))
+                .selectedProjectileSlotId("basicShell")
                 .weaponAmmo(ammo)
                 .health(100)
                 .fuel(200)
@@ -173,7 +192,7 @@ class DefaultGameSimulationTest {
 
         World world = new World();
         world.tanks().put(1L, tank);
-        var crate = new com.tanks.server.websocket.gameplay.world.LootCrateState(
+        var crate = new LootCrateState(
                 "crate-1", "ammo", 505.0, 400.0, 400.0, false, false, 1
         );
         world.lootCrates().add(crate);
@@ -183,5 +202,94 @@ class DefaultGameSimulationTest {
         assertEquals(1, tank.weaponAmmo().get("cluster"));
         assertTrue(crate.collected());
         assertTrue(world.lootCrates().isEmpty());
+    }
+
+    @Test
+    void fireThrowsWhenSelectedProjectileSlotIsNotInLoadout() {
+        DefaultGameSimulation simulation = new DefaultGameSimulation();
+
+        TankDefinition tankDef = new TankDefinition(
+                "cyber", "Cyber", 100, 200, 8, 1, 5, 24, 24, 28.0, -14.0, null, List.of("basicShell")
+        );
+        WorldDefinition rules = defaultWorld();
+        GameContent content = new GameContent(
+                "v1.0", rules, null, Map.of("cyber", tankDef), Map.of(), null
+        );
+
+        List<Integer> surface = new ArrayList<>(Collections.nCopies(2400, 600));
+        TerrainModel terrain = new TerrainModel(rules, surface);
+
+        TankState tank = TankState.builder()
+                .entityId(1L)
+                .playerId(1L)
+                .definitionId("cyber")
+                .position(new OnlineVec2Dto(500, 400))
+                .selectedProjectileSlotId("nonExistentSlot")
+                .weaponAmmo(Map.of("basicShell", -1))
+                .build();
+
+        World world = new World();
+        world.tanks().put(1L, tank);
+
+        FireIntentIntentRequestPayload fireIntent = new FireIntentIntentRequestPayload(-Math.PI / 4, 1.0);
+        assertThrows(IllegalStateException.class, () ->
+                simulation.fire(content, world, terrain, "intent-invalid", 100L, 1L, fireIntent));
+    }
+
+    @Test
+    void fireCalculatesDamageFromDamageEffectWithoutFallback() {
+        DefaultGameSimulation simulation = new DefaultGameSimulation();
+
+        TankDefinition tankDef = new TankDefinition(
+                "cyber", "Cyber", 100, 200, 8, 1, 5, 24, 24, 28.0, -14.0, null, List.of("heavyShell")
+        );
+        ProjectileDefinition projDef = new ProjectileDefinition(
+                "heavyShell", "Heavy Shell", "HS", false, 4, 1.0, 1.0,
+                new Crater(30.0),
+                new Focused(30.0, 75.0),
+                null, null
+        );
+        WorldDefinition rules = defaultWorld();
+        GameContent content = new GameContent(
+                "v1.0", rules, null, Map.of("cyber", tankDef), Map.of("heavyShell", projDef), null
+        );
+
+        List<Integer> surface = new ArrayList<>(Collections.nCopies(2400, 600));
+        TerrainModel terrain = new TerrainModel(rules, surface);
+
+        TankState shooter = TankState.builder()
+                .entityId(1L)
+                .playerId(1L)
+                .definitionId("cyber")
+                .position(new OnlineVec2Dto(500, 400))
+                .selectedProjectileSlotId("heavyShell")
+                .health(100)
+                .fuel(200)
+                .weaponAmmo(Map.of("heavyShell", -1))
+                .build();
+
+        TankState target = TankState.builder()
+                .entityId(2L)
+                .playerId(2L)
+                .definitionId("cyber")
+                .position(new OnlineVec2Dto(540, 386))
+                .selectedProjectileSlotId("heavyShell")
+                .health(100)
+                .fuel(200)
+                .weaponAmmo(Map.of("heavyShell", -1))
+                .build();
+
+        World world = new World();
+        world.match().activePlayerId(1L);
+        world.tanks().put(1L, shooter);
+        world.tanks().put(2L, target);
+
+        // Aim directly at target (angle 0 rad, power 360.0)
+        FireIntentIntentRequestPayload fireIntent = new FireIntentIntentRequestPayload(0.0, 360.0);
+        var res = simulation.fire(content, world, terrain, "intent-focused", 100L, 1L, fireIntent);
+
+        assertFalse(res.damagedTanks().isEmpty());
+        assertEquals(75, res.damagedTanks().getFirst().damageDealt());
+        assertEquals(25, target.health());
     }
 }

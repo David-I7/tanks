@@ -3,6 +3,8 @@ package com.tanks.server.websocket.gameplay.simulation;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Random;
+import java.util.UUID;
 import org.springframework.stereotype.Service;
 import com.tanks.server.websocket.dto.gameplay.OnlineVec2Dto;
 import com.tanks.server.websocket.dto.gameplay.diffResponse.payloads.MovementSegment;
@@ -20,6 +22,8 @@ import com.tanks.server.websocket.gameplay.content.damage.Radial;
 import com.tanks.server.websocket.gameplay.content.definitions.ProjectileDefinition;
 import com.tanks.server.websocket.gameplay.content.definitions.TankDefinition;
 import com.tanks.server.websocket.gameplay.validation.MovementPathValidator;
+import com.tanks.server.websocket.gameplay.world.DamageTrailState;
+import com.tanks.server.websocket.gameplay.world.LootCrateState;
 import com.tanks.server.websocket.gameplay.world.TankState;
 import com.tanks.server.websocket.gameplay.world.TerrainModel;
 import com.tanks.server.websocket.gameplay.world.World;
@@ -27,8 +31,6 @@ import com.tanks.server.websocket.gameplay.world.World;
 import com.tanks.server.websocket.dto.gameplay.diffResponse.SubMunitionTrajectoryDto;
 import com.tanks.server.websocket.gameplay.content.definitions.DamageTrailConfig;
 import com.tanks.server.websocket.gameplay.content.definitions.SubMunitionConfig;
-import com.tanks.server.websocket.gameplay.world.DamageTrailState;
-import java.util.UUID;
 
 @Service
 public class DefaultGameSimulation implements GameSimulation {
@@ -42,11 +44,11 @@ public class DefaultGameSimulation implements GameSimulation {
             MoveIntentRequestPayload request,
             long startedServerTick
     ) {
-        if (request.getDirection() != -1 && request.getDirection() != 1)
+        if (request.direction() != -1 && request.direction() != 1)
             return Optional.empty();
         TankState state = world.requireTankByPlayer(playerId);
         TankDefinition tank = content.requireTank(state.definitionId());
-        state.facing(request.getDirection());
+        state.facing(request.direction());
         OnlineVec2Dto from = state.position();
         List<OnlineVec2Dto> path = new ArrayList<>();
         path.add(from);
@@ -57,7 +59,7 @@ public class DefaultGameSimulation implements GameSimulation {
         double currentY = from.y();
 
         for (int step = 0; step < tank.movementQuantum(); step++) {
-            int nextX = (int) Math.round(currentX) + request.getDirection();
+            int nextX = (int) Math.round(currentX) + request.direction();
             if (!MovementPathValidator.withinBounds(nextX, tank, content.world().width()))
                 break;
             double nextY = terrain.surfaceY(nextX) - tank.trackGroundOffset();
@@ -150,24 +152,24 @@ public class DefaultGameSimulation implements GameSimulation {
         if (world == null || world.lootCrates() == null || world.lootCrates().isEmpty()) return;
         var iterator = world.lootCrates().iterator();
         while (iterator.hasNext()) {
-            com.tanks.server.websocket.gameplay.world.LootCrateState crate = iterator.next();
+            LootCrateState crate = iterator.next();
             if (crate.collected()) {
                 iterator.remove();
                 continue;
             }
             double dist = Math.hypot(x - crate.x(), y - crate.y());
-            if (dist <= 35.0) {
-                int val = crate.value() != null ? crate.value() : 25;
+            if (dist <= content.world().lootCrates().collectionRadius()) {
+                int val = crate.value();
                 if ("hp".equalsIgnoreCase(crate.crateType())) {
                     tankState.health(Math.min(tankDef.maxHealth(), tankState.health() + val));
                 } else if ("fuel".equalsIgnoreCase(crate.crateType())) {
                     tankState.fuel(Math.min(tankDef.maxFuel(), tankState.fuel() + val));
                 } else if ("ammo".equalsIgnoreCase(crate.crateType())) {
                     List<String> nonInfiniteSlots = tankDef.loadout().stream()
-                            .filter(s -> !s.equals("basicShell") && !s.equals("standard"))
+                            .filter(s -> !s.equals(tankDef.loadout().getFirst()))
                             .toList();
                     if (!nonInfiniteSlots.isEmpty()) {
-                        String slot = nonInfiniteSlots.get(new java.util.Random().nextInt(nonInfiniteSlots.size()));
+                        String slot = nonInfiniteSlots.get(new Random().nextInt(nonInfiniteSlots.size()));
                         int currentAmmo = tankState.weaponAmmo().getOrDefault(slot, 0);
                         tankState.weaponAmmo().put(slot, currentAmmo + 1);
                     }
@@ -184,7 +186,10 @@ public class DefaultGameSimulation implements GameSimulation {
         TankState state = world.requireTankByPlayer(playerId);
         TankDefinition tankDef = content.requireTank(state.definitionId());
         
-        String projectileId = state.selectedProjectileSlotId() != null ? state.selectedProjectileSlotId() : tankDef.loadout().getFirst();
+        String projectileId = state.selectedProjectileSlotId();
+        if (projectileId == null || !tankDef.loadout().contains(projectileId)) {
+            throw new IllegalStateException("Tank " + playerId + " has no valid selected projectile slot");
+        }
         ProjectileDefinition projectileDef = content.requireProjectile(projectileId);
 
         if (state.weaponAmmo() != null && state.weaponAmmo().containsKey(projectileId)) {
@@ -194,9 +199,9 @@ public class DefaultGameSimulation implements GameSimulation {
             }
         }
 
-        double angleRad = request.getAngle();
-        double barrelLength = 28.0;
-        double turretYOffset = -14.0;
+        double angleRad = request.angle();
+        double barrelLength = tankDef.barrelLength();
+        double turretYOffset = tankDef.turretYOffset();
         double bodyAngle = terrain.slopeAngle(state.position().x(), tankDef.width());
         double pivotX = state.position().x() - turretYOffset * Math.sin(bodyAngle);
         double pivotY = state.position().y() + turretYOffset * Math.cos(bodyAngle);
@@ -204,7 +209,7 @@ public class DefaultGameSimulation implements GameSimulation {
         double launchY = pivotY + Math.sin(angleRad) * barrelLength;
         OnlineVec2Dto launch = new OnlineVec2Dto(round(launchX), round(launchY));
 
-        double speed = request.getPower() * projectileDef.baseVelocity();
+        double speed = request.power() * projectileDef.baseVelocity();
         double vx = speed * Math.cos(angleRad);
         double vy = speed * Math.sin(angleRad);
         double g = content.world().gravity() * projectileDef.gravityScale();
@@ -227,11 +232,6 @@ public class DefaultGameSimulation implements GameSimulation {
             currY += currVy * dt;
             currVx += wind * dt;
             currVy += g * dt;
-
-            if (projectileDef.drag() > 0) {
-                currVx *= (1 - projectileDef.drag() * dt);
-                currVy *= (1 - projectileDef.drag() * dt);
-            }
 
             impact = new OnlineVec2Dto(round(currX), round(currY));
             trajectory.add(impact);
@@ -256,12 +256,14 @@ public class DefaultGameSimulation implements GameSimulation {
 
         List<OnlineTankDamageResponseDto> damagedTanks = new ArrayList<>();
         double blastRadius = projectileDef.radius();
-        int baseDamage = 50;
+        int baseDamage;
         if (projectileDef.damageEffect() instanceof Radial radial) {
             blastRadius = Math.max(blastRadius, radial.radius());
             baseDamage = (int) Math.round(radial.damage());
         } else if (projectileDef.damageEffect() instanceof Focused focused) {
             baseDamage = (int) Math.round(focused.damage());
+        } else {
+            throw new IllegalStateException("Projectile " + projectileDef.id() + " is missing a valid damageEffect");
         }
 
         for (TankState tank : world.tanks().values()) {
@@ -321,11 +323,6 @@ public class DefaultGameSimulation implements GameSimulation {
                     subCurrVx += wind * dt;
                     subCurrVy += subG * dt;
 
-                    if (subProjDef.drag() > 0) {
-                        subCurrVx *= (1 - subProjDef.drag() * dt);
-                        subCurrVy *= (1 - subProjDef.drag() * dt);
-                    }
-
                     subImpact = new OnlineVec2Dto(round(subCurrX), round(subCurrY));
                     subTrajectory.add(subImpact);
 
@@ -349,11 +346,13 @@ public class DefaultGameSimulation implements GameSimulation {
 
                 List<OnlineTankDamageResponseDto> subDamagedTanks = new ArrayList<>();
                 if (subHitTankState != null) {
-                    int damage = 30;
+                    int damage;
                     if (subProjDef.damageEffect() instanceof Radial radial) {
                         damage = (int) Math.round(radial.damage());
                     } else if (subProjDef.damageEffect() instanceof Focused focused) {
                         damage = (int) Math.round(focused.damage());
+                    } else {
+                        throw new IllegalStateException("Submunition " + subProjDef.id() + " is missing a valid damageEffect");
                     }
                     int healthBefore = subHitTankState.health();
                     int healthAfter = Math.max(0, healthBefore - damage);

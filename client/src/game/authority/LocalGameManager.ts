@@ -52,6 +52,9 @@ class LocalGameManager implements GameManager {
   }
 
   submitAction(action: GameAction): boolean {
+    if (action.type === "panCamera" || action.type === "relockCamera") {
+      return this.simulationManager.submitPlayerAction(0, action);
+    }
     const playerId = resolveActiveLocalActor(this.currentState);
     if (playerId === null) return false;
     return this.simulationManager.submitPlayerAction(playerId, action);

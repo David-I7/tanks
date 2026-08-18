@@ -3,6 +3,8 @@ package com.tanks.server.websocket.repositories;
 import com.tanks.server.websocket.entities.lobby.Lobby;
 import org.springframework.stereotype.Repository;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -44,12 +46,12 @@ public class InMemoryLobbyRepository implements LobbyRepository {
 
     @Override
     public Iterable<Lobby> findAll() {
-        return new java.util.ArrayList<>(store.values());
+        return new ArrayList<>(store.values());
     }
 
     @Override
     public Iterable<Lobby> findAllById(Iterable<UUID> ids) {
-        java.util.List<Lobby> list = new java.util.ArrayList<>();
+        List<Lobby> list = new ArrayList<>();
         for (UUID id : ids) {
             findById(id).ifPresent(list::add);
         }

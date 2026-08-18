@@ -1,12 +1,13 @@
-import {
-  type GameAction,
-  type GameState,
-  MIN_AIM_POWER,
-  MAX_AIM_POWER,
+import type {
+  GameAction,
+  GameState,
 } from "../types";
 import type { DomCanvasRect, GameViewport } from "../world/worldSizing";
 import { domPointToGameViewportPoint } from "../world/worldSizing";
 import { clampAimAngle, TURRET_Y_OFFSET } from "../simulation/ballistics";
+
+export const DEFAULT_MIN_AIM_POWER = 120;
+export const DEFAULT_MAX_AIM_POWER = 680;
 
 export type CanvasAimInput = {
   clientX: number;
@@ -15,21 +16,14 @@ export type CanvasAimInput = {
   gameViewport: GameViewport;
   cameraX: number;
   gameState: GameState;
-  activeTank?: GameState["tanks"][number];
+  activeTank: GameState["tanks"][number];
 };
 
 export function calculateAimIntent(
   input: CanvasAimInput,
 ): Extract<GameAction, { type: "aim" }> | null {
-  const activeTank =
-    input.activeTank ??
-    input.gameState.tanks.find(
-      (entry) =>
-        entry.playerId === input.gameState.match.activePlayerId &&
-        entry.alive &&
-        entry.controllerKind !== "remote",
-    );
-  if (!activeTank || activeTank.controllerKind === "remote") return null;
+  const activeTank = input.activeTank;
+  if (!activeTank || activeTank.controllerKind === "remote" || !activeTank.alive) return null;
 
   const point = domPointToGameViewportPoint({
     clientX: input.clientX,
@@ -50,8 +44,8 @@ export function calculateAimIntent(
   const distance = Math.hypot(dx, dy);
 
   const power = Math.max(
-    MIN_AIM_POWER,
-    Math.min(Math.round(distance * 1.8), MAX_AIM_POWER),
+    DEFAULT_MIN_AIM_POWER,
+    Math.min(Math.round(distance * 1.8), DEFAULT_MAX_AIM_POWER),
   );
 
   return {
@@ -90,30 +84,22 @@ export function findProjectileSlotAtCanvasPoint(
   canvasHeight: number,
   canvasX: number,
   canvasY: number,
-  activeTank?: GameState["tanks"][number],
+  activeTank: GameState["tanks"][number],
 ): string | null {
   if (gameState.match.phase !== "thinking") {
     return null;
   }
 
-  const targetTank =
-    activeTank ??
-    gameState.tanks.find(
-      (entry) =>
-        entry.playerId === gameState.match.activePlayerId &&
-        entry.alive &&
-        entry.controllerKind !== "remote",
-    );
-  if (!targetTank || targetTank.controllerKind === "remote") return null;
+  if (!activeTank || activeTank.controllerKind === "remote" || !activeTank.alive) return null;
 
   const layout = getProjectileSelectorLayout(
     canvasWidth,
     canvasHeight,
-    targetTank.loadout.length,
+    activeTank.loadout.length,
   );
 
-  for (let index = 0; index < targetTank.loadout.length; index += 1) {
-    const slotId = targetTank.loadout[index];
+  for (let index = 0; index < activeTank.loadout.length; index += 1) {
+    const slotId = activeTank.loadout[index];
     if (!slotId) continue;
     const slotX = layout.x + index * (layout.slotSize + layout.gap);
     const slotY = layout.y;
@@ -142,27 +128,19 @@ export function isFireButtonClickedAtCanvasPoint(
   canvasHeight: number,
   canvasX: number,
   canvasY: number,
-  activeTank?: GameState["tanks"][number],
+  activeTank: GameState["tanks"][number],
 ): boolean {
   if (gameState.match.phase !== "thinking") return false;
-  const targetTank =
-    activeTank ??
-    gameState.tanks.find(
-      (entry) =>
-        entry.playerId === gameState.match.activePlayerId &&
-        entry.alive &&
-        entry.controllerKind !== "remote",
-    );
-  if (!targetTank || targetTank.controllerKind === "remote") return false;
+  if (!activeTank || activeTank.controllerKind === "remote" || !activeTank.alive) return false;
 
   const layout = getProjectileSelectorLayout(
     canvasWidth,
     canvasHeight,
-    targetTank.loadout.length,
+    activeTank.loadout.length,
   );
   const totalWidth =
-    targetTank.loadout.length * layout.slotSize +
-    Math.max(0, targetTank.loadout.length - 1) * layout.gap;
+    activeTank.loadout.length * layout.slotSize +
+    Math.max(0, activeTank.loadout.length - 1) * layout.gap;
 
   const fireX = layout.x + totalWidth + 12;
   const fireY = layout.y;

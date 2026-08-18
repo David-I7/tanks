@@ -342,15 +342,7 @@ export class CanvasInputSource {
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
-    initialLayout: CanvasInputLayout = {
-      gameViewport: { width: canvas.width, height: canvas.height },
-      domCanvasRect: {
-        left: 0,
-        top: 0,
-        width: canvas.width,
-        height: canvas.height,
-      },
-    },
+    initialLayout: CanvasInputLayout,
   ) {
     this.layout = initialLayout;
     window.addEventListener("keydown", this.onKeyDown);

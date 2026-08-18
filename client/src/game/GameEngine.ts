@@ -50,6 +50,14 @@ export class GameEngine {
     this.localInput = new CanvasInputSource(options.canvas, this.inputLayout);
 
     this.unsubscribeGameManager = this.gameManager.subscribe((state) => {
+      const prevTerrain = this.latestState.terrain;
+      this.latestState = state;
+      if (
+        prevTerrain.width !== state.terrain.width ||
+        prevTerrain.height !== state.terrain.height
+      ) {
+        this.resize();
+      }
       this.publishState(state);
     });
   }
@@ -146,9 +154,12 @@ export class GameEngine {
     inputLayout: CanvasInputLayout;
   } {
     const domCanvasRect = readDomCanvasRect(this.options.canvas);
+    const terrain = this.latestState.terrain;
     const sizing = createCanvasSizing({
       domCanvasRect,
       devicePixelRatio: typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1,
+      worldWidth: terrain.width,
+      worldHeight: terrain.height,
     });
 
     return {

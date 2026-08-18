@@ -9,7 +9,13 @@ export {
   createLocalSimulationManager,
   LocalSimulationManager,
 } from "./simulation/simulationManager";
+export {
+  createDefaultMatchSetup,
+  createLocalInitialWorld,
+} from "./world/createInitialWorld";
 export { createOnlineGameManager } from "./authority/OnlineGameManager";
+export { IntentThrottler } from "./online/IntentThrottler";
+export type { IntentThrottlerOptions } from "./online/IntentThrottler";
 export { createOnlineGameplayTransport } from "./online/OnlineGameplayTransport";
 export type { OnlineGameplayTransport } from "./online/OnlineGameplayTransport";
 export type {

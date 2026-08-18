@@ -87,8 +87,19 @@ export type OnlineTankCoreAttributesDto = {
 // 3. Game Content Catalog DTOs
 // ============================================================================
 
+export type LootCrateConfigDto = {
+  hpValue: number;
+  fuelValue: number;
+  ammoValue: number;
+  collectionRadius: number;
+  dropSpeed: number;
+  spawnScheduleSeconds: number[];
+  spawnEdgeMargin: number;
+  maxActiveCrates: number;
+};
+
 export type WorldDefinitionDto = {
-  biome: OnlineBiome;
+  biomes: OnlineBiome[];
   width: number;
   height: number;
   tickRateHz: number;
@@ -100,6 +111,10 @@ export type WorldDefinitionDto = {
   playerBSpawnRegion: SpawnRegionDto;
   minWind: number;
   maxWind: number;
+  turnDurationSeconds: number;
+  matchDurationSeconds: number;
+  postImpactDelaySeconds: number;
+  lootCrates: LootCrateConfigDto;
 };
 
 export type TankDefinitionDto = OnlineTankCoreAttributesDto & {
@@ -108,16 +123,18 @@ export type TankDefinitionDto = OnlineTankCoreAttributesDto & {
   movementQuantum: number;
   fuelRate: number;
   climbCapability: number;
+  barrelLength: number;
+  turretYOffset: number;
 };
 
 export type ProjectileDefinitionDto = {
   id: string;
   name: string;
   label: string;
+  isDefault: boolean;
   radius: number;
   baseVelocity: number;
   gravityScale: number;
-  drag: number;
   terrainEffectType: "CRATER" | "DRILL";
   terrainRadius: number;
   terrainDepth: number;
@@ -128,11 +145,19 @@ export type ProjectileDefinitionDto = {
   damageTrail: DamageTrailConfigDto | null;
 };
 
+export type ValidationRulesDto = {
+  minFirePower: number;
+  maxFirePower: number;
+  minAimAngle: number;
+  maxAimAngle: number;
+};
+
 export type GameContentResponseDto = {
   version: string;
   world: WorldDefinitionDto;
   tanks: Record<string, TankDefinitionDto>;
   projectiles: Record<string, ProjectileDefinitionDto>;
+  validation?: ValidationRulesDto;
 };
 
 // ============================================================================

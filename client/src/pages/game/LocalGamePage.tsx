@@ -8,6 +8,8 @@ import {
   type MatchSetup,
 } from "../../game";
 import IconButton from "../../components/buttons/IconButton";
+import Loader from "../../components/misc/Loader";
+import { useAssetQuery } from "../../hooks/useAssetQuery";
 import type { TankDefinitionIds } from "../../game/rendering/ResourceManager";
 
 type LocationState = {
@@ -42,41 +44,47 @@ export default function LocalGamePage() {
   const engineRef = useRef<GameEngine | null>(null);
   const location = useLocation();
   const state = location.state as LocationState | null;
+  const { data: assets, isLoading: isAssetsLoading } = useAssetQuery();
 
-  if (!state || !isValidLocationState(state)) {
-    throw new Error("Invalid state for local game setup");
-  }
+  useEffect(() => {
+    if (!state || !isValidLocationState(state)) {
+      navigate("/");
+    }
+  }, [state, navigate]);
 
-  const { mode, player1Config, player2Config } = state;
-
-  const matchSetup = useMemo<MatchSetup>(
-    () => ({
-      mode,
+  const matchSetup = useMemo<MatchSetup | null>(() => {
+    if (!state || !isValidLocationState(state)) {
+      return null;
+    }
+    return {
+      mode: state.mode,
       players: [
         {
           id: 0,
-          displayName: player1Config.name,
+          displayName: state.player1Config.name,
           controllerKind: "human",
-          tankSelection: { tankDefinitionId: player1Config.tankId },
+          tankSelection: { tankDefinitionId: state.player1Config.tankId },
         },
         {
           id: 1,
-          displayName: player2Config.name,
+          displayName: state.player2Config.name,
           controllerKind: "human",
-          tankSelection: { tankDefinitionId: player2Config.tankId },
+          tankSelection: { tankDefinitionId: state.player2Config.tankId },
         },
       ],
-    }),
-    [mode, player1Config, player2Config],
-  );
+    };
+  }, [state]);
+
+  const isReady =
+    !isAssetsLoading && Boolean(assets) && ResourceManager.getInstance().isLoaded();
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas || !isReady || !matchSetup) return;
 
     engineRef.current?.stop();
     const gameManager = createLocalGameManager({
-      mode,
+      mode: "localTwoPlayer",
       setup: matchSetup,
       content: ResourceManager.getInstance().getGameContent(),
     });
@@ -100,31 +108,36 @@ export default function LocalGamePage() {
         engineRef.current = null;
       }
     };
-  }, [matchSetup]);
+  }, [matchSetup, isReady]);
 
   const modeLabel = "Local Two-Player";
 
   return (
-    <main className="relative z-10 flex min-h-screen flex-col bg-background p-4 text-text-body-high">
-      <header className="mb-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <IconButton
-            onClick={() => navigate("/")}
-            icon={<ArrowLeft size={16} />}
-          />
-          <h1 className="font-heading text-xl font-bold tracking-wide text-primary">
-            {modeLabel}
-          </h1>
-        </div>
-        <div className="text-sm font-medium text-text-body-muted">
-          Offline Mode
-        </div>
-      </header>
+    <main className="fixed inset-0 w-screen h-screen overflow-hidden bg-background text-text-body-high">
+      <div className="absolute top-3 left-3 z-30 flex items-center gap-2">
+        <IconButton
+          onClick={() => navigate("/")}
+          icon={<ArrowLeft size={16} />}
+        />
+        <span className="font-heading text-xs font-bold tracking-wider uppercase text-text-body-high bg-background/80 px-2.5 py-1 rounded backdrop-blur-md shadow border border-border-low">
+          {modeLabel}
+        </span>
+      </div>
 
-      <canvas
-        ref={canvasRef}
-        className="min-h-[560px] min-w-[320px] flex-1 rounded border border-border-main bg-background-high shadow-lg"
-      />
+      <div className="relative w-full h-full overflow-hidden">
+        {!isReady && (
+          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-background/80 gap-3 backdrop-blur-sm">
+            <Loader />
+            <p className="text-sm font-medium text-text-body-muted">
+              Loading game assets...
+            </p>
+          </div>
+        )}
+        <canvas
+          ref={canvasRef}
+          className="w-full h-full block bg-black"
+        />
+      </div>
     </main>
   );
 }

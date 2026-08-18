@@ -6,7 +6,6 @@ import {
   type MatchSetup,
   type DecorType,
   type MapBiome,
-  MAX_TURN_SECONDS,
 } from "../types";
 
 export type LocalInitialWorld = {
@@ -16,7 +15,7 @@ export type LocalInitialWorld = {
 };
 
 export function createDefaultMatchSetup(
-  mode: GameMode = "localTwoPlayer",
+  mode: GameMode,
 ): MatchSetup {
   return {
     mode,
@@ -40,15 +39,18 @@ export function createDefaultMatchSetup(
 export function createLocalInitialWorld(
   setup: MatchSetup,
   content: GameContent,
-  overrideBiome?: MapBiome,
 ): LocalInitialWorld {
   const terrain = new LocalTerrainModel(
     content.world.width,
     content.world.height,
   );
-  const initialWind = Math.round((Math.random() * 14 - 7) * 10) / 10;
-  const biomes: MapBiome[] = ["forest", "desert", "ice"];
-  const biome = overrideBiome ?? biomes[Math.floor(Math.random() * biomes.length)];
+  const minWind = content.world.minWind;
+  const maxWind = content.world.maxWind;
+  const rawWind = minWind + Math.random() * (maxWind - minWind);
+  const initialWind = Math.round(rawWind * 10) / 10;
+  const biome: MapBiome = content.world.biomes[
+    Math.floor(Math.random() * content.world.biomes.length)
+  ];
 
   const world = new LocalWorld({
     mode: setup.mode,
@@ -56,8 +58,8 @@ export function createLocalInitialWorld(
     activePlayerId: setup.players[0]?.id ?? 0,
     playerCount: setup.players.length,
     turnNumber: 1,
-    turnTimeRemaining: MAX_TURN_SECONDS,
-    matchTimeRemaining: 180,
+    turnTimeRemaining: content.world.turnDurationSeconds,
+    matchTimeRemaining: content.world.matchDurationSeconds,
     wind: initialWind,
     winnerPlayerId: null,
     biome,
@@ -72,19 +74,31 @@ export function createLocalInitialWorld(
         `Missing tank definition "${player.tankSelection.tankDefinitionId}"`,
       );
     }
-    const x =
-      setup.players.length === 1
-        ? Math.floor(terrain.width * 0.25)
-        : Math.floor(
-            140 + (terrain.width * 0.62 * index) / (setup.players.length - 1),
-          );
+    const region =
+      index === 0
+        ? content.world.playerASpawnRegion
+        : content.world.playerBSpawnRegion;
+    const x = Math.floor(
+      region.minX + Math.random() * (region.maxX - region.minX + 1),
+    );
     world.createTank(
       player,
       tankDefinition,
       x,
       terrain.getSurfaceY(x) - tankDefinition.height / 2,
+      content.projectiles,
     );
   });
+
+  const initialActiveTankId = world.tankEntitiesByPlayer.get(
+    world.match.activePlayerId,
+  );
+  if (initialActiveTankId !== undefined) {
+    const initialPos = world.positions.get(initialActiveTankId);
+    if (initialPos) {
+      world.match.cameraX = initialPos.x;
+    }
+  }
 
   for (const [entityId, tank] of world.tanks) {
     const position = world.positions.get(entityId);
