@@ -229,8 +229,8 @@ public class GameSessionService {
             AimIntentRequestPayload aim = extractAimPayload(intent);
             if (aim != null) {
                 var tank = gameSession.getWorld().requireTankByPlayer(intent.playerId());
-                tank.aimAngle(aim.getAngle());
-                tank.power(aim.getPower());
+                tank.aimAngle(aim.angle());
+                tank.power(aim.power());
                 publishDiff(
                         gameSession,
                         OnlineStateDiffResponseType.AIM_UPDATE,
@@ -238,8 +238,8 @@ public class GameSessionService {
                         gameSession.getServerTick(),
                         AimUpdate.builder()
                                 .playerId(intent.playerId())
-                                .angle(aim.getAngle())
-                                .power(aim.getPower())
+                                .angle(aim.angle())
+                                .power(aim.power())
                                 .build());
                 log.debug("Aim accepted: {}", intent);
                 return true;
@@ -252,7 +252,7 @@ public class GameSessionService {
                 var tank = gameSession.getWorld().requireTankByPlayer(intent.playerId());
                 var content = contentCatalog.require(gameSession.getGameContentVersion());
                 var tankDef = content.requireTank(tank.definitionId());
-                int slot = select.getSlot();
+                int slot = select.slot();
                 if (slot >= 0 && slot < tankDef.loadout().size()) {
                     tank.selectedProjectileSlotId(tankDef.loadout().get(slot));
                     log.debug("Select projectile slot accepted: {}", intent);
@@ -389,26 +389,26 @@ public class GameSessionService {
 
         if (intent.type() == OnlinePlayerIntentRequestType.MOVE) {
             MoveIntentRequestPayload move = extractMovePayload(intent);
-            return move != null && (move.getDirection() == -1 || move.getDirection() == 1);
+            return move != null && (move.direction() == -1 || move.direction() == 1);
         }
         if (intent.type() == OnlinePlayerIntentRequestType.AIM) {
             AimIntentRequestPayload aim = extractAimPayload(intent);
             if (aim == null)
                 return false;
             var validation = contentCatalog.require(gameSession.getGameContentVersion()).validation();
-            return aim.getPower() >= validation.minFirePower() && aim.getPower() <= validation.maxFirePower()
-                    && aim.getAngle() >= -Math.PI && aim.getAngle() <= 0.0;
+            return aim.power() >= validation.minFirePower() && aim.power() <= validation.maxFirePower()
+                    && aim.angle() >= -Math.PI && aim.angle() <= 0.0;
         }
         if (intent.type() == OnlinePlayerIntentRequestType.SELECT_PROJECTILE_SLOT) {
             SelectProjectileIntentRequestPayload select = extractSelectProjectileSlotPayload(intent);
             if (select == null)
                 return false;
-            var tank = gameSession.getWorld().tanks().get(intent.playerId());
+            var tank = gameSession.getWorld().requireTankByPlayer(intent.playerId());
             if (tank == null)
                 return false;
             var content = contentCatalog.require(gameSession.getGameContentVersion());
             var tankDef = content.requireTank(tank.definitionId());
-            int slot = select.getSlot();
+            int slot = select.slot();
             return slot >= 0 && slot < tankDef.loadout().size();
         }
         if (intent.type() == OnlinePlayerIntentRequestType.FIRE) {
@@ -417,8 +417,8 @@ public class GameSessionService {
                 return false;
             }
             var validation = contentCatalog.require(gameSession.getGameContentVersion()).validation();
-            return fire.getPower() >= validation.minFirePower() && fire.getPower() <= validation.maxFirePower()
-                    && fire.getAngle() >= -Math.PI && fire.getAngle() <= 0.0;
+            return fire.power() >= validation.minFirePower() && fire.power() <= validation.maxFirePower()
+                    && fire.angle() >= -Math.PI && fire.angle() <= 0.0;
         }
 
         return false;
@@ -520,8 +520,8 @@ public class GameSessionService {
             FireIntentIntentRequestPayload fire) {
         long firingPlayerId = intent.playerId();
         var firingTank = gameSession.getWorld().requireTankByPlayer(firingPlayerId);
-        firingTank.aimAngle(fire.getAngle());
-        firingTank.power(fire.getPower());
+        firingTank.aimAngle(fire.angle());
+        firingTank.power(fire.power());
 
         var content = contentCatalog.require(gameSession.getGameContentVersion());
         var projectile = gameSimulation.fire(content, gameSession.getWorld(), gameSession.getTerrainModel(),

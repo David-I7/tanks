@@ -44,11 +44,11 @@ public class DefaultGameSimulation implements GameSimulation {
             MoveIntentRequestPayload request,
             long startedServerTick
     ) {
-        if (request.getDirection() != -1 && request.getDirection() != 1)
+        if (request.direction() != -1 && request.direction() != 1)
             return Optional.empty();
         TankState state = world.requireTankByPlayer(playerId);
         TankDefinition tank = content.requireTank(state.definitionId());
-        state.facing(request.getDirection());
+        state.facing(request.direction());
         OnlineVec2Dto from = state.position();
         List<OnlineVec2Dto> path = new ArrayList<>();
         path.add(from);
@@ -59,7 +59,7 @@ public class DefaultGameSimulation implements GameSimulation {
         double currentY = from.y();
 
         for (int step = 0; step < tank.movementQuantum(); step++) {
-            int nextX = (int) Math.round(currentX) + request.getDirection();
+            int nextX = (int) Math.round(currentX) + request.direction();
             if (!MovementPathValidator.withinBounds(nextX, tank, content.world().width()))
                 break;
             double nextY = terrain.surfaceY(nextX) - tank.trackGroundOffset();
@@ -199,7 +199,7 @@ public class DefaultGameSimulation implements GameSimulation {
             }
         }
 
-        double angleRad = request.getAngle();
+        double angleRad = request.angle();
         double barrelLength = tankDef.barrelLength();
         double turretYOffset = tankDef.turretYOffset();
         double bodyAngle = terrain.slopeAngle(state.position().x(), tankDef.width());
@@ -209,7 +209,7 @@ public class DefaultGameSimulation implements GameSimulation {
         double launchY = pivotY + Math.sin(angleRad) * barrelLength;
         OnlineVec2Dto launch = new OnlineVec2Dto(round(launchX), round(launchY));
 
-        double speed = request.getPower() * projectileDef.baseVelocity();
+        double speed = request.power() * projectileDef.baseVelocity();
         double vx = speed * Math.cos(angleRad);
         double vy = speed * Math.sin(angleRad);
         double g = content.world().gravity() * projectileDef.gravityScale();
