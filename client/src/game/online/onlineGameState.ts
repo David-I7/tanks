@@ -88,6 +88,8 @@ export function onlineSnapshotToGameState(
         tankName: content.tanks[tank.tankDefinitionId]?.name ?? tank.tankDefinitionId,
         width: tank.width,
         height: tank.height,
+        barrelLength: content.tanks[tank.tankDefinitionId]?.barrelLength ?? 28,
+        turretYOffset: content.tanks[tank.tankDefinitionId]?.turretYOffset ?? -14,
         maxHealth: tank.maxHealth,
         health: tank.health,
         facing: tank.facing,

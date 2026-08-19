@@ -476,7 +476,7 @@ export class CanvasGameRenderer {
       if (isActive) {
         ctx.save();
         ctx.beginPath();
-        ctx.ellipse(0, 13, 28, 6.5, 0, 0, Math.PI * 2);
+        ctx.ellipse(0, 14, 28, 6.5, 0, 0, Math.PI * 2);
         ctx.fillStyle = `${mainColor}33`;
         ctx.fill();
         ctx.strokeStyle = mainColor;
@@ -488,12 +488,13 @@ export class CanvasGameRenderer {
 
       // Barrel (aimAngle is relative to tank body [-PI, 0])
       const rad = entry.aimAngle;
-      const barrelLength = 28;
+      const barrelLength = entry.barrelLength ?? 28;
+      const turretYOffset = entry.turretYOffset ?? -14;
       const muzzleX = Math.cos(rad) * barrelLength;
-      const muzzleY = -14 + Math.sin(rad) * barrelLength;
+      const muzzleY = turretYOffset + Math.sin(rad) * barrelLength;
 
       ctx.beginPath();
-      ctx.moveTo(0, -14);
+      ctx.moveTo(0, turretYOffset);
       ctx.lineTo(muzzleX, muzzleY);
       ctx.lineWidth = 5;
       ctx.strokeStyle = mainColor;
@@ -507,8 +508,8 @@ export class CanvasGameRenderer {
 
       // Tank Body
       ctx.beginPath();
-      ctx.roundRect(-18, -15, 36, 14, 4);
-      const bodyGrad = ctx.createLinearGradient(0, -15, 0, -1);
+      ctx.roundRect(-18, -14, 36, 14, 4);
+      const bodyGrad = ctx.createLinearGradient(0, -14, 0, 0);
       bodyGrad.addColorStop(0, mainColor);
       bodyGrad.addColorStop(1, strokeColor);
       ctx.fillStyle = bodyGrad;
@@ -520,7 +521,7 @@ export class CanvasGameRenderer {
       // Treads & Wheels (resting flush with terrain stroke)
       ctx.fillStyle = "#0f172a";
       ctx.beginPath();
-      ctx.roundRect(-22, 1, 44, 12, 3);
+      ctx.roundRect(-22, 2, 44, 12, 3);
       ctx.fill();
       ctx.strokeStyle = "#334155";
       ctx.lineWidth = 1.5;
@@ -528,7 +529,7 @@ export class CanvasGameRenderer {
 
       for (let wx = -15; wx <= 15; wx += 10) {
         ctx.beginPath();
-        ctx.arc(wx, 7, 3.5, 0, Math.PI * 2);
+        ctx.arc(wx, 8, 3.5, 0, Math.PI * 2);
         ctx.fillStyle = "#64748b";
         ctx.fill();
       }

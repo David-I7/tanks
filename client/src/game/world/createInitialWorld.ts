@@ -103,7 +103,7 @@ export function createLocalInitialWorld(
   for (const [entityId, tank] of world.tanks) {
     const position = world.positions.get(entityId);
     if (position) {
-      tank.bodyAngle = terrain.getSlopeAngle(position.x);
+      tank.bodyAngle = terrain.getSlopeAngle(position.x, tank.width);
     }
   }
 

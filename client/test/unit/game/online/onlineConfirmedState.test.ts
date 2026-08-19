@@ -89,7 +89,7 @@ describe("onlineConfirmedState & onlineGameState", () => {
   it("converts OnlineConfirmedState into GameState with computed slope bodyAngle", () => {
     const snapshot = createTestSnapshot();
     // Simulate terrain slope under tank at x=200
-    for (let x = 180; x <= 220; x++) {
+    for (let x = 170; x <= 230; x++) {
       snapshot.terrain.surface[x] = 400 + (x - 200);
     }
 

@@ -9,7 +9,6 @@ const CIRCLE_INTERSECTION_SAMPLES = 16;
 const SMOOTH_PADDING = 8;
 const STEP_LIMIT_PADDING = 10;
 const MAX_ADJACENT_STEP = 5;
-const SLOPE_SAMPLE_OFFSET = 3;
 const SMOOTH_PASSES = 2;
 
 export class LocalTerrainModel {
@@ -77,10 +76,11 @@ export class LocalTerrainModel {
     );
   }
 
-  getSlopeAngle(x: number): number {
-    const left = this.getSurfaceY(x - SLOPE_SAMPLE_OFFSET);
-    const right = this.getSurfaceY(x + SLOPE_SAMPLE_OFFSET);
-    return Math.atan2(right - left, SLOPE_SAMPLE_OFFSET * 2);
+  getSlopeAngle(x: number, tankWidth = 44): number {
+    const halfWidth = Math.max(1, Math.floor(tankWidth / 2));
+    const left = this.getSurfaceY(x - halfWidth);
+    const right = this.getSurfaceY(x + halfWidth);
+    return Math.atan2(right - left, halfWidth * 2);
   }
 
   cloneSurface(): number[] {

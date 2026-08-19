@@ -210,6 +210,8 @@ export type TankComponent = {
   tankName: string;
   width: number;
   height: number;
+  barrelLength?: number;
+  turretYOffset?: number;
   loadout: string[];
   selectedProjectileSlotId: string;
   weaponAmmo: Record<string, number>;
