@@ -203,15 +203,16 @@ public class DefaultGameSimulation implements GameSimulation {
         double barrelLength = tankDef.barrelLength();
         double turretYOffset = tankDef.turretYOffset();
         double bodyAngle = terrain.slopeAngle(state.position().x(), tankDef.width());
+        double launchAngle = bodyAngle + angleRad;
         double pivotX = state.position().x() - turretYOffset * Math.sin(bodyAngle);
         double pivotY = state.position().y() + turretYOffset * Math.cos(bodyAngle);
-        double launchX = pivotX + Math.cos(angleRad) * barrelLength;
-        double launchY = pivotY + Math.sin(angleRad) * barrelLength;
+        double launchX = pivotX + Math.cos(launchAngle) * barrelLength;
+        double launchY = pivotY + Math.sin(launchAngle) * barrelLength;
         OnlineVec2Dto launch = new OnlineVec2Dto(round(launchX), round(launchY));
 
         double speed = request.power() * projectileDef.baseVelocity();
-        double vx = speed * Math.cos(angleRad);
-        double vy = speed * Math.sin(angleRad);
+        double vx = speed * Math.cos(launchAngle);
+        double vy = speed * Math.sin(launchAngle);
         double g = content.world().gravity() * projectileDef.gravityScale();
         double wind = world.match().wind();
         double dt = content.world().deltaTime();

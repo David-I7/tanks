@@ -142,6 +142,8 @@ class ActiveOnlineGameManager {
   private currentState!: GameState;
   private visualSim: ClientVisualSimulation;
   private lastImpactX: number | null = null;
+  private lastSentAimAngle: number | null = null;
+  private lastSentPower: number | null = null;
   private readonly throttler: IntentThrottler;
   private deferredDiffs: OnlineDiffResponseDto[] = [];
 
@@ -193,9 +195,17 @@ class ActiveOnlineGameManager {
         this.publishConfirmed(this.confirmedState, null);
       }
       const nowMs = this.ctx.clock();
-      if (this.throttler.shouldSendAim(nowMs)) {
+      const hasChanged =
+        this.lastSentAimAngle === null ||
+        this.lastSentPower === null ||
+        Math.abs(action.angle - this.lastSentAimAngle) > 0.001 ||
+        Math.abs(action.power - this.lastSentPower) > 0.5;
+
+      if (hasChanged && this.throttler.shouldSendAim(nowMs)) {
         const envelope = this.createIntentEnvelope(action);
         if (envelope) {
+          this.lastSentAimAngle = action.angle;
+          this.lastSentPower = action.power;
           this.transport.sendPlayerIntent(envelope);
         }
       }
@@ -203,22 +213,36 @@ class ActiveOnlineGameManager {
     }
 
     if (action.type === "move") {
+      const activeTank = this.confirmedState.state.tanks.find(
+        (t) => t.playerId === this.confirmedState.localPlayerId,
+      );
+      if (!activeTank || activeTank.fuel <= 0 || !activeTank.alive) {
+        return false;
+      }
+
       const nowMs = this.ctx.clock();
-      if (this.throttler.shouldSendMove(nowMs)) {
-        const envelope = this.createIntentEnvelope(action);
-        if (envelope) {
-          this.transport.sendPlayerIntent(envelope);
-          this.publishConfirmed(
-            predictOnlineMovement(
-              this.confirmedState,
-              envelope.intentId,
-              envelope.playerId,
-              { direction: action.direction },
-              nowMs,
-            ),
-            null,
-          );
-        }
+      if (!this.throttler.shouldSendMove(nowMs)) {
+        return true;
+      }
+
+      const intentId = this.ctx.generateIntentId();
+      const nextState = predictOnlineMovement(
+        this.confirmedState,
+        intentId,
+        this.confirmedState.localPlayerId,
+        { direction: action.direction },
+        nowMs,
+      );
+
+      if (nextState === this.confirmedState) {
+        return false;
+      }
+
+      const envelope = this.createIntentEnvelope(action);
+      if (envelope) {
+        envelope.intentId = intentId;
+        this.transport.sendPlayerIntent(envelope);
+        this.publishConfirmed(nextState, null);
       }
       return true;
     }
@@ -387,8 +411,7 @@ class ActiveOnlineGameManager {
 
     if (
       !this.visualSim.getState().activeFlight &&
-      !this.pendingImpactFx &&
-      this.postImpactDelaySeconds <= 0
+      !this.pendingImpactFx
     ) {
       this.flushDeferredDiffs();
     }
@@ -465,6 +488,8 @@ class ActiveOnlineGameManager {
   private processSingleDiff(diff: OnlineDiffResponseDto): void {
     if (diff.type === "TURN_TRANSITION") {
       this.lastImpactX = null;
+      this.lastSentAimAngle = null;
+      this.lastSentPower = null;
       this.throttler.reset();
     }
 

@@ -280,4 +280,112 @@ describe("OnlineGameManager Playback Pipeline", () => {
     // Turn transition applied (active player is now 2)
     expect(endState.match.activePlayerId).toBe(2);
   });
+
+  it("applies crater and health immediately upon impact in 60 FPS steps while deferring turn transition for postImpactDelay", () => {
+    let diffListener: (diff: OnlineDiffResponseDto) => void = () => {};
+    const mockTransport: OnlineGameplayTransport = {
+      sendPlayerIntent: vi.fn(),
+      requestResyncState: vi.fn(),
+      subscribeToStateDiffs: vi.fn((listener) => {
+        diffListener = listener;
+        return () => {};
+      }),
+    };
+
+    let clockMs = 1000;
+    const ctx = {
+      clock: () => clockMs,
+      generateIntentId: () => "intent-1",
+      gameContent: testGameContent,
+    };
+
+    const manager = createOnlineGameManager({
+      transport: mockTransport,
+      ctx,
+      throttler: new IntentThrottler({ aimIntervalMs: 80, moveIntervalMs: 100 }),
+    });
+
+    diffListener(createMockInitialStateDiff());
+
+    const projDiff: OnlineDiffResponseDto = {
+      gameSessionId: "test-session-123",
+      sequence: 2,
+      serverTick: 10,
+      type: "PROJECTILE_RESOLUTION",
+      intentId: "intent-fire-1",
+      payload: {
+        projectileEntityId: 99,
+        ownerPlayerId: 1,
+        projectileDefinitionId: "basicShell",
+        impact: { x: 1200, y: 400 },
+        damagedTanks: [{ entityId: 11, playerId: 2, damageDealt: 30, healthAfter: 70 }],
+        trajectory: [
+          { x: 200, y: 400 },
+          { x: 700, y: 200 },
+          { x: 1200, y: 400 },
+        ],
+      },
+    };
+
+    const terrainDiff: OnlineDiffResponseDto = {
+      gameSessionId: "test-session-123",
+      sequence: 3,
+      serverTick: 11,
+      type: "TERRAIN_PATCH",
+      intentId: null,
+      payload: {
+        patches: [
+          {
+            kind: "HEIGHTMAP_RANGE",
+            startX: 1180,
+            surface: new Array(40).fill(450),
+          },
+        ],
+      },
+    };
+
+    const turnDiff: OnlineDiffResponseDto = {
+      gameSessionId: "test-session-123",
+      sequence: 4,
+      serverTick: 12,
+      type: "TURN_TRANSITION",
+      intentId: null,
+      payload: {
+        phase: "AIMING",
+        activePlayerId: 2,
+        turnNumber: 2,
+        turnEndsAtServerTick: 900,
+        matchEndsAtServerTick: 5400,
+        wind: 5,
+      },
+    };
+
+    diffListener(projDiff);
+    diffListener(terrainDiff);
+    diffListener(turnDiff);
+
+    // Step 1: Step until flight ends (trajectory is ~0.3s)
+    // Advance by 320ms in 16ms frames
+    for (let i = 0; i < 20; i++) {
+      clockMs += 16;
+      manager.update(0.016);
+    }
+
+    // At exact moment of impact (frame 20):
+    const impactState = manager.getState();
+    expect(impactState.projectiles.length).toBe(0); // flight completed
+    expect(impactState.terrain.surface[1200]).toBe(450); // Crater applied IMMEDIATELY on impact frame!
+    expect(impactState.tanks.find((t) => t.playerId === 2)!.health).toBe(70); // Health updated IMMEDIATELY!
+    expect(impactState.match.activePlayerId).toBe(1); // Turn transition is DEFERRED during 0.55s delay!
+
+    // Step 2: Step through the 0.55s post-impact delay (35 frames * 16ms = 560ms)
+    for (let i = 0; i < 35; i++) {
+      clockMs += 16;
+      manager.update(0.016);
+    }
+
+    // Now post-impact delay has expired:
+    const postDelayState = manager.getState();
+    expect(postDelayState.match.activePlayerId).toBe(2); // Turn transitioned cleanly to player 2!
+  });
 });

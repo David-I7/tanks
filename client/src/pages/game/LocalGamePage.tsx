@@ -135,7 +135,7 @@ export default function LocalGamePage() {
         )}
         <canvas
           ref={canvasRef}
-          className="w-full h-full block bg-black"
+          className="w-full h-full block bg-black touch-none select-none"
         />
       </div>
     </main>

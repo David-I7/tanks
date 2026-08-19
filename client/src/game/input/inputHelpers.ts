@@ -40,8 +40,12 @@ export function calculateAimIntent(
 
   const dx = worldX - originX;
   const dy = worldY - originY;
-  const angle = Math.atan2(dy, dx);
+  const worldPointerAngle = Math.atan2(dy, dx);
   const distance = Math.hypot(dx, dy);
+
+  let relativeAngle = worldPointerAngle - bodyAngle;
+  while (relativeAngle > Math.PI) relativeAngle -= 2 * Math.PI;
+  while (relativeAngle <= -Math.PI) relativeAngle += 2 * Math.PI;
 
   const power = Math.max(
     DEFAULT_MIN_AIM_POWER,
@@ -50,7 +54,7 @@ export function calculateAimIntent(
 
   return {
     type: "aim",
-    angle: clampAimAngle(angle),
+    angle: clampAimAngle(relativeAngle),
     power,
   };
 }

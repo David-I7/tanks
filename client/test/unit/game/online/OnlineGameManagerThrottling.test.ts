@@ -267,4 +267,168 @@ describe("OnlineGameManager Throttling Integration", () => {
     expect(sentIntents[0].type).toBe("SELECT_PROJECTILE_SLOT");
     expect(sentIntents[1].type).toBe("SELECT_PROJECTILE_SLOT");
   });
+
+  it("does not send AIM intent if aim angle and power have not changed since last sent", () => {
+    let diffSubscriber: ((diff: OnlineDiffResponseDto) => void) | null = null;
+    const sentIntents: any[] = [];
+    const transportMock: OnlineGameplayTransport = {
+      subscribeToStateDiffs: (cb) => {
+        diffSubscriber = cb;
+        return () => {};
+      },
+      requestResyncState: vi.fn(),
+      sendPlayerIntent: vi.fn((dto) => {
+        sentIntents.push(dto);
+      }),
+    };
+
+    let clock = 1000;
+    const ctx = {
+      clock: () => clock,
+      generateIntentId: (() => {
+        let count = 0;
+        return () => `intent-${++count}`;
+      })(),
+      gameContent: testGameContent,
+    };
+
+    const throttler = new IntentThrottler({ aimIntervalMs: 80, moveIntervalMs: 100 });
+    const manager = createOnlineGameManager({
+      transport: transportMock,
+      ctx: ctx as any,
+      throttler,
+    });
+
+    diffSubscriber!(createMockInitialStateDiff());
+
+    // 1. First aim action sends intent
+    manager.submitAction({ type: "aim", angle: 45, power: 300 });
+    expect(sentIntents.length).toBe(1);
+
+    // 2. Advance clock past throttle interval (100ms later), but keep exact same angle and power
+    clock += 100;
+    const res = manager.submitAction({ type: "aim", angle: 45, power: 300 });
+    expect(res).toBe(true);
+    expect(sentIntents.length).toBe(1); // STILL 1, no duplicate intent sent!
+
+    // 3. Change angle -> intent is sent
+    clock += 100;
+    manager.submitAction({ type: "aim", angle: 50, power: 300 });
+    expect(sentIntents.length).toBe(2);
+  });
+
+  it("does not send MOVE intent if tank has zero fuel or move produces no movement", () => {
+    let diffSubscriber: ((diff: OnlineDiffResponseDto) => void) | null = null;
+    const sentIntents: any[] = [];
+    const transportMock: OnlineGameplayTransport = {
+      subscribeToStateDiffs: (cb) => {
+        diffSubscriber = cb;
+        return () => {};
+      },
+      requestResyncState: vi.fn(),
+      sendPlayerIntent: vi.fn((dto) => {
+        sentIntents.push(dto);
+      }),
+    };
+
+    let clock = 1000;
+    const ctx = {
+      clock: () => clock,
+      generateIntentId: (() => {
+        let count = 0;
+        return () => `intent-${++count}`;
+      })(),
+      gameContent: testGameContent,
+    };
+
+    const throttler = new IntentThrottler({ aimIntervalMs: 80, moveIntervalMs: 100 });
+    const manager = createOnlineGameManager({
+      transport: transportMock,
+      ctx: ctx as any,
+      throttler,
+    });
+
+    const initDiff = createMockInitialStateDiff();
+    // Set tank fuel to 0
+    (initDiff.payload as any).state.tanks[0].fuel = 0;
+    diffSubscriber!(initDiff);
+
+    // Attempt to move with 0 fuel
+    const res = manager.submitAction({ type: "move", direction: 1 });
+    expect(res).toBe(false);
+    expect(sentIntents.length).toBe(0); // Zero intents sent!
+  });
+
+  it("allows continuous movement intents when holding down key across multiple throttle intervals", () => {
+    let diffSubscriber: ((diff: OnlineDiffResponseDto) => void) | null = null;
+    const sentIntents: any[] = [];
+    const transportMock: OnlineGameplayTransport = {
+      subscribeToStateDiffs: (cb) => {
+        diffSubscriber = cb;
+        return () => {};
+      },
+      requestResyncState: vi.fn(),
+      sendPlayerIntent: vi.fn((dto) => {
+        sentIntents.push(dto);
+      }),
+    };
+
+    let clock = 1000;
+    const ctx = {
+      clock: () => clock,
+      generateIntentId: (() => {
+        let count = 0;
+        return () => `intent-${++count}`;
+      })(),
+      gameContent: testGameContent,
+    };
+
+    const throttler = new IntentThrottler({ aimIntervalMs: 80, moveIntervalMs: 100 });
+    const manager = createOnlineGameManager({
+      transport: transportMock,
+      ctx: ctx as any,
+      throttler,
+    });
+
+    diffSubscriber!(createMockInitialStateDiff());
+
+    // Move 1 (t=1000)
+    const res1 = manager.submitAction({ type: "move", direction: 1 });
+    expect(res1).toBe(true);
+    expect(sentIntents.length).toBe(1);
+
+    // Simulate server diff arriving for Move 1
+    diffSubscriber!({
+      gameSessionId: "test-session-123",
+      sequence: 2,
+      serverTick: 1,
+      type: "MOVEMENT_SEGMENT",
+      intentId: sentIntents[0].intentId,
+      payload: {
+        playerId: 1,
+        tankEntityId: 10,
+        from: { x: 200, y: 388 },
+        to: { x: 215, y: 388 },
+        fuelBefore: 240,
+        fuelAfter: 225,
+        fuelSpent: 15,
+        partial: false,
+        startedServerTick: 0,
+        endedServerTick: 1,
+        durationTicks: 3,
+      },
+    });
+
+    // Move 2 (t=1120, key still held down)
+    clock += 120;
+    const res2 = manager.submitAction({ type: "move", direction: 1 });
+    expect(res2).toBe(true);
+    expect(sentIntents.length).toBe(2); // Successfully sends Move 2!
+
+    // Move 3 (t=1250, key still held down)
+    clock += 130;
+    const res3 = manager.submitAction({ type: "move", direction: 1 });
+    expect(res3).toBe(true);
+    expect(sentIntents.length).toBe(3); // Successfully sends Move 3!
+  });
 });

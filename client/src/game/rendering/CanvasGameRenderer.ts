@@ -260,6 +260,9 @@ export class CanvasGameRenderer {
     const theme = BIOME_THEMES[gameState.match.biome ?? "forest"] ?? BIOME_THEMES.forest;
     const width = this.gameViewport.width;
     const height = this.gameViewport.height;
+    const worldWidth = gameState.terrain.width;
+    const maxCameraX = Math.max(1, worldWidth - width);
+    const camRatio = Math.max(0, Math.min(1, this.cameraX / maxCameraX));
 
     // 1. Sky Gradient
     const skyGrad = ctx.createLinearGradient(0, 0, 0, height);
@@ -269,19 +272,19 @@ export class CanvasGameRenderer {
     if (skyGrad) ctx.fillStyle = skyGrad;
     ctx.fillRect(0, 0, width, height);
 
-    // 2. Dynamic Twinkling & Glowing Star Field (world-space, behind sun)
+    // 2. Dynamic Twinkling & Glowing Star Field (seamlessly wrapped with parallax)
     ctx.save();
     const now = Date.now();
-    const worldWidth = gameState.terrain.width;
-    const starParallax = this.cameraX * 0.25;
-    for (let i = 0; i < 65; i++) {
+    const starSpan = worldWidth + width;
+    const starParallax = this.cameraX * 0.2;
+    for (let i = 0; i < 75; i++) {
       const hashX = Math.sin(i * 12.9898 + 1.5) * 43758.5453;
       const hashY = Math.cos(i * 78.233 + 3.1) * 43758.5453;
-      const worldX = (hashX - Math.floor(hashX)) * worldWidth;
-      const baseY = (hashY - Math.floor(hashY)) * (height * 0.5);
+      const rawX = (hashX - Math.floor(hashX)) * starSpan;
+      const baseY = (hashY - Math.floor(hashY)) * (height * 0.48);
 
       const driftX = Math.sin(now * 0.00015 + i * 1.7) * 4;
-      const sx = worldX + driftX - starParallax;
+      const sx = (((rawX + driftX - starParallax) % starSpan) + starSpan) % starSpan - 20;
       const sy = baseY + Math.cos(now * 0.0002 + i * 2.1) * 2;
 
       if (sx < -20 || sx > width + 20) continue;
@@ -304,23 +307,29 @@ export class CanvasGameRenderer {
     }
     ctx.restore();
 
-    // 3. Sun Orb (world-space, in front of stars)
+    // 3. Sun / Celestial Orb (consistently positioned in upper sky with gentle parallax)
     ctx.save();
-    const sunWorldX = worldWidth * 0.5;
-    const sunParallax = this.cameraX * 0.15;
-    const sunScreenX = sunWorldX - sunParallax;
-    const sunY = height * 0.28;
-    const sunGrad = ctx.createRadialGradient(sunScreenX, sunY, 10, sunScreenX, sunY, 160);
+    const sunScreenX = width * 0.62 - camRatio * (width * 0.2);
+    const sunY = height * 0.24;
+    const sunRadius = Math.min(140, Math.max(90, height * 0.2));
+    const sunGrad = ctx.createRadialGradient(
+      sunScreenX,
+      sunY,
+      10,
+      sunScreenX,
+      sunY,
+      sunRadius,
+    );
     for (const [stop, color] of theme.sunStops) {
       sunGrad?.addColorStop?.(stop, color);
     }
     if (sunGrad) ctx.fillStyle = sunGrad;
     ctx.beginPath();
-    ctx.arc(sunScreenX, sunY, 160, 0, Math.PI * 2);
+    ctx.arc(sunScreenX, sunY, sunRadius, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
 
-    // 4. Moving Clouds
+    // 4. Moving Clouds (smoothly wrapped across sky)
     if (gameState.clouds) {
       gameState.clouds.forEach((cloud) => {
         const screenX = cloud.x - this.cameraX * 0.5;
@@ -477,8 +486,8 @@ export class CanvasGameRenderer {
         ctx.restore();
       }
 
-      // Barrel
-      const rad = entry.aimAngle - entry.bodyAngle;
+      // Barrel (aimAngle is relative to tank body [-PI, 0])
+      const rad = entry.aimAngle;
       const barrelLength = 28;
       const muzzleX = Math.cos(rad) * barrelLength;
       const muzzleY = -14 + Math.sin(rad) * barrelLength;

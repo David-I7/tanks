@@ -390,6 +390,7 @@ export class LocalSimulation {
       turretYOffset,
       barrelLength,
     );
+    const launchAngle = bodyAngle + aimAngle;
     const speed = power * projectileDefinition.baseVelocity;
     this.world.createProjectile(
       ownerPlayerId,
@@ -397,8 +398,8 @@ export class LocalSimulation {
       power,
       muzzle.x,
       muzzle.y,
-      Math.cos(aimAngle) * speed,
-      Math.sin(aimAngle) * speed,
+      Math.cos(launchAngle) * speed,
+      Math.sin(launchAngle) * speed,
     );
   }
 

@@ -161,7 +161,7 @@ function GameView({ gameSessionId }: { gameSessionId: string }) {
 
         <canvas
           ref={canvasRef}
-          className="w-full h-full block bg-black"
+          className="w-full h-full block bg-black touch-none select-none"
         />
       </div>
     </main>

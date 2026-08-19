@@ -294,6 +294,11 @@ export class CanvasInputSource {
   };
 
   private readonly onPointerDown = (event: PointerEvent) => {
+    try {
+      (event.currentTarget as HTMLElement)?.setPointerCapture?.(event.pointerId);
+    } catch {
+      // Ignore if not supported
+    }
     this.isPointerDown = true;
     this.lastPointerX = event.clientX;
     this.pointer = {
@@ -310,6 +315,11 @@ export class CanvasInputSource {
     this.isPointerDown = false;
   };
 
+  private readonly onPointerCancel = () => {
+    this.isPointerDown = false;
+    this.pendingPointerDown = null;
+  };
+
   private readonly onWheel = (event: WheelEvent) => {
     event.preventDefault();
     if (event.shiftKey || Math.abs(event.deltaX) > 0 || Math.abs(event.deltaY) > 0) {
@@ -321,6 +331,19 @@ export class CanvasInputSource {
     if (event.touches.length >= 2) {
       event.preventDefault();
       this.lastTouchX = (event.touches[0].clientX + event.touches[1].clientX) / 2;
+    } else if (event.touches.length === 1) {
+      event.preventDefault();
+      const touch = event.touches[0]!;
+      this.isPointerDown = true;
+      this.lastPointerX = touch.clientX;
+      this.pointer = {
+        clientX: touch.clientX,
+        clientY: touch.clientY,
+      };
+      this.pendingPointerDown = {
+        clientX: touch.clientX,
+        clientY: touch.clientY,
+      };
     }
   };
 
@@ -333,11 +356,29 @@ export class CanvasInputSource {
         this.pendingPanDelta -= dx;
       }
       this.lastTouchX = currentX;
+    } else if (event.touches.length === 1) {
+      event.preventDefault();
+      const touch = event.touches[0]!;
+      this.lastPointerX = touch.clientX;
+      this.pointer = {
+        clientX: touch.clientX,
+        clientY: touch.clientY,
+      };
     }
   };
 
-  private readonly onTouchEnd = () => {
-    this.lastTouchX = 0;
+  private readonly onTouchEnd = (event: TouchEvent) => {
+    if (event.touches.length === 0) {
+      this.isPointerDown = false;
+      this.lastTouchX = 0;
+    } else if (event.touches.length === 1) {
+      this.lastTouchX = 0;
+      const touch = event.touches[0]!;
+      this.pointer = {
+        clientX: touch.clientX,
+        clientY: touch.clientY,
+      };
+    }
   };
 
   constructor(
@@ -350,7 +391,9 @@ export class CanvasInputSource {
     window.addEventListener("pointermove", this.onPointerMove);
     window.addEventListener("mousemove", this.onPointerMove);
     window.addEventListener("pointerup", this.onPointerUp);
+    window.addEventListener("pointercancel", this.onPointerCancel);
     canvas.addEventListener("pointerdown", this.onPointerDown);
+    canvas.addEventListener("pointercancel", this.onPointerCancel);
     canvas.addEventListener("wheel", this.onWheel, { passive: false });
     canvas.addEventListener("touchstart", this.onTouchStart, { passive: false });
     canvas.addEventListener("touchmove", this.onTouchMove, { passive: false });
@@ -400,7 +443,9 @@ export class CanvasInputSource {
     window.removeEventListener("pointermove", this.onPointerMove);
     window.removeEventListener("mousemove", this.onPointerMove);
     window.removeEventListener("pointerup", this.onPointerUp);
+    window.removeEventListener("pointercancel", this.onPointerCancel);
     this.canvas.removeEventListener("pointerdown", this.onPointerDown);
+    this.canvas.removeEventListener("pointercancel", this.onPointerCancel);
     this.canvas.removeEventListener("wheel", this.onWheel);
     this.canvas.removeEventListener("touchstart", this.onTouchStart);
     this.canvas.removeEventListener("touchmove", this.onTouchMove);

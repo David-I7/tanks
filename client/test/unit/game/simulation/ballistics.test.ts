@@ -63,18 +63,20 @@ describe("getMuzzlePosition", () => {
 
     // Rotated tank on slope (bodyAngle = 45 deg = π/4)
     const slopeAngle = Math.PI / 4;
+    const aimRelAngle = -Math.PI / 2; // Perpendicular to hull
     const rotatedMuzzle = getMuzzlePosition(
       tankX,
       tankY,
-      -Math.PI / 2,
+      aimRelAngle,
       slopeAngle,
       TURRET_Y_OFFSET,
       BARREL_LENGTH,
     );
     const expectedPivotX = tankX - TURRET_Y_OFFSET * Math.sin(slopeAngle);
     const expectedPivotY = tankY + TURRET_Y_OFFSET * Math.cos(slopeAngle);
-    expect(rotatedMuzzle.x).toBeCloseTo(expectedPivotX);
-    expect(rotatedMuzzle.y).toBeCloseTo(expectedPivotY - BARREL_LENGTH);
+    const expectedLaunchAngle = slopeAngle + aimRelAngle;
+    expect(rotatedMuzzle.x).toBeCloseTo(expectedPivotX + Math.cos(expectedLaunchAngle) * BARREL_LENGTH);
+    expect(rotatedMuzzle.y).toBeCloseTo(expectedPivotY + Math.sin(expectedLaunchAngle) * BARREL_LENGTH);
   });
 });
 
