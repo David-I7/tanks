@@ -57,6 +57,8 @@ export default function MockGameTestPage() {
   const [gameSessionId, setGameSessionId] = useState<string | null>(gameIdParam);
   const [p1Url, setP1Url] = useState<string | null>(null);
   const [p2Url, setP2Url] = useState<string | null>(null);
+  const p1WindowRef = useRef<Window | null>(null);
+  const p2WindowRef = useRef<Window | null>(null);
   const [destroyLoading, setDestroyLoading] = useState<boolean>(false);
 
   useEffect(() => {
@@ -80,6 +82,16 @@ export default function MockGameTestPage() {
       setInitialized(true);
     }
   }, [isPlayerTab, tokenParam, gameIdParam, playerNumParam]);
+
+  useEffect(() => {
+    // Clean up on unmount: close any opened player tabs
+    return () => {
+      p1WindowRef.current?.close();
+      p2WindowRef.current?.close();
+      p1WindowRef.current = null;
+      p2WindowRef.current = null;
+    };
+  }, []);
 
   const setupMatch = async () => {
     setLoading(true);
@@ -143,8 +155,8 @@ export default function MockGameTestPage() {
       setP1Url(url1);
       setP2Url(url2);
 
-      window.open(url1, "_blank");
-      window.open(url2, "_blank");
+      p1WindowRef.current = window.open(url1, "_blank");
+      p2WindowRef.current = window.open(url2, "_blank");
 
     } catch (err: any) {
       console.error(err);
@@ -165,6 +177,10 @@ export default function MockGameTestPage() {
       setGameSessionId(null);
       setP1Url(null);
       setP2Url(null);
+      p1WindowRef.current?.close();
+      p2WindowRef.current?.close();
+      p1WindowRef.current = null;
+      p2WindowRef.current = null;
     } catch (err: any) {
       console.error(err);
       setError(err?.message || String(err));

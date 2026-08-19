@@ -46,8 +46,8 @@
     "movementQuantum": 24,
     "fuelRate": 1,
     "climbCapability": 5,
-    "width": 24,
-    "height": 24,
+    "width": 44,
+    "height": 28,
     "barrelLength": 28.0,
     "turretYOffset": -14.0
   },

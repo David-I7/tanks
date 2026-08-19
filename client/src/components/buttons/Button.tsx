@@ -53,13 +53,13 @@ export default function Button({
       disabled={disabled}
       type={type}
       className={twMerge(
-        "cursor-pointer min-h-10 px-6 gap-2 flex items-center justify-center font-semibold rounded-lg transition-colors duration-normal text-sm select-none active:translate-y-px",
+        "cursor-pointer min-h-10 px-6 gap-2 flex items-center justify-center font-semibold rounded-lg transition-all duration-200 text-sm select-none hover:-translate-y-0.5 hover:shadow-md hover:brightness-105 active:translate-y-0 active:scale-[0.98]",
         VARIANTS["color"][variant][color],
         leftIcon !== undefined ? "pl-4" : "",
         rightIcon !== undefined ? "pr-4" : "",
         disabled === undefined || disabled === false
           ? "opacity-100"
-          : "opacity-40 cursor-not-allowed pointer-events-none",
+          : "opacity-40 cursor-not-allowed pointer-events-none hover:translate-y-0 hover:shadow-none hover:brightness-100",
         className,
       )}
       onClick={onClick}

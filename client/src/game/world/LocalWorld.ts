@@ -75,6 +75,8 @@ export class LocalWorld {
       tankName: tankDefinition.name,
       width: tankDefinition.width,
       height: tankDefinition.height,
+      barrelLength: tankDefinition.barrelLength,
+      turretYOffset: tankDefinition.turretYOffset,
       visual: { ...tankDefinition.visual },
       loadout: [...tankDefinition.loadout],
       selectedProjectileSlotId: defaultSlot,

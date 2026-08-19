@@ -1,4 +1,4 @@
-import { ArrowLeft } from "lucide-react";
+import { Menu } from "lucide-react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
 import Loader from "../../components/misc/Loader";
@@ -8,6 +8,7 @@ import useGameSession from "./useGameSession";
 import UiError from "../../errors/UiError";
 import { useUserStatusQuery } from "../../hooks/useUserStatusQuery";
 import GameOverOverlay from "../../components/game/GameOverOverlay";
+import BattleMenuModal from "../../components/game/BattleMenuModal";
 
 export default function GamePage() {
   const { id } = useParams();
@@ -50,11 +51,12 @@ function useCheckValidGameSession({ id }: { id: string | undefined }) {
 
 function GameView({ gameSessionId }: { gameSessionId: string }) {
   const navigate = useNavigate();
-  const { sessionStatus, opponentDisconnected, gameManager } =
+  const { sessionStatus, opponentDisconnected, gameManager, forfeitGame } =
     useGameSession(gameSessionId);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const engineRef = useRef<GameEngine | null>(null);
   const [gameState, setGameState] = useState<GameState | null>(null);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   useEffect(() => {
     if (!gameManager) return;
@@ -110,15 +112,23 @@ function GameView({ gameSessionId }: { gameSessionId: string }) {
 
   return (
     <main className="fixed inset-0 w-screen h-screen overflow-hidden bg-background text-text-body-high">
-      <div className="absolute top-3 left-3 z-30 flex items-center gap-2">
+      {/* Top-Left Circular Frosted Menu Button */}
+      <div className="absolute top-3 left-3 z-30">
         <IconButton
-          onClick={() => navigate("/")}
-          icon={<ArrowLeft size={16} />}
+          onClick={() => setIsMenuOpen(true)}
+          icon={<Menu size={18} />}
+          className="rounded-full shadow-lg bg-zinc-900/80 border-zinc-700/70 hover:bg-zinc-800 text-white backdrop-blur-md"
+          aria-label="Open Battle Menu"
         />
-        <span className="font-heading text-xs font-bold tracking-wider uppercase text-text-body-high bg-background/80 px-2.5 py-1 rounded backdrop-blur-md shadow border border-border-low">
-          Online Match
-        </span>
       </div>
+
+      <BattleMenuModal
+        isOpen={isMenuOpen}
+        onClose={() => setIsMenuOpen(false)}
+        mode="online"
+        onForfeit={forfeitGame}
+        onExitToMenu={() => navigate("/")}
+      />
 
       {opponentDisconnected && sessionStatus === "in_game" && (
         <div className="absolute top-3 left-1/2 -translate-x-1/2 z-30 rounded bg-amber-500/20 backdrop-blur-md border border-amber-500/40 px-4 py-1.5 text-center text-xs font-semibold text-amber-300 animate-pulse shadow-md">
@@ -161,7 +171,7 @@ function GameView({ gameSessionId }: { gameSessionId: string }) {
 
         <canvas
           ref={canvasRef}
-          className="w-full h-full block bg-black"
+          className="w-full h-full block bg-black touch-none select-none"
         />
       </div>
     </main>

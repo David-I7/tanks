@@ -1,5 +1,5 @@
-import { ArrowLeft } from "lucide-react";
-import { useEffect, useMemo, useRef } from "react";
+import { Menu } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   createLocalGameManager,
@@ -11,6 +11,7 @@ import IconButton from "../../components/buttons/IconButton";
 import Loader from "../../components/misc/Loader";
 import { useAssetQuery } from "../../hooks/useAssetQuery";
 import type { TankDefinitionIds } from "../../game/rendering/ResourceManager";
+import BattleMenuModal from "../../components/game/BattleMenuModal";
 
 type LocationState = {
   mode: "localTwoPlayer";
@@ -45,6 +46,8 @@ export default function LocalGamePage() {
   const location = useLocation();
   const state = location.state as LocationState | null;
   const { data: assets, isLoading: isAssetsLoading } = useAssetQuery();
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [matchKey, setMatchKey] = useState(0);
 
   useEffect(() => {
     if (!state || !isValidLocationState(state)) {
@@ -73,7 +76,7 @@ export default function LocalGamePage() {
         },
       ],
     };
-  }, [state]);
+  }, [state, matchKey]);
 
   const isReady =
     !isAssetsLoading && Boolean(assets) && ResourceManager.getInstance().isLoaded();
@@ -108,21 +111,27 @@ export default function LocalGamePage() {
         engineRef.current = null;
       }
     };
-  }, [matchSetup, isReady]);
-
-  const modeLabel = "Local Two-Player";
+  }, [matchSetup, isReady, matchKey]);
 
   return (
     <main className="fixed inset-0 w-screen h-screen overflow-hidden bg-background text-text-body-high">
-      <div className="absolute top-3 left-3 z-30 flex items-center gap-2">
+      {/* Top-Left Circular Frosted Menu Button */}
+      <div className="absolute top-3 left-3 z-30">
         <IconButton
-          onClick={() => navigate("/")}
-          icon={<ArrowLeft size={16} />}
+          onClick={() => setIsMenuOpen(true)}
+          icon={<Menu size={18} />}
+          className="rounded-full shadow-lg bg-zinc-900/80 border-zinc-700/70 hover:bg-zinc-800 text-white backdrop-blur-md"
+          aria-label="Open Battle Menu"
         />
-        <span className="font-heading text-xs font-bold tracking-wider uppercase text-text-body-high bg-background/80 px-2.5 py-1 rounded backdrop-blur-md shadow border border-border-low">
-          {modeLabel}
-        </span>
       </div>
+
+      <BattleMenuModal
+        isOpen={isMenuOpen}
+        onClose={() => setIsMenuOpen(false)}
+        mode="local"
+        onRestart={() => setMatchKey((prev) => prev + 1)}
+        onExitToMenu={() => navigate("/")}
+      />
 
       <div className="relative w-full h-full overflow-hidden">
         {!isReady && (
@@ -135,7 +144,7 @@ export default function LocalGamePage() {
         )}
         <canvas
           ref={canvasRef}
-          className="w-full h-full block bg-black"
+          className="w-full h-full block bg-black touch-none select-none"
         />
       </div>
     </main>

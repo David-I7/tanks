@@ -130,6 +130,9 @@ export class GameEngine {
     }
 
     const state = this.gameManager.getState();
+    const hoverTarget = this.localInput.getHoverTarget(state);
+    this.renderer.setHoverTarget(hoverTarget);
+    this.renderer.setIsWeaponDrawerOpen(this.localInput.getIsWeaponDrawerOpen());
     this.renderer.render(state);
     this.publishState(state);
 

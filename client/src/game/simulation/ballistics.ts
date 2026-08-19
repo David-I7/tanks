@@ -41,9 +41,10 @@ export function getMuzzlePosition(
   const pivotX = tankX - turretYOffset * Math.sin(bodyAngle);
   const pivotY = tankY + turretYOffset * Math.cos(bodyAngle);
 
-  // Muzzle endpoint calculated directly along the aimAngle from the pivot
-  const muzzleX = pivotX + Math.cos(aimAngle) * barrelLength;
-  const muzzleY = pivotY + Math.sin(aimAngle) * barrelLength;
+  // Muzzle endpoint calculated along the launch angle (body tilt + relative aim angle)
+  const launchAngle = bodyAngle + aimAngle;
+  const muzzleX = pivotX + Math.cos(launchAngle) * barrelLength;
+  const muzzleY = pivotY + Math.sin(launchAngle) * barrelLength;
 
   return { x: muzzleX, y: muzzleY };
 }
@@ -96,9 +97,10 @@ export function simulateTrajectoryPreview(
     barrelLength,
   );
 
+  const launchAngle = activeTank.bodyAngle + angleRad;
   const speed = activeTank.power * baseVelocity;
-  let currVx = speed * Math.cos(angleRad);
-  let currVy = speed * Math.sin(angleRad);
+  let currVx = speed * Math.cos(launchAngle);
+  let currVy = speed * Math.sin(launchAngle);
 
   const g = worldGravity * gravityScale;
   const wind = snapshot.match.wind;

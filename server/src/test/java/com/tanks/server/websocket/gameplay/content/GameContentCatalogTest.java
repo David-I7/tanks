@@ -25,8 +25,8 @@ class GameContentCatalogTest {
 
         assertNotNull(content.tankDefaults());
         assertEquals(240, content.tankDefaults().maxFuel());
-        assertEquals(24, content.tankDefaults().width());
-        assertEquals(24, content.tankDefaults().height());
+        assertEquals(44, content.tankDefaults().width());
+        assertEquals(28, content.tankDefaults().height());
 
         assertNotNull(content.tanks());
         assertEquals(4, content.tanks().size());
@@ -35,8 +35,8 @@ class GameContentCatalogTest {
         assertEquals("vanguard-cyber", vanguard.id());
         assertEquals("Vanguard Cyber", vanguard.name());
         assertEquals(240, vanguard.maxFuel());
-        assertEquals(24, vanguard.width());
-        assertEquals(24, vanguard.height());
+        assertEquals(44, vanguard.width());
+        assertEquals(28, vanguard.height());
 
         assertNotNull(content.projectiles());
         var basicShell = content.requireProjectile("basicShell");

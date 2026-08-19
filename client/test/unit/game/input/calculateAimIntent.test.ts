@@ -145,4 +145,45 @@ describe("calculateAimIntent", () => {
     });
     expect(maxIntent?.power).toBe(680);
   });
+
+  it("calculates aim angle relative to sloped tank bodyAngle", () => {
+    const slopeAngle = Math.PI / 6; // 30 degrees tilt
+    const slopedTank: GameState["tanks"][number] = {
+      ...(mockGameState.tanks![0] as GameState["tanks"][number]),
+      bodyAngle: slopeAngle,
+    };
+
+    const originX = slopedTank.position.x - TURRET_Y_OFFSET * Math.sin(slopeAngle);
+    const originY = slopedTank.position.y + TURRET_Y_OFFSET * Math.cos(slopeAngle);
+
+    // Aim perpendicular to sloped hull (world angle = slopeAngle - PI/2 = -PI/3 = -60 deg)
+    const aimPerpendicular = calculateAimIntent({
+      clientX: originX + 100 * Math.cos(slopeAngle - Math.PI / 2),
+      clientY: originY + 100 * Math.sin(slopeAngle - Math.PI / 2),
+      domCanvasRect,
+      gameViewport,
+      cameraX: 0,
+      gameState: mockGameState as GameState,
+      activeTank: slopedTank,
+    });
+
+    expect(aimPerpendicular).toBeDefined();
+    // Relative angle to tank hull is straight up (-PI/2 = -90 deg)
+    expect(aimPerpendicular?.angle).toBeCloseTo(-Math.PI / 2);
+
+    // Aim along forward sloped deck (world angle = slopeAngle = 30 deg)
+    const aimAlongDeck = calculateAimIntent({
+      clientX: originX + 100 * Math.cos(slopeAngle),
+      clientY: originY + 100 * Math.sin(slopeAngle),
+      domCanvasRect,
+      gameViewport,
+      cameraX: 0,
+      gameState: mockGameState as GameState,
+      activeTank: slopedTank,
+    });
+
+    expect(aimAlongDeck).toBeDefined();
+    // Relative angle to tank hull is 0 (deck forward)
+    expect(aimAlongDeck?.angle).toBeCloseTo(0);
+  });
 });

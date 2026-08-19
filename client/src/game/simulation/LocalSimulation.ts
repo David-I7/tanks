@@ -128,7 +128,7 @@ export class LocalSimulation {
       if (moved) {
         position.x = currentX;
         position.y = currentY;
-        tank.bodyAngle = this.terrain.getSlopeAngle(position.x);
+        tank.bodyAngle = this.terrain.getSlopeAngle(position.x, tank.width);
         return true;
       }
       return false;
@@ -390,6 +390,7 @@ export class LocalSimulation {
       turretYOffset,
       barrelLength,
     );
+    const launchAngle = bodyAngle + aimAngle;
     const speed = power * projectileDefinition.baseVelocity;
     this.world.createProjectile(
       ownerPlayerId,
@@ -397,8 +398,8 @@ export class LocalSimulation {
       power,
       muzzle.x,
       muzzle.y,
-      Math.cos(aimAngle) * speed,
-      Math.sin(aimAngle) * speed,
+      Math.cos(launchAngle) * speed,
+      Math.sin(launchAngle) * speed,
     );
   }
 
@@ -434,8 +435,9 @@ export class LocalSimulation {
         if (!tank.alive) continue;
         const pos = this.world.positions.get(entityId);
         if (!pos) continue;
-        const dist = Math.hypot(pos.x - trail.position.x, pos.y - 18 - trail.position.y);
-        if (dist <= trail.radius) {
+        const dist = Math.hypot(pos.x - trail.position.x, pos.y - trail.position.y);
+        const tankRadius = (tank.width ? Math.max(tank.width, tank.height) : 44) * 0.5;
+        if (dist <= trail.radius + tankRadius) {
           tank.health = Math.max(0, tank.health - damageThisTick);
           tank.alive = tank.health > 0;
         }
@@ -505,8 +507,9 @@ export class LocalSimulation {
       if (!tankPosition) continue;
 
       const dx = projectilePosition.x - tankPosition.x;
-      const dy = projectilePosition.y - (tankPosition.y - tank.height * 0.5);
-      if (Math.hypot(dx, dy) <= tank.width * 0.5 + projectile.radius) {
+      const dy = projectilePosition.y - tankPosition.y;
+      const collisionRadius = (tank.width ? Math.max(tank.width, tank.height) : 44) * 0.5;
+      if (Math.hypot(dx, dy) <= collisionRadius + projectile.radius) {
         return tankEntityId;
       }
     }
@@ -628,7 +631,7 @@ export class LocalSimulation {
       const position = this.world.positions.get(entityId);
       if (!position || !tank.alive) continue;
       position.y = this.terrain.getSurfaceY(position.x) - tank.height / 2;
-      tank.bodyAngle = this.terrain.getSlopeAngle(position.x);
+      tank.bodyAngle = this.terrain.getSlopeAngle(position.x, tank.width);
     }
     for (const decor of this.world.decors) {
       if (decor.destroyed) continue;
@@ -773,7 +776,7 @@ export class LocalSimulation {
         const collectionRadius = this.content.world.lootCrates?.collectionRadius ?? 35.0;
         const dist = Math.hypot(
           crate.x - activePos.x,
-          crate.y - 12 - activePos.y,
+          crate.y - activePos.y,
         );
         if (dist <= collectionRadius) {
           crate.collected = true;
