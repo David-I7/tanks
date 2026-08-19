@@ -49,10 +49,10 @@ export default function TankSelector({
                 setStoreSelectedTank(tank.id);
                 onTankSelect?.(tank);
               }}
-              className={`flex flex-col items-center p-2 rounded-lg border transition-all duration-200 cursor-pointer ${
+              className={`flex flex-col items-center p-2 rounded-lg border transition-all duration-200 cursor-pointer hover:-translate-y-1 hover:shadow-lg ${
                 isSelected
                   ? "border-primary bg-primary/10 shadow-md ring-2 ring-primary/40"
-                  : "border-border-main bg-background-high hover:border-text-body-muted"
+                  : "border-border-main bg-background-high hover:border-primary/60 hover:bg-background-high/80"
               }`}
             >
               <div className="w-16 h-12 flex items-center justify-center overflow-hidden relative">

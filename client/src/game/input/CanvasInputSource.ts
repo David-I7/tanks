@@ -1,9 +1,14 @@
 import type { GameAction, GameState } from "../types";
 import {
   calculateAimIntent,
-  findProjectileSlotAtCanvasPoint,
+  findExpandedDrawerSlotAtCanvasPoint,
+  isCompactWeaponSlotClickedAtCanvasPoint,
   isFireButtonClickedAtCanvasPoint,
   isRelockCameraButtonClickedAtCanvasPoint,
+  getVirtualMovementIntentAtCanvasPoint,
+  getVirtualAimAngleIntentAtCanvasPoint,
+  getExpandedWeaponDrawerLayout,
+  getCompactWeaponSelectorLayout,
 } from "./inputHelpers";
 import type { DomCanvasRect, GameViewport } from "../world/worldSizing";
 import { domPointToGameViewportPoint } from "../world/worldSizing";
@@ -16,7 +21,21 @@ export type CanvasInteractionState = {
   pendingPanDelta: number;
   isPointerDown: boolean;
   pointer: { clientX: number; clientY: number };
+  isWeaponDrawerOpen: boolean;
+  virtualMoveDirection: -1 | 1 | null;
+  virtualAim: Extract<GameAction, { type: "aim" }> | null;
 };
+
+export type CanvasHoverTarget =
+  | { type: "slot"; slotId: string }
+  | { type: "drawerSlot"; slotId: string }
+  | { type: "weaponSlot" }
+  | { type: "fire" }
+  | { type: "relockCamera" }
+  | { type: "dpadLeft" }
+  | { type: "dpadRight" }
+  | { type: "aimWheel" }
+  | null;
 
 export type CanvasInteractionContext = {
   gameState: GameState;
@@ -60,7 +79,15 @@ const movementIntentProducer: IntentProducer = ({ state, context }) => {
     state.pressedKeys.has("D") ||
     state.pressedKeys.has("ArrowRight");
 
-  return left !== right ? [{ type: "move", direction: left ? -1 : 1 }] : [];
+  if (left !== right) {
+    return [{ type: "move", direction: left ? -1 : 1 }];
+  }
+
+  if (state.virtualMoveDirection === -1 || state.virtualMoveDirection === 1) {
+    return [{ type: "move", direction: state.virtualMoveDirection }];
+  }
+
+  return [];
 };
 
 const keyboardProjectileSlotIntentProducer: IntentProducer = ({
@@ -131,22 +158,44 @@ const pointerIntentProducer: IntentProducer = ({ state, context }) => {
   let clickedHud = false;
 
   if (pointerPoint) {
-    const clickedSlotId = findProjectileSlotAtCanvasPoint(
-      context.gameState,
-      context.gameViewport.width,
-      context.gameViewport.height,
-      pointerPoint.x,
-      pointerPoint.y,
-      activeTank,
-    );
+    // 1. Expanded drawer slot click
+    if (state.isWeaponDrawerOpen) {
+      const drawerSlotId = findExpandedDrawerSlotAtCanvasPoint(
+        context.gameState,
+        context.gameViewport.width,
+        context.gameViewport.height,
+        pointerPoint.x,
+        pointerPoint.y,
+        activeTank,
+        state.isWeaponDrawerOpen,
+      );
+      if (drawerSlotId) {
+        clickedHud = true;
+        intents.push({
+          type: "selectProjectileSlot",
+          projectileSlotId: drawerSlotId,
+        });
+      }
+    }
 
-    if (clickedSlotId) {
+    // 2. Compact active weapon slot click
+    if (
+      !clickedHud &&
+      isCompactWeaponSlotClickedAtCanvasPoint(
+        context.gameState,
+        context.gameViewport.width,
+        context.gameViewport.height,
+        pointerPoint.x,
+        pointerPoint.y,
+        activeTank,
+      )
+    ) {
       clickedHud = true;
-      intents.push({
-        type: "selectProjectileSlot",
-        projectileSlotId: clickedSlotId,
-      });
-    } else if (
+    }
+
+    // 3. FIRE button click
+    if (
+      !clickedHud &&
       isFireButtonClickedAtCanvasPoint(
         context.gameState,
         context.gameViewport.width,
@@ -168,9 +217,43 @@ const pointerIntentProducer: IntentProducer = ({ state, context }) => {
         });
       }
     }
+
+    // 4. Virtual D-pad touch
+    if (!clickedHud) {
+      const dpadMove = getVirtualMovementIntentAtCanvasPoint(
+        context.gameViewport.width,
+        context.gameViewport.height,
+        pointerPoint.x,
+        pointerPoint.y,
+      );
+      if (dpadMove !== null) {
+        clickedHud = true;
+        intents.push({ type: "move", direction: dpadMove });
+      }
+    }
+
+    // 5. Virtual Aim Dial touch
+    if (!clickedHud) {
+      const dialAim = getVirtualAimAngleIntentAtCanvasPoint(
+        context.gameViewport.width,
+        context.gameViewport.height,
+        pointerPoint.x,
+        pointerPoint.y,
+        activeTank,
+      );
+      if (dialAim) {
+        clickedHud = true;
+        intents.push(dialAim);
+      }
+    }
   }
 
-  if (!clickedHud) {
+  // Virtual aim from persistent touch
+  if (state.virtualAim) {
+    intents.push(state.virtualAim);
+  }
+
+  if (!clickedHud && !state.virtualAim) {
     const currentPointerPoint = domPointToGameViewportPoint({
       clientX: state.pointer.clientX,
       clientY: state.pointer.clientY,
@@ -187,21 +270,44 @@ const pointerIntentProducer: IntentProducer = ({ state, context }) => {
         currentPointerPoint.y,
         activeTank,
       ) ||
-      findProjectileSlotAtCanvasPoint(
+      isCompactWeaponSlotClickedAtCanvasPoint(
         context.gameState,
         context.gameViewport.width,
         context.gameViewport.height,
         currentPointerPoint.x,
         currentPointerPoint.y,
         activeTank,
-      ) !== null ||
+      ) ||
+      (state.isWeaponDrawerOpen &&
+        findExpandedDrawerSlotAtCanvasPoint(
+          context.gameState,
+          context.gameViewport.width,
+          context.gameViewport.height,
+          currentPointerPoint.x,
+          currentPointerPoint.y,
+          activeTank,
+          state.isWeaponDrawerOpen,
+        ) !== null) ||
       isRelockCameraButtonClickedAtCanvasPoint(
         context.gameState,
         context.gameViewport.width,
         context.gameViewport.height,
         currentPointerPoint.x,
         currentPointerPoint.y,
-      );
+      ) ||
+      getVirtualMovementIntentAtCanvasPoint(
+        context.gameViewport.width,
+        context.gameViewport.height,
+        currentPointerPoint.x,
+        currentPointerPoint.y,
+      ) !== null ||
+      getVirtualAimAngleIntentAtCanvasPoint(
+        context.gameViewport.width,
+        context.gameViewport.height,
+        currentPointerPoint.x,
+        currentPointerPoint.y,
+        activeTank,
+      ) !== null;
 
     const isDraggingToAim =
       state.isPointerDown && !state.pressedKeys.has("Shift") && !isPointerOverHud;
@@ -265,15 +371,23 @@ export class CanvasInputSource {
   private pointer = { clientX: 0, clientY: 0 };
   private active = true;
   private layout: CanvasInputLayout;
+  private isWeaponDrawerOpen = false;
+  private virtualMoveDirection: -1 | 1 | null = null;
+  private virtualAim: Extract<GameAction, { type: "aim" }> | null = null;
 
   private readonly onKeyDown = (event: KeyboardEvent) => {
     this.pressedKeys.add(event.key);
     if (/^[1-5]$/.test(event.key)) {
       this.pendingSlotNumber = Number(event.key);
+      this.isWeaponDrawerOpen = false;
     }
     if (event.key === " " || event.code === "Space") {
       event.preventDefault();
       this.pendingSpaceKey = true;
+      this.isWeaponDrawerOpen = false;
+    }
+    if (event.key === "Escape") {
+      this.isWeaponDrawerOpen = false;
     }
   };
 
@@ -309,15 +423,56 @@ export class CanvasInputSource {
       clientX: event.clientX,
       clientY: event.clientY,
     };
+
+    // Toggle drawer when clicking compact weapon slot
+    const vp = domPointToGameViewportPoint({
+      clientX: event.clientX,
+      clientY: event.clientY,
+      domCanvasRect: this.layout.domCanvasRect,
+      gameViewport: this.layout.gameViewport,
+    });
+    const compactLayout = getCompactWeaponSelectorLayout(
+      this.layout.gameViewport.width,
+      this.layout.gameViewport.height,
+    );
+    const isOverCompactSlot =
+      vp.x >= compactLayout.x - 6 &&
+      vp.x <= compactLayout.x + compactLayout.size + 6 &&
+      vp.y >= compactLayout.y - 6 &&
+      vp.y <= compactLayout.y + compactLayout.size + 6;
+
+    if (isOverCompactSlot) {
+      this.isWeaponDrawerOpen = !this.isWeaponDrawerOpen;
+    } else if (this.isWeaponDrawerOpen) {
+      // Check if clicking inside drawer
+      const drawerLayout = getExpandedWeaponDrawerLayout(
+        this.layout.gameViewport.width,
+        this.layout.gameViewport.height,
+        5,
+      );
+      const isInsideDrawer =
+        vp.x >= drawerLayout.x &&
+        vp.x <= drawerLayout.x + drawerLayout.width &&
+        vp.y >= drawerLayout.y &&
+        vp.y <= drawerLayout.y + drawerLayout.height;
+
+      if (!isInsideDrawer) {
+        this.isWeaponDrawerOpen = false;
+      }
+    }
   };
 
   private readonly onPointerUp = () => {
     this.isPointerDown = false;
+    this.virtualMoveDirection = null;
+    this.virtualAim = null;
   };
 
   private readonly onPointerCancel = () => {
     this.isPointerDown = false;
     this.pendingPointerDown = null;
+    this.virtualMoveDirection = null;
+    this.virtualAim = null;
   };
 
   private readonly onWheel = (event: WheelEvent) => {
@@ -344,6 +499,23 @@ export class CanvasInputSource {
         clientX: touch.clientX,
         clientY: touch.clientY,
       };
+
+      const vp = domPointToGameViewportPoint({
+        clientX: touch.clientX,
+        clientY: touch.clientY,
+        domCanvasRect: this.layout.domCanvasRect,
+        gameViewport: this.layout.gameViewport,
+      });
+
+      const dpadDir = getVirtualMovementIntentAtCanvasPoint(
+        this.layout.gameViewport.width,
+        this.layout.gameViewport.height,
+        vp.x,
+        vp.y,
+      );
+      if (dpadDir !== null) {
+        this.virtualMoveDirection = dpadDir;
+      }
     }
   };
 
@@ -364,6 +536,21 @@ export class CanvasInputSource {
         clientX: touch.clientX,
         clientY: touch.clientY,
       };
+
+      const vp = domPointToGameViewportPoint({
+        clientX: touch.clientX,
+        clientY: touch.clientY,
+        domCanvasRect: this.layout.domCanvasRect,
+        gameViewport: this.layout.gameViewport,
+      });
+
+      const dpadDir = getVirtualMovementIntentAtCanvasPoint(
+        this.layout.gameViewport.width,
+        this.layout.gameViewport.height,
+        vp.x,
+        vp.y,
+      );
+      this.virtualMoveDirection = dpadDir;
     }
   };
 
@@ -371,6 +558,8 @@ export class CanvasInputSource {
     if (event.touches.length === 0) {
       this.isPointerDown = false;
       this.lastTouchX = 0;
+      this.virtualMoveDirection = null;
+      this.virtualAim = null;
     } else if (event.touches.length === 1) {
       this.lastTouchX = 0;
       const touch = event.touches[0]!;
@@ -400,6 +589,14 @@ export class CanvasInputSource {
     canvas.addEventListener("touchend", this.onTouchEnd);
   }
 
+  getIsWeaponDrawerOpen(): boolean {
+    return this.isWeaponDrawerOpen;
+  }
+
+  setIsWeaponDrawerOpen(isOpen: boolean): void {
+    this.isWeaponDrawerOpen = isOpen;
+  }
+
   poll(cameraX: number, gameState: GameState): GameAction[] {
     if (!this.active) return [];
 
@@ -412,6 +609,9 @@ export class CanvasInputSource {
         pendingSpaceKey: this.pendingSpaceKey,
         pendingPanDelta: this.pendingPanDelta,
         isPointerDown: this.isPointerDown,
+        isWeaponDrawerOpen: this.isWeaponDrawerOpen,
+        virtualMoveDirection: this.virtualMoveDirection,
+        virtualAim: this.virtualAim,
       },
       context: {
         gameState,
@@ -421,12 +621,132 @@ export class CanvasInputSource {
       },
     });
 
+    // Close drawer after slot selection or firing
+    if (actions.some((a) => a.type === "selectProjectileSlot" || a.type === "fire")) {
+      this.isWeaponDrawerOpen = false;
+    }
+
     this.pendingPointerDown = null;
     this.pendingSlotNumber = null;
     this.pendingSpaceKey = false;
     this.pendingPanDelta = 0;
 
     return actions;
+  }
+
+  getHoverTarget(gameState: GameState): CanvasHoverTarget {
+    if (!this.active) return null;
+    const activeTank = getActiveTank(gameState);
+    const pointerPoint = domPointToGameViewportPoint({
+      clientX: this.pointer.clientX,
+      clientY: this.pointer.clientY,
+      domCanvasRect: this.layout.domCanvasRect,
+      gameViewport: this.layout.gameViewport,
+    });
+
+    if (
+      isRelockCameraButtonClickedAtCanvasPoint(
+        gameState,
+        this.layout.gameViewport.width,
+        this.layout.gameViewport.height,
+        pointerPoint.x,
+        pointerPoint.y,
+      )
+    ) {
+      if (this.canvas?.style && this.canvas.style.cursor !== "pointer") {
+        this.canvas.style.cursor = "pointer";
+      }
+      return { type: "relockCamera" };
+    }
+
+    if (activeTank && gameState.match.phase === "thinking") {
+      // 1. Expanded drawer slots
+      if (this.isWeaponDrawerOpen) {
+        const drawerSlotId = findExpandedDrawerSlotAtCanvasPoint(
+          gameState,
+          this.layout.gameViewport.width,
+          this.layout.gameViewport.height,
+          pointerPoint.x,
+          pointerPoint.y,
+          activeTank,
+          this.isWeaponDrawerOpen,
+        );
+        if (drawerSlotId) {
+          if (this.canvas?.style && this.canvas.style.cursor !== "pointer") {
+            this.canvas.style.cursor = "pointer";
+          }
+          return { type: "drawerSlot", slotId: drawerSlotId };
+        }
+      }
+
+      // 2. Compact weapon slot
+      if (
+        isCompactWeaponSlotClickedAtCanvasPoint(
+          gameState,
+          this.layout.gameViewport.width,
+          this.layout.gameViewport.height,
+          pointerPoint.x,
+          pointerPoint.y,
+          activeTank,
+        )
+      ) {
+        if (this.canvas?.style && this.canvas.style.cursor !== "pointer") {
+          this.canvas.style.cursor = "pointer";
+        }
+        return { type: "weaponSlot" };
+      }
+
+      // 3. Fire button
+      if (
+        isFireButtonClickedAtCanvasPoint(
+          gameState,
+          this.layout.gameViewport.width,
+          this.layout.gameViewport.height,
+          pointerPoint.x,
+          pointerPoint.y,
+          activeTank,
+        )
+      ) {
+        if (this.canvas?.style && this.canvas.style.cursor !== "pointer") {
+          this.canvas.style.cursor = "pointer";
+        }
+        return { type: "fire" };
+      }
+
+      // 4. Virtual D-pad
+      const dpadMove = getVirtualMovementIntentAtCanvasPoint(
+        this.layout.gameViewport.width,
+        this.layout.gameViewport.height,
+        pointerPoint.x,
+        pointerPoint.y,
+      );
+      if (dpadMove !== null) {
+        if (this.canvas?.style && this.canvas.style.cursor !== "pointer") {
+          this.canvas.style.cursor = "pointer";
+        }
+        return dpadMove === -1 ? { type: "dpadLeft" } : { type: "dpadRight" };
+      }
+
+      // 5. Virtual Aim Dial
+      const dialAim = getVirtualAimAngleIntentAtCanvasPoint(
+        this.layout.gameViewport.width,
+        this.layout.gameViewport.height,
+        pointerPoint.x,
+        pointerPoint.y,
+        activeTank,
+      );
+      if (dialAim) {
+        if (this.canvas?.style && this.canvas.style.cursor !== "pointer") {
+          this.canvas.style.cursor = "pointer";
+        }
+        return { type: "aimWheel" };
+      }
+    }
+
+    if (this.canvas?.style && this.canvas.style.cursor !== "crosshair") {
+      this.canvas.style.cursor = "crosshair";
+    }
+    return null;
   }
 
   setActive(active: boolean): void {
@@ -452,3 +772,4 @@ export class CanvasInputSource {
     this.canvas.removeEventListener("touchend", this.onTouchEnd);
   }
 }
+
