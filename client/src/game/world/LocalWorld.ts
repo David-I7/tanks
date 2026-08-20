@@ -112,9 +112,12 @@ export class LocalWorld {
       projectileDefinitionId: projectileDefinition.id,
       name: projectileDefinition.name,
       power,
-      radius: projectileDefinition.radius,
+      radius: projectileDefinition.visual?.radius ?? 4.0,
+      remainingBounces: projectileDefinition.bouncer
+        ? Math.max(0, projectileDefinition.bouncer.bounceCount - 1)
+        : 0,
       physics: {
-        radius: projectileDefinition.radius,
+        radius: projectileDefinition.visual?.radius ?? 4.0,
         gravityScale: projectileDefinition.gravityScale,
         muzzleVelocityScale: 1,
       },
@@ -161,7 +164,6 @@ export class LocalWorld {
         fill: "#f97316",
         stroke: "#c2410c",
         accent: "#fed7aa",
-        label: "!",
       },
     });
   }

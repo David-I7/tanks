@@ -187,6 +187,10 @@ export class CanvasGameRenderer {
       },
     ];
     this.overlayPasses = [
+      {
+        name: "hazardVignettes",
+        draw: (ctx, gameState) => this.drawHazardVignettes(ctx, gameState),
+      },
       { name: "hud", draw: (ctx, gameState) => this.drawHud(ctx, gameState) },
     ];
   }
@@ -234,11 +238,7 @@ export class CanvasGameRenderer {
         (lastEvent.animationId === "nuke" ||
           lastEvent.animationId === "red-slam" ||
           lastEvent.animationId === "purple-burst" ||
-          lastEvent.animationId === "cyan-beam" ||
-          (lastEvent.visual?.label &&
-            ["NUKE", "PLS", "CLU", "TOX", "G-SHT", "S-VLY", "AUTO"].some((l) =>
-              lastEvent.visual?.label?.includes(l),
-            )));
+          lastEvent.animationId === "cyan-beam");
       this.screenShakeIntensity = isSignature ? 22 : 12;
     }
     this.lastImpactCount = currentImpactCount;
@@ -506,52 +506,24 @@ export class CanvasGameRenderer {
         ctx.restore();
       }
 
-      // Barrel (aimAngle is relative to tank body [-PI, 0])
+      // Barrel & Turret
       const rad = entry.aimAngle;
       const barrelLength = entry.barrelLength ?? 28;
       const turretYOffset = entry.turretYOffset ?? -14;
       const muzzleX = Math.cos(rad) * barrelLength;
       const muzzleY = turretYOffset + Math.sin(rad) * barrelLength;
 
-      ctx.beginPath();
-      ctx.moveTo(0, turretYOffset);
-      ctx.lineTo(muzzleX, muzzleY);
-      ctx.lineWidth = 5;
-      ctx.strokeStyle = mainColor;
-      ctx.lineCap = "round";
-      ctx.stroke();
-
-      ctx.beginPath();
-      ctx.arc(muzzleX, muzzleY, 3.5, 0, Math.PI * 2);
-      ctx.fillStyle = "#ffffff";
-      ctx.fill();
-
-      // Tank Body
-      ctx.beginPath();
-      ctx.roundRect(-18, -14, 36, 14, 4);
-      const bodyGrad = ctx.createLinearGradient(0, -14, 0, 0);
-      bodyGrad.addColorStop(0, mainColor);
-      bodyGrad.addColorStop(1, strokeColor);
-      ctx.fillStyle = bodyGrad;
-      ctx.fill();
-      ctx.strokeStyle = accentColor;
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
-
-      // Treads & Wheels (resting flush with terrain stroke)
-      ctx.fillStyle = "#0f172a";
-      ctx.beginPath();
-      ctx.roundRect(-22, 2, 44, 12, 3);
-      ctx.fill();
-      ctx.strokeStyle = "#334155";
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
-
-      for (let wx = -15; wx <= 15; wx += 10) {
-        ctx.beginPath();
-        ctx.arc(wx, 8, 3.5, 0, Math.PI * 2);
-        ctx.fillStyle = "#64748b";
-        ctx.fill();
+      const tankId = entry.tankDefinitionId;
+      if (tankId === "ignis") {
+        this.drawIgnisTank(ctx, entry, rad, turretYOffset, muzzleX, muzzleY);
+      } else if (tankId === "glacies") {
+        this.drawGlaciesTank(ctx, entry, rad, turretYOffset, muzzleX, muzzleY);
+      } else if (tankId === "terra") {
+        this.drawTerraTank(ctx, entry, rad, turretYOffset, muzzleX, muzzleY);
+      } else if (tankId === "volt") {
+        this.drawVoltTank(ctx, entry, rad, turretYOffset, muzzleX, muzzleY);
+      } else {
+        this.drawGenericTank(ctx, entry, mainColor, strokeColor, accentColor, turretYOffset, muzzleX, muzzleY);
       }
 
       // Turn indicator downward triangle pulsing above active tank
@@ -578,6 +550,432 @@ export class CanvasGameRenderer {
     }
   }
 
+  private drawIgnisTank(
+    ctx: CanvasRenderingContext2D,
+    _entry: GameState["tanks"][number],
+    rad: number,
+    turretYOffset: number,
+    muzzleX: number,
+    muzzleY: number,
+  ): void {
+    // Dual Exhaust Pipes with glowing flame particles
+    ctx.save();
+    ctx.translate(-14, -14);
+    ctx.rotate((-20 * Math.PI) / 180);
+    ctx.fillStyle = "#1e293b";
+    ctx.strokeStyle = "#71717a";
+    ctx.lineWidth = 0.8;
+    ctx.beginPath();
+    ctx.roundRect(-2, -4, 3.5, 7, 1);
+    ctx.fill();
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(-2, -5, 1.8, 0, Math.PI * 2);
+    ctx.fillStyle = "#f97316";
+    ctx.fill();
+    ctx.restore();
+
+    // Turret Barrel (Magma Napalm Cannon)
+    ctx.beginPath();
+    ctx.moveTo(0, turretYOffset);
+    ctx.lineTo(muzzleX, muzzleY);
+    ctx.lineWidth = 5;
+    ctx.strokeStyle = "#ef4444";
+    ctx.lineCap = "round";
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(rad) * 4, turretYOffset + Math.sin(rad) * 4);
+    ctx.lineTo(Math.cos(rad) * 22, turretYOffset + Math.sin(rad) * 22);
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = "#facc15";
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(muzzleX, muzzleY, 3, 0, Math.PI * 2);
+    ctx.fillStyle = "#ffffff";
+    ctx.fill();
+
+    // Tank Body (Basalt Magma Alloy)
+    ctx.beginPath();
+    ctx.roundRect(-18, -14, 36, 14, 4);
+    const bodyGrad = ctx.createLinearGradient(0, -14, 0, 0);
+    bodyGrad.addColorStop(0, "#ef4444");
+    bodyGrad.addColorStop(1, "#991b1b");
+    ctx.fillStyle = bodyGrad;
+    ctx.fill();
+    ctx.strokeStyle = "#f87171";
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Heat Vent Lines
+    ctx.beginPath();
+    ctx.moveTo(-12, -7);
+    ctx.lineTo(-3, -9);
+    ctx.lineTo(6, -6);
+    ctx.lineTo(14, -8);
+    ctx.strokeStyle = "#facc15";
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Treads & Wheels
+    ctx.fillStyle = "#0f172a";
+    ctx.beginPath();
+    ctx.roundRect(-22, 2, 44, 12, 3);
+    ctx.fill();
+    ctx.strokeStyle = "#334155";
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    for (let wx = -15; wx <= 15; wx += 10) {
+      ctx.beginPath();
+      ctx.arc(wx, 8, 3.5, 0, Math.PI * 2);
+      ctx.fillStyle = "#1e293b";
+      ctx.fill();
+      ctx.strokeStyle = "#ef4444";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(wx, 8, 1.2, 0, Math.PI * 2);
+      ctx.fillStyle = "#facc15";
+      ctx.fill();
+    }
+  }
+
+  private drawGlaciesTank(
+    ctx: CanvasRenderingContext2D,
+    _entry: GameState["tanks"][number],
+    rad: number,
+    turretYOffset: number,
+    muzzleX: number,
+    muzzleY: number,
+  ): void {
+    // Rear Ice Crystal Fin
+    ctx.beginPath();
+    ctx.moveTo(-16, -10);
+    ctx.lineTo(-22, -18);
+    ctx.lineTo(-12, -14);
+    ctx.closePath();
+    ctx.fillStyle = "#bae6fd";
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = 0.8;
+    ctx.fill();
+    ctx.stroke();
+
+    // Turret Cryo Lance Barrel
+    ctx.beginPath();
+    ctx.moveTo(0, turretYOffset);
+    ctx.lineTo(muzzleX, muzzleY);
+    ctx.lineWidth = 4.5;
+    ctx.strokeStyle = "#0284c7";
+    ctx.lineCap = "round";
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(rad) * 4, turretYOffset + Math.sin(rad) * 4);
+    ctx.lineTo(Math.cos(rad) * 22, turretYOffset + Math.sin(rad) * 22);
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = "#bae6fd";
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(muzzleX, muzzleY, 3, 0, Math.PI * 2);
+    ctx.fillStyle = "#ffffff";
+    ctx.fill();
+
+    // Tank Body (Crystalline Ice Plating)
+    ctx.beginPath();
+    ctx.roundRect(-18, -14, 36, 14, 4);
+    const bodyGrad = ctx.createLinearGradient(0, -14, 0, 0);
+    bodyGrad.addColorStop(0, "#38bdf8");
+    bodyGrad.addColorStop(1, "#0284c7");
+    ctx.fillStyle = bodyGrad;
+    ctx.fill();
+    ctx.strokeStyle = "#7dd3fc";
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Facet Highlight
+    ctx.beginPath();
+    ctx.moveTo(-12, -7);
+    ctx.lineTo(0, -11);
+    ctx.lineTo(12, -7);
+    ctx.lineTo(0, -3);
+    ctx.closePath();
+    ctx.fillStyle = "rgba(255, 255, 255, 0.35)";
+    ctx.fill();
+    ctx.strokeStyle = "#e0f2fe";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Treads & Wheels
+    ctx.fillStyle = "#0f172a";
+    ctx.beginPath();
+    ctx.roundRect(-22, 2, 44, 12, 3);
+    ctx.fill();
+    ctx.strokeStyle = "#0284c7";
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    for (let wx = -15; wx <= 15; wx += 10) {
+      ctx.beginPath();
+      ctx.arc(wx, 8, 3.5, 0, Math.PI * 2);
+      ctx.fillStyle = "#0c4a6e";
+      ctx.fill();
+      ctx.strokeStyle = "#38bdf8";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(wx, 8, 1.2, 0, Math.PI * 2);
+      ctx.fillStyle = "#ffffff";
+      ctx.fill();
+    }
+  }
+
+  private drawTerraTank(
+    ctx: CanvasRenderingContext2D,
+    _entry: GameState["tanks"][number],
+    rad: number,
+    turretYOffset: number,
+    muzzleX: number,
+    muzzleY: number,
+  ): void {
+    // Heavy Hydraulic Arm Brace (Rear)
+    ctx.save();
+    ctx.translate(-15, -13);
+    ctx.rotate((25 * Math.PI) / 180);
+    ctx.fillStyle = "#451a03";
+    ctx.strokeStyle = "#f59e0b";
+    ctx.lineWidth = 0.8;
+    ctx.beginPath();
+    ctx.roundRect(-2, -4, 4, 8, 1);
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+
+    // Reinforced Mortar Barrel
+    ctx.beginPath();
+    ctx.moveTo(0, turretYOffset);
+    ctx.lineTo(muzzleX, muzzleY);
+    ctx.lineWidth = 5;
+    ctx.strokeStyle = "#78350f";
+    ctx.lineCap = "round";
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(rad) * 3, turretYOffset + Math.sin(rad) * 3);
+    ctx.lineTo(Math.cos(rad) * 23, turretYOffset + Math.sin(rad) * 23);
+    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = "#f59e0b";
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(muzzleX, muzzleY, 3.2, 0, Math.PI * 2);
+    ctx.fillStyle = "#fde68a";
+    ctx.strokeStyle = "#78350f";
+    ctx.lineWidth = 1;
+    ctx.fill();
+    ctx.stroke();
+
+    // Tank Body with Industrial Hazard Plate
+    ctx.beginPath();
+    ctx.roundRect(-18, -14, 36, 14, 4);
+    const bodyGrad = ctx.createLinearGradient(0, -14, 0, 0);
+    bodyGrad.addColorStop(0, "#d97706");
+    bodyGrad.addColorStop(1, "#78350f");
+    ctx.fillStyle = bodyGrad;
+    ctx.fill();
+    ctx.strokeStyle = "#f59e0b";
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Hazard Stripes Inset
+    ctx.fillStyle = "#451a03";
+    ctx.beginPath();
+    ctx.roundRect(-10, -10, 20, 6, 1.5);
+    ctx.fill();
+    ctx.strokeStyle = "#f59e0b";
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(-6, -10); ctx.lineTo(-3, -4);
+    ctx.moveTo(0, -10); ctx.lineTo(3, -4);
+    ctx.moveTo(6, -10); ctx.lineTo(9, -4);
+    ctx.stroke();
+
+    // Heavy-Duty Treads
+    ctx.fillStyle = "#1c1917";
+    ctx.beginPath();
+    ctx.roundRect(-22, 2, 44, 12, 3);
+    ctx.fill();
+    ctx.strokeStyle = "#b45309";
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    for (let wx = -15; wx <= 15; wx += 10) {
+      ctx.beginPath();
+      ctx.arc(wx, 8, 3.5, 0, Math.PI * 2);
+      ctx.fillStyle = "#292524";
+      ctx.fill();
+      ctx.strokeStyle = "#f59e0b";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(wx, 8, 1.2, 0, Math.PI * 2);
+      ctx.fillStyle = "#fde68a";
+      ctx.fill();
+    }
+  }
+
+  private drawVoltTank(
+    ctx: CanvasRenderingContext2D,
+    _entry: GameState["tanks"][number],
+    rad: number,
+    turretYOffset: number,
+    muzzleX: number,
+    muzzleY: number,
+  ): void {
+    // Rear Tesla Prongs with Cyan Tips
+    ctx.strokeStyle = "#a855f7";
+    ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    ctx.moveTo(-16, -8); ctx.lineTo(-20, -16);
+    ctx.moveTo(-11, -10); ctx.lineTo(-14, -18);
+    ctx.stroke();
+
+    ctx.fillStyle = "#06b6d4";
+    ctx.beginPath();
+    ctx.arc(-20, -16, 1.5, 0, Math.PI * 2);
+    ctx.arc(-14, -18, 1.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Dual Railgun / Tesla Barrel
+    ctx.beginPath();
+    ctx.moveTo(0, turretYOffset);
+    ctx.lineTo(muzzleX, muzzleY);
+    ctx.lineWidth = 4.5;
+    ctx.strokeStyle = "#581c87";
+    ctx.lineCap = "round";
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(rad) * 3, turretYOffset + Math.sin(rad) * 3);
+    ctx.lineTo(Math.cos(rad) * 23, turretYOffset + Math.sin(rad) * 23);
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = "#06b6d4";
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(muzzleX, muzzleY, 3, 0, Math.PI * 2);
+    ctx.fillStyle = "#ffffff";
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(muzzleX, muzzleY, 1.5, 0, Math.PI * 2);
+    ctx.fillStyle = "#67e8f9";
+    ctx.fill();
+
+    // Tank Body (Electromagnetic Hull)
+    ctx.beginPath();
+    ctx.roundRect(-18, -14, 36, 14, 4);
+    const bodyGrad = ctx.createLinearGradient(0, -14, 0, 0);
+    bodyGrad.addColorStop(0, "#a855f7");
+    bodyGrad.addColorStop(1, "#581c87");
+    ctx.fillStyle = bodyGrad;
+    ctx.fill();
+    ctx.strokeStyle = "#c084fc";
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Central Arc Reactor Core
+    ctx.beginPath();
+    ctx.arc(0, -7, 3.5, 0, Math.PI * 2);
+    ctx.fillStyle = "#090514";
+    ctx.strokeStyle = "#a855f7";
+    ctx.lineWidth = 1;
+    ctx.fill();
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(0, -7, 1.8, 0, Math.PI * 2);
+    ctx.fillStyle = "#06b6d4";
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(0, -7, 0.8, 0, Math.PI * 2);
+    ctx.fillStyle = "#ffffff";
+    ctx.fill();
+
+    // Mag-Lev / High-Tech Treads Base
+    ctx.fillStyle = "#090514";
+    ctx.beginPath();
+    ctx.roundRect(-22, 2, 44, 12, 3);
+    ctx.fill();
+    ctx.strokeStyle = "#a855f7";
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    for (let wx = -15; wx <= 15; wx += 10) {
+      ctx.beginPath();
+      ctx.arc(wx, 8, 3.5, 0, Math.PI * 2);
+      ctx.fillStyle = "#1e1035";
+      ctx.fill();
+      ctx.strokeStyle = "#06b6d4";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(wx, 8, 1.2, 0, Math.PI * 2);
+      ctx.fillStyle = "#67e8f9";
+      ctx.fill();
+    }
+  }
+
+  private drawGenericTank(
+    ctx: CanvasRenderingContext2D,
+    _entry: GameState["tanks"][number],
+    mainColor: string,
+    strokeColor: string,
+    accentColor: string,
+    turretYOffset: number,
+    muzzleX: number,
+    muzzleY: number,
+  ): void {
+    ctx.beginPath();
+    ctx.moveTo(0, turretYOffset);
+    ctx.lineTo(muzzleX, muzzleY);
+    ctx.lineWidth = 5;
+    ctx.strokeStyle = mainColor;
+    ctx.lineCap = "round";
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(muzzleX, muzzleY, 3.5, 0, Math.PI * 2);
+    ctx.fillStyle = "#ffffff";
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.roundRect(-18, -14, 36, 14, 4);
+    const bodyGrad = ctx.createLinearGradient(0, -14, 0, 0);
+    bodyGrad.addColorStop(0, mainColor);
+    bodyGrad.addColorStop(1, strokeColor);
+    ctx.fillStyle = bodyGrad;
+    ctx.fill();
+    ctx.strokeStyle = accentColor;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    ctx.fillStyle = "#0f172a";
+    ctx.beginPath();
+    ctx.roundRect(-22, 2, 44, 12, 3);
+    ctx.fill();
+    ctx.strokeStyle = "#334155";
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    for (let wx = -15; wx <= 15; wx += 10) {
+      ctx.beginPath();
+      ctx.arc(wx, 8, 3.5, 0, Math.PI * 2);
+      ctx.fillStyle = "#64748b";
+      ctx.fill();
+    }
+  }
+
   private drawProjectiles(
     ctx: CanvasRenderingContext2D,
     gameState: GameState,
@@ -589,47 +987,646 @@ export class CanvasGameRenderer {
       ctx.rotate(angle);
 
       const radius = entry.radius || 4;
-      const mainColor = "#f59e0b";
-      const strokeColor = "#d97706";
-
-      // Tail flame / glow
-      ctx.beginPath();
-      ctx.moveTo(-radius * 2.5, 0);
-      ctx.lineTo(0, -radius * 0.8);
-      ctx.lineTo(0, radius * 0.8);
-      ctx.closePath();
-      ctx.fillStyle = `${strokeColor}88`;
-      ctx.fill();
-
-      // Shell core
-      ctx.beginPath();
-      ctx.arc(0, 0, radius, 0, Math.PI * 2);
-      ctx.fillStyle = mainColor;
-      ctx.fill();
-      ctx.strokeStyle = "#ffffff";
-      ctx.lineWidth = 1;
-      ctx.stroke();
+      this.drawElementalProjectile(ctx, entry.projectileDefinitionId, radius);
 
       ctx.restore();
     }
 
     // Draw active Damage Trail hazard zones
     if (gameState.damageTrails) {
-      for (const trail of gameState.damageTrails) {
-        ctx.save();
-        ctx.translate(trail.position.x, trail.position.y);
-        const pulse = Math.sin(Date.now() * 0.008) * 4;
+      this.drawDamageTrails(ctx, gameState.damageTrails, gameState.terrain);
+    }
+  }
+
+  private drawElementalProjectile(
+    ctx: CanvasRenderingContext2D,
+    projId: string,
+    radius: number,
+  ): void {
+    switch (projId) {
+      // 1. Universal Standard Kaboom
+      case "standardKaboom": {
         ctx.beginPath();
-        ctx.arc(0, 0, trail.radius + pulse, 0, Math.PI * 2);
-        ctx.fillStyle = "rgba(239, 68, 68, 0.25)";
+        ctx.moveTo(-radius * 2.8, 0);
+        ctx.lineTo(0, -radius * 0.9);
+        ctx.lineTo(0, radius * 0.9);
+        ctx.closePath();
+        ctx.fillStyle = "rgba(245, 158, 11, 0.65)";
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(0, 0, radius, 0, Math.PI * 2);
+        ctx.fillStyle = "#475569";
+        ctx.fill();
+        ctx.strokeStyle = "#38bdf8";
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(-radius * 0.3, 0, radius * 0.5, 0, Math.PI * 2);
+        ctx.strokeStyle = "#f59e0b";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        break;
+      }
+
+      // 2. Ignis - Magma Salvo
+      case "magmaSalvo":
+      case "magmaMortar": {
+        ctx.beginPath();
+        ctx.moveTo(-radius * 2.5, 0);
+        ctx.lineTo(0, -radius * 0.8);
+        ctx.lineTo(radius * 1.2, 0);
+        ctx.lineTo(0, radius * 0.8);
+        ctx.closePath();
+        ctx.fillStyle = "rgba(249, 115, 22, 0.75)";
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(0, 0, radius, 0, Math.PI * 2);
+        const grad = ctx.createRadialGradient(-radius * 0.3, -radius * 0.3, 1, 0, 0, radius);
+        grad.addColorStop(0, "#fef08a");
+        grad.addColorStop(0.5, "#f97316");
+        grad.addColorStop(1, "#18181b");
+        ctx.fillStyle = grad;
         ctx.fill();
         ctx.strokeStyle = "#ef4444";
-        ctx.lineWidth = 2;
-        ctx.setLineDash([4, 4]);
+        ctx.lineWidth = 1.5;
         ctx.stroke();
-        ctx.restore();
+        break;
+      }
+
+      // 3. Ignis - Blaze Cluster & Shards
+      case "blazeCluster":
+      case "blazeCluster_shard": {
+        ctx.beginPath();
+        ctx.arc(0, 0, radius, 0, Math.PI * 2);
+        ctx.fillStyle = "#f97316";
+        ctx.fill();
+        ctx.strokeStyle = "#facc15";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(0, 0, radius * 0.5, 0, Math.PI * 2);
+        ctx.fillStyle = "#ef4444";
+        ctx.fill();
+        break;
+      }
+
+      // 4. Ignis - Dragon's Breath
+      case "dragonsBreath": {
+        ctx.beginPath();
+        ctx.moveTo(-radius * 3.5, 0);
+        ctx.lineTo(-radius * 0.5, -radius * 1.1);
+        ctx.lineTo(radius * 0.8, 0);
+        ctx.lineTo(-radius * 0.5, radius * 1.1);
+        ctx.closePath();
+        const fireGrad = ctx.createLinearGradient(-radius * 3, 0, radius, 0);
+        fireGrad.addColorStop(0, "rgba(239, 68, 68, 0)");
+        fireGrad.addColorStop(0.5, "#f97316");
+        fireGrad.addColorStop(1, "#ffffff");
+        ctx.fillStyle = fireGrad;
+        ctx.fill();
+        break;
+      }
+
+      // 5. Ignis - Lava Hopper
+      case "lavaHopper": {
+        ctx.beginPath();
+        ctx.arc(0, 0, radius, 0, Math.PI * 2);
+        ctx.fillStyle = "#f97316";
+        ctx.fill();
+        ctx.strokeStyle = "#facc15";
+        ctx.lineWidth = 1.8;
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(0, 0, radius + 2, 0, Math.PI * 2);
+        ctx.strokeStyle = "rgba(239, 68, 68, 0.6)";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        break;
+      }
+
+      // Ignis - Pyroclast Cataclysm (legacy support)
+      case "pyroclastCataclysm": {
+        ctx.beginPath();
+        ctx.arc(0, 0, radius + 4, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(249, 115, 22, 0.35)";
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(0, 0, radius, 0, Math.PI * 2);
+        ctx.fillStyle = "#18181b";
+        ctx.fill();
+        ctx.strokeStyle = "#f97316";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(-radius * 0.6, -radius * 0.3);
+        ctx.lineTo(0, 0);
+        ctx.lineTo(radius * 0.5, -radius * 0.5);
+        ctx.strokeStyle = "#fef08a";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        break;
+      }
+
+      // 6. Glacies - Cryo Needle
+      case "cryoNeedle": {
+        ctx.beginPath();
+        ctx.moveTo(-radius * 4, 0);
+        ctx.lineTo(radius * 2, -1.5);
+        ctx.lineTo(radius * 2, 1.5);
+        ctx.closePath();
+        ctx.fillStyle = "rgba(56, 189, 248, 0.4)";
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.moveTo(radius * 3, 0);
+        ctx.lineTo(-radius, -2);
+        ctx.lineTo(-radius, 2);
+        ctx.closePath();
+        ctx.fillStyle = "#ffffff";
+        ctx.strokeStyle = "#38bdf8";
+        ctx.lineWidth = 1;
+        ctx.fill();
+        ctx.stroke();
+        break;
+      }
+
+      // Glacies - Blizzard Salvo
+      case "blizzardSalvo": {
+        ctx.beginPath();
+        ctx.moveTo(-radius * 2.5, 0);
+        ctx.lineTo(0, -radius * 0.7);
+        ctx.lineTo(radius * 1.5, 0);
+        ctx.lineTo(0, radius * 0.7);
+        ctx.closePath();
+        ctx.fillStyle = "#0284c7";
+        ctx.strokeStyle = "#e0f2fe";
+        ctx.lineWidth = 1;
+        ctx.fill();
+        ctx.stroke();
+        break;
+      }
+
+      // Glacies - Apex Avalanche & Shards
+      case "apexAvalanche":
+      case "apexAvalanche_shard": {
+        ctx.beginPath();
+        ctx.moveTo(radius * 1.5, 0);
+        ctx.lineTo(0, -radius);
+        ctx.lineTo(-radius, 0);
+        ctx.lineTo(0, radius);
+        ctx.closePath();
+        ctx.fillStyle = "#bae6fd";
+        ctx.strokeStyle = "#0284c7";
+        ctx.lineWidth = 1.2;
+        ctx.fill();
+        ctx.stroke();
+        break;
+      }
+
+      // Glacies - Frostbite Zone
+      case "frostbiteZone": {
+        ctx.beginPath();
+        ctx.arc(0, 0, radius, 0, Math.PI * 2);
+        ctx.fillStyle = "#38bdf8";
+        ctx.fill();
+        ctx.strokeStyle = "#bae6fd";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(-radius * 0.7, 0); ctx.lineTo(radius * 0.7, 0);
+        ctx.moveTo(0, -radius * 0.7); ctx.lineTo(0, radius * 0.7);
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        break;
+      }
+
+      // Glacies - Glacial Shatter (legacy support)
+      case "glacialShatter": {
+        ctx.beginPath();
+        ctx.moveTo(radius * 1.2, -radius * 0.4);
+        ctx.lineTo(radius * 0.6, -radius);
+        ctx.lineTo(-radius * 0.8, -radius * 0.6);
+        ctx.lineTo(-radius, radius * 0.5);
+        ctx.lineTo(0, radius * 1.1);
+        ctx.closePath();
+        ctx.fillStyle = "#0284c7";
+        ctx.strokeStyle = "#bae6fd";
+        ctx.lineWidth = 2;
+        ctx.fill();
+        ctx.stroke();
+        break;
+      }
+
+      // Terra - Gravel Gatling
+      case "gravelGatling": {
+        ctx.beginPath();
+        ctx.moveTo(-radius * 2, 0);
+        ctx.lineTo(0, -radius * 0.7);
+        ctx.lineTo(radius * 1.2, 0);
+        ctx.lineTo(0, radius * 0.7);
+        ctx.closePath();
+        ctx.fillStyle = "#d97706";
+        ctx.strokeStyle = "#fde68a";
+        ctx.lineWidth = 1;
+        ctx.fill();
+        ctx.stroke();
+        break;
+      }
+
+      // Terra - Granite Cluster & Shards
+      case "graniteCluster":
+      case "graniteCluster_shard": {
+        ctx.beginPath();
+        ctx.moveTo(radius * 1.2, -radius * 0.6);
+        ctx.lineTo(radius * 0.8, radius * 0.8);
+        ctx.lineTo(-radius * 0.6, radius * 1.1);
+        ctx.lineTo(-radius * 1.1, -radius * 0.3);
+        ctx.lineTo(0, -radius * 1.1);
+        ctx.closePath();
+        ctx.fillStyle = "#78350f";
+        ctx.strokeStyle = "#fde68a";
+        ctx.lineWidth = 1.2;
+        ctx.fill();
+        ctx.stroke();
+        break;
+      }
+
+      // Terra - Tectonic Thumper
+      case "tectonicThumper": {
+        ctx.beginPath();
+        ctx.rect(-radius, -radius * 0.8, radius * 2, radius * 1.6);
+        ctx.fillStyle = "#78350f";
+        ctx.strokeStyle = "#f59e0b";
+        ctx.lineWidth = 1.5;
+        ctx.fill();
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(radius, 0, radius * 0.8, -Math.PI / 2, Math.PI / 2);
+        ctx.fillStyle = "#d97706";
+        ctx.fill();
+        break;
+      }
+
+      // Terra - Sinkhole Drill (legacy support)
+      case "sinkholeDrill": {
+        ctx.beginPath();
+        ctx.moveTo(radius * 2, 0);
+        ctx.lineTo(-radius, -radius);
+        ctx.lineTo(-radius * 0.5, 0);
+        ctx.lineTo(-radius, radius);
+        ctx.closePath();
+        ctx.fillStyle = "#f59e0b";
+        ctx.strokeStyle = "#78350f";
+        ctx.lineWidth = 1.2;
+        ctx.fill();
+        ctx.stroke();
+        break;
+      }
+
+      // 13. Terra - Quake Fissure
+      case "quakeFissure": {
+        ctx.beginPath();
+        ctx.arc(0, 0, radius, 0, Math.PI * 2);
+        ctx.fillStyle = "#d97706";
+        ctx.fill();
+        ctx.strokeStyle = "#fde68a";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        break;
+      }
+
+      // 14. Volt - Arc Salvo
+      case "arcSalvo": {
+        ctx.beginPath();
+        ctx.moveTo(radius * 1.8, 0);
+        ctx.lineTo(-radius * 0.8, -radius * 0.8);
+        ctx.lineTo(-radius * 0.4, 0);
+        ctx.lineTo(-radius * 0.8, radius * 0.8);
+        ctx.closePath();
+        ctx.fillStyle = "#a855f7";
+        ctx.strokeStyle = "#67e8f9";
+        ctx.lineWidth = 1.2;
+        ctx.fill();
+        ctx.stroke();
+        break;
+      }
+
+      // 15. Volt - Static Apex Star & Shards
+      case "staticApexStar":
+      case "staticApexStar_shard": {
+        ctx.beginPath();
+        ctx.moveTo(0, -radius * 1.5);
+        ctx.lineTo(radius * 0.4, -radius * 0.4);
+        ctx.lineTo(radius * 1.5, 0);
+        ctx.lineTo(radius * 0.4, radius * 0.4);
+        ctx.lineTo(0, radius * 1.5);
+        ctx.lineTo(-radius * 0.4, radius * 0.4);
+        ctx.lineTo(-radius * 1.5, 0);
+        ctx.lineTo(-radius * 0.4, -radius * 0.4);
+        ctx.closePath();
+        ctx.fillStyle = "#67e8f9";
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = 1;
+        ctx.fill();
+        ctx.stroke();
+        break;
+      }
+
+      // 16. Volt - Tesla Grid
+      case "teslaGrid": {
+        ctx.beginPath();
+        ctx.arc(0, 0, radius, 0, Math.PI * 2);
+        ctx.fillStyle = "#581c87";
+        ctx.fill();
+        ctx.strokeStyle = "#67e8f9";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(0, 0, radius * 0.5, 0, Math.PI * 2);
+        ctx.fillStyle = "#ffffff";
+        ctx.fill();
+        break;
+      }
+
+      // 17. Volt - Thunderstrike Core
+      case "thunderstrikeCore": {
+        ctx.beginPath();
+        ctx.arc(0, 0, radius + 3, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(103, 232, 249, 0.4)";
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(0, 0, radius, 0, Math.PI * 2);
+        ctx.fillStyle = "#a855f7";
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = 2;
+        ctx.fill();
+        ctx.stroke();
+        break;
+      }
+
+      default: {
+        ctx.beginPath();
+        ctx.arc(0, 0, radius, 0, Math.PI * 2);
+        ctx.fillStyle = "#f59e0b";
+        ctx.fill();
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        break;
       }
     }
+  }
+
+  private drawDamageTrails(
+    ctx: CanvasRenderingContext2D,
+    damageTrails: GameState["damageTrails"],
+    terrain: GameState["terrain"],
+  ): void {
+    if (!damageTrails || damageTrails.length === 0) return;
+    const now = Date.now();
+
+    for (const trail of damageTrails) {
+      const type = trail.hazardType;
+      const cx = trail.position.x;
+      const rad = trail.radius;
+      const surface = terrain?.surface;
+      if (!surface) continue;
+      const minX = Math.max(0, Math.floor(cx - rad));
+      const maxX = Math.min(surface.length - 1, Math.ceil(cx + rad));
+
+      ctx.save();
+
+      if (type === "FIRE") {
+        // 1. Burning fire flames rising from the ground
+        const step = 4;
+        for (let x = minX; x <= maxX; x += step) {
+          const dist = Math.abs(x - cx);
+          const factor = Math.max(0, 1 - dist / rad);
+          const groundY = surface[x] ?? trail.position.y;
+          const anim = Math.sin(now * 0.01 + x * 0.15) * 0.5 + 0.5;
+          const anim2 = Math.cos(now * 0.015 + x * 0.22) * 0.5 + 0.5;
+          const flameH = (12 + anim * 14 + anim2 * 8) * factor;
+
+          // Outer flame tongue
+          ctx.beginPath();
+          ctx.moveTo(x - step * 0.8, groundY);
+          ctx.quadraticCurveTo(x, groundY - flameH * 1.1, x + (anim - 0.5) * 6, groundY - flameH);
+          ctx.quadraticCurveTo(x + step * 0.8, groundY - flameH * 0.5, x + step * 0.8, groundY);
+          ctx.closePath();
+          ctx.fillStyle = `rgba(239, 68, 68, ${0.75 * factor + 0.2})`;
+          ctx.fill();
+
+          // Inner hotter core
+          if (flameH > 6) {
+            ctx.beginPath();
+            ctx.moveTo(x - step * 0.4, groundY);
+            ctx.quadraticCurveTo(x, groundY - flameH * 0.7, x, groundY - flameH * 0.65);
+            ctx.quadraticCurveTo(x + step * 0.4, groundY - flameH * 0.35, x + step * 0.4, groundY);
+            ctx.closePath();
+            ctx.fillStyle = `rgba(253, 224, 71, ${0.85 * factor + 0.15})`;
+            ctx.fill();
+          }
+
+          // Floating ember particles
+          if (x % (step * 3) === 0) {
+            const emberY = groundY - flameH - ((now * 0.04 + x * 10) % 25);
+            const emberX = x + Math.sin(now * 0.005 + x) * 6;
+            ctx.beginPath();
+            ctx.arc(emberX, emberY, 1.2 * factor + 0.5, 0, Math.PI * 2);
+            ctx.fillStyle = "#facc15";
+            ctx.fill();
+          }
+        }
+
+        // Ground burn streak
+        ctx.beginPath();
+        for (let x = minX; x <= maxX; x += step) {
+          const gy = surface[x] ?? trail.position.y;
+          if (x === minX) ctx.moveTo(x, gy);
+          else ctx.lineTo(x, gy);
+        }
+        ctx.strokeStyle = "rgba(239, 68, 68, 0.6)";
+        ctx.lineWidth = 3;
+        ctx.stroke();
+      } else if (type === "FROST") {
+        // 2. Crystalline Frost Spikes along the terrain surface
+        const step = 6;
+        for (let x = minX; x <= maxX; x += step) {
+          const dist = Math.abs(x - cx);
+          const factor = Math.max(0, 1 - dist / rad);
+          const groundY = surface[x] ?? trail.position.y;
+          const spikeH = (10 + ((x * 17) % 12)) * factor;
+
+          ctx.beginPath();
+          ctx.moveTo(x - step * 0.6, groundY);
+          ctx.lineTo(x, groundY - spikeH);
+          ctx.lineTo(x + step * 0.6, groundY);
+          ctx.closePath();
+          ctx.fillStyle = "rgba(56, 189, 248, 0.65)";
+          ctx.fill();
+          ctx.strokeStyle = "#e0f2fe";
+          ctx.lineWidth = 1;
+          ctx.stroke();
+
+          // Frost glint
+          ctx.beginPath();
+          ctx.arc(x, groundY - spikeH, 1.5, 0, Math.PI * 2);
+          ctx.fillStyle = "#ffffff";
+          ctx.fill();
+        }
+
+        // Frost base mist
+        ctx.beginPath();
+        for (let x = minX; x <= maxX; x += step) {
+          const gy = surface[x] ?? trail.position.y;
+          if (x === minX) ctx.moveTo(x, gy);
+          else ctx.lineTo(x, gy);
+        }
+        ctx.strokeStyle = "rgba(56, 189, 248, 0.4)";
+        ctx.lineWidth = 4;
+        ctx.stroke();
+      } else if (type === "QUAKE") {
+        // 3. Jagged Earth Fissure and tremor rubble along ground
+        const step = 7;
+        for (let x = minX; x <= maxX; x += step) {
+          const dist = Math.abs(x - cx);
+          const factor = Math.max(0, 1 - dist / rad);
+          const groundY = surface[x] ?? trail.position.y;
+          const tremor = Math.sin(now * 0.02 + x) * 2 * factor;
+          const rubbleH = (8 + ((x * 13) % 10)) * factor;
+
+          ctx.beginPath();
+          ctx.moveTo(x - step * 0.5, groundY + tremor);
+          ctx.lineTo(x - step * 0.2, groundY - rubbleH + tremor);
+          ctx.lineTo(x + step * 0.2, groundY - rubbleH * 0.8 + tremor);
+          ctx.lineTo(x + step * 0.5, groundY + tremor);
+          ctx.closePath();
+          ctx.fillStyle = "#78350f";
+          ctx.fill();
+          ctx.strokeStyle = "#fde68a";
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        }
+
+        // Fissure crack line
+        ctx.beginPath();
+        for (let x = minX; x <= maxX; x += 5) {
+          const gy = surface[x] ?? trail.position.y;
+          const offset = ((x * 7) % 5) - 2.5;
+          if (x === minX) ctx.moveTo(x, gy + offset);
+          else ctx.lineTo(x, gy + offset);
+        }
+        ctx.strokeStyle = "rgba(217, 119, 6, 0.7)";
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+      } else if (type === "ELECTRIC") {
+        // 4. Crackling Lightning Arcs along ground surface
+        const step = 10;
+        ctx.beginPath();
+        for (let x = minX; x <= maxX; x += step) {
+          const gy = surface[x] ?? trail.position.y;
+          const dist = Math.abs(x - cx);
+          const factor = Math.max(0, 1 - dist / rad);
+          const arcJitter = (Math.sin(now * 0.03 + x) * 8) * factor;
+          if (x === minX) ctx.moveTo(x, gy + arcJitter);
+          else ctx.lineTo(x, gy + arcJitter);
+        }
+        ctx.strokeStyle = "rgba(6, 182, 212, 0.85)";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        ctx.beginPath();
+        for (let x = minX; x <= maxX; x += step * 1.5) {
+          const gy = surface[Math.min(surface.length - 1, Math.round(x))] ?? trail.position.y;
+          const dist = Math.abs(x - cx);
+          const factor = Math.max(0, 1 - dist / rad);
+          const arcJitter = (Math.cos(now * 0.04 + x) * 10) * factor;
+          ctx.lineTo(x, gy + arcJitter);
+          ctx.arc(x, gy + arcJitter, 2 * factor + 0.5, 0, Math.PI * 2);
+        }
+        ctx.strokeStyle = "rgba(168, 85, 247, 0.75)";
+        ctx.fillStyle = "#ffffff";
+        ctx.fill();
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      }
+
+      ctx.restore();
+    }
+  }
+
+  private drawHazardVignettes(
+    ctx: CanvasRenderingContext2D,
+    gameState: GameState,
+  ): void {
+    if (!gameState.damageTrails || gameState.damageTrails.length === 0) return;
+    const vp = this.gameViewport;
+    const width = vp.width;
+    const height = vp.height;
+
+    // Check active hazard types ONLY if an alive tank is currently taking damage inside the trail
+    let isAnyTankTakingDamage = false;
+    let hasFire = false;
+    let hasFrost = false;
+    let hasQuake = false;
+    let hasElectric = false;
+
+    for (const trail of gameState.damageTrails) {
+      for (const tank of gameState.tanks) {
+        if (!tank.alive) continue;
+        const dist = Math.hypot(tank.position.x - trail.position.x, tank.position.y - trail.position.y);
+        const tankRadius = (tank.width ? Math.max(tank.width, tank.height) : 44) * 0.5;
+        if (dist <= trail.radius + tankRadius) {
+          isAnyTankTakingDamage = true;
+          if (trail.hazardType === "FIRE") hasFire = true;
+          else if (trail.hazardType === "FROST") hasFrost = true;
+          else if (trail.hazardType === "QUAKE") hasQuake = true;
+          else if (trail.hazardType === "ELECTRIC") hasElectric = true;
+        }
+      }
+    }
+
+    if (!isAnyTankTakingDamage) return;
+
+    ctx.save();
+    const pulse = 0.85 + Math.sin(Date.now() * 0.005) * 0.15;
+
+    if (hasFire) {
+      const grad = ctx.createRadialGradient(width / 2, height / 2, height * 0.3, width / 2, height / 2, width * 0.65);
+      grad.addColorStop(0, "rgba(239, 68, 68, 0)");
+      grad.addColorStop(1, `rgba(239, 68, 68, ${0.18 * pulse})`);
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, width, height);
+    }
+    if (hasFrost) {
+      const grad = ctx.createRadialGradient(width / 2, height / 2, height * 0.3, width / 2, height / 2, width * 0.65);
+      grad.addColorStop(0, "rgba(56, 189, 248, 0)");
+      grad.addColorStop(1, `rgba(56, 189, 248, ${0.18 * pulse})`);
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, width, height);
+    }
+    if (hasQuake) {
+      const grad = ctx.createRadialGradient(width / 2, height / 2, height * 0.3, width / 2, height / 2, width * 0.65);
+      grad.addColorStop(0, "rgba(217, 119, 6, 0)");
+      grad.addColorStop(1, `rgba(217, 119, 6, ${0.15 * pulse})`);
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, width, height);
+    }
+    if (hasElectric) {
+      const grad = ctx.createRadialGradient(width / 2, height / 2, height * 0.3, width / 2, height / 2, width * 0.65);
+      grad.addColorStop(0, "rgba(168, 85, 247, 0)");
+      grad.addColorStop(1, `rgba(168, 85, 247, ${0.18 * pulse})`);
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, width, height);
+    }
+    ctx.restore();
   }
 
   private drawImpactEvents(
@@ -649,9 +1646,9 @@ export class CanvasGameRenderer {
       ctx.fill();
       ctx.stroke();
       ctx.fillStyle = event.visual.accent;
-      ctx.font = "700 18px sans-serif";
-      ctx.textAlign = "center";
-      ctx.fillText(event.visual.label, event.position.x, event.position.y + 6);
+      ctx.beginPath();
+      ctx.arc(event.position.x, event.position.y, radius * 0.4, 0, Math.PI * 2);
+      ctx.fill();
       ctx.restore();
     }
   }
@@ -908,8 +1905,8 @@ export class CanvasGameRenderer {
         ctx.fill();
       }
 
-      // Player 1 Name & HP
-      ctx.fillStyle = p1.alive ? "#00f0ff" : "#ef4444";
+      // Player 1 Name, Tank Name & HP
+      ctx.fillStyle = p1.alive ? (p1.visual?.fill || "#00f0ff") : "#ef4444";
       ctx.beginPath();
       ctx.arc(p1Layout.x + 12, p1Layout.y + 11, 4.5, 0, Math.PI * 2);
       ctx.fill();
@@ -917,7 +1914,8 @@ export class CanvasGameRenderer {
       ctx.fillStyle = "#f8fafc";
       ctx.font = "700 11px Inter, sans-serif";
       ctx.textAlign = "left";
-      ctx.fillText(p1.displayName || "Player 1", p1Layout.x + 22, p1Layout.y + 14);
+      const p1Title = p1.tankName ? `${p1.displayName || "Player 1"} [${p1.tankName}]` : (p1.displayName || "Player 1");
+      ctx.fillText(p1Title, p1Layout.x + 22, p1Layout.y + 14);
 
       ctx.fillStyle = "#cbd5e1";
       ctx.font = "700 10px 'Share Tech Mono', monospace";
@@ -1005,7 +2003,7 @@ export class CanvasGameRenderer {
       }
 
       // Player 2 Name & HP
-      ctx.fillStyle = p2.alive ? "#f97316" : "#ef4444";
+      ctx.fillStyle = p2.alive ? (p2.visual?.fill || "#f97316") : "#ef4444";
       ctx.beginPath();
       ctx.arc(p2Layout.x + p2Layout.width - 12, p2Layout.y + 11, 4.5, 0, Math.PI * 2);
       ctx.fill();
@@ -1013,8 +2011,9 @@ export class CanvasGameRenderer {
       ctx.fillStyle = "#f8fafc";
       ctx.font = "700 11px Inter, sans-serif";
       ctx.textAlign = "right";
+      const p2Title = p2.tankName ? `[${p2.tankName}] ${p2.displayName || "Player 2"}` : (p2.displayName || "Player 2");
       ctx.fillText(
-        p2.displayName || "Player 2",
+        p2Title,
         p2Layout.x + p2Layout.width - 22,
         p2Layout.y + 14,
       );
@@ -1058,8 +2057,17 @@ export class CanvasGameRenderer {
     const ringCenterX = layout.x + layout.width / 2;
     const ringCenterY = layout.y + layout.height / 2;
     const ringRadius = 9;
-    const turnSeconds = Math.max(0, gameState.match.turnTimeRemaining);
-    const maxTurnSeconds = 30;
+    const turnSeconds = Math.max(
+      0,
+      Math.min(
+        gameState.match.turnTimeRemaining,
+        gameState.match.matchTimeRemaining ?? Infinity,
+      ),
+    );
+    const maxTurnSeconds = Math.min(
+      30,
+      Math.max(1, gameState.match.matchTimeRemaining ?? 30),
+    );
     const turnRatio = Math.min(1, turnSeconds / maxTurnSeconds);
     const isWarning = turnSeconds <= 5;
 
@@ -1266,6 +2274,272 @@ export class CanvasGameRenderer {
     ctx.textAlign = "start";
   }
 
+  private drawProjectileIcon(
+    ctx: CanvasRenderingContext2D,
+    projectileId: string,
+    cx: number,
+    cy: number,
+    radius: number,
+  ): void {
+    ctx.save();
+    // Background disc
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(15, 23, 42, 0.85)";
+    ctx.fill();
+
+    switch (projectileId) {
+      case "standardKaboom":
+        ctx.strokeStyle = "#38bdf8";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.fillStyle = "#f59e0b";
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius * 0.45, 0, Math.PI * 2);
+        ctx.fill();
+        break;
+
+      case "magmaMortar":
+        ctx.strokeStyle = "#ef4444";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.fillStyle = "#f97316";
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius * 0.6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#fef08a";
+        ctx.beginPath();
+        ctx.arc(cx - radius * 0.15, cy - radius * 0.15, radius * 0.25, 0, Math.PI * 2);
+        ctx.fill();
+        break;
+
+      case "dragonsBreath":
+        ctx.strokeStyle = "#f97316";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.fillStyle = "#ef4444";
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius * 0.55, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#ffffff";
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius * 0.22, 0, Math.PI * 2);
+        ctx.fill();
+        break;
+
+      case "lavaHopper":
+        ctx.strokeStyle = "#facc15";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.fillStyle = "#f97316";
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius * 0.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = "#ef4444";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius * 0.8, 0, Math.PI * 2);
+        ctx.stroke();
+        break;
+
+      case "pyroclastCataclysm":
+        ctx.strokeStyle = "#ef4444";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.fillStyle = "#7f1d1d";
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius * 0.7, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#facc15";
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius * 0.3, 0, Math.PI * 2);
+        ctx.fill();
+        break;
+
+      case "cryoNeedle":
+        ctx.strokeStyle = "#38bdf8";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.fillStyle = "#e0f2fe";
+        ctx.beginPath();
+        ctx.moveTo(cx - radius * 0.6, cy);
+        ctx.lineTo(cx + radius * 0.6, cy - radius * 0.25);
+        ctx.lineTo(cx + radius * 0.7, cy);
+        ctx.lineTo(cx + radius * 0.6, cy + radius * 0.25);
+        ctx.closePath();
+        ctx.fill();
+        break;
+
+      case "apexAvalanche":
+        ctx.strokeStyle = "#7dd3fc";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.fillStyle = "#38bdf8";
+        ctx.beginPath();
+        ctx.moveTo(cx, cy - radius * 0.65);
+        ctx.lineTo(cx + radius * 0.45, cy);
+        ctx.lineTo(cx, cy + radius * 0.65);
+        ctx.lineTo(cx - radius * 0.45, cy);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = "#ffffff";
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius * 0.2, 0, Math.PI * 2);
+        ctx.fill();
+        break;
+
+      case "frostbiteZone":
+        ctx.strokeStyle = "#0ea5e9";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.strokeStyle = "#e0f2fe";
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy - radius * 0.55);
+        ctx.lineTo(cx, cy + radius * 0.55);
+        ctx.moveTo(cx - radius * 0.55, cy);
+        ctx.lineTo(cx + radius * 0.55, cy);
+        ctx.stroke();
+        break;
+
+      case "glacialShatter":
+        ctx.strokeStyle = "#38bdf8";
+        ctx.lineWidth = 1.8;
+        ctx.stroke();
+        ctx.fillStyle = "#0369a1";
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius * 0.6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#bae6fd";
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius * 0.25, 0, Math.PI * 2);
+        ctx.fill();
+        break;
+
+      case "gravelGatling":
+        ctx.strokeStyle = "#d97706";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.fillStyle = "#fde68a";
+        for (let i = -1; i <= 1; i++) {
+          ctx.fillRect(cx - radius * 0.4, cy + i * radius * 0.3 - 1.5, radius * 0.8, 3);
+        }
+        break;
+
+      case "tectonicThumper":
+        ctx.strokeStyle = "#78350f";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.fillStyle = "#b45309";
+        ctx.beginPath();
+        ctx.roundRect(cx - radius * 0.35, cy - radius * 0.5, radius * 0.7, radius, 2);
+        ctx.fill();
+        ctx.fillStyle = "#fde68a";
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius * 0.2, 0, Math.PI * 2);
+        ctx.fill();
+        break;
+
+      case "sinkholeDrill":
+        ctx.strokeStyle = "#d97706";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.fillStyle = "#451a03";
+        ctx.beginPath();
+        ctx.moveTo(cx - radius * 0.5, cy - radius * 0.4);
+        ctx.lineTo(cx + radius * 0.5, cy - radius * 0.4);
+        ctx.lineTo(cx, cy + radius * 0.6);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = "#fbbf24";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        break;
+
+      case "quakeFissure":
+        ctx.strokeStyle = "#d97706";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.strokeStyle = "#fef08a";
+        ctx.lineWidth = 1.8;
+        ctx.beginPath();
+        ctx.moveTo(cx - radius * 0.4, cy - radius * 0.4);
+        ctx.lineTo(cx + radius * 0.1, cy - radius * 0.1);
+        ctx.lineTo(cx - radius * 0.1, cy + radius * 0.2);
+        ctx.lineTo(cx + radius * 0.4, cy + radius * 0.5);
+        ctx.stroke();
+        break;
+
+      case "arcSalvo":
+        ctx.strokeStyle = "#a855f7";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.fillStyle = "#06b6d4";
+        ctx.beginPath();
+        ctx.arc(cx - radius * 0.3, cy - radius * 0.25, radius * 0.2, 0, Math.PI * 2);
+        ctx.arc(cx, cy + radius * 0.25, radius * 0.2, 0, Math.PI * 2);
+        ctx.arc(cx + radius * 0.3, cy - radius * 0.25, radius * 0.2, 0, Math.PI * 2);
+        ctx.fill();
+        break;
+
+      case "staticApexStar":
+        ctx.strokeStyle = "#c084fc";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.fillStyle = "#22d3ee";
+        ctx.beginPath();
+        ctx.moveTo(cx, cy - radius * 0.6);
+        ctx.lineTo(cx + radius * 0.5, cy + radius * 0.4);
+        ctx.lineTo(cx - radius * 0.5, cy + radius * 0.4);
+        ctx.closePath();
+        ctx.fill();
+        break;
+
+      case "teslaGrid":
+        ctx.strokeStyle = "#a855f7";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.strokeStyle = "#22d3ee";
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius * 0.45, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.fillStyle = "#06b6d4";
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius * 0.2, 0, Math.PI * 2);
+        ctx.fill();
+        break;
+
+      case "thunderstrikeCore":
+        ctx.strokeStyle = "#06b6d4";
+        ctx.lineWidth = 1.8;
+        ctx.stroke();
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(cx - radius * 0.6, cy);
+        ctx.lineTo(cx + radius * 0.6, cy);
+        ctx.stroke();
+        ctx.fillStyle = "#a855f7";
+        ctx.beginPath();
+        ctx.arc(cx + radius * 0.3, cy, radius * 0.25, 0, Math.PI * 2);
+        ctx.fill();
+        break;
+
+      default:
+        ctx.strokeStyle = "#64748b";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.fillStyle = "#94a3b8";
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius * 0.4, 0, Math.PI * 2);
+        ctx.fill();
+        break;
+    }
+
+    ctx.restore();
+  }
+
   private drawCompactWeaponSelector(
     ctx: CanvasRenderingContext2D,
     gameState: GameState,
@@ -1289,7 +2563,7 @@ export class CanvasGameRenderer {
     const projDef = selectedSlotId
       ? gameState.projectileDefinitions[selectedSlotId]
       : null;
-    const label = projDef ? projDef.label : selectedSlotId || "Standard";
+    const fullName = projDef ? projDef.name : selectedSlotId || "Standard Kaboom";
     const ammo =
       selectedSlotId && activeTank.weaponAmmo[selectedSlotId] !== undefined
         ? activeTank.weaponAmmo[selectedSlotId]
@@ -1310,7 +2584,7 @@ export class CanvasGameRenderer {
       ? "rgba(30, 41, 59, 0.98)"
       : isHovered
       ? "rgba(30, 41, 59, 0.95)"
-      : "rgba(15, 23, 42, 0.9)";
+      : "rgba(15, 23, 42, 0.92)";
     ctx.strokeStyle = isOpen
       ? "#facc15"
       : isHovered
@@ -1318,35 +2592,50 @@ export class CanvasGameRenderer {
       : "#8b5cf6";
     ctx.lineWidth = isOpen || isHovered ? 2.5 : 1.8;
     ctx.beginPath();
-    ctx.roundRect(layout.x, layout.y, layout.size, layout.size, 12);
+    ctx.roundRect(layout.x, layout.y, layout.width, layout.height, 12);
     ctx.fill();
     ctx.stroke();
 
-    // Weapon Label
-    ctx.fillStyle = "#ffffff";
-    ctx.font = "700 10.5px Inter, sans-serif";
-    ctx.textAlign = "center";
-    ctx.fillText(label, layout.x + layout.size / 2, layout.y + 16);
+    // 1. Draw Projectile Visual Icon
+    this.drawProjectileIcon(
+      ctx,
+      selectedSlotId,
+      layout.x + 20,
+      layout.y + layout.height / 2,
+      13,
+    );
 
-    // Ammo Badge Chip (top-right)
+    // 2. Full Projectile Name & Hotkey Hint
+    ctx.fillStyle = isOpen ? "#fef08a" : isHovered ? "#38bdf8" : "#ffffff";
+    ctx.font = "700 10.5px Inter, sans-serif";
+    ctx.textAlign = "left";
+    
+    // Truncate name if it exceeds container width minus paddings
+    const maxTextWidth = layout.width - 64;
+    let displayName = fullName;
+    if (ctx.measureText(displayName).width > maxTextWidth) {
+      while (displayName.length > 3 && ctx.measureText(displayName + "…").width > maxTextWidth) {
+        displayName = displayName.slice(0, -1);
+      }
+      displayName += "…";
+    }
+    ctx.fillText(displayName, layout.x + 38, layout.y + 22);
+
+    // Cycle & Hotkey hints
+    ctx.fillStyle = isOpen ? "#facc15" : "#94a3b8";
+    ctx.font = "600 9px Inter, sans-serif";
+    ctx.fillText("⇄ [1-5]", layout.x + 38, layout.y + 38);
+
+    // 3. Ammo Badge Chip (top-right)
     const ammoText = ammo === -1 ? "∞" : `${ammo}`;
-    ctx.fillStyle = ammo === 0 ? "#ef4444" : "#3b82f6";
+    ctx.fillStyle = ammo === 0 ? "#ef4444" : ammo === -1 ? "#3b82f6" : "#f59e0b";
     ctx.beginPath();
-    ctx.roundRect(layout.x + layout.size - 22, layout.y + 4, 18, 12, 4);
+    ctx.roundRect(layout.x + layout.width - 24, layout.y + 5, 19, 13, 4);
     ctx.fill();
     ctx.fillStyle = "#ffffff";
-    ctx.font = "800 8px Inter, sans-serif";
-    ctx.fillText(ammoText, layout.x + layout.size - 13, layout.y + 13);
-
-    // Cycle Icon [ ⇄ ]
-    ctx.fillStyle = isOpen ? "#facc15" : "#a78bfa";
-    ctx.font = "700 13px Inter, sans-serif";
-    ctx.fillText("⇄", layout.x + layout.size / 2, layout.y + 34);
-
-    // Hotkey reminder
-    ctx.fillStyle = "#94a3b8";
-    ctx.font = "700 8.5px Inter, sans-serif";
-    ctx.fillText("[1-5]", layout.x + layout.size / 2, layout.y + layout.size - 6);
+    ctx.font = "800 8.5px Inter, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText(ammoText, layout.x + layout.width - 14.5, layout.y + 14.5);
 
     ctx.restore();
   }
@@ -1419,20 +2708,32 @@ export class CanvasGameRenderer {
       ctx.stroke();
 
       // Hotkey Chip [1]
-      ctx.fillStyle = "#64748b";
+      ctx.fillStyle = isSelected ? "#facc15" : "#64748b";
       ctx.font = "800 9px Inter, sans-serif";
       ctx.textAlign = "left";
-      ctx.fillText(`[${item.slotIndex + 1}]`, item.x + 8, item.y + item.height / 2 + 3.5);
+      ctx.fillText(`[${item.slotIndex + 1}]`, item.x + 6, item.y + item.height / 2 + 3.5);
 
-      // Weapon Label
-      const label = projDef ? projDef.label : slotId;
+      // Projectile Visual Icon
+      this.drawProjectileIcon(
+        ctx,
+        slotId,
+        item.x + 30,
+        item.y + item.height / 2,
+        12,
+      );
+
+      // Full Weapon Name
+      const fullName = projDef ? projDef.name : slotId;
       ctx.fillStyle = isDepleted
         ? "#64748b"
         : isSelected
         ? "#fef08a"
+        : isHovered
+        ? "#38bdf8"
         : "#f8fafc";
       ctx.font = "700 11px Inter, sans-serif";
-      ctx.fillText(label, item.x + 28, item.y + item.height / 2 + 3.5);
+      ctx.textAlign = "left";
+      ctx.fillText(fullName, item.x + 48, item.y + item.height / 2 + 3.5);
 
       // Ammo Badge
       const ammoText = ammo === -1 ? "∞" : `${ammo}`;
@@ -1440,7 +2741,9 @@ export class CanvasGameRenderer {
         ? "#64748b"
         : isSelected
         ? "#facc15"
-        : "#38bdf8";
+        : ammo === -1
+        ? "#38bdf8"
+        : "#f59e0b";
       ctx.font = "800 10px 'Share Tech Mono', monospace";
       ctx.textAlign = "right";
       ctx.fillText(ammoText, item.x + item.width - 8, item.y + item.height / 2 + 3.5);
@@ -1570,47 +2873,6 @@ export class CanvasGameRenderer {
     ctx.moveTo(dpad.centerX, dpad.centerY - dpad.radius + 6);
     ctx.lineTo(dpad.centerX, dpad.centerY + dpad.radius - 6);
     ctx.stroke();
-
-    // 2. Virtual Aim Dial (Bottom-Right)
-    const dial = touchLayout.aimWheel;
-    ctx.fillStyle = "rgba(15, 23, 42, 0.72)";
-    ctx.strokeStyle = "rgba(56, 189, 248, 0.35)";
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.arc(dial.centerX, dial.centerY, dial.radius, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-
-    // Dial angle ticks
-    for (let deg = 0; deg <= 180; deg += 45) {
-      const rad = (-deg * Math.PI) / 180;
-      const tx1 = dial.centerX + Math.cos(rad) * (dial.radius - 8);
-      const ty1 = dial.centerY + Math.sin(rad) * (dial.radius - 8);
-      const tx2 = dial.centerX + Math.cos(rad) * dial.radius;
-      const ty2 = dial.centerY + Math.sin(rad) * dial.radius;
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
-      ctx.beginPath();
-      ctx.moveTo(tx1, ty1);
-      ctx.lineTo(tx2, ty2);
-      ctx.stroke();
-    }
-
-    // Aim Pointer Needle
-    const aimRad = activeTank.aimAngle;
-    const nx = dial.centerX + Math.cos(aimRad) * (dial.radius - 6);
-    const ny = dial.centerY + Math.sin(aimRad) * (dial.radius - 6);
-    ctx.strokeStyle = "#00f0ff";
-    ctx.lineWidth = 2.5;
-    ctx.beginPath();
-    ctx.moveTo(dial.centerX, dial.centerY);
-    ctx.lineTo(nx, ny);
-    ctx.stroke();
-
-    // Center Pivot
-    ctx.fillStyle = "#00f0ff";
-    ctx.beginPath();
-    ctx.arc(dial.centerX, dial.centerY, 3.5, 0, Math.PI * 2);
-    ctx.fill();
 
     ctx.restore();
   }

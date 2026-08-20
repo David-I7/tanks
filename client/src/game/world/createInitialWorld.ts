@@ -24,13 +24,13 @@ export function createDefaultMatchSetup(
         id: 0,
         displayName: "Player 1",
         controllerKind: "human",
-        tankSelection: { tankDefinitionId: "vanguard-cyber" },
+        tankSelection: { tankDefinitionId: "ignis" },
       },
       {
         id: 1,
         displayName: "Player 2",
         controllerKind: "human",
-        tankSelection: { tankDefinitionId: "specter" },
+        tankSelection: { tankDefinitionId: "glacies" },
       },
     ],
   };
@@ -58,7 +58,10 @@ export function createLocalInitialWorld(
     activePlayerId: setup.players[0]?.id ?? 0,
     playerCount: setup.players.length,
     turnNumber: 1,
-    turnTimeRemaining: content.world.turnDurationSeconds,
+    turnTimeRemaining: Math.min(
+      content.world.turnDurationSeconds,
+      content.world.matchDurationSeconds,
+    ),
     matchTimeRemaining: content.world.matchDurationSeconds,
     wind: initialWind,
     winnerPlayerId: null,

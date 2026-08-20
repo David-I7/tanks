@@ -99,8 +99,8 @@ describe("LocalSimulation angle range enforcement", () => {
 
     const terrain = new LocalTerrainModel(1280, 720);
     const tankId = world.createTank(
-      { id: 0, displayName: "P1", controllerKind: "human", tankSelection: { tankDefinitionId: "heavy-armor" } },
-      testGameContent.tanks["heavy-armor"]!,
+      { id: 0, displayName: "P1", controllerKind: "human", tankSelection: { tankDefinitionId: "ignis" } },
+      testGameContent.tanks["ignis"]!,
       200,
       400,
       testGameContent.projectiles,
@@ -163,17 +163,17 @@ describe("simulateTrajectoryPreview", () => {
           playerId: 1,
           displayName: "P1",
           controllerKind: "human",
-          tankDefinitionId: "vanguard-cyber",
-          tankName: "Vanguard Cyber",
+          tankDefinitionId: "ignis",
+          tankName: "Ignis",
           alive: true,
           position: { x: 500, y: 400 },
           facing: -1,
           bodyAngle: 0,
           aimAngle: -Math.PI / 4, // aiming UP-RIGHT (-45 deg)
           power: 300,
-          selectedProjectileSlotId: "basicShell",
-          loadout: ["basicShell"],
-          weaponAmmo: { basicShell: -1 },
+          selectedProjectileSlotId: "standardKaboom",
+          loadout: ["standardKaboom"],
+          weaponAmmo: { standardKaboom: -1 },
           maxHealth: 100,
           health: 100,
           maxFuel: 200,

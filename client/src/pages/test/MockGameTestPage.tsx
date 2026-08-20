@@ -114,7 +114,7 @@ export default function MockGameTestPage() {
       // Create lobby by P1
       p1Client.client.publish({
         destination: "/app/lobby/create/private",
-        body: JSON.stringify({ tankId: "vanguard-cyber" }),
+        body: JSON.stringify({ tankId: "ignis" }),
       });
       const lobbyReply = await waitForReply(p1Client, "LOBBY_CREATED");
       const lobbyId = lobbyReply.payload?.id || lobbyReply.payload?.lobbyId;
@@ -124,7 +124,7 @@ export default function MockGameTestPage() {
       // P2 joins lobby
       p2Client.client.publish({
         destination: `/app/lobby/join/private/${lobbyId}`,
-        body: JSON.stringify({ tankId: "specter" }),
+        body: JSON.stringify({ tankId: "glacies" }),
       });
       await waitForReply(p2Client, "LOBBY_JOINED");
       await setupLobbyTopicSubscription(p2Client, lobbyId);

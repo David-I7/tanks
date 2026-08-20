@@ -65,7 +65,7 @@ export class LocalSimulation {
       return true;
     }
 
-    if (this.world.match.phase !== "thinking" || this.damageTrails.length > 0) {
+    if (this.world.match.phase !== "thinking") {
       return false;
     }
     if (this.world.match.activePlayerId !== playerId) return false;
@@ -78,7 +78,7 @@ export class LocalSimulation {
     if (!tank || !position || !tank.alive) return false;
 
     if (action.type === "move") {
-      if (tank.fuel <= 0 || this.damageTrails.length > 0) return false;
+      if (tank.fuel <= 0) return false;
       if (action.direction !== -1 && action.direction !== 1) return false;
 
       const definition = this.content.tanks[tank.tankDefinitionId];
@@ -89,7 +89,7 @@ export class LocalSimulation {
       const fuelRate = definition.fuelRate;
       const halfWidth = Math.floor(definition.width / 2);
       const trackGroundOffset = definition.height / 2;
-      const movementQuantum = 4; // 4px per 60Hz tick matching 24px per 100ms on server
+      const movementQuantum = definition.movementQuantum || 24;
 
       tank.facing = action.direction;
       let currentX = position.x;
@@ -258,17 +258,19 @@ export class LocalSimulation {
 
     if (this.world.match.phase === "impact") {
       this.updateImpactEvents(dt);
-      if (this.world.impactEvents.size === 0) {
+      if (this.world.impactEvents.size === 0 && this.damageTrails.length === 0) {
         this.world.match.phase = "transition";
       }
     }
 
     if (this.world.match.phase === "transition") {
-      this.transitionTimer += dt;
-      const delay = this.content.world.postImpactDelaySeconds ?? 0.55;
-      if (this.transitionTimer >= delay) {
-        this.transitionTimer = 0;
-        this.advanceTurn();
+      if (this.damageTrails.length === 0) {
+        this.transitionTimer += dt;
+        const delay = this.content.world.postImpactDelaySeconds ?? 0.55;
+        if (this.transitionTimer >= delay) {
+          this.transitionTimer = 0;
+          this.advanceTurn();
+        }
       }
     }
 
@@ -353,15 +355,51 @@ export class LocalSimulation {
     tankX: number,
     tankY: number,
   ): void {
-    this.spawnProjectileWithAngle(
-      tank.playerId,
-      projectileDefinition,
-      tank.power,
-      tankX,
-      tankY,
-      tank.aimAngle,
-      tank.bodyAngle ?? 0,
-    );
+    if (projectileDefinition.salvo && projectileDefinition.salvo.shotCount > 1) {
+      const salvo = projectileDefinition.salvo;
+      // Shot 0: immediate
+      const shot0Def: ProjectileDefinition = {
+        ...projectileDefinition,
+        gravityScale: salvo.gravityScales[0] ?? projectileDefinition.gravityScale,
+      };
+      this.spawnProjectileWithAngle(
+        tank.playerId,
+        shot0Def,
+        tank.power,
+        tankX,
+        tankY,
+        tank.aimAngle,
+        tank.bodyAngle ?? 0,
+      );
+
+      // Remaining salvo shots: delayed
+      for (let i = 1; i < salvo.shotCount; i++) {
+        const shotDef: ProjectileDefinition = {
+          ...projectileDefinition,
+          gravityScale: salvo.gravityScales[i] ?? projectileDefinition.gravityScale,
+        };
+        this.pendingProjectiles.push({
+          delayRemaining: i * salvo.delaySeconds,
+          ownerPlayerId: tank.playerId,
+          projectileDefinition: shotDef,
+          power: tank.power,
+          tankX,
+          tankY,
+          aimAngle: tank.aimAngle,
+          bodyAngle: tank.bodyAngle ?? 0,
+        });
+      }
+    } else {
+      this.spawnProjectileWithAngle(
+        tank.playerId,
+        projectileDefinition,
+        tank.power,
+        tankX,
+        tankY,
+        tank.aimAngle,
+        tank.bodyAngle ?? 0,
+      );
+    }
   }
 
   private spawnProjectileWithAngle(
@@ -457,6 +495,7 @@ export class LocalSimulation {
       const velocity = this.world.velocities.get(entityId);
       if (!position || !velocity) continue;
 
+      const prevVy = velocity.y;
       velocity.x += (this.world.match.wind ?? 0) * dt;
       velocity.y += this.content.world.gravity * projectile.physics.gravityScale * dt;
       position.x += velocity.x * dt;
@@ -465,6 +504,59 @@ export class LocalSimulation {
       projectile.position.y = position.y;
       projectile.velocity.x = velocity.x;
       projectile.velocity.y = velocity.y;
+
+      const projectileDef = this.content.projectiles[projectile.projectileDefinitionId];
+
+      // Apex split check: if ascending and flipping to downward before hitting obstacles
+      if (projectileDef?.apexSplit && prevVy < 0 && velocity.y >= 0) {
+        const apexConfig = projectileDef.apexSplit;
+        const shardCount = Math.max(1, apexConfig.splitCount);
+        const shardDamage = Math.max(1, Math.floor(apexConfig.totalDamagePool / shardCount));
+        const shardSpreadVel = apexConfig.spreadVelocity;
+        const apexX = position.x;
+        const apexY = position.y;
+
+        this.world.destroyEntity(entityId);
+
+        for (let i = 0; i < shardCount; i++) {
+          const fanAngleDeg = shardCount === 1 ? 90.0 : 30.0 + (i * 120.0) / (shardCount - 1);
+          const fanAngleRad = (fanAngleDeg * Math.PI) / 180;
+          const shardVx = shardSpreadVel * Math.cos(fanAngleRad);
+          const shardVy = shardSpreadVel * Math.sin(fanAngleRad);
+
+          const shardDef: ProjectileDefinition = {
+            id: `${projectileDef.id}_shard`,
+            name: `${projectileDef.name} Shard`,
+            visual: {
+              radius: 3,
+              fill: projectileDef.visual?.fill ?? "#38bdf8",
+              stroke: projectileDef.visual?.stroke ?? "#bae6fd",
+              accent: projectileDef.visual?.accent ?? "#ffffff",
+            },
+            baseVelocity: 1.0,
+            gravityScale: 1.0,
+            terrainEffectType: "CRATER",
+            terrainRadius: 18,
+            terrainDepth: 0,
+            damageEffectType: "RADIAL",
+            damageRadius: 25,
+            damage: shardDamage,
+            subMunitions: null,
+            damageTrail: null,
+          };
+
+          this.world.createProjectile(
+            projectile.ownerPlayerId,
+            shardDef,
+            1.0,
+            apexX,
+            apexY,
+            shardVx,
+            shardVy,
+          );
+        }
+        continue;
+      }
 
       const hitTankEntityId = this.findHitTank(entityId, projectile);
       const hitTerrain = this.terrain.intersectsCircle(
@@ -478,6 +570,39 @@ export class LocalSimulation {
         position.x > this.terrain.width;
 
       if (hitTankEntityId !== null || hitTerrain || outOfBounds) {
+        if (!outOfBounds && (projectile.remainingBounces ?? 0) > 0 && projectileDef?.bouncer) {
+          const bouncerConfig = projectileDef.bouncer;
+          this.lastImpactX = position.x;
+          this.terrain.applyTerrainEffect(position.x, position.y, {
+            type: "crater",
+            radius: Math.min(24, bouncerConfig.shockwaveRadius * 0.6),
+          });
+          this.applyDamageEffect(
+            position.x,
+            position.y,
+            {
+              type: "radial",
+              radius: bouncerConfig.shockwaveRadius,
+              damage: bouncerConfig.damagePerBounce,
+            },
+            hitTankEntityId,
+          );
+          this.spawnExplosionParticles(position.x, position.y, DEFAULT_EXPLOSION_PALETTE);
+          this.screenShake = 10;
+
+          // Rebound and keep flying
+          projectile.remainingBounces = (projectile.remainingBounces ?? 0) - 1;
+          const groundY = this.terrain.getSurfaceY(position.x);
+          position.y = groundY - 6;
+          velocity.y = -Math.abs(velocity.y) * 0.65 - 130;
+          velocity.x = velocity.x * 0.65;
+          projectile.velocity.x = velocity.x;
+          projectile.velocity.y = velocity.y;
+          projectile.position.x = position.x;
+          projectile.position.y = position.y;
+          continue;
+        }
+
         if (!outOfBounds) {
           this.resolveImpact(position.x, position.y, projectile, hitTankEntityId);
         }
@@ -525,7 +650,10 @@ export class LocalSimulation {
   ): void {
     this.lastImpactX = x;
     this.terrain.applyTerrainEffect(x, y, projectile.terrainEffect);
-    this.world.createImpactEvent(x, y, projectile);
+    const projectileDef = this.content.projectiles[projectile.projectileDefinitionId];
+    if (!projectileDef?.damageTrail) {
+      this.world.createImpactEvent(x, y, projectile);
+    }
     this.applyDamageEffect(x, y, projectile.damageEffect, directHitTankEntityId);
     this.spawnExplosionParticles(x, y, DEFAULT_EXPLOSION_PALETTE);
     this.screenShake = 12;
@@ -545,7 +673,6 @@ export class LocalSimulation {
       }
     }
 
-    const projectileDef = this.content.projectiles[projectile.projectileDefinitionId];
     if (projectileDef?.subMunitions && projectileDef.subMunitions.count > 0) {
       const subConfig = projectileDef.subMunitions;
       const subProjDef = this.content.projectiles[subConfig.projectileDefinitionId];
@@ -580,6 +707,7 @@ export class LocalSimulation {
         damagePerSecond: projectileDef.damageTrail.damagePerSecond,
         remainingDuration: projectileDef.damageTrail.durationSeconds,
         ownerPlayerId: projectile.ownerPlayerId,
+        hazardType: projectileDef.damageTrail.hazardType,
       });
     }
   }
@@ -687,7 +815,13 @@ export class LocalSimulation {
       if (nextTank?.alive) {
         this.world.match.activePlayerId = nextPlayerId;
         this.world.match.turnNumber += 1;
-        this.world.match.turnTimeRemaining = this.content.world.turnDurationSeconds;
+        this.world.match.turnTimeRemaining = Math.max(
+          0,
+          Math.min(
+            this.content.world.turnDurationSeconds,
+            this.world.match.matchTimeRemaining,
+          ),
+        );
         const minWind = this.content.world.minWind;
         const maxWind = this.content.world.maxWind;
         this.world.match.wind =
@@ -704,7 +838,10 @@ export class LocalSimulation {
   private updateTurnTimer(dt: number): boolean {
     this.world.match.turnTimeRemaining = Math.max(
       0,
-      this.world.match.turnTimeRemaining - dt,
+      Math.min(
+        this.world.match.turnTimeRemaining - dt,
+        this.world.match.matchTimeRemaining,
+      ),
     );
 
     if (this.world.match.turnTimeRemaining > 0) return false;

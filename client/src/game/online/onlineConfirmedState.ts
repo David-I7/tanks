@@ -482,6 +482,22 @@ function applyDiffPayload(
     case "TURN_TRANSITION":
       const turnPayload =
         diff.payload as OnlineTurnTransitionResponse["payload"];
+      const matchRemainingTicks =
+        turnPayload.matchEndsAtServerTick !== null
+          ? Math.max(
+              0,
+              turnPayload.matchEndsAtServerTick -
+                confirmed.lastConfirmedDiffServerTick,
+            )
+          : confirmed.state.match.matchTimeRemainingTicks;
+      const turnRemainingTicks = Math.max(
+        0,
+        Math.min(
+          turnPayload.turnEndsAtServerTick -
+            confirmed.lastConfirmedDiffServerTick,
+          matchRemainingTicks,
+        ),
+      );
       return {
         ...confirmed,
         state: {
@@ -491,14 +507,8 @@ function applyDiffPayload(
             phase: turnPayload.phase,
             activePlayerId: turnPayload.activePlayerId,
             turnNumber: turnPayload.turnNumber,
-            turnTimeRemainingTicks:
-              turnPayload.turnEndsAtServerTick -
-              confirmed.lastConfirmedDiffServerTick,
-            matchTimeRemainingTicks:
-              turnPayload.matchEndsAtServerTick !== null
-                ? turnPayload.matchEndsAtServerTick -
-                  confirmed.lastConfirmedDiffServerTick
-                : confirmed.state.match.matchTimeRemainingTicks,
+            turnTimeRemainingTicks: turnRemainingTicks,
+            matchTimeRemainingTicks: matchRemainingTicks,
             wind: turnPayload.wind,
           },
           tanks: confirmed.state.tanks.map((tank) =>

@@ -219,18 +219,18 @@ describe("OnlineGameManager Intent Handling & Batch Processing", () => {
     // Player 1 has loadout ["basicShell", "titanShell", "heavyShell", "cluster"]
     const selectRes = manager.submitAction({
       type: "selectProjectileSlot",
-      projectileSlotId: "cluster",
+      projectileSlotId: "magmaMortar",
     });
 
     expect(selectRes).toBe(true);
     expect(sentIntents.length).toBe(1);
     expect(sentIntents[0].type).toBe("SELECT_PROJECTILE_SLOT");
-    // "cluster" is index 1 in vanguard-cyber loadout ["basicShell", "cluster", "heavyShell"]
+    // "magmaMortar" is index 1 in ignis loadout ["standardKaboom", "magmaMortar", ...]
     expect(sentIntents[0].payload.slot).toBe(1);
 
     // Local game state reflects the selected projectile slot
     const activeTank = manager.getState().tanks.find((t) => t.playerId === 1);
-    expect(activeTank?.selectedProjectileSlotId).toBe("cluster");
+    expect(activeTank?.selectedProjectileSlotId).toBe("magmaMortar");
   });
 
   it("collects loot crates during update when a tank is within range", () => {

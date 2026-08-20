@@ -16,7 +16,13 @@ export type VisualIdentity = {
   fill: string;
   stroke: string;
   accent: string;
-  label: string;
+};
+
+export type ProjectileVisual = {
+  radius: number;
+  fill: string;
+  stroke: string;
+  accent: string;
 };
 
 // ============================================================================
@@ -68,6 +74,8 @@ export type DamageEffect =
   | { type: "radial"; radius: number; damage: number }
   | { type: "focused"; radius: number; damage: number };
 
+export type HazardType = "FIRE" | "FROST" | "QUAKE" | "ELECTRIC";
+
 export type SubMunitionConfig = {
   count: number;
   projectileDefinitionId: string;
@@ -79,6 +87,26 @@ export type DamageTrailConfig = {
   radius: number;
   damagePerSecond: number;
   durationSeconds: number;
+  hazardType?: HazardType;
+};
+
+export type SalvoConfig = {
+  shotCount: number;
+  delaySeconds: number;
+  gravityScales: number[];
+};
+
+export type ApexSplitConfig = {
+  splitCount: number;
+  totalDamagePool: number;
+  spreadVelocity: number;
+};
+
+export type BouncerConfig = {
+  bounceCount: number;
+  durationSeconds: number;
+  damagePerBounce: number;
+  shockwaveRadius: number;
 };
 
 export type ProjectilePhysics = {
@@ -90,11 +118,12 @@ export type ProjectilePhysics = {
 export type ProjectileDefinition = {
   id: string;
   name: string;
-  label: string;
-  isDefault: boolean;
-  radius: number;
+  description?: string;
+  intendedUse?: string;
+  visual: ProjectileVisual;
   baseVelocity: number;
   gravityScale: number;
+  initialAmmo?: number;
   terrainEffectType: "CRATER" | "DRILL";
   terrainRadius: number;
   terrainDepth: number;
@@ -103,6 +132,9 @@ export type ProjectileDefinition = {
   damage: number;
   subMunitions: SubMunitionConfig | null;
   damageTrail: DamageTrailConfig | null;
+  salvo?: SalvoConfig | null;
+  apexSplit?: ApexSplitConfig | null;
+  bouncer?: BouncerConfig | null;
 };
 
 export type TankDefinition = {
@@ -243,6 +275,7 @@ export type ProjectileComponent = {
   damageEffect: DamageEffect;
   position: Vec2;
   velocity: Vec2;
+  remainingBounces?: number;
 };
 
 export type ProjectileEntity = ProjectileComponent & {
@@ -258,6 +291,7 @@ export type DamageTrail = {
   damagePerSecond: number;
   remainingDuration: number;
   ownerPlayerId: number;
+  hazardType?: HazardType;
 };
 
 export type ImpactEvent = {

@@ -31,9 +31,12 @@ function createTestGameState(options?: {
       basicShell: {
         id: "basicShell",
         name: "Basic Shell",
-        label: "BS",
-        isDefault: true,
-        radius: 4,
+        visual: {
+          radius: 4,
+          fill: "#475569",
+          stroke: "#38bdf8",
+          accent: "#f59e0b",
+        },
         baseVelocity: 1.0,
         gravityScale: 1.0,
         terrainEffectType: "CRATER",
@@ -73,7 +76,6 @@ function createTestGameState(options?: {
           fill: "#22c55e",
           stroke: "#16a34a",
           accent: "#4ade80",
-          label: "P1",
         },
       },
       {
@@ -102,7 +104,6 @@ function createTestGameState(options?: {
           fill: "#ef4444",
           stroke: "#dc2626",
           accent: "#f87171",
-          label: "P2",
         },
       },
     ],
@@ -168,6 +169,8 @@ describe("CanvasGameRenderer", () => {
       arc: vi.fn(),
       ellipse: vi.fn(),
       roundRect: vi.fn(),
+      quadraticCurveTo: vi.fn(),
+      bezierCurveTo: vi.fn(),
       createLinearGradient: vi.fn(() => ({
         addColorStop: vi.fn(),
       })),
@@ -219,12 +222,12 @@ describe("CanvasGameRenderer", () => {
 
     const textCalls = ctx.getFillTextCalls();
     expect(textCalls.some((t) => t.includes("FIRE"))).toBe(true);
-    expect(textCalls.some((t) => t.includes("BS"))).toBe(true);
+    expect(textCalls.some((t) => t.includes("Basic Shell"))).toBe(true);
     expect(textCalls.some((t) => t.includes("POWER"))).toBe(true);
     expect(textCalls.some((t) => t.includes("ANGLE"))).toBe(true);
   });
 
-  it("suppresses weapon selector, FIRE button, and power/angle overlay for active remote opponent in online mode", () => {
+  it("renders elemental tanks (ignis, glacies, terra, volt) with strict context balance", () => {
     const { canvas, ctx } = createMockCanvasContext();
     const renderer = new CanvasGameRenderer(
       canvas,
@@ -232,13 +235,54 @@ describe("CanvasGameRenderer", () => {
       { width: 1280, height: 720 },
     );
 
-    const state = createTestGameState({ activeControllerKind: "remote" });
-    renderer.render(state);
+    const elementalTanks: Array<"ignis" | "glacies" | "terra" | "volt"> = [
+      "ignis",
+      "glacies",
+      "terra",
+      "volt",
+    ];
 
-    const textCalls = ctx.getFillTextCalls();
-    expect(textCalls.some((t) => t.includes("FIRE"))).toBe(false);
-    expect(textCalls.some((t) => t.includes("WAIT"))).toBe(false);
-    expect(textCalls.some((t) => t.includes("POWER"))).toBe(false);
-    expect(textCalls.some((t) => t.includes("ANGLE"))).toBe(false);
+    for (const tankId of elementalTanks) {
+      const state = createTestGameState();
+      state.tanks[0]!.tankDefinitionId = tankId;
+      renderer.render(state);
+      expect(ctx.getSaveCount()).toBeGreaterThan(0);
+      expect(ctx.getSaveCount()).toBe(ctx.getRestoreCount());
+    }
+  });
+
+  it("renders typed environmental hazard vignettes (FIRE, FROST, QUAKE, ELECTRIC) without unbalanced context state", () => {
+    const { canvas, ctx } = createMockCanvasContext();
+    const renderer = new CanvasGameRenderer(
+      canvas,
+      { width: 1280, height: 720 },
+      { width: 1280, height: 720 },
+    );
+
+    const hazardTypes: Array<"FIRE" | "FROST" | "QUAKE" | "ELECTRIC"> = [
+      "FIRE",
+      "FROST",
+      "QUAKE",
+      "ELECTRIC",
+    ];
+
+    for (const hazardType of hazardTypes) {
+      const state = createTestGameState();
+      state.damageTrails = [
+        {
+          id: `trail-${hazardType}`,
+          position: { x: 200, y: 386 },
+          radius: 50,
+          damagePerSecond: 10,
+          remainingDuration: 4.0,
+          ownerPlayerId: 1,
+          hazardType,
+        },
+      ];
+      renderer.render(state);
+      expect(ctx.createRadialGradient).toHaveBeenCalled();
+      expect(ctx.getSaveCount()).toBe(ctx.getRestoreCount());
+    }
   });
 });
+

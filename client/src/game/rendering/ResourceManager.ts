@@ -12,17 +12,20 @@ export function createInitialWeaponAmmo(
   const weaponAmmo: Record<string, number> = {};
   for (const slotId of loadout) {
     const proj = projectiles[slotId];
-    weaponAmmo[slotId] = proj && proj.isDefault ? -1 : 1;
+    weaponAmmo[slotId] = proj
+      ? proj.initialAmmo !== undefined
+        ? proj.initialAmmo
+        : 1
+      : 1;
   }
   return weaponAmmo;
 }
 
 const TANK_DESCRIPTIONS: Record<string, string> = {
-  "heavy-armor": "Reinforced steel hull with heavy dual-barreled firepower.",
-  "desert-striker":
-    "High mobility chassis optimized for speed and long-range accuracy.",
-  "vanguard-cyber": "Futuristic navy alloy tank featuring energy rail cannons.",
-  specter: "Stealth shadow tank equipped with tactical nukes and toxic trails.",
+  ignis: "Aggressive magma-forged siege crawler with volcanic heat vents and dual napalm exhaust.",
+  glacies: "Sub-zero crystalline juggernaut with frosted armor plating and an elongated cryo lance cannon.",
+  terra: "Industrial earthmover chassis with hydraulic recoil pistons, hazard stripes, and heavy steel tracks.",
+  volt: "High-tech hover chassis with central plasma arc reactor and twin electromagnetic rail coils.",
 };
 
 export type TankDefinitionIds = string;
@@ -31,9 +34,17 @@ export type TankProjectileDefinitionIds = string;
 export type TankProjectileDefinition = {
   id: TankProjectileDefinitionIds;
   name: string;
-  label: string;
+  description?: string;
+  intendedUse?: string;
   color: string;
   type: string;
+  initialAmmo?: number;
+  visual: {
+    radius: number;
+    fill: string;
+    stroke: string;
+    accent: string;
+  };
 };
 
 export type TankDefinitionUi = {
@@ -91,9 +102,17 @@ export class ResourceManager {
             return {
               id: slotId,
               name: projDef ? projDef.name : slotId,
-              label: projDef ? projDef.label : slotId,
-              color: "#38bdf8",
-              type: "Payload",
+              description: projDef?.description,
+              intendedUse: projDef?.intendedUse,
+              color: projDef?.visual?.fill ?? "#38bdf8",
+              type: projDef?.damageEffectType === "FOCUSED" ? "Focused Drill" : "Radial Blast",
+              initialAmmo: projDef?.initialAmmo,
+              visual: projDef?.visual ?? {
+                radius: 4.0,
+                fill: "#475569",
+                stroke: "#38bdf8",
+                accent: "#f59e0b",
+              },
             };
           }),
         },

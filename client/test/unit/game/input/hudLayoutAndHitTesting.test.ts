@@ -13,7 +13,6 @@ import {
   findProjectileSlotAtCanvasPoint,
   isFireButtonClickedAtCanvasPoint,
   getVirtualMovementIntentAtCanvasPoint,
-  getVirtualAimAngleIntentAtCanvasPoint,
 } from "../../../../src/game/input/inputHelpers";
 import { collectGameActions } from "../../../../src/game/input/CanvasInputSource";
 
@@ -83,7 +82,7 @@ describe("HUD Layout & Hit-Testing Helpers", () => {
 
       expect(weaponLayout.isMobile).toBe(false);
       expect(fireLayout.isMobile).toBe(false);
-      expect(fireLayout.x).toBe(weaponLayout.x + weaponLayout.size + 12);
+      expect(fireLayout.x).toBe(weaponLayout.x + weaponLayout.width + 12);
       expect(fireLayout.y).toBe(weaponLayout.y);
     });
 
@@ -240,7 +239,7 @@ describe("HUD Layout & Hit-Testing Helpers", () => {
     });
   });
 
-  describe("Virtual Touch Controls (D-pad & Aim Wheel)", () => {
+  describe("Virtual Touch Controls (D-pad)", () => {
     it("detects left and right movement intents on virtual D-pad", () => {
       const touchLayout = getVirtualTouchControlsLayout(400, 800);
       const dpad = touchLayout.dpad;
@@ -270,22 +269,73 @@ describe("HUD Layout & Hit-Testing Helpers", () => {
       expect(outsideIntent).toBeNull();
     });
 
-    it("calculates aim elevation angle on virtual aim dial", () => {
-      const touchLayout = getVirtualTouchControlsLayout(400, 800);
-      const dial = touchLayout.aimWheel;
+    it("generates continuous movement actions when keys (KeyA, KeyD, arrows) or virtual move direction are held", () => {
+      const actionsKeyA = collectGameActions({
+        state: {
+          pressedKeys: new Set(["KeyA"]),
+          pointer: { clientX: 0, clientY: 0 },
+          pendingPointerDown: null,
+          pendingSlotNumber: null,
+          pendingSpaceKey: false,
+          pendingPanDelta: 0,
+          isPointerDown: false,
+          isWeaponDrawerOpen: false,
+          virtualMoveDirection: null,
+          virtualAim: null,
+        },
+        context: {
+          gameState: mockGameState,
+          cameraX: 0,
+          gameViewport: { width: 800, height: 600 },
+          domCanvasRect: { left: 0, top: 0, width: 800, height: 600 },
+        },
+      });
+      expect(actionsKeyA).toEqual([{ type: "move", direction: -1 }]);
 
-      // Aim pointing straight up (-PI/2)
-      const aimIntent = getVirtualAimAngleIntentAtCanvasPoint(
-        400,
-        800,
-        dial.centerX,
-        dial.centerY - 30,
-        mockTank,
-      );
+      const actionsKeyD = collectGameActions({
+        state: {
+          pressedKeys: new Set(["KeyD"]),
+          pointer: { clientX: 0, clientY: 0 },
+          pendingPointerDown: null,
+          pendingSlotNumber: null,
+          pendingSpaceKey: false,
+          pendingPanDelta: 0,
+          isPointerDown: false,
+          isWeaponDrawerOpen: false,
+          virtualMoveDirection: null,
+          virtualAim: null,
+        },
+        context: {
+          gameState: mockGameState,
+          cameraX: 0,
+          gameViewport: { width: 800, height: 600 },
+          domCanvasRect: { left: 0, top: 0, width: 800, height: 600 },
+        },
+      });
+      expect(actionsKeyD).toEqual([{ type: "move", direction: 1 }]);
 
-      expect(aimIntent).toBeDefined();
-      expect(aimIntent?.type).toBe("aim");
-      expect(aimIntent?.angle).toBeCloseTo(-Math.PI / 2, 2);
+      const touchLayout = getVirtualTouchControlsLayout(800, 600);
+      const actionsVirtualMove = collectGameActions({
+        state: {
+          pressedKeys: new Set(),
+          pointer: { clientX: touchLayout.dpad.centerX + 20, clientY: touchLayout.dpad.centerY },
+          pendingPointerDown: null,
+          pendingSlotNumber: null,
+          pendingSpaceKey: false,
+          pendingPanDelta: 0,
+          isPointerDown: true,
+          isWeaponDrawerOpen: false,
+          virtualMoveDirection: 1,
+          virtualAim: null,
+        },
+        context: {
+          gameState: mockGameState,
+          cameraX: 0,
+          gameViewport: { width: 800, height: 600 },
+          domCanvasRect: { left: 0, top: 0, width: 800, height: 600 },
+        },
+      });
+      expect(actionsVirtualMove).toEqual([{ type: "move", direction: 1 }]);
     });
   });
 });

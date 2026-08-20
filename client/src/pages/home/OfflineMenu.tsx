@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { ArrowLeft } from "lucide-react";
+import { useState, useMemo } from "react";
+import { ArrowLeft, Bug } from "lucide-react";
 import Button from "../../components/buttons/Button";
 import IconButton from "../../components/buttons/IconButton";
 import H1 from "../../components/headings/H1";
@@ -17,14 +17,27 @@ type PlayerConfig = {
 export default function OfflineMenu() {
   const { popScreen } = useScreenStack();
   const navigate = useNavigate();
-  
+
+  const isDebugInitial = useMemo(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("debug") === "true") return true;
+    }
+    return (
+      import.meta.env.DEV ||
+      import.meta.env.VITE_DEBUG_TESTS === "true"
+    );
+  }, []);
+
+  const [debugMode, setDebugMode] = useState<boolean>(isDebugInitial);
+
   const [player1Config, setPlayer1Config] = useState<PlayerConfig>({
     name: "Player 1",
     tankId: "",
   });
   const [player2Config, setPlayer2Config] = useState<PlayerConfig>({
     name: "Player 2",
-    tankId: ""
+    tankId: "",
   });
 
   const handleStartGame = () => {
@@ -32,7 +45,6 @@ export default function OfflineMenu() {
       state: { mode: "localTwoPlayer", player1Config, player2Config },
     });
   };
-
 
   return (
     <Surface className="px-6 py-6 w-full max-w-lg flex flex-col gap-5 text-center relative pt-14 max-h-[90vh] overflow-y-auto">
@@ -42,6 +54,23 @@ export default function OfflineMenu() {
           icon={<ArrowLeft size={16} />}
         />
       </div>
+
+      <div className="absolute top-4 right-4 flex items-center gap-1.5">
+        <button
+          type="button"
+          onClick={() => setDebugMode((prev) => !prev)}
+          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold border transition-colors cursor-pointer ${
+            debugMode
+              ? "bg-amber-500/20 border-amber-500/50 text-amber-300 shadow-sm"
+              : "bg-background-high border-border-main text-text-body-muted hover:text-text-body-high"
+          }`}
+          title="Toggle Weapon Debug Descriptions"
+        >
+          <Bug size={13} />
+          <span>Debug</span>
+        </button>
+      </div>
+
       <H1 className="text-center mb-1">Offline Setup</H1>
 
       {/* Player 1 Configuration */}
@@ -69,6 +98,7 @@ export default function OfflineMenu() {
           }
           selectedTankId={player1Config.tankId}
           label="Tank Choice"
+          debugMode={debugMode}
         />
       </div>
 
@@ -97,6 +127,7 @@ export default function OfflineMenu() {
           }
           selectedTankId={player2Config.tankId}
           label="Tank Choice"
+          debugMode={debugMode}
         />
       </div>
 

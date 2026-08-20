@@ -49,7 +49,28 @@ export class LocalTerrainModel {
 
   applyTerrainEffect(cx: number, cy: number, effect: TerrainEffect): void {
     if (effect.type === "drill") {
-      return this.deform(cx, cy + effect.depth, effect.radius);
+      const radius = effect.radius;
+      const depth = effect.depth;
+      const startX = Math.max(0, Math.floor(cx - radius));
+      const endX = Math.min(this.width - 1, Math.ceil(cx + radius));
+
+      for (let x = startX; x <= endX; x += 1) {
+        const dx = x - cx;
+        const remaining = radius * radius - dx * dx;
+        if (remaining < 0) continue;
+
+        const drillBottomY = Math.floor(cy + depth + Math.sqrt(remaining));
+        this.surface[x] = Math.min(
+          this.height,
+          Math.max(this.surface[x] ?? this.height, drillBottomY),
+        );
+      }
+
+      this.smoothRange(
+        Math.max(0, startX - SMOOTH_PADDING),
+        Math.min(this.width - 1, endX + SMOOTH_PADDING),
+      );
+      return;
     }
 
     return this.deform(cx, cy, effect.radius);

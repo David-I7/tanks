@@ -16,7 +16,7 @@ describe("Duplicate Lobby Join", () => {
 
       player1.client.publish({
         destination: "/app/lobby/create/private",
-        body: JSON.stringify({ tankId: "vanguard-cyber" }),
+        body: JSON.stringify({ tankId: "ignis" }),
       });
 
       const errorReply = await waitForErrorReply(player1, 500);

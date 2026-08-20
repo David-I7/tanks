@@ -15,7 +15,7 @@ describe("Non-Existent Lobby Join", () => {
       const nonExistentLobbyId = "00000000-0000-0000-0000-000000000000";
       ctx.playerClients[0]!.client.publish({
         destination: `/app/lobby/join/private/${nonExistentLobbyId}`,
-        body: JSON.stringify({ tankId: "vanguard-cyber" }),
+        body: JSON.stringify({ tankId: "ignis" }),
       });
 
       const errorReply = await waitForErrorReply(ctx.playerClients[0]!, 3000);
