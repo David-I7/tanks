@@ -57,8 +57,10 @@ export function onlineSnapshotToGameState(
       activePlayerId: snapshot.match.activePlayerId,
       playerCount: snapshot.match.playerCount,
       turnNumber: snapshot.match.turnNumber,
-      turnTimeRemaining:
+      turnTimeRemaining: Math.min(
         snapshot.match.turnTimeRemainingTicks / content.world.tickRateHz,
+        snapshot.match.matchTimeRemainingTicks / content.world.tickRateHz,
+      ),
       matchTimeRemaining:
         snapshot.match.matchTimeRemainingTicks / content.world.tickRateHz,
       wind: snapshot.match.wind,

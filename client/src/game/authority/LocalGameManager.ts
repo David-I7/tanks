@@ -12,6 +12,8 @@ import type {
 } from "../types";
 import type { GameManager } from "./gameManager";
 
+import { IntentThrottler } from "../online/IntentThrottler";
+
 export function createLocalGameManager(options: {
   mode: Exclude<GameMode, "online">;
   setup: MatchSetup;
@@ -31,6 +33,10 @@ class LocalGameManager implements GameManager {
   private currentState: GameState;
   private readonly listeners = new Set<(state: GameState) => void>();
   private readonly unsubscribeSimulation: () => void;
+  private readonly moveThrottler = new IntentThrottler({
+    aimIntervalMs: 0,
+    moveIntervalMs: 100,
+  });
 
   constructor(
     private readonly simulationManager: SimulationManager,
@@ -42,10 +48,14 @@ class LocalGameManager implements GameManager {
     );
     this.unsubscribeSimulation = simulationManager.subscribe(
       (simulationState) => {
+        const previousActivePlayerId = this.currentState.match.activePlayerId;
         this.currentState = toGameState(
           simulationState,
           this.projectileDefinitions,
         );
+        if (this.currentState.match.activePlayerId !== previousActivePlayerId) {
+          this.moveThrottler.reset();
+        }
         this.publishCurrentState();
       },
     );
@@ -57,6 +67,15 @@ class LocalGameManager implements GameManager {
     }
     const playerId = resolveActiveLocalActor(this.currentState);
     if (playerId === null) return false;
+
+    if (action.type === "move") {
+      const nowMs =
+        typeof performance !== "undefined" ? performance.now() : Date.now();
+      if (!this.moveThrottler.shouldSendMove(nowMs)) {
+        return false;
+      }
+    }
+
     return this.simulationManager.submitPlayerAction(playerId, action);
   }
 

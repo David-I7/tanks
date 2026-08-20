@@ -288,13 +288,16 @@ class ActiveOnlineGameManager {
       const tickRateHz = this.ctx.gameContent.world.tickRateHz || 30;
       const ticksDelta = dt * tickRateHz;
       const match = this.confirmedState.state.match;
-      match.turnTimeRemainingTicks = Math.max(
-        0,
-        match.turnTimeRemainingTicks - ticksDelta,
-      );
       match.matchTimeRemainingTicks = Math.max(
         0,
         match.matchTimeRemainingTicks - ticksDelta,
+      );
+      match.turnTimeRemainingTicks = Math.max(
+        0,
+        Math.min(
+          match.turnTimeRemainingTicks - ticksDelta,
+          match.matchTimeRemainingTicks,
+        ),
       );
     }
 

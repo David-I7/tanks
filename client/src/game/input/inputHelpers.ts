@@ -292,11 +292,6 @@ export type VirtualTouchControlsLayout = {
     left: { x: number; y: number; width: number; height: number };
     right: { x: number; y: number; width: number; height: number };
   };
-  aimWheel: {
-    centerX: number;
-    centerY: number;
-    radius: number;
-  };
 };
 
 export function getVirtualTouchControlsLayout(
@@ -326,11 +321,6 @@ export function getVirtualTouchControlsLayout(
         width: dpadRadius,
         height: dpadRadius * 2,
       },
-    },
-    aimWheel: {
-      centerX: canvasWidth - 68,
-      centerY: canvasHeight - 146,
-      radius: 46,
     },
   };
 }
@@ -546,39 +536,4 @@ export function getVirtualMovementIntentAtCanvasPoint(
   return null;
 }
 
-export function getVirtualAimAngleIntentAtCanvasPoint(
-  canvasWidth: number,
-  canvasHeight: number,
-  canvasX: number,
-  canvasY: number,
-  activeTank: GameState["tanks"][number],
-): Extract<GameAction, { type: "aim" }> | null {
-  if (!activeTank || activeTank.controllerKind === "remote" || !activeTank.alive) return null;
-
-  const touchLayout = getVirtualTouchControlsLayout(canvasWidth, canvasHeight);
-  const dial = touchLayout.aimWheel;
-  const dx = canvasX - dial.centerX;
-  const dy = canvasY - dial.centerY;
-  const dist = Math.hypot(dx, dy);
-
-  if (dist > dial.radius + 24) return null;
-
-  const dialAngle = Math.atan2(dy, dx);
-  const bodyAngle = activeTank.bodyAngle ?? 0;
-  let relativeAngle = dialAngle - bodyAngle;
-  while (relativeAngle > Math.PI) relativeAngle -= 2 * Math.PI;
-  while (relativeAngle <= -Math.PI) relativeAngle += 2 * Math.PI;
-
-  const clampedAngle = clampAimAngle(relativeAngle);
-  const power = Math.max(
-    DEFAULT_MIN_AIM_POWER,
-    Math.min(DEFAULT_MAX_AIM_POWER, Math.round(activeTank.power || 360)),
-  );
-
-  return {
-    type: "aim",
-    angle: clampedAngle,
-    power,
-  };
-}
 

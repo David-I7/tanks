@@ -72,4 +72,50 @@ describe("LocalGameManager", () => {
     // Initial camera starts tracking active player (P1)
     expect(state.match.cameraX).toBe(tankP1!.position.x);
   });
+
+  it("throttles move actions to 100ms intervals matching online mode and moves 24px per quantum", () => {
+    const manager = createLocalGameManager({
+      mode: "localTwoPlayer",
+      setup: {
+        mode: "localTwoPlayer",
+        players: [
+          {
+            id: 0,
+            displayName: "P1",
+            controllerKind: "human",
+            tankSelection: { tankDefinitionId: "vanguard-cyber" },
+          },
+          {
+            id: 1,
+            displayName: "P2",
+            controllerKind: "human",
+            tankSelection: { tankDefinitionId: "specter" },
+          },
+        ],
+      },
+      content: testGameContent,
+    });
+
+    const initialTank = manager.getState().tanks.find((t) => t.playerId === 0)!;
+    const initialFuel = initialTank.fuel;
+    const initialX = initialTank.position.x;
+
+    // First move succeeds immediately
+    const firstMove = manager.submitAction({ type: "move", direction: 1 });
+    expect(firstMove).toBe(true);
+
+    const tankAfterFirst = manager.getState().tanks.find((t) => t.playerId === 0)!;
+    expect(tankAfterFirst.position.x).toBe(initialX + 24);
+    expect(tankAfterFirst.fuel).toBeLessThan(initialFuel);
+    const fuelSpent = initialFuel - tankAfterFirst.fuel;
+
+    // Immediate second move within 100ms is throttled
+    const secondMove = manager.submitAction({ type: "move", direction: 1 });
+    expect(secondMove).toBe(false);
+
+    // Position and fuel unchanged
+    const tankAfterSecond = manager.getState().tanks.find((t) => t.playerId === 0)!;
+    expect(tankAfterSecond.position.x).toBe(initialX + 24);
+    expect(tankAfterSecond.fuel).toBe(initialFuel - fuelSpent);
+  });
 });

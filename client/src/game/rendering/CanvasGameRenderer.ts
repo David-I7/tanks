@@ -1058,8 +1058,17 @@ export class CanvasGameRenderer {
     const ringCenterX = layout.x + layout.width / 2;
     const ringCenterY = layout.y + layout.height / 2;
     const ringRadius = 9;
-    const turnSeconds = Math.max(0, gameState.match.turnTimeRemaining);
-    const maxTurnSeconds = 30;
+    const turnSeconds = Math.max(
+      0,
+      Math.min(
+        gameState.match.turnTimeRemaining,
+        gameState.match.matchTimeRemaining ?? Infinity,
+      ),
+    );
+    const maxTurnSeconds = Math.min(
+      30,
+      Math.max(1, gameState.match.matchTimeRemaining ?? 30),
+    );
     const turnRatio = Math.min(1, turnSeconds / maxTurnSeconds);
     const isWarning = turnSeconds <= 5;
 
@@ -1570,47 +1579,6 @@ export class CanvasGameRenderer {
     ctx.moveTo(dpad.centerX, dpad.centerY - dpad.radius + 6);
     ctx.lineTo(dpad.centerX, dpad.centerY + dpad.radius - 6);
     ctx.stroke();
-
-    // 2. Virtual Aim Dial (Bottom-Right)
-    const dial = touchLayout.aimWheel;
-    ctx.fillStyle = "rgba(15, 23, 42, 0.72)";
-    ctx.strokeStyle = "rgba(56, 189, 248, 0.35)";
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.arc(dial.centerX, dial.centerY, dial.radius, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-
-    // Dial angle ticks
-    for (let deg = 0; deg <= 180; deg += 45) {
-      const rad = (-deg * Math.PI) / 180;
-      const tx1 = dial.centerX + Math.cos(rad) * (dial.radius - 8);
-      const ty1 = dial.centerY + Math.sin(rad) * (dial.radius - 8);
-      const tx2 = dial.centerX + Math.cos(rad) * dial.radius;
-      const ty2 = dial.centerY + Math.sin(rad) * dial.radius;
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
-      ctx.beginPath();
-      ctx.moveTo(tx1, ty1);
-      ctx.lineTo(tx2, ty2);
-      ctx.stroke();
-    }
-
-    // Aim Pointer Needle
-    const aimRad = activeTank.aimAngle;
-    const nx = dial.centerX + Math.cos(aimRad) * (dial.radius - 6);
-    const ny = dial.centerY + Math.sin(aimRad) * (dial.radius - 6);
-    ctx.strokeStyle = "#00f0ff";
-    ctx.lineWidth = 2.5;
-    ctx.beginPath();
-    ctx.moveTo(dial.centerX, dial.centerY);
-    ctx.lineTo(nx, ny);
-    ctx.stroke();
-
-    // Center Pivot
-    ctx.fillStyle = "#00f0ff";
-    ctx.beginPath();
-    ctx.arc(dial.centerX, dial.centerY, 3.5, 0, Math.PI * 2);
-    ctx.fill();
 
     ctx.restore();
   }

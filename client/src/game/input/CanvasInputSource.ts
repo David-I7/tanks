@@ -6,7 +6,6 @@ import {
   isFireButtonClickedAtCanvasPoint,
   isRelockCameraButtonClickedAtCanvasPoint,
   getVirtualMovementIntentAtCanvasPoint,
-  getVirtualAimAngleIntentAtCanvasPoint,
   getExpandedWeaponDrawerLayout,
   getCompactWeaponSelectorLayout,
 } from "./inputHelpers";
@@ -34,7 +33,6 @@ export type CanvasHoverTarget =
   | { type: "relockCamera" }
   | { type: "dpadLeft" }
   | { type: "dpadRight" }
-  | { type: "aimWheel" }
   | null;
 
 export type CanvasInteractionContext = {
@@ -73,10 +71,12 @@ const movementIntentProducer: IntentProducer = ({ state, context }) => {
   const left =
     state.pressedKeys.has("a") ||
     state.pressedKeys.has("A") ||
+    state.pressedKeys.has("KeyA") ||
     state.pressedKeys.has("ArrowLeft");
   const right =
     state.pressedKeys.has("d") ||
     state.pressedKeys.has("D") ||
+    state.pressedKeys.has("KeyD") ||
     state.pressedKeys.has("ArrowRight");
 
   if (left !== right) {
@@ -228,22 +228,6 @@ const pointerIntentProducer: IntentProducer = ({ state, context }) => {
       );
       if (dpadMove !== null) {
         clickedHud = true;
-        intents.push({ type: "move", direction: dpadMove });
-      }
-    }
-
-    // 5. Virtual Aim Dial touch
-    if (!clickedHud) {
-      const dialAim = getVirtualAimAngleIntentAtCanvasPoint(
-        context.gameViewport.width,
-        context.gameViewport.height,
-        pointerPoint.x,
-        pointerPoint.y,
-        activeTank,
-      );
-      if (dialAim) {
-        clickedHud = true;
-        intents.push(dialAim);
       }
     }
   }
@@ -300,13 +284,6 @@ const pointerIntentProducer: IntentProducer = ({ state, context }) => {
         context.gameViewport.height,
         currentPointerPoint.x,
         currentPointerPoint.y,
-      ) !== null ||
-      getVirtualAimAngleIntentAtCanvasPoint(
-        context.gameViewport.width,
-        context.gameViewport.height,
-        currentPointerPoint.x,
-        currentPointerPoint.y,
-        activeTank,
       ) !== null;
 
     const isDraggingToAim =
@@ -376,7 +353,9 @@ export class CanvasInputSource {
   private virtualAim: Extract<GameAction, { type: "aim" }> | null = null;
 
   private readonly onKeyDown = (event: KeyboardEvent) => {
+    this.pressedKeys.add(event.key.toLowerCase());
     this.pressedKeys.add(event.key);
+    this.pressedKeys.add(event.code);
     if (/^[1-5]$/.test(event.key)) {
       this.pendingSlotNumber = Number(event.key);
       this.isWeaponDrawerOpen = false;
@@ -392,8 +371,42 @@ export class CanvasInputSource {
   };
 
   private readonly onKeyUp = (event: KeyboardEvent) => {
+    this.pressedKeys.delete(event.key.toLowerCase());
+    this.pressedKeys.delete(event.key.toUpperCase());
     this.pressedKeys.delete(event.key);
+    this.pressedKeys.delete(event.code);
   };
+
+  private readonly onWindowBlur = () => {
+    this.pressedKeys.clear();
+    this.isPointerDown = false;
+    this.virtualMoveDirection = null;
+    this.virtualAim = null;
+    this.pendingPointerDown = null;
+  };
+
+  private checkActiveTouchDpad(touches: TouchList): -1 | 1 | null {
+    for (let i = 0; i < touches.length; i++) {
+      const touch = touches[i];
+      if (!touch) continue;
+      const vp = domPointToGameViewportPoint({
+        clientX: touch.clientX,
+        clientY: touch.clientY,
+        domCanvasRect: this.layout.domCanvasRect,
+        gameViewport: this.layout.gameViewport,
+      });
+      const dpadDir = getVirtualMovementIntentAtCanvasPoint(
+        this.layout.gameViewport.width,
+        this.layout.gameViewport.height,
+        vp.x,
+        vp.y,
+      );
+      if (dpadDir !== null) {
+        return dpadDir;
+      }
+    }
+    return null;
+  }
 
   private readonly onPointerMove = (event: MouseEvent | PointerEvent) => {
     if (this.isPointerDown && event.shiftKey) {
@@ -405,6 +418,22 @@ export class CanvasInputSource {
       clientX: event.clientX,
       clientY: event.clientY,
     };
+
+    if (this.isPointerDown) {
+      const vp = domPointToGameViewportPoint({
+        clientX: event.clientX,
+        clientY: event.clientY,
+        domCanvasRect: this.layout.domCanvasRect,
+        gameViewport: this.layout.gameViewport,
+      });
+      const dpadDir = getVirtualMovementIntentAtCanvasPoint(
+        this.layout.gameViewport.width,
+        this.layout.gameViewport.height,
+        vp.x,
+        vp.y,
+      );
+      this.virtualMoveDirection = dpadDir;
+    }
   };
 
   private readonly onPointerDown = (event: PointerEvent) => {
@@ -424,13 +453,24 @@ export class CanvasInputSource {
       clientY: event.clientY,
     };
 
-    // Toggle drawer when clicking compact weapon slot
     const vp = domPointToGameViewportPoint({
       clientX: event.clientX,
       clientY: event.clientY,
       domCanvasRect: this.layout.domCanvasRect,
       gameViewport: this.layout.gameViewport,
     });
+
+    const dpadDir = getVirtualMovementIntentAtCanvasPoint(
+      this.layout.gameViewport.width,
+      this.layout.gameViewport.height,
+      vp.x,
+      vp.y,
+    );
+    if (dpadDir !== null) {
+      this.virtualMoveDirection = dpadDir;
+    }
+
+    // Toggle drawer when clicking compact weapon slot
     const compactLayout = getCompactWeaponSelectorLayout(
       this.layout.gameViewport.width,
       this.layout.gameViewport.height,
@@ -483,6 +523,7 @@ export class CanvasInputSource {
   };
 
   private readonly onTouchStart = (event: TouchEvent) => {
+    this.virtualMoveDirection = this.checkActiveTouchDpad(event.touches);
     if (event.touches.length >= 2) {
       event.preventDefault();
       this.lastTouchX = (event.touches[0].clientX + event.touches[1].clientX) / 2;
@@ -499,27 +540,11 @@ export class CanvasInputSource {
         clientX: touch.clientX,
         clientY: touch.clientY,
       };
-
-      const vp = domPointToGameViewportPoint({
-        clientX: touch.clientX,
-        clientY: touch.clientY,
-        domCanvasRect: this.layout.domCanvasRect,
-        gameViewport: this.layout.gameViewport,
-      });
-
-      const dpadDir = getVirtualMovementIntentAtCanvasPoint(
-        this.layout.gameViewport.width,
-        this.layout.gameViewport.height,
-        vp.x,
-        vp.y,
-      );
-      if (dpadDir !== null) {
-        this.virtualMoveDirection = dpadDir;
-      }
     }
   };
 
   private readonly onTouchMove = (event: TouchEvent) => {
+    this.virtualMoveDirection = this.checkActiveTouchDpad(event.touches);
     if (event.touches.length >= 2) {
       event.preventDefault();
       const currentX = (event.touches[0].clientX + event.touches[1].clientX) / 2;
@@ -536,25 +561,11 @@ export class CanvasInputSource {
         clientX: touch.clientX,
         clientY: touch.clientY,
       };
-
-      const vp = domPointToGameViewportPoint({
-        clientX: touch.clientX,
-        clientY: touch.clientY,
-        domCanvasRect: this.layout.domCanvasRect,
-        gameViewport: this.layout.gameViewport,
-      });
-
-      const dpadDir = getVirtualMovementIntentAtCanvasPoint(
-        this.layout.gameViewport.width,
-        this.layout.gameViewport.height,
-        vp.x,
-        vp.y,
-      );
-      this.virtualMoveDirection = dpadDir;
     }
   };
 
   private readonly onTouchEnd = (event: TouchEvent) => {
+    this.virtualMoveDirection = this.checkActiveTouchDpad(event.touches);
     if (event.touches.length === 0) {
       this.isPointerDown = false;
       this.lastTouchX = 0;
@@ -575,18 +586,26 @@ export class CanvasInputSource {
     initialLayout: CanvasInputLayout,
   ) {
     this.layout = initialLayout;
-    window.addEventListener("keydown", this.onKeyDown);
-    window.addEventListener("keyup", this.onKeyUp);
-    window.addEventListener("pointermove", this.onPointerMove);
-    window.addEventListener("mousemove", this.onPointerMove);
-    window.addEventListener("pointerup", this.onPointerUp);
-    window.addEventListener("pointercancel", this.onPointerCancel);
-    canvas.addEventListener("pointerdown", this.onPointerDown);
-    canvas.addEventListener("pointercancel", this.onPointerCancel);
-    canvas.addEventListener("wheel", this.onWheel, { passive: false });
-    canvas.addEventListener("touchstart", this.onTouchStart, { passive: false });
-    canvas.addEventListener("touchmove", this.onTouchMove, { passive: false });
-    canvas.addEventListener("touchend", this.onTouchEnd);
+    if (typeof window !== "undefined") {
+      window.addEventListener("keydown", this.onKeyDown);
+      window.addEventListener("keyup", this.onKeyUp);
+      window.addEventListener("blur", this.onWindowBlur);
+      window.addEventListener("pointermove", this.onPointerMove);
+      window.addEventListener("mousemove", this.onPointerMove);
+      window.addEventListener("pointerup", this.onPointerUp);
+      window.addEventListener("pointercancel", this.onPointerCancel);
+    }
+    if (typeof document !== "undefined") {
+      document.addEventListener("visibilitychange", this.onWindowBlur);
+    }
+    if (canvas) {
+      canvas.addEventListener("pointerdown", this.onPointerDown);
+      canvas.addEventListener("pointercancel", this.onPointerCancel);
+      canvas.addEventListener("wheel", this.onWheel, { passive: false });
+      canvas.addEventListener("touchstart", this.onTouchStart, { passive: false });
+      canvas.addEventListener("touchmove", this.onTouchMove, { passive: false });
+      canvas.addEventListener("touchend", this.onTouchEnd);
+    }
   }
 
   getIsWeaponDrawerOpen(): boolean {
@@ -726,21 +745,6 @@ export class CanvasInputSource {
         }
         return dpadMove === -1 ? { type: "dpadLeft" } : { type: "dpadRight" };
       }
-
-      // 5. Virtual Aim Dial
-      const dialAim = getVirtualAimAngleIntentAtCanvasPoint(
-        this.layout.gameViewport.width,
-        this.layout.gameViewport.height,
-        pointerPoint.x,
-        pointerPoint.y,
-        activeTank,
-      );
-      if (dialAim) {
-        if (this.canvas?.style && this.canvas.style.cursor !== "pointer") {
-          this.canvas.style.cursor = "pointer";
-        }
-        return { type: "aimWheel" };
-      }
     }
 
     if (this.canvas?.style && this.canvas.style.cursor !== "crosshair") {
@@ -758,18 +762,26 @@ export class CanvasInputSource {
   }
 
   destroy(): void {
-    window.removeEventListener("keydown", this.onKeyDown);
-    window.removeEventListener("keyup", this.onKeyUp);
-    window.removeEventListener("pointermove", this.onPointerMove);
-    window.removeEventListener("mousemove", this.onPointerMove);
-    window.removeEventListener("pointerup", this.onPointerUp);
-    window.removeEventListener("pointercancel", this.onPointerCancel);
-    this.canvas.removeEventListener("pointerdown", this.onPointerDown);
-    this.canvas.removeEventListener("pointercancel", this.onPointerCancel);
-    this.canvas.removeEventListener("wheel", this.onWheel);
-    this.canvas.removeEventListener("touchstart", this.onTouchStart);
-    this.canvas.removeEventListener("touchmove", this.onTouchMove);
-    this.canvas.removeEventListener("touchend", this.onTouchEnd);
+    if (typeof window !== "undefined") {
+      window.removeEventListener("keydown", this.onKeyDown);
+      window.removeEventListener("keyup", this.onKeyUp);
+      window.removeEventListener("blur", this.onWindowBlur);
+      window.removeEventListener("pointermove", this.onPointerMove);
+      window.removeEventListener("mousemove", this.onPointerMove);
+      window.removeEventListener("pointerup", this.onPointerUp);
+      window.removeEventListener("pointercancel", this.onPointerCancel);
+    }
+    if (typeof document !== "undefined") {
+      document.removeEventListener("visibilitychange", this.onWindowBlur);
+    }
+    if (this.canvas) {
+      this.canvas.removeEventListener("pointerdown", this.onPointerDown);
+      this.canvas.removeEventListener("pointercancel", this.onPointerCancel);
+      this.canvas.removeEventListener("wheel", this.onWheel);
+      this.canvas.removeEventListener("touchstart", this.onTouchStart);
+      this.canvas.removeEventListener("touchmove", this.onTouchMove);
+      this.canvas.removeEventListener("touchend", this.onTouchEnd);
+    }
   }
 }
 

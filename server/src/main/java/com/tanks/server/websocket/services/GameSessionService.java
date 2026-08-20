@@ -144,11 +144,13 @@ public class GameSessionService {
         gameSession.setServerTick(0);
         gameSession.getWorld().match().activePlayerId(PLAYER_A_ID);
         gameSession.getWorld().match().turnNumber(1);
-        gameSession.getWorld().match().turnEndsAtServerTick(
-                (long) worldDef.tickRateHz() * worldDef.turnDurationSeconds());
+        long matchEndsAt = gameSession.getServerTick() + (long) worldDef.tickRateHz() * worldDef.matchDurationSeconds();
+        gameSession.setMatchEndsAtServerTick(matchEndsAt);
+        long standardTurnEnd = (long) worldDef.tickRateHz() * worldDef.turnDurationSeconds();
+        long turnEndsAt = (matchEndsAt > 0) ? Math.min(standardTurnEnd, matchEndsAt) : standardTurnEnd;
+        gameSession.getWorld().match().turnEndsAtServerTick(turnEndsAt);
         gameSession.getWorld().match()
                 .wind(worldDef.generateWind());
-        gameSession.setMatchEndsAtServerTick(gameSession.getServerTick() + (long) worldDef.tickRateHz() * worldDef.matchDurationSeconds());
         gameSession.setNextDiffSequence(2);
         gameSession.setTurnStartDiffSequence(1);
         gameSession.setLastDiffServerTick(0);
@@ -596,8 +598,11 @@ public class GameSessionService {
         gameSession.getWorld().match().wind(wind);
         gameSession.getWorld().match().activePlayerId(activePlayerId);
         gameSession.getWorld().match().turnNumber(gameSession.getWorld().match().turnNumber() + 1);
-        gameSession.getWorld().match().turnEndsAtServerTick(
-                gameSession.getServerTick() + (long) content.world().tickRateHz() * content.world().turnDurationSeconds());
+        long standardTurnEnd = gameSession.getServerTick() + (long) content.world().tickRateHz() * content.world().turnDurationSeconds();
+        long turnEndsAt = (gameSession.getMatchEndsAtServerTick() > 0)
+                ? Math.min(standardTurnEnd, gameSession.getMatchEndsAtServerTick())
+                : standardTurnEnd;
+        gameSession.getWorld().match().turnEndsAtServerTick(turnEndsAt);
 
         var activeTank = gameSession.getWorld().requireTankByPlayer(activePlayerId);
         if (activeTank != null) {

@@ -89,7 +89,7 @@ export class LocalSimulation {
       const fuelRate = definition.fuelRate;
       const halfWidth = Math.floor(definition.width / 2);
       const trackGroundOffset = definition.height / 2;
-      const movementQuantum = 4; // 4px per 60Hz tick matching 24px per 100ms on server
+      const movementQuantum = definition.movementQuantum || 24;
 
       tank.facing = action.direction;
       let currentX = position.x;
@@ -687,7 +687,13 @@ export class LocalSimulation {
       if (nextTank?.alive) {
         this.world.match.activePlayerId = nextPlayerId;
         this.world.match.turnNumber += 1;
-        this.world.match.turnTimeRemaining = this.content.world.turnDurationSeconds;
+        this.world.match.turnTimeRemaining = Math.max(
+          0,
+          Math.min(
+            this.content.world.turnDurationSeconds,
+            this.world.match.matchTimeRemaining,
+          ),
+        );
         const minWind = this.content.world.minWind;
         const maxWind = this.content.world.maxWind;
         this.world.match.wind =
@@ -704,7 +710,10 @@ export class LocalSimulation {
   private updateTurnTimer(dt: number): boolean {
     this.world.match.turnTimeRemaining = Math.max(
       0,
-      this.world.match.turnTimeRemaining - dt,
+      Math.min(
+        this.world.match.turnTimeRemaining - dt,
+        this.world.match.matchTimeRemaining,
+      ),
     );
 
     if (this.world.match.turnTimeRemaining > 0) return false;

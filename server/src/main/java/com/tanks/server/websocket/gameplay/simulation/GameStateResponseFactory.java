@@ -66,6 +66,13 @@ public class GameStateResponseFactory {
         if (session.getWorld() == null || session.getTerrainModel() == null) {
             throw new IllegalStateException("Game Session has no authoritative World");
         }
+        long matchRemainingTicks = session.getMatchEndsAtServerTick() > 0
+                ? Math.max(0, session.getMatchEndsAtServerTick() - session.getServerTick())
+                : Long.MAX_VALUE;
+        long turnRemainingTicks = Math.max(0, Math.min(
+                session.getWorld().match().turnEndsAtServerTick() - session.getServerTick(),
+                matchRemainingTicks));
+
         return OnlineGameStateSnapshotResponseDto.builder()
                 .gameContentVersion(content.version())
                 .gameContent(GameContentResponseDto.from(content))
@@ -74,7 +81,7 @@ public class GameStateResponseFactory {
                         .activePlayerId(activePlayerId(session))
                         .playerCount(2)
                         .turnNumber(session.getWorld().match().turnNumber())
-                        .turnTimeRemainingTicks(Math.max(0, session.getWorld().match().turnEndsAtServerTick() - session.getServerTick()))
+                        .turnTimeRemainingTicks(turnRemainingTicks)
                         .winnerPlayerId(winnerPlayerId(session))
                         .matchEndsAtServerTick(session.getMatchEndsAtServerTick())
                         .wind(session.getWorld().match().wind())
