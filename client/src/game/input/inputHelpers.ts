@@ -86,6 +86,8 @@ export function getProjectileSelectorLayout(
 export type CompactWeaponSelectorLayout = {
   x: number;
   y: number;
+  width: number;
+  height: number;
   size: number;
   isMobile: boolean;
 };
@@ -95,19 +97,23 @@ export function getCompactWeaponSelectorLayout(
   canvasHeight: number,
 ): CompactWeaponSelectorLayout {
   const isMobile = canvasWidth < 768;
-  const size = isMobile ? 52 : 56;
+  const width = isMobile ? 124 : 152;
+  const height = isMobile ? 52 : 56;
+  const size = height;
   const fireWidth = isMobile ? 82 : 92;
   const gap = isMobile ? 10 : 12;
-  const totalWidth = size + gap + fireWidth;
+  const totalWidth = width + gap + fireWidth;
 
   const x = isMobile
     ? Math.floor(canvasWidth - totalWidth - 16)
     : Math.floor((canvasWidth - totalWidth) / 2);
-  const y = Math.floor(canvasHeight - size - (isMobile ? 16 : 20));
+  const y = Math.floor(canvasHeight - height - (isMobile ? 16 : 20));
 
   return {
     x,
     y,
+    width,
+    height,
     size,
     isMobile,
   };
@@ -128,9 +134,9 @@ export function getFireButtonLayout(
   const compactLayout = getCompactWeaponSelectorLayout(canvasWidth, canvasHeight);
   const isMobile = compactLayout.isMobile;
   const width = isMobile ? 82 : 92;
-  const height = compactLayout.size;
+  const height = compactLayout.height;
   const gap = isMobile ? 10 : 12;
-  const x = compactLayout.x + compactLayout.size + gap;
+  const x = compactLayout.x + compactLayout.width + gap;
   const y = compactLayout.y;
 
   return {
@@ -159,13 +165,14 @@ export function getExpandedWeaponDrawerLayout(
   slotCount: number,
 ): ExpandedWeaponDrawerLayout {
   const compactLayout = getCompactWeaponSelectorLayout(canvasWidth, canvasHeight);
-  const width = 200;
-  const itemHeight = 42;
+  const isMobile = compactLayout.isMobile;
+  const width = isMobile ? 228 : 260;
+  const itemHeight = 44;
   const itemGap = 6;
   const padding = 8;
   const height = padding * 2 + slotCount * itemHeight + Math.max(0, slotCount - 1) * itemGap;
 
-  let x = compactLayout.x + Math.floor((compactLayout.size - width) / 2);
+  let x = compactLayout.x + Math.floor((compactLayout.width - width) / 2);
   x = Math.max(8, Math.min(canvasWidth - width - 8, x));
   const y = compactLayout.y - height - 10;
 
@@ -339,9 +346,9 @@ export function isCompactWeaponSlotClickedAtCanvasPoint(
   const layout = getCompactWeaponSelectorLayout(canvasWidth, canvasHeight);
   return (
     canvasX >= layout.x - 6 &&
-    canvasX <= layout.x + layout.size + 6 &&
+    canvasX <= layout.x + layout.width + 6 &&
     canvasY >= layout.y - 6 &&
-    canvasY <= layout.y + layout.size + 6
+    canvasY <= layout.y + layout.height + 6
   );
 }
 

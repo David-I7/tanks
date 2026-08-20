@@ -78,7 +78,6 @@ export function onlineSnapshotToGameState(
         fill: tank.visual.fillStyle,
         stroke: tank.visual.strokeStyle,
         accent: tank.visual.accentColor,
-        label: tank.visual.label,
       };
 
       return {
@@ -126,12 +125,12 @@ export function onlineSnapshotToGameState(
             radius:
               content.projectiles[
                 visualState.activeFlight.projectileDefinitionId
-              ].radius,
+              ].visual.radius,
             physics: {
               radius:
                 content.projectiles[
                   visualState.activeFlight.projectileDefinitionId
-                ].radius,
+                ].visual.radius,
               gravityScale:
                 content.projectiles[
                   visualState.activeFlight.projectileDefinitionId
@@ -198,9 +197,9 @@ export function onlineSnapshotToGameState(
             projectileDefinitionId: projectile.projectileDefinitionId,
             name: definition.name,
             power: DEFAULT_PROJECTILE_POWER,
-            radius: definition.radius,
+            radius: definition.visual.radius,
             physics: {
-              radius: definition.radius,
+              radius: definition.visual.radius,
               gravityScale: definition.gravityScale,
               muzzleVelocityScale: 1,
             },
@@ -250,7 +249,6 @@ function mapOnlineImpactEvents(
   for (const event of events) {
     const age = Math.max(0, (monotonicNowMs - event.createdAtMonotonicMs) / 1000);
     if (age < DEFAULT_IMPACT_DURATION_SECONDS) {
-      const projDef = ctx.gameContent.projectiles[event.projectileDefinitionId];
       results.push({
         id: event.id,
         position: { ...event.position },
@@ -261,7 +259,6 @@ function mapOnlineImpactEvents(
           fill: "#ff4500",
           stroke: "#ff8c00",
           accent: "#ffd700",
-          label: projDef ? projDef.label : "!",
         },
       });
     }

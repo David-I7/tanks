@@ -22,7 +22,7 @@ describe("Private Lobby Creation", () => {
 
       hostClient.client.publish({
         destination: "/app/lobby/create/private",
-        body: JSON.stringify({ tankId: "vanguard-cyber" }),
+        body: JSON.stringify({ tankId: "ignis" }),
       });
 
       const reply: LobbyEvent = await waitForReply(

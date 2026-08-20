@@ -82,7 +82,7 @@ describe("HUD Layout & Hit-Testing Helpers", () => {
 
       expect(weaponLayout.isMobile).toBe(false);
       expect(fireLayout.isMobile).toBe(false);
-      expect(fireLayout.x).toBe(weaponLayout.x + weaponLayout.size + 12);
+      expect(fireLayout.x).toBe(weaponLayout.x + weaponLayout.width + 12);
       expect(fireLayout.y).toBe(weaponLayout.y);
     });
 

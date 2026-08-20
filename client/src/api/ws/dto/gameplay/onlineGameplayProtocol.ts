@@ -29,7 +29,13 @@ export type OnlineTankVisualDto = {
   fillStyle: string;
   strokeStyle: string;
   accentColor: string;
-  label: string;
+};
+
+export type OnlineProjectileVisualDto = {
+  radius: number;
+  fillStyle: string;
+  strokeStyle: string;
+  accentColor: string;
 };
 
 export type OnlineCrateType = "hp" | "fuel" | "ammo";
@@ -55,10 +61,32 @@ export type SubMunitionConfigDto = {
   velocityScale: number;
 };
 
+export type HazardTypeDto = "FIRE" | "FROST" | "QUAKE" | "ELECTRIC";
+
 export type DamageTrailConfigDto = {
   radius: number;
   damagePerSecond: number;
   durationSeconds: number;
+  hazardType?: HazardTypeDto;
+};
+
+export type SalvoConfigDto = {
+  shotCount: number;
+  delaySeconds: number;
+  gravityScales: number[];
+};
+
+export type ApexSplitConfigDto = {
+  splitCount: number;
+  totalDamagePool: number;
+  spreadVelocity: number;
+};
+
+export type BouncerConfigDto = {
+  bounceCount: number;
+  durationSeconds: number;
+  damagePerBounce: number;
+  shockwaveRadius: number;
 };
 
 export type SubMunitionTrajectoryDto = {
@@ -67,6 +95,7 @@ export type SubMunitionTrajectoryDto = {
   trajectory: OnlineVec2[];
   impact: OnlineVec2;
   damagedTanks: OnlineTankDamageResponse[];
+  delaySeconds?: number;
 };
 
 export type SpawnRegionDto = {
@@ -130,11 +159,12 @@ export type TankDefinitionDto = OnlineTankCoreAttributesDto & {
 export type ProjectileDefinitionDto = {
   id: string;
   name: string;
-  label: string;
-  isDefault: boolean;
-  radius: number;
+  description?: string;
+  intendedUse?: string;
+  visual: OnlineProjectileVisualDto;
   baseVelocity: number;
   gravityScale: number;
+  initialAmmo?: number;
   terrainEffectType: "CRATER" | "DRILL";
   terrainRadius: number;
   terrainDepth: number;
@@ -143,6 +173,9 @@ export type ProjectileDefinitionDto = {
   damage: number;
   subMunitions: SubMunitionConfigDto | null;
   damageTrail: DamageTrailConfigDto | null;
+  salvo?: SalvoConfigDto | null;
+  apexSplit?: ApexSplitConfigDto | null;
+  bouncer?: BouncerConfigDto | null;
 };
 
 export type ValidationRulesDto = {

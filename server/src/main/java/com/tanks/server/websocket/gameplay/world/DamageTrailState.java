@@ -1,6 +1,7 @@
 package com.tanks.server.websocket.gameplay.world;
 
 import com.tanks.server.websocket.dto.gameplay.OnlineVec2Dto;
+import com.tanks.server.websocket.gameplay.content.definitions.HazardType;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -18,6 +19,7 @@ public class DamageTrailState {
     private double radius;
     private double damagePerSecond;
     private int remainingTicks;
+    private HazardType hazardType;
     private Map<Long, Double> damageBuffers;
 
     public DamageTrailState(DamageTrailState other) {
@@ -27,6 +29,7 @@ public class DamageTrailState {
         this.radius = other.radius;
         this.damagePerSecond = other.damagePerSecond;
         this.remainingTicks = other.remainingTicks;
+        this.hazardType = other.hazardType;
         this.damageBuffers = new HashMap<>(Objects.requireNonNull(other.damageBuffers, "damageBuffers is required"));
     }
 
@@ -42,6 +45,8 @@ public class DamageTrailState {
     public void damagePerSecond(double value) { damagePerSecond = value; }
     public int remainingTicks() { return remainingTicks; }
     public void remainingTicks(int value) { remainingTicks = value; }
+    public HazardType hazardType() { return hazardType; }
+    public void hazardType(HazardType value) { hazardType = value; }
     public Map<Long, Double> damageBuffers() { return damageBuffers; }
     public void damageBuffers(Map<Long, Double> value) {
         this.damageBuffers = new HashMap<>(Objects.requireNonNull(value, "damageBuffers is required"));

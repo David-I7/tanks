@@ -52,113 +52,222 @@
     "turretYOffset": -14.0
   },
   "tanks": {
-    "vanguard-cyber": {
-      "name": "Vanguard Cyber",
-      "visual": {
-        "fillStyle": "#3b82f6",
-        "strokeStyle": "#1d4ed8",
-        "accentColor": "#60a5fa",
-        "label": "VC"
-      },
-      "loadout": [
-        "basicShell",
-        "mortar",
-        "heavyShell",
-        "cluster",
-        "needle"
-      ]
-    },
-    "heavy-armor": {
-      "name": "Heavy Armor",
+    "ignis": {
+      "name": "Ignis",
       "visual": {
         "fillStyle": "#ef4444",
-        "strokeStyle": "#b91c1c",
-        "accentColor": "#f87171",
-        "label": "HA"
+        "strokeStyle": "#991b1b",
+        "accentColor": "#facc15"
       },
       "loadout": [
-        "basicShell",
-        "titanShell",
-        "autocannonStream",
-        "siegeVolley",
-        "heavyBounce"
+        "standardKaboom",
+        "dragonsBreath",
+        "magmaSalvo",
+        "blazeCluster",
+        "lavaHopper"
       ]
     },
-    "desert-striker": {
-      "name": "Desert Striker",
+    "glacies": {
+      "name": "Glacies",
       "visual": {
-        "fillStyle": "#f59e0b",
-        "strokeStyle": "#b45309",
-        "accentColor": "#fbbf24",
-        "label": "DS"
+        "fillStyle": "#38bdf8",
+        "strokeStyle": "#0284c7",
+        "accentColor": "#e0f2fe"
       },
       "loadout": [
-        "basicShell",
-        "precisionLaser",
-        "sandstormCluster",
-        "scatterShotgun",
-        "thermalHazard"
+        "standardKaboom",
+        "frostbiteZone",
+        "blizzardSalvo",
+        "apexAvalanche",
+        "cryoNeedle"
       ]
     },
-    "specter": {
-      "name": "Specter",
+    "terra": {
+      "name": "Terra",
       "visual": {
-        "fillStyle": "#8b5cf6",
-        "strokeStyle": "#6d28d9",
-        "accentColor": "#a78bfa",
-        "label": "S"
+        "fillStyle": "#d97706",
+        "strokeStyle": "#78350f",
+        "accentColor": "#fde68a"
       },
       "loadout": [
-        "basicShell",
-        "phantomNuke",
-        "ghostShotgun",
-        "spectreVolley",
-        "toxicTrail"
+        "standardKaboom",
+        "quakeFissure",
+        "gravelGatling",
+        "graniteCluster",
+        "tectonicThumper"
+      ]
+    },
+    "volt": {
+      "name": "Volt",
+      "visual": {
+        "fillStyle": "#a855f7",
+        "strokeStyle": "#581c87",
+        "accentColor": "#06b6d4"
+      },
+      "loadout": [
+        "standardKaboom",
+        "teslaGrid",
+        "arcSalvo",
+        "staticApexStar",
+        "thunderstrikeCore"
       ]
     }
   },
   "projectiles": {
-    "basicShell": {
-      "name": "Basic Shell",
-      "label": "BS",
-      "isDefault": true,
-      "radius": 4,
+    "standardKaboom": {
+      "name": "Standard Kaboom",
+      "description": "Basic artillery shell.",
+      "intendedUse": "Reliable direct and blast damage.",
+      "visual": {
+        "radius": 4.0,
+        "fillStyle": "#475569",
+        "strokeStyle": "#38bdf8",
+        "accentColor": "#f59e0b"
+      },
       "baseVelocity": 1.0,
       "gravityScale": 1.0,
+      "initialAmmo": -1,
       "terrainEffect": {
         "type": "CRATER",
-        "radius": 46
+        "radius": 42
       },
       "damageEffect": {
         "type": "RADIAL",
-        "radius": 46,
-        "damage": 48
+        "radius": 42,
+        "damage": 45
       }
     },
-    "titanShell": {
-      "name": "Titan Shell",
-      "label": "TS",
-      "isDefault": false,
-      "radius": 9,
-      "baseVelocity": 1.25,
+    "dragonsBreath": {
+      "name": "Dragon's Breath",
+      "description": "Spreads flames across the terrain.",
+      "intendedUse": "Burn enemies standing in the fire.",
+      "visual": {
+        "radius": 5.0,
+        "fillStyle": "#ef4444",
+        "strokeStyle": "#f97316",
+        "accentColor": "#ffffff"
+      },
+      "baseVelocity": 1.0,
       "gravityScale": 1.0,
+      "initialAmmo": 1,
       "terrainEffect": {
         "type": "CRATER",
-        "radius": 85
+        "radius": 28
       },
       "damageEffect": {
         "type": "RADIAL",
-        "radius": 85,
-        "damage": 85
+        "radius": 28,
+        "damage": 25
+      },
+      "damageTrail": {
+        "radius": 50.0,
+        "damagePerSecond": 12.0,
+        "durationSeconds": 5.0,
+        "hazardType": "FIRE"
       }
     },
-    "autocannonStream": {
-      "name": "0.08s Autocannon",
-      "label": "AC",
-      "isDefault": false,
-      "radius": 3,
-      "baseVelocity": 0.9,
+    "magmaSalvo": {
+      "name": "Magma Salvo",
+      "description": "Fires 3 explosive shells in rapid succession.",
+      "intendedUse": "Blanket an area with multiple explosions.",
+      "visual": {
+        "radius": 4.0,
+        "fillStyle": "#f97316",
+        "strokeStyle": "#ef4444",
+        "accentColor": "#fef08a"
+      },
+      "baseVelocity": 1.0,
       "gravityScale": 1.0,
+      "initialAmmo": 2,
+      "terrainEffect": {
+        "type": "CRATER",
+        "radius": 24
+      },
+      "damageEffect": {
+        "type": "RADIAL",
+        "radius": 24,
+        "damage": 22
+      },
+      "salvo": {
+        "shotCount": 3,
+        "delaySeconds": 0.1,
+        "gravityScales": [
+          0.9,
+          1.0,
+          1.1
+        ]
+      }
+    },
+    "blazeCluster": {
+      "name": "Blaze Cluster",
+      "description": "Splits into 5 fiery bombs at the peak of flight.",
+      "intendedUse": "Rain fire down on enemies from above.",
+      "visual": {
+        "radius": 5.0,
+        "fillStyle": "#f97316",
+        "strokeStyle": "#ef4444",
+        "accentColor": "#facc15"
+      },
+      "baseVelocity": 1.0,
+      "gravityScale": 1.0,
+      "initialAmmo": 1,
+      "terrainEffect": {
+        "type": "CRATER",
+        "radius": 20
+      },
+      "damageEffect": {
+        "type": "RADIAL",
+        "radius": 20,
+        "damage": 20
+      },
+      "apexSplit": {
+        "splitCount": 5,
+        "totalDamagePool": 65,
+        "spreadVelocity": 120.0
+      }
+    },
+    "lavaHopper": {
+      "name": "Lava Hopper",
+      "description": "Molten warhead that bounces 4 times across terrain.",
+      "intendedUse": "Hit enemies repeatedly and deform the ground.",
+      "visual": {
+        "radius": 5.0,
+        "fillStyle": "#f97316",
+        "strokeStyle": "#facc15",
+        "accentColor": "#ef4444"
+      },
+      "baseVelocity": 1.0,
+      "gravityScale": 1.0,
+      "initialAmmo": 1,
+      "terrainEffect": {
+        "type": "CRATER",
+        "radius": 32
+      },
+      "damageEffect": {
+        "type": "RADIAL",
+        "radius": 32,
+        "damage": 18
+      },
+      "bouncer": {
+        "bounceCount": 4,
+        "durationSeconds": 4.0,
+        "damagePerBounce": 18.0,
+        "shockwaveRadius": 32.0
+      }
+    },
+    "frostbiteZone": {
+      "name": "Frostbite Zone",
+      "description": "Freezes the ground into a hazard field.",
+      "intendedUse": "Damage enemies caught in the ice.",
+      "visual": {
+        "radius": 5.0,
+        "fillStyle": "#0ea5e9",
+        "strokeStyle": "#38bdf8",
+        "accentColor": "#a5f3fc"
+      },
+      "baseVelocity": 1.0,
+      "gravityScale": 1.0,
+      "initialAmmo": 1,
       "terrainEffect": {
         "type": "CRATER",
         "radius": 25
@@ -167,90 +276,27 @@
         "type": "RADIAL",
         "radius": 25,
         "damage": 20
+      },
+      "damageTrail": {
+        "radius": 52.0,
+        "damagePerSecond": 10.0,
+        "durationSeconds": 5.0,
+        "hazardType": "FROST"
       }
     },
-    "siegeVolley": {
-      "name": "3-Shot Siege Volley",
-      "label": "SV",
-      "isDefault": false,
-      "radius": 4,
-      "baseVelocity": 1.0,
+    "blizzardSalvo": {
+      "name": "Blizzard Salvo",
+      "description": "Fires 4 rapid ice shards.",
+      "intendedUse": "Hit multiple nearby targets in quick succession.",
+      "visual": {
+        "radius": 3.5,
+        "fillStyle": "#0284c7",
+        "strokeStyle": "#38bdf8",
+        "accentColor": "#e0f2fe"
+      },
+      "baseVelocity": 1.05,
       "gravityScale": 1.0,
-      "terrainEffect": {
-        "type": "CRATER",
-        "radius": 30
-      },
-      "damageEffect": {
-        "type": "RADIAL",
-        "radius": 30,
-        "damage": 25
-      }
-    },
-    "heavyBounce": {
-      "name": "Bouncing Bomb",
-      "label": "BB",
-      "isDefault": false,
-      "radius": 5,
-      "baseVelocity": 1.1,
-      "gravityScale": 1.0,
-      "terrainEffect": {
-        "type": "CRATER",
-        "radius": 35
-      },
-      "damageEffect": {
-        "type": "RADIAL",
-        "radius": 35,
-        "damage": 40
-      }
-    },
-    "precisionLaser": {
-      "name": "Plasma Penetrator",
-      "label": "PP",
-      "isDefault": false,
-      "radius": 3,
-      "baseVelocity": 1.5,
-      "gravityScale": 0.3,
-      "terrainEffect": {
-        "type": "DRILL",
-        "radius": 35,
-        "depth": 70
-      },
-      "damageEffect": {
-        "type": "FOCUSED",
-        "radius": 35,
-        "damage": 65
-      }
-    },
-    "sandstormCluster": {
-      "name": "Sandstorm Cluster",
-      "label": "SC",
-      "isDefault": false,
-      "radius": 4,
-      "baseVelocity": 0.9,
-      "gravityScale": 1.0,
-      "terrainEffect": {
-        "type": "CRATER",
-        "radius": 30
-      },
-      "damageEffect": {
-        "type": "RADIAL",
-        "radius": 30,
-        "damage": 25
-      },
-      "subMunitions": {
-        "count": 3,
-        "projectileDefinitionId": "basicShell",
-        "spreadAngleDegrees": 30.0,
-        "velocityScale": 0.5
-      }
-    },
-    "scatterShotgun": {
-      "name": "Turret Shotgun",
-      "label": "TS",
-      "isDefault": false,
-      "radius": 3,
-      "baseVelocity": 1.0,
-      "gravityScale": 1.0,
+      "initialAmmo": 2,
       "terrainEffect": {
         "type": "CRATER",
         "radius": 20
@@ -259,130 +305,144 @@
         "type": "RADIAL",
         "radius": 20,
         "damage": 18
+      },
+      "salvo": {
+        "shotCount": 4,
+        "delaySeconds": 0.1,
+        "gravityScales": [
+          0.85,
+          0.95,
+          1.05,
+          1.15
+        ]
       }
     },
-    "thermalHazard": {
-      "name": "Thermal Hazard",
-      "label": "TH",
-      "isDefault": false,
-      "radius": 5,
+    "apexAvalanche": {
+      "name": "Apex Avalanche",
+      "description": "Splits into 6 frost shards at the peak of flight.",
+      "intendedUse": "Cover a wide target area with ice.",
+      "visual": {
+        "radius": 5.0,
+        "fillStyle": "#38bdf8",
+        "strokeStyle": "#bae6fd",
+        "accentColor": "#ffffff"
+      },
       "baseVelocity": 1.0,
       "gravityScale": 1.0,
+      "initialAmmo": 1,
       "terrainEffect": {
         "type": "CRATER",
-        "radius": 25
+        "radius": 18
       },
       "damageEffect": {
         "type": "RADIAL",
-        "radius": 45,
-        "damage": 15
+        "radius": 18,
+        "damage": 20
+      },
+      "apexSplit": {
+        "splitCount": 6,
+        "totalDamagePool": 65,
+        "spreadVelocity": 120.0
+      }
+    },
+    "cryoNeedle": {
+      "name": "Cryo Needle",
+      "description": "High-speed drill that burrows deep into the ground.",
+      "intendedUse": "Dig deep tunnels to bury or drop enemy tanks.",
+      "visual": {
+        "radius": 3.0,
+        "fillStyle": "#0284c7",
+        "strokeStyle": "#38bdf8",
+        "accentColor": "#e0f2fe"
+      },
+      "baseVelocity": 1.45,
+      "gravityScale": 0.35,
+      "initialAmmo": 1,
+      "terrainEffect": {
+        "type": "DRILL",
+        "radius": 22,
+        "depth": 65
+      },
+      "damageEffect": {
+        "type": "FOCUSED",
+        "radius": 25,
+        "damage": 65
+      }
+    },
+    "quakeFissure": {
+      "name": "Quake Fissure",
+      "description": "Creates an earthquake zone on the ground.",
+      "intendedUse": "Damage enemies caught in the tremors.",
+      "visual": {
+        "radius": 5.0,
+        "fillStyle": "#92400e",
+        "strokeStyle": "#d97706",
+        "accentColor": "#fef08a"
+      },
+      "baseVelocity": 1.0,
+      "gravityScale": 1.0,
+      "initialAmmo": 1,
+      "terrainEffect": {
+        "type": "CRATER",
+        "radius": 26
+      },
+      "damageEffect": {
+        "type": "RADIAL",
+        "radius": 26,
+        "damage": 20
       },
       "damageTrail": {
-        "radius": 45.0,
+        "radius": 48.0,
         "damagePerSecond": 10.0,
-        "durationSeconds": 5.0
+        "durationSeconds": 5.0,
+        "hazardType": "QUAKE"
       }
     },
-    "mortar": {
-      "name": "Hyper Autocannon",
-      "label": "HA",
-      "isDefault": false,
-      "radius": 5,
-      "baseVelocity": 1.36,
-      "gravityScale": 1.0,
-      "terrainEffect": {
-        "type": "CRATER",
-        "radius": 25
+    "gravelGatling": {
+      "name": "Gravel Gatling",
+      "description": "Fires 3 kinetic artillery shells.",
+      "intendedUse": "Pound an area with consecutive kinetic hits.",
+      "visual": {
+        "radius": 3.5,
+        "fillStyle": "#78350f",
+        "strokeStyle": "#d97706",
+        "accentColor": "#fde68a"
       },
-      "damageEffect": {
-        "type": "RADIAL",
-        "radius": 25,
-        "damage": 22
-      }
-    },
-    "heavyShell": {
-      "name": "Cyber Laser",
-      "label": "CL",
-      "isDefault": false,
-      "radius": 7,
-      "baseVelocity": 1.14,
-      "gravityScale": 1.0,
-      "terrainEffect": {
-        "type": "DRILL",
-        "radius": 38,
-        "depth": 42
-      },
-      "damageEffect": {
-        "type": "FOCUSED",
-        "radius": 34,
-        "damage": 72
-      }
-    },
-    "cluster": {
-      "name": "Cluster",
-      "label": "C",
-      "isDefault": false,
-      "radius": 3,
-      "baseVelocity": 0.92,
-      "gravityScale": 1.0,
-      "terrainEffect": {
-        "type": "CRATER",
-        "radius": 30
-      },
-      "damageEffect": {
-        "type": "RADIAL",
-        "radius": 78,
-        "damage": 30
-      },
-      "subMunitions": {
-        "count": 3,
-        "projectileDefinitionId": "basicShell",
-        "spreadAngleDegrees": 30.0,
-        "velocityScale": 0.5
-      }
-    },
-    "needle": {
-      "name": "Ricochet Spike",
-      "label": "RS",
-      "isDefault": false,
-      "radius": 2,
-      "baseVelocity": 0.8,
-      "gravityScale": 1.0,
-      "terrainEffect": {
-        "type": "DRILL",
-        "radius": 16,
-        "depth": 56
-      },
-      "damageEffect": {
-        "type": "FOCUSED",
-        "radius": 22,
-        "damage": 58
-      }
-    },
-    "phantomNuke": {
-      "name": "Phantom Nuke",
-      "label": "PN",
-      "isDefault": false,
-      "radius": 8,
-      "baseVelocity": 1.2,
-      "gravityScale": 1.0,
-      "terrainEffect": {
-        "type": "CRATER",
-        "radius": 80
-      },
-      "damageEffect": {
-        "type": "RADIAL",
-        "radius": 80,
-        "damage": 80
-      }
-    },
-    "ghostShotgun": {
-      "name": "Ghost Shotgun",
-      "label": "GS",
-      "isDefault": false,
-      "radius": 3,
       "baseVelocity": 1.0,
       "gravityScale": 1.0,
+      "initialAmmo": 2,
+      "terrainEffect": {
+        "type": "CRATER",
+        "radius": 22
+      },
+      "damageEffect": {
+        "type": "RADIAL",
+        "radius": 22,
+        "damage": 22
+      },
+      "salvo": {
+        "shotCount": 3,
+        "delaySeconds": 0.1,
+        "gravityScales": [
+          0.92,
+          1.0,
+          1.08
+        ]
+      }
+    },
+    "graniteCluster": {
+      "name": "Granite Cluster",
+      "description": "Splits into 4 heavy rock boulders at the peak of flight.",
+      "intendedUse": "Crush enemy positions with falling boulders.",
+      "visual": {
+        "radius": 5.5,
+        "fillStyle": "#78350f",
+        "strokeStyle": "#d97706",
+        "accentColor": "#fde68a"
+      },
+      "baseVelocity": 1.0,
+      "gravityScale": 1.0,
+      "initialAmmo": 1,
       "terrainEffect": {
         "type": "CRATER",
         "radius": 22
@@ -391,45 +451,152 @@
         "type": "RADIAL",
         "radius": 22,
         "damage": 20
+      },
+      "apexSplit": {
+        "splitCount": 4,
+        "totalDamagePool": 65,
+        "spreadVelocity": 110.0
       }
     },
-    "spectreVolley": {
-      "name": "Spectre Volley",
-      "label": "SV",
-      "isDefault": false,
-      "radius": 4,
-      "baseVelocity": 0.95,
+    "tectonicThumper": {
+      "name": "Tectonic Thumper",
+      "description": "Slams the ground 4 times with seismic shockwaves.",
+      "intendedUse": "Smash the terrain and damage nearby tanks.",
+      "visual": {
+        "radius": 6.0,
+        "fillStyle": "#b45309",
+        "strokeStyle": "#78350f",
+        "accentColor": "#fde68a"
+      },
+      "baseVelocity": 1.0,
       "gravityScale": 1.0,
+      "initialAmmo": 1,
       "terrainEffect": {
         "type": "CRATER",
-        "radius": 28
+        "radius": 35
       },
       "damageEffect": {
         "type": "RADIAL",
-        "radius": 28,
-        "damage": 26
+        "radius": 35,
+        "damage": 20
+      },
+      "bouncer": {
+        "bounceCount": 4,
+        "durationSeconds": 4.0,
+        "damagePerBounce": 20.0,
+        "shockwaveRadius": 36.0
       }
     },
-    "toxicTrail": {
-      "name": "Toxic Trail",
-      "label": "TT",
-      "isDefault": false,
-      "radius": 5,
+    "teslaGrid": {
+      "name": "Tesla Grid",
+      "description": "Deploys an electrified energy field on the ground.",
+      "intendedUse": "Shock enemies caught in the electric grid.",
+      "visual": {
+        "radius": 5.0,
+        "fillStyle": "#581c87",
+        "strokeStyle": "#a855f7",
+        "accentColor": "#06b6d4"
+      },
       "baseVelocity": 1.0,
       "gravityScale": 1.0,
+      "initialAmmo": 1,
       "terrainEffect": {
         "type": "CRATER",
         "radius": 25
       },
       "damageEffect": {
         "type": "RADIAL",
-        "radius": 50,
+        "radius": 25,
         "damage": 15
       },
       "damageTrail": {
         "radius": 50.0,
-        "damagePerSecond": 10.0,
-        "durationSeconds": 5.0
+        "damagePerSecond": 12.0,
+        "durationSeconds": 5.0,
+        "hazardType": "ELECTRIC"
+      }
+    },
+    "arcSalvo": {
+      "name": "Arc Salvo",
+      "description": "Fires 3 rapid plasma bolts.",
+      "intendedUse": "Deliver multiple energy strikes in one turn.",
+      "visual": {
+        "radius": 3.5,
+        "fillStyle": "#7e22ce",
+        "strokeStyle": "#a855f7",
+        "accentColor": "#06b6d4"
+      },
+      "baseVelocity": 1.05,
+      "gravityScale": 1.0,
+      "initialAmmo": 2,
+      "terrainEffect": {
+        "type": "CRATER",
+        "radius": 20
+      },
+      "damageEffect": {
+        "type": "RADIAL",
+        "radius": 20,
+        "damage": 20
+      },
+      "salvo": {
+        "shotCount": 3,
+        "delaySeconds": 0.1,
+        "gravityScales": [
+          0.85,
+          1.0,
+          1.15
+        ]
+      }
+    },
+    "staticApexStar": {
+      "name": "Static Apex Star",
+      "description": "Splits into 6 electric sparks at the peak of flight.",
+      "intendedUse": "Shower electric sparks over enemy positions.",
+      "visual": {
+        "radius": 5.0,
+        "fillStyle": "#a855f7",
+        "strokeStyle": "#c084fc",
+        "accentColor": "#22d3ee"
+      },
+      "baseVelocity": 1.0,
+      "gravityScale": 1.0,
+      "initialAmmo": 1,
+      "terrainEffect": {
+        "type": "CRATER",
+        "radius": 20
+      },
+      "damageEffect": {
+        "type": "RADIAL",
+        "radius": 20,
+        "damage": 20
+      },
+      "apexSplit": {
+        "splitCount": 6,
+        "totalDamagePool": 65,
+        "spreadVelocity": 130.0
+      }
+    },
+    "thunderstrikeCore": {
+      "name": "Thunderstrike Core",
+      "description": "Hypersonic railgun beam that travels in a straight line.",
+      "intendedUse": "Snipe enemy tanks with high direct damage.",
+      "visual": {
+        "radius": 5.0,
+        "fillStyle": "#6b21a8",
+        "strokeStyle": "#06b6d4",
+        "accentColor": "#ffffff"
+      },
+      "baseVelocity": 1.6,
+      "gravityScale": 0.25,
+      "initialAmmo": 1,
+      "terrainEffect": {
+        "type": "CRATER",
+        "radius": 45
+      },
+      "damageEffect": {
+        "type": "RADIAL",
+        "radius": 45,
+        "damage": 80
       }
     }
   },

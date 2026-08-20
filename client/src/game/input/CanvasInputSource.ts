@@ -477,9 +477,9 @@ export class CanvasInputSource {
     );
     const isOverCompactSlot =
       vp.x >= compactLayout.x - 6 &&
-      vp.x <= compactLayout.x + compactLayout.size + 6 &&
+      vp.x <= compactLayout.x + compactLayout.width + 6 &&
       vp.y >= compactLayout.y - 6 &&
-      vp.y <= compactLayout.y + compactLayout.size + 6;
+      vp.y <= compactLayout.y + compactLayout.height + 6;
 
     if (isOverCompactSlot) {
       this.isWeaponDrawerOpen = !this.isWeaponDrawerOpen;

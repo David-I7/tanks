@@ -154,7 +154,7 @@ public class GameSessionServiceBatchTest {
 
         TankDefinition tankDef =
                 new TankDefinition(
-                        "vanguard-cyber", "Vanguard Cyber", 100, 240, 24, 1, 5, 24, 24, 28.0, -14.0, null, List.of("basicShell")
+                        "ignis", "Ignis", 100, 240, 24, 1, 5, 24, 24, 28.0, -14.0, null, List.of("standardKaboom")
                 );
         WorldDefinition worldDef =
                 new WorldDefinition(
@@ -162,7 +162,7 @@ public class GameSessionServiceBatchTest {
                         30, 180, 0.55, new LootCrateConfig(25, 50, 1, 35.0, 150.0, List.of(120, 60, 30), 100.0, 3)
                 );
         GameContent content =
-                new GameContent("v1.0", worldDef, null, Map.of("vanguard-cyber", tankDef), Map.of(), null);
+                new GameContent("v1.0", worldDef, null, Map.of("ignis", tankDef), Map.of(), null);
         when(contentCatalog.require("v1.0")).thenReturn(content);
 
         GameSessionService service = new GameSessionService(
@@ -185,10 +185,10 @@ public class GameSessionServiceBatchTest {
         TankState tank2 = TankState.builder()
                 .entityId(2L)
                 .playerId(2L)
-                .definitionId("vanguard-cyber")
+                .definitionId("ignis")
                 .position(new OnlineVec2Dto(1800, 400))
-                .selectedProjectileSlotId("basicShell")
-                .weaponAmmo(new HashMap<>(Map.of("basicShell", -1)))
+                .selectedProjectileSlotId("standardKaboom")
+                .weaponAmmo(new HashMap<>(Map.of("standardKaboom", -1)))
                 .fuel(10) // Depleted fuel
                 .health(100)
                 .build();
@@ -227,7 +227,7 @@ public class GameSessionServiceBatchTest {
 
         TankDefinition tankDef =
                 new TankDefinition(
-                        "vanguard-cyber", "Vanguard Cyber", 100, 240, 24, 1, 5, 24, 24, 28.0, -14.0, null, List.of("basicShell")
+                        "ignis", "Ignis", 100, 240, 24, 1, 5, 24, 24, 28.0, -14.0, null, List.of("standardKaboom")
                 );
         WorldDefinition worldDef =
                 new WorldDefinition(
@@ -236,10 +236,10 @@ public class GameSessionServiceBatchTest {
                 );
         ProjectileDefinition projDef =
                 new ProjectileDefinition(
-                        "basicShell", "Basic Shell", "BS", true, 4, 1.0, 1.0, null, null, null, null
+                        "standardKaboom", "Standard Kaboom", 1.0, 1.0, null, null, null, null
                 );
         GameContent content =
-                new GameContent("v1.0", worldDef, null, Map.of("vanguard-cyber", tankDef), Map.of("basicShell", projDef), null);
+                new GameContent("v1.0", worldDef, null, Map.of("ignis", tankDef), Map.of("standardKaboom", projDef), null);
         when(contentCatalog.require("v1.0")).thenReturn(content);
 
         GameSessionService service = new GameSessionService(
@@ -262,20 +262,20 @@ public class GameSessionServiceBatchTest {
         TankState tank1 = TankState.builder()
                 .entityId(1L)
                 .playerId(1L)
-                .definitionId("vanguard-cyber")
+                .definitionId("ignis")
                 .position(new OnlineVec2Dto(200, 400))
-                .selectedProjectileSlotId("basicShell")
-                .weaponAmmo(new HashMap<>(Map.of("basicShell", -1)))
+                .selectedProjectileSlotId("standardKaboom")
+                .weaponAmmo(new HashMap<>(Map.of("standardKaboom", -1)))
                 .fuel(240)
                 .health(100)
                 .build();
         TankState tank2 = TankState.builder()
                 .entityId(2L)
                 .playerId(2L)
-                .definitionId("vanguard-cyber")
+                .definitionId("ignis")
                 .position(new OnlineVec2Dto(1800, 400))
-                .selectedProjectileSlotId("basicShell")
-                .weaponAmmo(new HashMap<>(Map.of("basicShell", -1)))
+                .selectedProjectileSlotId("standardKaboom")
+                .weaponAmmo(new HashMap<>(Map.of("standardKaboom", -1)))
                 .fuel(240)
                 .health(100)
                 .build();
@@ -355,7 +355,7 @@ public class GameSessionServiceBatchTest {
 
         TankDefinition tankDef =
                 new TankDefinition(
-                        "vanguard-cyber", "Vanguard Cyber", 100, 240, 24, 1, 5, 24, 24, 28.0, -14.0, null, List.of("basicShell")
+                        "ignis", "Ignis", 100, 240, 24, 1, 5, 24, 24, 28.0, -14.0, null, List.of("standardKaboom")
                 );
         WorldDefinition worldDef =
                 new WorldDefinition(
@@ -365,7 +365,7 @@ public class GameSessionServiceBatchTest {
         ValidationRules validation =
                 new ValidationRules(10.0, 1000.0, -Math.PI, 0.0);
         GameContent content =
-                new GameContent("v1.0", worldDef, null, Map.of("vanguard-cyber", tankDef), Map.of(), validation);
+                new GameContent("v1.0", worldDef, null, Map.of("ignis", tankDef), Map.of(), validation);
         when(contentCatalog.require("v1.0")).thenReturn(content);
 
         GameSessionService service = new GameSessionService(
@@ -388,10 +388,10 @@ public class GameSessionServiceBatchTest {
         TankState tank1 = TankState.builder()
                 .entityId(1L)
                 .playerId(1L)
-                .definitionId("vanguard-cyber")
+                .definitionId("ignis")
                 .position(new OnlineVec2Dto(200, 400))
-                .selectedProjectileSlotId("basicShell")
-                .weaponAmmo(new HashMap<>(Map.of("basicShell", -1)))
+                .selectedProjectileSlotId("standardKaboom")
+                .weaponAmmo(new HashMap<>(Map.of("standardKaboom", -1)))
                 .fuel(240)
                 .health(100)
                 .build();

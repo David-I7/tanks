@@ -91,12 +91,12 @@ describe("Combat, Weapons & Damage Integration Suite", () => {
       )) as OnlineDiffResponseDto<OnlineProjectileResolutionResponse>;
 
       expect(resolutionEvent).toBeDefined();
-      expect(resolutionEvent.payload.projectileDefinitionId).toBe("cluster");
+      expect(resolutionEvent.payload.projectileDefinitionId).toBe("lavaHopper");
       expect(Array.isArray(resolutionEvent.payload.subMunitions)).toBe(true);
       expect(resolutionEvent.payload.subMunitions.length).toBe(3);
 
       for (const sub of resolutionEvent.payload.subMunitions) {
-        expect(sub.projectileDefinitionId).toBe("basicShell");
+        expect(sub.projectileDefinitionId).toBe("lavaHopper");
         expect(sub.launch).toBeDefined();
         expect(Array.isArray(sub.trajectory)).toBe(true);
         expect(sub.trajectory.length).toBeGreaterThan(0);
@@ -172,7 +172,7 @@ describe("Combat, Weapons & Damage Integration Suite", () => {
       )) as OnlineDiffResponseDto<OnlineProjectileResolutionResponse>;
 
       expect(resolutionEvent).toBeDefined();
-      expect(resolutionEvent.payload.projectileDefinitionId).toBe("heavyShell");
+      expect(resolutionEvent.payload.projectileDefinitionId).toBe("dragonsBreath");
     } finally {
       await teardownTestContext(ctx);
     }

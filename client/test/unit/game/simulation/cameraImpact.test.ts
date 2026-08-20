@@ -26,16 +26,16 @@ describe("Camera impact tracking and turn transition", () => {
 
     // Player 0 at x=500, Player 1 at x=1000
     world.createTank(
-      { id: 0, displayName: "P1", controllerKind: "human", tankSelection: { tankDefinitionId: "heavy-armor" } },
-      testGameContent.tanks["heavy-armor"]!,
+      { id: 0, displayName: "P1", controllerKind: "human", tankSelection: { tankDefinitionId: "ignis" } },
+      testGameContent.tanks["ignis"]!,
       500,
       500,
       testGameContent.projectiles,
     );
 
     world.createTank(
-      { id: 1, displayName: "P2", controllerKind: "human", tankSelection: { tankDefinitionId: "heavy-armor" } },
-      testGameContent.tanks["heavy-armor"]!,
+      { id: 1, displayName: "P2", controllerKind: "human", tankSelection: { tankDefinitionId: "ignis" } },
+      testGameContent.tanks["ignis"]!,
       1000,
       500,
       testGameContent.projectiles,
@@ -48,7 +48,7 @@ describe("Camera impact tracking and turn transition", () => {
       type: "fire",
       angle: 0,
       power: 600,
-      projectileSlotId: "basicShell",
+      projectileSlotId: "standardKaboom",
     });
 
     // Advance until ballistics resolves to impact

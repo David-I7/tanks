@@ -24,13 +24,13 @@ export function createDefaultMatchSetup(
         id: 0,
         displayName: "Player 1",
         controllerKind: "human",
-        tankSelection: { tankDefinitionId: "vanguard-cyber" },
+        tankSelection: { tankDefinitionId: "ignis" },
       },
       {
         id: 1,
         displayName: "Player 2",
         controllerKind: "human",
-        tankSelection: { tankDefinitionId: "specter" },
+        tankSelection: { tankDefinitionId: "glacies" },
       },
     ],
   };

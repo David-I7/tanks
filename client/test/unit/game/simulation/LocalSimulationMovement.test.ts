@@ -27,13 +27,13 @@ describe("LocalSimulation movement physics (server parity)", () => {
       cameraX: 0,
     });
 
-    const tankDef = testGameContent.tanks["vanguard-cyber"]!;
+    const tankDef = testGameContent.tanks["ignis"]!;
     world.createTank(
       {
         id: 0,
         displayName: "Player 1",
         controllerKind: "human",
-        tankSelection: { tankDefinitionId: "vanguard-cyber" },
+        tankSelection: { tankDefinitionId: "ignis" },
       },
       tankDef,
       200,
@@ -83,13 +83,13 @@ describe("LocalSimulation movement physics (server parity)", () => {
       cameraX: 0,
     });
 
-    const tankDef = testGameContent.tanks["vanguard-cyber"]!;
+    const tankDef = testGameContent.tanks["ignis"]!;
     world.createTank(
       {
         id: 0,
         displayName: "Player 1",
         controllerKind: "human",
-        tankSelection: { tankDefinitionId: "vanguard-cyber" },
+        tankSelection: { tankDefinitionId: "ignis" },
       },
       tankDef,
       200,
@@ -123,13 +123,13 @@ describe("LocalSimulation movement physics (server parity)", () => {
       cameraX: 0,
     });
 
-    const tankDef = testGameContent.tanks["vanguard-cyber"]!;
+    const tankDef = testGameContent.tanks["ignis"]!;
     world.createTank(
       {
         id: 0,
         displayName: "Player 1",
         controllerKind: "human",
-        tankSelection: { tankDefinitionId: "vanguard-cyber" },
+        tankSelection: { tankDefinitionId: "ignis" },
       },
       tankDef,
       200,

@@ -24,7 +24,7 @@ describe("QuickMatch Game Start", () => {
       // Player 1 creates quick match queue entry
       player1.client.publish({
         destination: "/app/lobby/quick-match",
-        body: JSON.stringify({ tankId: "vanguard-cyber" }),
+        body: JSON.stringify({ tankId: "ignis" }),
       });
 
       const lobbyCreatedType: LobbyEventType = "LOBBY_CREATED";
@@ -37,7 +37,7 @@ describe("QuickMatch Game Start", () => {
       // Player 2 joins quick match queue and pairs with Player 1's lobby
       player2.client.publish({
         destination: "/app/lobby/quick-match",
-        body: JSON.stringify({ tankId: "vanguard-cyber" }),
+        body: JSON.stringify({ tankId: "glacies" }),
       });
 
       const lobbyJoinedType: LobbyEventType = "LOBBY_JOINED";

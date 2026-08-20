@@ -117,7 +117,8 @@ public class GameStateResponseFactory {
                                 trail.position(),
                                 trail.radius(),
                                 trail.damagePerSecond(),
-                                trail.remainingTicks() / (double) content.world().tickRateHz()))
+                                trail.remainingTicks() / (double) content.world().tickRateHz(),
+                                trail.hazardType() != null ? trail.hazardType().name() : null))
                         .toList() : List.of())
                 .build();
     }

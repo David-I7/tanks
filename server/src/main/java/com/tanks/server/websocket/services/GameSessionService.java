@@ -564,12 +564,22 @@ public class GameSessionService {
         // settlement animation
         int trajectorySteps = projectile.trajectory() != null ? Math.max(0, projectile.trajectory().size() - 1) : 0;
         int maxSubSteps = projectile.subMunitions() != null ? projectile.subMunitions().stream()
-                .mapToInt(s -> s.trajectory() != null ? Math.max(0, s.trajectory().size() - 1) : 0)
+                .mapToInt(s -> {
+                    int subSteps = s.trajectory() != null ? Math.max(0, s.trajectory().size() - 1) : 0;
+                    int subDelayTicks = s.delaySeconds() != null
+                            ? (int) Math.ceil(s.delaySeconds() * content.world().tickRateHz())
+                            : 0;
+                    return subDelayTicks + subSteps;
+                })
                 .max().orElse(0) : 0;
         int flightTicks = trajectorySteps + maxSubSteps;
+        var firedProjDef = content.projectiles().get(projectile.projectileDefinitionId());
+        int damageTrailTicks = (firedProjDef != null && firedProjDef.damageTrail() != null)
+                ? (int) Math.ceil(firedProjDef.damageTrail().durationSeconds() * content.world().tickRateHz())
+                : 0;
         int impactTicks = (int) Math.ceil(content.world().postImpactDelaySeconds() * content.world().tickRateHz());
         int settlementTicks = settlements.isEmpty() ? 0 : (int) content.world().movementSegmentDurationTicks();
-        long totalDelayTicks = Math.max(15, flightTicks + impactTicks + settlementTicks);
+        long totalDelayTicks = Math.max(15, flightTicks + damageTrailTicks + impactTicks + settlementTicks);
 
         long transitionTick = gameSession.getServerTick() + totalDelayTicks;
         gameSession.setPendingTurnTransitionAtServerTick(transitionTick);

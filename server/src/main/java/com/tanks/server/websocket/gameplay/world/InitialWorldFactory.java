@@ -49,7 +49,8 @@ public class InitialWorldFactory {
         Map<String, Integer> weaponAmmo = new HashMap<>();
         for (String slotId : definition.loadout()) {
             var projDef = content.requireProjectile(slotId);
-            weaponAmmo.put(slotId, projDef.isDefault() ? -1 : 1);
+            int startingAmmo = projDef.isDefault() ? -1 : (projDef.initialAmmo() != null && projDef.initialAmmo() > 0 ? projDef.initialAmmo() : 1);
+            weaponAmmo.put(slotId, startingAmmo);
         }
         world.tanks().put(entityId, TankState.builder()
                 .entityId(entityId)

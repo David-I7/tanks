@@ -63,7 +63,7 @@ export async function createIsolatedTestContext(
 
     ctx.hostClient.client.publish({
       destination: "/app/lobby/create/private",
-      body: JSON.stringify({ tankId: "vanguard-cyber" }),
+      body: JSON.stringify({ tankId: "ignis" }),
     });
 
     const lobbyReply = await waitForReply(hostClient, "LOBBY_CREATED");
@@ -73,7 +73,7 @@ export async function createIsolatedTestContext(
     const opponentClient = ctx.playerClients[1];
     opponentClient.client.publish({
       destination: `/app/lobby/join/private/${ctx.lobbyId}`,
-      body: JSON.stringify({ tankId: "vanguard-cyber" }),
+      body: JSON.stringify({ tankId: "glacies" }),
     });
     await waitForReply(opponentClient, "LOBBY_JOINED");
     setupPromises.push(

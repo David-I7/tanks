@@ -17,7 +17,7 @@ describe("Full Lobby Join", () => {
 
       player3.client.publish({
         destination: `/app/lobby/join/private/${lobbyId}`,
-        body: JSON.stringify({ tankId: "vanguard-cyber" }),
+        body: JSON.stringify({ tankId: "terra" }),
       });
 
       const errorReply = await waitForErrorReply(player3, 500);
