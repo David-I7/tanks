@@ -1,5 +1,7 @@
 package com.tanks.server.websocket.gameplay;
 
+import com.tanks.server.repositories.GameSessionRepository;
+import com.tanks.server.repositories.LobbyRepository;
 import com.tanks.server.websocket.dto.gameplay.diffResponse.OnlineDiffBatchResponseDto;
 import com.tanks.server.websocket.dto.gameplay.diffResponse.OnlineDiffResponseDto;
 import com.tanks.server.websocket.dto.gameplay.diffResponse.OnlineStateDiffResponseType;
@@ -9,11 +11,8 @@ import com.tanks.server.websocket.gameplay.content.GameContentCatalog;
 import com.tanks.server.websocket.gameplay.simulation.GameSimulation;
 import com.tanks.server.websocket.gameplay.simulation.GameStateResponseFactory;
 import com.tanks.server.websocket.gameplay.world.InitialWorldFactory;
-import com.tanks.server.websocket.repositories.GameSessionRepository;
-import com.tanks.server.websocket.repositories.LobbyRepository;
-import com.tanks.server.websocket.services.*;
-import com.tanks.server.repositories.GameResultRepository;
-import com.tanks.server.repositories.UserRepository;
+import com.tanks.server.websocket.services.GameSessionService;
+import com.tanks.server.websocket.services.QuickMatchService;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.context.ApplicationEventPublisher;
@@ -21,8 +20,10 @@ import org.springframework.context.ApplicationEventPublisher;
 import java.util.List;
 import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 public class GameSessionServiceBatchTest {
 
@@ -52,30 +53,22 @@ public class GameSessionServiceBatchTest {
     public void testGameSessionServicePublishesBatchEvent() {
         ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
         GameSessionRepository gameRepository = mock(GameSessionRepository.class);
-        UserSessionService userSessionService = mock(UserSessionService.class);
         LobbyRepository lobbyRepository = mock(LobbyRepository.class);
         QuickMatchService quickMatchService = mock(QuickMatchService.class);
-        ClaimService claimService = mock(ClaimService.class);
         GameContentCatalog contentCatalog = mock(GameContentCatalog.class);
         InitialWorldFactory initialWorldFactory = mock(InitialWorldFactory.class);
         GameSimulation gameSimulation = mock(GameSimulation.class);
         GameStateResponseFactory initialStateFactory = mock(GameStateResponseFactory.class);
-        GameResultRepository gameResultRepository = mock(GameResultRepository.class);
-        UserRepository userRepository = mock(UserRepository.class);
 
         GameSessionService service = new GameSessionService(
                 gameRepository,
-                userSessionService,
                 lobbyRepository,
                 quickMatchService,
                 eventPublisher,
-                claimService,
                 contentCatalog,
                 initialWorldFactory,
                 gameSimulation,
-                initialStateFactory,
-                gameResultRepository,
-                userRepository
+                initialStateFactory
         );
 
         UUID sessionId = UUID.randomUUID();
@@ -85,11 +78,9 @@ public class GameSessionServiceBatchTest {
                 .serverTick(100L)
                 .build();
 
-        // Create diffs list to be published as batch
         OnlineDiffResponseDto diff1 = new OnlineDiffResponseDto(sessionId.toString(), 10L, 100L, OnlineStateDiffResponseType.PROJECTILE_RESOLUTION, "intent-fire-1", null);
         OnlineDiffResponseDto diff2 = new OnlineDiffResponseDto(sessionId.toString(), 11L, 100L, OnlineStateDiffResponseType.TERRAIN_PATCH, "intent-fire-1", null);
 
-        // Verify batch structure creation and payload type
         OnlineDiffBatchResponseDto batch = OnlineDiffBatchResponseDto.builder()
                 .gameSessionId(gameSession.getId().toString())
                 .sequence(10L)

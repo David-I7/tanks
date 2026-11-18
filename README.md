@@ -1,8 +1,3 @@
 # Tanks
 
-Tanks is a multiplayer artillery game with a React/TypeScript client and a Java Spring server. The project supports local play on one machine and is being shaped around server-authoritative online play over WebSockets.
-
-## Project Shape
-
-- `client/` - React, Vite, TypeScript, canvas rendering, local simulation, local input, client-side prediction, and online state projection.
-- `server/` - Spring Boot, HTTP auth, STOMP WebSockets, lobby/game session lifecycle, Redis coordination, Postgres persistence, and the planned authoritative online simulation.
+Tanks is a turn-based artillery game inspired by Pocket Tanks, where players control tanks and compete against each other using a variety of weapons. Players must adjust their aim, shooting angle, and power to hit opponents while accounting for terrain and projectile trajectories.

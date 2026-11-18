@@ -14,14 +14,4 @@ public record OnlineMatchSnapshotResponseDto(
         Long matchEndsAtServerTick,
         Double wind,
         String biome) {
-
-    public OnlineMatchSnapshotResponseDto(
-            MatchPhase phase,
-            long activePlayerId,
-            int playerCount,
-            int turnNumber,
-            long turnTimeRemainingTicks,
-            Long winnerPlayerId) {
-        this(phase, activePlayerId, playerCount, turnNumber, turnTimeRemainingTicks, winnerPlayerId, null, null, "forest");
-    }
 }

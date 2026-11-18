@@ -2,14 +2,14 @@ import { useEffect, useState } from "react";
 import { ApiError } from "../../errors/ApiError";
 import type WebSocketError from "../../errors/WebSocketError";
 import { useWebSocketStore } from "../../store/useWebSocketStore";
-import type ProblemDetailDto from "../../api/http/dto/ProblemDetailDto";
+import type ProblemDetailDto from "../../api/dto/ProblemDetailDto";
 import {
   createOnlineGameManager,
   createOnlineGameplayTransport,
   type GameManager,
   type OnlineGameplayTransport,
-  ResourceManager,
-} from "../../game";
+  localGameContent,
+} from "../../features/game";
 
 export type SessionStatus =
   | "connecting_to_game"
@@ -91,7 +91,7 @@ export default function useGameSession(gameSessionId: string) {
           typeof crypto.randomUUID === "function"
             ? crypto.randomUUID()
             : `intent-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-        gameContent: ResourceManager.getInstance().getGameContent(),
+        gameContent: localGameContent,
       },
     });
 

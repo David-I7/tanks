@@ -1,14 +1,11 @@
 package com.tanks.server.websocket.gameplay.simulation;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import org.springframework.stereotype.Service;
 import com.tanks.server.websocket.dto.gameplay.OnlineVec2Dto;
+import com.tanks.server.websocket.dto.gameplay.diffResponse.SubMunitionTrajectoryDto;
 import com.tanks.server.websocket.dto.gameplay.diffResponse.payloads.MovementSegment;
 import com.tanks.server.websocket.dto.gameplay.diffResponse.payloads.ProjectileResolution;
 import com.tanks.server.websocket.dto.gameplay.diffResponse.payloads.TerrainPatch;
-import com.tanks.server.websocket.dto.gameplay.playerIntent.payloads.FireIntentIntentRequestPayload;
+import com.tanks.server.websocket.dto.gameplay.playerIntent.payloads.FireIntentRequestPayload;
 import com.tanks.server.websocket.dto.gameplay.playerIntent.payloads.MoveIntentRequestPayload;
 import com.tanks.server.websocket.dto.gameplay.snapshots.OnlineTankDamageResponseDto;
 import com.tanks.server.websocket.dto.gameplay.terrain.patch.HeightmapRange;
@@ -17,17 +14,21 @@ import com.tanks.server.websocket.dto.gameplay.terrain.patch.TerrainPatchKind;
 import com.tanks.server.websocket.gameplay.content.GameContent;
 import com.tanks.server.websocket.gameplay.content.damage.Focused;
 import com.tanks.server.websocket.gameplay.content.damage.Radial;
+import com.tanks.server.websocket.gameplay.content.definitions.DamageTrailConfig;
 import com.tanks.server.websocket.gameplay.content.definitions.ProjectileDefinition;
+import com.tanks.server.websocket.gameplay.content.definitions.SubMunitionConfig;
 import com.tanks.server.websocket.gameplay.content.definitions.TankDefinition;
 import com.tanks.server.websocket.gameplay.validation.MovementPathValidator;
+import com.tanks.server.websocket.gameplay.world.DamageTrailState;
+import com.tanks.server.websocket.gameplay.world.LootCrateState;
 import com.tanks.server.websocket.gameplay.world.TankState;
 import com.tanks.server.websocket.gameplay.world.TerrainModel;
 import com.tanks.server.websocket.gameplay.world.World;
+import org.springframework.stereotype.Service;
 
-import com.tanks.server.websocket.dto.gameplay.diffResponse.SubMunitionTrajectoryDto;
-import com.tanks.server.websocket.gameplay.content.definitions.DamageTrailConfig;
-import com.tanks.server.websocket.gameplay.content.definitions.SubMunitionConfig;
-import com.tanks.server.websocket.gameplay.world.DamageTrailState;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -103,8 +104,11 @@ public class DefaultGameSimulation implements GameSimulation {
     }
 
     @Override
-    public List<MovementSegment> settleUnsupportedTanks(GameContent content, World world,
-            TerrainModel terrain, long startedServerTick) {
+    public List<MovementSegment> settleUnsupportedTanks(
+            GameContent content,
+            World world,
+            TerrainModel terrain,
+            long startedServerTick) {
         List<MovementSegment> segments = new ArrayList<>();
         for (TankState state : world.tanks().values()) {
             TankDefinition tank = content.requireTank(state.definitionId());
@@ -133,12 +137,17 @@ public class DefaultGameSimulation implements GameSimulation {
         return List.copyOf(segments);
     }
 
-    private static Optional<TankState> hitTank(World world, long ownerId, OnlineVec2Dto point, double projectileRadius,
+    private static Optional<TankState> hitTank(
+            World world,
+            long ownerId,
+            OnlineVec2Dto point,
+            double projectileRadius,
             GameContent content) {
-        return world.tanks().values().stream().filter(tank -> tank.playerId() != ownerId && tank.alive())
+        return world.tanks().values().stream()
+                .filter(tank -> tank.playerId() != ownerId && tank.alive())
                 .filter(tank -> Math.hypot(point.x() - tank.position().x(),
                         point.y() - tank.position().y()) <= projectileRadius
-                                  + content.requireTank(tank.definitionId()).collisionRadius())
+                        + content.requireTank(tank.definitionId()).collisionRadius())
                 .findFirst();
     }
 
@@ -146,18 +155,24 @@ public class DefaultGameSimulation implements GameSimulation {
         return Math.round(value * 1000d) / 1000d;
     }
 
-    public static void checkLootCratePickup(World world, GameContent content, TankState tankState, TankDefinition tankDef, double x, double y) {
+    public static void checkLootCratePickup(
+            World world,
+            GameContent content,
+            TankState tankState,
+            TankDefinition tankDef,
+            double x,
+            double y) {
         if (world == null || world.lootCrates() == null || world.lootCrates().isEmpty()) return;
         var iterator = world.lootCrates().iterator();
         while (iterator.hasNext()) {
-            com.tanks.server.websocket.gameplay.world.LootCrateState crate = iterator.next();
+            LootCrateState crate = iterator.next();
             if (crate.collected()) {
                 iterator.remove();
                 continue;
             }
             double dist = Math.hypot(x - crate.x(), y - crate.y());
             if (dist <= 35.0) {
-                int val = crate.value() != null ? crate.value() : 25;
+                int val = crate.value();
                 if ("hp".equalsIgnoreCase(crate.crateType())) {
                     tankState.health(Math.min(tankDef.maxHealth(), tankState.health() + val));
                 } else if ("fuel".equalsIgnoreCase(crate.crateType()) || "ammo".equalsIgnoreCase(crate.crateType())) {
@@ -170,12 +185,20 @@ public class DefaultGameSimulation implements GameSimulation {
     }
 
     @Override
-    public ProjectileResolution fire(GameContent content, World world, TerrainModel terrain, String intentId,
-            long projectileEntityId, long playerId, FireIntentIntentRequestPayload request) {
+    public ProjectileResolution fire(
+            GameContent content,
+            World world,
+            TerrainModel terrain,
+            String intentId,
+            long projectileEntityId,
+            long playerId,
+            FireIntentRequestPayload request) {
         TankState state = world.requireTankByPlayer(playerId);
         TankDefinition tankDef = content.requireTank(state.definitionId());
-        
-        String projectileId = state.selectedProjectileSlotId() != null ? state.selectedProjectileSlotId() : tankDef.loadout().getFirst();
+
+        String projectileId = state.selectedProjectileSlotId() != null
+                ? state.selectedProjectileSlotId()
+                : tankDef.loadout().getFirst();
         ProjectileDefinition projectileDef = content.requireProjectile(projectileId);
 
         double launchX = state.position().x() + (state.facing() * tankDef.muzzleForwardOffset());
@@ -234,35 +257,34 @@ public class DefaultGameSimulation implements GameSimulation {
         }
 
         List<OnlineTankDamageResponseDto> damagedTanks = new ArrayList<>();
-        double blastRadius = projectileDef.radius();
-        int baseDamage = 50;
-        if (projectileDef.damageEffect() instanceof Radial radial) {
-            blastRadius = Math.max(blastRadius, radial.radius());
-            baseDamage = (int) Math.round(radial.damage());
-        } else if (projectileDef.damageEffect() instanceof Focused focused) {
-            baseDamage = (int) Math.round(focused.damage());
-        }
+        if (projectileDef.damageEffect() != null) {
+            double blastRadius = projectileDef.radius();
+            int baseDamage = (int) Math.round(projectileDef.damageEffect().damage());
+            if (projectileDef.damageEffect() instanceof Radial radial) {
+                blastRadius = Math.max(blastRadius, radial.radius());
+            }
 
-        for (TankState tank : world.tanks().values()) {
-            if (!tank.alive()) continue;
-            double dist = Math.hypot(impact.x() - tank.position().x(), impact.y() - tank.position().y());
-            double tankCollisionRad = content.requireTank(tank.definitionId()).collisionRadius();
-            if (hitTankState != null && hitTankState.entityId() == tank.entityId()) {
-                int healthBefore = tank.health();
-                int healthAfter = Math.max(0, healthBefore - baseDamage);
-                tank.health(healthAfter);
-                damagedTanks.add(new OnlineTankDamageResponseDto(tank.entityId(), tank.playerId(), baseDamage, healthAfter));
-            } else if (dist <= blastRadius + tankCollisionRad) {
-                int damage = baseDamage;
-                if (projectileDef.damageEffect() instanceof Radial radial && radial.radius() > 0) {
-                    double factor = Math.max(0.0, 1.0 - (dist / radial.radius()));
-                    damage = (int) Math.round(baseDamage * factor);
-                }
-                if (damage > 0) {
+            for (TankState tank : world.tanks().values()) {
+                if (!tank.alive()) continue;
+                double dist = Math.hypot(impact.x() - tank.position().x(), impact.y() - tank.position().y());
+                double tankCollisionRad = content.requireTank(tank.definitionId()).collisionRadius();
+                if (hitTankState != null && hitTankState.entityId() == tank.entityId()) {
                     int healthBefore = tank.health();
-                    int healthAfter = Math.max(0, healthBefore - damage);
+                    int healthAfter = Math.max(0, healthBefore - baseDamage);
                     tank.health(healthAfter);
-                    damagedTanks.add(new OnlineTankDamageResponseDto(tank.entityId(), tank.playerId(), damage, healthAfter));
+                    damagedTanks.add(new OnlineTankDamageResponseDto(tank.entityId(), tank.playerId(), baseDamage, healthAfter));
+                } else if (dist <= blastRadius + tankCollisionRad) {
+                    int damage = baseDamage;
+                    if (projectileDef.damageEffect() instanceof Radial radial && radial.radius() > 0) {
+                        double factor = Math.max(0.0, 1.0 - (dist / radial.radius()));
+                        damage = (int) Math.round(baseDamage * factor);
+                    }
+                    if (damage > 0) {
+                        int healthBefore = tank.health();
+                        int healthAfter = Math.max(0, healthBefore - damage);
+                        tank.health(healthAfter);
+                        damagedTanks.add(new OnlineTankDamageResponseDto(tank.entityId(), tank.playerId(), damage, healthAfter));
+                    }
                 }
             }
         }
@@ -327,13 +349,8 @@ public class DefaultGameSimulation implements GameSimulation {
                 }
 
                 List<OnlineTankDamageResponseDto> subDamagedTanks = new ArrayList<>();
-                if (subHitTankState != null) {
-                    int damage = 30;
-                    if (subProjDef.damageEffect() instanceof Radial radial) {
-                        damage = (int) Math.round(radial.damage());
-                    } else if (subProjDef.damageEffect() instanceof Focused focused) {
-                        damage = (int) Math.round(focused.damage());
-                    }
+                if (subHitTankState != null && subProjDef.damageEffect() != null) {
+                    int damage = (int) Math.round(subProjDef.damageEffect().damage());
                     int healthBefore = subHitTankState.health();
                     int healthAfter = Math.max(0, healthBefore - damage);
                     subHitTankState.health(healthAfter);
@@ -380,8 +397,12 @@ public class DefaultGameSimulation implements GameSimulation {
     }
 
     @Override
-    public TerrainPatch deformTerrain(GameContent content, World world, TerrainModel terrain,
-            String projectileDefinitionId, OnlineVec2Dto impact) {
+    public TerrainPatch deformTerrain(
+            GameContent content,
+            World world,
+            TerrainModel terrain,
+            String projectileDefinitionId,
+            OnlineVec2Dto impact) {
         ProjectileDefinition projectileDef = content.requireProjectile(projectileDefinitionId);
         var mutation = terrain.deform(impact.x(), impact.y(), projectileDef.terrainEffect());
         List<OnlineTerrainPatchResponseDto> patches = List.of(

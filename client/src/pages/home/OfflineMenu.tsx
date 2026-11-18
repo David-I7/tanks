@@ -3,10 +3,9 @@ import { ArrowLeft } from "lucide-react";
 import Button from "../../components/buttons/Button";
 import IconButton from "../../components/buttons/IconButton";
 import H1 from "../../components/headings/H1";
-import Surface from "../../components/layouts/Surface";
 import TankSelector from "../../components/game/TankSelector";
 import { useScreenStack } from "../../context/ScreenStack";
-import { useNavigate } from "react-router-dom";
+import type { HomeScreenStack } from "./HomePage";
 import { useAssetQuery, type TankAsset } from "../../hooks/useAssetQuery";
 import randInt from "../../utils/random";
 
@@ -16,26 +15,23 @@ type PlayerConfig = {
 };
 
 export default function OfflineMenu() {
-  const { popScreen } = useScreenStack();
-  const navigate = useNavigate();
+  const { popScreen, pushScreen } = useScreenStack<HomeScreenStack>();
   const { data: tanks } = useAssetQuery();
 
   const [player1Config, setPlayer1Config] = useState<PlayerConfig>({
     name: "Player 1",
-    tankId:
-      !tanks ? "heavy-armor" : tanks[randInt(0, tanks.length - 1)].id,
+    tankId: !tanks ? "heavy-armor" : tanks[randInt(0, tanks.length - 1)].id,
   });
   const [player2Config, setPlayer2Config] = useState<PlayerConfig>({
     name: "Player 2",
-    tankId:
-      !tanks
-        ? "desert-striker"
-        : tanks[randInt(0, tanks.length - 1)].id,
+    tankId: !tanks ? "desert-striker" : tanks[randInt(0, tanks.length - 1)].id,
   });
 
   const handleStartGame = () => {
-    navigate(`/game/local`, {
-      state: { mode: "localTwoPlayer", player1Config, player2Config },
+    pushScreen("offlineGame", {
+      mode: "localTwoPlayer",
+      player1Config,
+      player2Config,
     });
   };
 
@@ -44,7 +40,7 @@ export default function OfflineMenu() {
   }
 
   return (
-    <Surface className="px-6 py-6 w-full max-w-lg flex flex-col gap-5 text-center relative pt-14 max-h-[90vh] overflow-y-auto">
+    <section>
       <div className="absolute top-4 left-4">
         <IconButton
           onClick={() => popScreen()}
@@ -114,6 +110,6 @@ export default function OfflineMenu() {
       >
         Start Game
       </Button>
-    </Surface>
+    </section>
   );
 }

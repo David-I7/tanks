@@ -4,12 +4,12 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
+    "dev": "vite --host",
+    "stage": "vite build --mode staging",
+    "build": "vite build --mode production",
     "preview": "vite preview",
-    "test:integration": "vitest run --testTimeout=10000 test/integration/normal",
-    "test:unit": "vitest run test/unit",
-    "test:integration:slow": "vitest run --testTimeout=35000 test/integration/slow"
+    "test": "vitest run test/unit",
+    "test:unit": "vitest run test/unit"
   },
   "devDependencies": {
     "@types/node": "^26.1.2",

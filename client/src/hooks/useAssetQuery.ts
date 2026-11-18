@@ -1,43 +1,48 @@
 import { useQuery } from "@tanstack/react-query";
-import ResourceManager, {
-  type TankDefinition,
-  type TankProjectileDefinition,
-  TANK_DEFINITIONS,
-} from "../game/rendering/ResourceManager";
+import HttpClient from "../api/http/HttpClient";
+import AssetsRequest from "../api/http/requests/AssetsRequest";
+import { type GameContent } from "../features/game/types/content";
 
-export { TANK_DEFINITIONS };
+export type ProjectileAsset = {
+  id: string;
+  name: string;
+  label: string;
+};
 
-type ProjectileAsset = TankProjectileDefinition;
-
-export type TankAsset = Omit<TankDefinition, "projectiles"> & {
+export type TankAsset = {
+  id: string;
+  name: string;
+  description: string;
+  color: string;
   projectiles: ProjectileAsset[];
 };
 
-export async function fetchAssets(): Promise<TankAsset[]> {
-  const resourceManager = ResourceManager.getInstance();
-  const resources = resourceManager.getTankDefinitions();
+export function toTankAssets(content: GameContent): TankAsset[] {
+  return Object.values(content.tanks).map((tank) => ({
+    id: tank.id,
+    name: tank.name,
+    description: tank.description,
+    color: tank.visual.fillStyle,
+    projectiles: tank.loadout.map((projectileId) => {
+      const proj = content.projectiles[projectileId];
+      return {
+        id: projectileId,
+        name: proj.name,
+        label: proj.label,
+      };
+    }),
+  }));
+}
 
-  if (!resources) throw new Error("Failed to load resources");
-
-  const tankAssets: TankAsset[] = Object.entries(resources).map(([_, tank]) => {
-    const projectiles: ProjectileAsset[] = tank.projectiles;
-
-    return {
-      id: tank.id,
-      name: tank.name,
-      description: tank.description,
-      color: tank.color,
-      projectiles,
-    } as TankAsset;
-  });
-
-  return tankAssets;
+async function getAssets(): Promise<TankAsset[]> {
+  const content = await new HttpClient().send(new AssetsRequest());
+  return toTankAssets(content);
 }
 
 export function useAssetQuery() {
-  return useQuery({
+  return useQuery<TankAsset[]>({
     queryKey: ["gameAssets"],
-    queryFn: fetchAssets,
+    queryFn: getAssets,
     staleTime: Infinity,
     gcTime: Infinity,
   });

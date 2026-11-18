@@ -1,10 +1,10 @@
 package com.tanks.server.websocket.dto.gameplay.gameContent.definitions;
 
-import com.tanks.server.websocket.gameplay.content.damage.Focused;
-import com.tanks.server.websocket.gameplay.content.damage.Radial;
+import com.tanks.server.websocket.gameplay.content.damage.DamageEffect;
+import com.tanks.server.websocket.gameplay.content.definitions.DamageTrailConfig;
 import com.tanks.server.websocket.gameplay.content.definitions.ProjectileDefinition;
-import com.tanks.server.websocket.gameplay.content.terrain.Crater;
-import com.tanks.server.websocket.gameplay.content.terrain.Drill;
+import com.tanks.server.websocket.gameplay.content.definitions.SubMunitionConfig;
+import com.tanks.server.websocket.gameplay.content.terrain.TerrainEffect;
 
 public record ProjectileDefinitionResponseDto(
         String id,
@@ -14,16 +14,12 @@ public record ProjectileDefinitionResponseDto(
         double baseVelocity,
         double gravityScale,
         double drag,
-        String terrainEffectType,
-        double terrainRadius,
-        double terrainDepth,
-        String damageEffectType,
-        double damageRadius,
-        double damage) {
+        TerrainEffect terrainEffect,
+        DamageEffect damageEffect,
+        SubMunitionConfig subMunitions,
+        DamageTrailConfig damageTrail) {
 
     public static ProjectileDefinitionResponseDto from(ProjectileDefinition value) {
-        double terrainRadius = value.terrainEffect() instanceof Crater crater ? crater.radius() : ((Drill) value.terrainEffect()).radius();
-        double terrainDepth = value.terrainEffect() instanceof Drill drill ? drill.depth() : 0;
         return new ProjectileDefinitionResponseDto(
                 value.id(),
                 value.name(),
@@ -32,11 +28,9 @@ public record ProjectileDefinitionResponseDto(
                 value.baseVelocity(),
                 value.gravityScale(),
                 value.drag(),
-                value.terrainEffect() instanceof Crater ? "CRATER" : "DRILL",
-                terrainRadius,
-                terrainDepth,
-                value.damageEffect() instanceof Radial ? "RADIAL" : "FOCUSED",
-                value.damageEffect().radius(),
-                value.damageEffect().damage());
+                value.terrainEffect(),
+                value.damageEffect(),
+                value.subMunitions(),
+                value.damageTrail());
     }
 }

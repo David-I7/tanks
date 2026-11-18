@@ -12,7 +12,7 @@ COPY . .
 
 RUN npm run build
 
-FROM nginxinc/nginx-unprivileged:stable-trixie-perl as nginx
+FROM nginxinc/nginx-unprivileged:stable-trixie-perl AS nginx
 
 COPY --link --from=base /app/nginx/nginx.conf /etc/nginx/conf.d/default.conf
 

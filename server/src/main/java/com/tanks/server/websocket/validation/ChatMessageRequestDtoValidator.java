@@ -26,7 +26,7 @@ public class ChatMessageRequestDtoValidator implements ConstraintValidator<Valid
                 addViolation(context,"message","message must not be null or blank");
                 valid = false;
             }else if (dto.getMessage().length() > MAX_MESSAGE_LENGTH){
-                addViolation(context,"sender","max message length exceeded");
+                addViolation(context,"message","max message length exceeded");
                 valid = false;
             }
         }else if(dto.getMessage() != null){

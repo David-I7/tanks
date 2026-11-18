@@ -4,7 +4,7 @@ import java.util.UUID;
 
 public record LobbyEventPayload(
         UUID id,
-        Long hostId,
-        String triggeredBy
+        UUID hostId,
+        UUID triggeredBy
 ) {
 }

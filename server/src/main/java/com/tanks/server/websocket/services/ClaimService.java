@@ -2,54 +2,38 @@ package com.tanks.server.websocket.services;
 
 import org.springframework.stereotype.Service;
 
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
 
 @Service
 public class ClaimService {
 
-    private final ConcurrentHashMap<Long, String> activeSockets = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<Long, Boolean> reloadRequired = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<Long, ReentrantLock> socketLocks = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<UUID, String> activeSockets = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<UUID, ReentrantLock> socketLocks = new ConcurrentHashMap<>();
 
-    public boolean claimSocket(Long userId, String socketSessionId) {
-        String existing = activeSockets.putIfAbsent(userId, socketSessionId);
+    public boolean claimSocket(UUID playerId, String socketSessionId) {
+        String existing = activeSockets.putIfAbsent(playerId, socketSessionId);
         boolean socketClaimed = existing == null || existing.equals(socketSessionId);
         if (socketClaimed) {
-            socketLocks.putIfAbsent(userId, new ReentrantLock());
+            socketLocks.putIfAbsent(playerId, new ReentrantLock());
         }
         return socketClaimed;
     }
 
-    public void releaseSocket(Long userId, String socketSessionId) {
+    public void releaseSocket(UUID playerId, String socketSessionId) {
         if (socketSessionId == null) {
             return;
         }
-        activeSockets.remove(userId, socketSessionId);
-        socketLocks.remove(userId);
+        activeSockets.remove(playerId, socketSessionId);
+        socketLocks.remove(playerId);
     }
 
-    public void forceReleaseUserSocket(Long userId) {
-        if (userId == null) {
-            return;
-        }
-        activeSockets.remove(userId);
-        socketLocks.remove(userId);
+    public boolean isPlayerConnected(UUID playerId) {
+        return playerId != null && activeSockets.containsKey(playerId);
     }
 
-    public ReentrantLock getSocketLock(Long userId) {
-        return socketLocks.get(userId);
-    }
-
-    public void markUserSessionReloadRequired(Long userId) {
-        reloadRequired.put(userId, true);
-    }
-
-    public boolean consumeUserSessionReloadRequired(Long userId) {
-        return reloadRequired.remove(userId) != null;
-    }
-
-    public void deleteUserSessionReloadRequired(Long userId) {
-        reloadRequired.remove(userId);
+    public ReentrantLock getSocketLock(UUID playerId) {
+        return socketLocks.get(playerId);
     }
 }

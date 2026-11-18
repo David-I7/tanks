@@ -1,39 +1,45 @@
 package com.tanks.server.websocket.services;
 
-import com.tanks.server.entities.User;
-import com.tanks.server.entities.gameResult.GameOutcome;
-import com.tanks.server.entities.gameResult.GameResult;
-import com.tanks.server.repositories.GameResultRepository;
-import com.tanks.server.repositories.UserRepository;
-import com.tanks.server.utils.IdFactory;
+import com.tanks.server.domain.Lobby;
+import com.tanks.server.domain.LobbyType;
+import com.tanks.server.domain.Player;
+import com.tanks.server.repositories.GameSessionRepository;
+import com.tanks.server.repositories.LobbyRepository;
+import com.tanks.server.websocket.dto.game.GameEventPayload;
+import com.tanks.server.websocket.dto.game.GameEventResponseDto;
+import com.tanks.server.websocket.dto.game.GameEventType;
 import com.tanks.server.websocket.dto.gameplay.diffResponse.OnlineDiffBatchResponseDto;
 import com.tanks.server.websocket.dto.gameplay.diffResponse.OnlineDiffResponseDto;
 import com.tanks.server.websocket.dto.gameplay.diffResponse.OnlineDiffResponsePayload;
-import com.tanks.server.websocket.dto.gameplay.diffResponse.enums.*;
-import com.tanks.server.websocket.dto.gameplay.diffResponse.payloads.*;
-import com.tanks.server.websocket.dto.gameplay.playerIntent.*;
-import com.tanks.server.websocket.dto.gameplay.playerIntent.payloads.*;
 import com.tanks.server.websocket.dto.gameplay.diffResponse.OnlineStateDiffResponseType;
-import com.tanks.server.websocket.dto.game.GameEventResponseDto;
-import com.tanks.server.websocket.dto.game.GameEventType;
-import com.tanks.server.websocket.dto.game.GameEventPayload;
+import com.tanks.server.websocket.dto.gameplay.diffResponse.enums.IntentRejectionReason;
+import com.tanks.server.websocket.dto.gameplay.diffResponse.enums.ResyncReason;
+import com.tanks.server.websocket.dto.gameplay.diffResponse.enums.TerminalGameReason;
+import com.tanks.server.websocket.dto.gameplay.diffResponse.enums.TurnPhase;
+import com.tanks.server.websocket.dto.gameplay.diffResponse.payloads.AimUpdate;
+import com.tanks.server.websocket.dto.gameplay.diffResponse.payloads.CrateSpawned;
+import com.tanks.server.websocket.dto.gameplay.diffResponse.payloads.IntentRejection;
+import com.tanks.server.websocket.dto.gameplay.diffResponse.payloads.TerminalGame;
+import com.tanks.server.websocket.dto.gameplay.diffResponse.payloads.TurnTransition;
+import com.tanks.server.websocket.dto.gameplay.playerIntent.OnlinePlayerIntentRequestDto;
+import com.tanks.server.websocket.dto.gameplay.playerIntent.OnlinePlayerIntentRequestType;
+import com.tanks.server.websocket.dto.gameplay.playerIntent.payloads.AimIntentRequestPayload;
+import com.tanks.server.websocket.dto.gameplay.playerIntent.payloads.FireIntentRequestPayload;
+import com.tanks.server.websocket.dto.gameplay.playerIntent.payloads.MoveIntentRequestPayload;
+import com.tanks.server.websocket.dto.gameplay.playerIntent.payloads.SelectProjectileIntentRequestPayload;
 import com.tanks.server.websocket.entities.gameSession.GameSession;
 import com.tanks.server.websocket.entities.gameSession.GameSessionState;
-import com.tanks.server.websocket.entities.lobby.Lobby;
-import com.tanks.server.websocket.entities.lobby.LobbyType;
-import com.tanks.server.websocket.entities.userSession.UserSession;
 import com.tanks.server.websocket.events.GameEvent;
 import com.tanks.server.websocket.events.OnlineGameplayEvent;
-import com.tanks.server.websocket.gameplay.simulation.GameStateResponseFactory;
 import com.tanks.server.websocket.exceptions.ProblemDetailException;
 import com.tanks.server.websocket.gameplay.content.GameContentCatalog;
 import com.tanks.server.websocket.gameplay.simulation.GameSimulation;
+import com.tanks.server.websocket.gameplay.simulation.GameStateResponseFactory;
 import com.tanks.server.websocket.gameplay.world.InitialWorldFactory;
-import com.tanks.server.websocket.repositories.GameSessionRepository;
-import com.tanks.server.websocket.repositories.LobbyRepository;
+import com.tanks.server.websocket.gameplay.world.LootCrateState;
+import com.tanks.server.websocket.gameplay.world.TankState;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -44,6 +50,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 
 @Service
 @RequiredArgsConstructor
@@ -53,35 +60,34 @@ public class GameSessionService {
     private static final long PLAYER_B_ID = 2;
 
     private final GameSessionRepository gameRepository;
-    private final UserSessionService userSessionService;
     private final LobbyRepository lobbyRepository;
     private final QuickMatchService quickMatchService;
     private final ApplicationEventPublisher eventPublisher;
-    private final ClaimService claimService;
     private final GameContentCatalog contentCatalog;
     private final InitialWorldFactory initialWorldFactory;
     private final GameSimulation gameSimulation;
     private final GameStateResponseFactory initialStateFactory;
-    private final GameResultRepository gameResultRepository;
-    private final UserRepository userRepository;
 
     public GameSession create(Lobby lobby) {
-        UserSession host = userSessionService.findById(lobby.getHost().getId());
-        UserSession opponent = userSessionService.findById(lobby.getOpponent().getId());
-        UserSession originalHost = new UserSession(host);
-        UserSession originalOpponent = new UserSession(opponent);
+        Player host = lobby.getHost();
+        Player opponent = lobby.getOpponent();
         GameSession savedGameSession = null;
 
         try {
-            UUID gameSessionId = IdFactory.randomUUID();
+            UUID gameSessionId = UUID.randomUUID();
             var content = contentCatalog.current();
-            var initialWorld = initialWorldFactory.create(content, 0, host.getUsername(),
-                    opponent.getUsername());
+            var initialWorld = initialWorldFactory.create(
+                    content,
+                    ThreadLocalRandom.current().nextLong(),
+                    host.nickname(),
+                    opponent.nickname(),
+                    host.tankId(),
+                    opponent.tankId());
             GameSession gameSession = GameSession.builder()
                     .id(gameSessionId)
-                    .hostId(host.getId())
-                    .playerA(host.getUsername())
-                    .playerB(opponent.getUsername())
+                    .hostId(host.id())
+                    .playerA(host)
+                    .playerB(opponent)
                     .createdAt(OffsetDateTime.now())
                     .state(GameSessionState.CREATED)
                     .gameContentVersion(content.version())
@@ -93,33 +99,21 @@ public class GameSessionService {
 
             GameEventResponseDto response = new GameEventResponseDto(
                     GameEventType.GAME_CREATED,
-                    new GameEventPayload(savedGameSession.getId(), savedGameSession.getHostId(), host.getUsername()));
+                    new GameEventPayload(savedGameSession.getId(), savedGameSession.getHostId(), host.id()));
 
-            userSessionService.transitionToGame(host, savedGameSession.getId());
-            userSessionService.transitionToGame(opponent, savedGameSession.getId());
-
-            userSessionService.save(host);
-            userSessionService.save(opponent);
-            claimService.markUserSessionReloadRequired(host.getId());
-            claimService.markUserSessionReloadRequired(opponent.getId());
-
-            lobbyRepository.delete(lobby);
-            if (lobby.getType() == LobbyType.QUICK_MATCH) {
-                quickMatchService.delete(lobby);
+            lobby.setState(LobbyState.IN_GAME);
+            lobby.setGameSessionId(savedGameSession.getId());
+            lobbyRepository.save(lobby);
+            if (lobby.getType() == LobbyType.PUBLIC) {
+                quickMatchService.delete(lobby.getId());
             }
 
-            eventPublisher.publishEvent(new GameEvent(this, host.getUsername(), "/queue/replies", response));
-            eventPublisher.publishEvent(new GameEvent(this, opponent.getUsername(), "/queue/replies", response));
+            eventPublisher.publishEvent(new GameEvent(this, host.id().toString(), "/queue/replies", response));
+            eventPublisher.publishEvent(new GameEvent(this, opponent.id().toString(), "/queue/replies", response));
 
-            log.info("Game created: {} vs {}", host.getUsername(), opponent.getUsername());
+            log.info("Game created: {} ({}) vs {} ({})", host.nickname(), host.id(), opponent.nickname(), opponent.id());
             return savedGameSession;
         } catch (RuntimeException ex) {
-
-            claimService.deleteUserSessionReloadRequired(host.getId());
-            claimService.deleteUserSessionReloadRequired(opponent.getId());
-            userSessionService.save(originalHost);
-            userSessionService.save(originalOpponent);
-
             if (savedGameSession != null) {
                 deleteGameQuietly(savedGameSession);
             }
@@ -148,24 +142,23 @@ public class GameSessionService {
         gameSession.setState(GameSessionState.STARTED);
         gameRepository.save(gameSession);
 
-        sendInitialStateToPlayer(gameSession, gameSession.getPlayerA());
-        sendInitialStateToPlayer(gameSession, gameSession.getPlayerB());
+        sendInitialStateToPlayer(gameSession, gameSession.getPlayerA().id());
+        sendInitialStateToPlayer(gameSession, gameSession.getPlayerB().id());
 
-        log.debug("Game started: {} vs {}", gameSession.getPlayerA(), gameSession.getPlayerB());
+        log.debug("Game started: {} vs {}", gameSession.getPlayerA().nickname(), gameSession.getPlayerB().nickname());
     }
 
-    public void sendInitialStateToPlayer(GameSession gameSession, String username) {
+    public void sendInitialStateToPlayer(GameSession gameSession, UUID playerUuid) {
         eventPublisher.publishEvent(new OnlineGameplayEvent(
                 this,
-                username,
+                playerUuid.toString(),
                 "/queue/replies",
-                initialStateFactory.createForPlayer(gameSession, localPlayerId(gameSession, username))));
+                initialStateFactory.createForPlayer(gameSession, localPlayerId(gameSession, playerUuid))));
 
-        log.debug("Initial state sent to player: {}", username);
+        log.debug("Initial state sent to player: {}", playerUuid);
     }
 
-    public boolean sendResyncStateToPlayer(UUID gameSessionId, String username,
-            ResyncReason reason) {
+    public boolean sendResyncStateToPlayer(UUID gameSessionId, UUID playerUuid, ResyncReason reason) {
         GameSession gameSession = findById(gameSessionId);
         if (!GameSessionState.CREATED.equals(gameSession.getState())
                 && !GameSessionState.STARTED.equals(gameSession.getState())
@@ -174,26 +167,26 @@ public class GameSessionService {
         }
 
         var resyncDiff = initialStateFactory.createResyncForPlayer(gameSession, reason,
-                localPlayerId(gameSession, username));
+                localPlayerId(gameSession, playerUuid));
 
         eventPublisher.publishEvent(new OnlineGameplayEvent(
                 this,
-                username,
+                playerUuid.toString(),
                 "/queue/replies",
                 resyncDiff));
 
-        log.debug("Resync state sent to player: {}", username);
+        log.debug("Resync state sent to player: {}", playerUuid);
         return true;
     }
 
-    private long localPlayerId(GameSession gameSession, String username) {
-        if (gameSession.getPlayerA().equals(username)) {
+    private long localPlayerId(GameSession gameSession, UUID playerUuid) {
+        if (gameSession.getPlayerA() != null && gameSession.getPlayerA().id().equals(playerUuid)) {
             return PLAYER_A_ID;
         }
-        if (gameSession.getPlayerB().equals(username)) {
+        if (gameSession.getPlayerB() != null && gameSession.getPlayerB().id().equals(playerUuid)) {
             return PLAYER_B_ID;
         }
-        return 0;
+        throw new IllegalArgumentException("Player " + playerUuid + " is not a participant in game " + gameSession.getId());
     }
 
     public boolean processPlayerIntent(GameSession gameSession, OnlinePlayerIntentRequestDto<?> intent) {
@@ -201,8 +194,8 @@ public class GameSessionService {
             return false;
         }
 
-        String username = playerUsername(gameSession, intent.playerId());
-        IntentRejectionReason rejectionReason = rejectionReason(gameSession, username, intent);
+        UUID playerUuid = playerUuid(gameSession, intent.playerId());
+        IntentRejectionReason rejectionReason = rejectionReason(gameSession, playerUuid, intent);
 
         if (rejectionReason != null) {
             log.info("Intent rejected reason={} intent={}", rejectionReason, intent);
@@ -210,70 +203,54 @@ public class GameSessionService {
             return false;
         }
 
-        if (intent.type() == OnlinePlayerIntentRequestType.MOVE) {
-            MoveIntentRequestPayload move = extractMovePayload(intent);
-            if (move != null) {
-                if (!publishMovementSegment(gameSession, intent, move)) {
-                    log.debug("Movement rejected: {}", intent);
-                    return false;
-                }
-                log.debug("Movement accepted: {}", intent);
-                return true;
+        if (intent.type() == OnlinePlayerIntentRequestType.MOVE && intent.payload() instanceof MoveIntentRequestPayload move) {
+            if (!publishMovementSegment(gameSession, intent, move)) {
+                log.debug("Movement rejected: {}", intent);
+                return false;
             }
+            log.debug("Movement accepted: {}", intent);
+            return true;
         }
 
-        if (intent.type() == OnlinePlayerIntentRequestType.AIM) {
-            AimIntentRequestPayload aim = extractAimPayload(intent);
-            if (aim != null) {
-                var tank = gameSession.getWorld().requireTankByPlayer(intent.playerId());
-                tank.aimAngle(aim.getAngle());
-                tank.power(aim.getPower());
-                publishDiff(
-                        gameSession,
-                        OnlineStateDiffResponseType.AIM_UPDATE,
-                        intent.intentId(),
-                        gameSession.getServerTick(),
-                        AimUpdate.builder()
-                                .playerId(intent.playerId())
-                                .angle(aim.getAngle())
-                                .power(aim.getPower())
-                                .build());
-                log.debug("Aim accepted: {}", intent);
-                return true;
-            }
+        if (intent.type() == OnlinePlayerIntentRequestType.AIM && intent.payload() instanceof AimIntentRequestPayload aim) {
+            var tank = gameSession.getWorld().requireTankByPlayer(intent.playerId());
+            tank.aimAngle(aim.getAngle());
+            tank.power(aim.getPower());
+            publishDiff(
+                    gameSession,
+                    OnlineStateDiffResponseType.AIM_UPDATE,
+                    intent.intentId(),
+                    gameSession.getServerTick(),
+                    AimUpdate.builder()
+                            .playerId(intent.playerId())
+                            .angle(aim.getAngle())
+                            .power(aim.getPower())
+                            .build());
+            log.debug("Aim accepted: {}", intent);
+            return true;
         }
 
-        if (intent.type() == OnlinePlayerIntentRequestType.SELECT_PROJECTILE_SLOT) {
-            SelectProjectileIntentRequestPayload select = extractSelectProjectileSlotPayload(intent);
-            if (select != null) {
-                var tank = gameSession.getWorld().requireTankByPlayer(intent.playerId());
-                var content = contentCatalog.require(gameSession.getGameContentVersion());
-                var tankDef = content.requireTank(tank.definitionId());
-                int slot = select.getSlot();
-                if (slot >= 0 && slot < tankDef.loadout().size()) {
-                    tank.selectedProjectileSlotId(tankDef.loadout().get(slot));
-                } else {
-                    tank.selectedProjectileSlotId(String.valueOf(slot));
-                }
-                log.debug("Select projectile slot accepted: {}", intent);
-                return true;
-            }
+        if (intent.type() == OnlinePlayerIntentRequestType.SELECT_PROJECTILE_SLOT
+                && intent.payload() instanceof SelectProjectileIntentRequestPayload select) {
+            var tank = gameSession.getWorld().requireTankByPlayer(intent.playerId());
+            var content = contentCatalog.require(gameSession.getGameContentVersion());
+            var tankDef = content.requireTank(tank.definitionId());
+            tank.selectedProjectileSlotId(tankDef.loadout().get(select.getSlot()));
+            log.debug("Select projectile slot accepted: {}", intent);
+            return true;
         }
 
-        if (intent.type() == OnlinePlayerIntentRequestType.FIRE) {
-            FireIntentIntentRequestPayload fire = extractFirePayload(intent);
-            if (fire != null) {
-                publishShotOutcomeBatch(gameSession, intent, fire);
-                log.debug("Fire accepted: {}", intent);
-                return true;
-            }
+        if (intent.type() == OnlinePlayerIntentRequestType.FIRE && intent.payload() instanceof FireIntentRequestPayload fire) {
+            publishShotOutcomeBatch(gameSession, intent, fire);
+            log.debug("Fire accepted: {}", intent);
+            return true;
         }
 
         log.debug("Intent accepted: {}", intent);
         return true;
     }
 
-    public boolean acceptPlayerIntent(String username, UUID gameSessionId, OnlinePlayerIntentRequestDto<?> intent) {
+    public boolean acceptPlayerIntent(UUID playerUuid, UUID gameSessionId, OnlinePlayerIntentRequestDto<?> intent) {
         if (intent == null || intent.intentId() == null || intent.intentId().isBlank() || intent.type() == null) {
             return false;
         }
@@ -284,7 +261,8 @@ public class GameSessionService {
         if (!GameSessionState.STARTED.equals(gameSession.getState())) {
             return false;
         }
-        if (!playerUsername(gameSession, intent.playerId()).equals(username)) {
+        UUID expectedUuid = playerUuid(gameSession, intent.playerId());
+        if (expectedUuid == null || !expectedUuid.equals(playerUuid)) {
             return false;
         }
 
@@ -298,100 +276,43 @@ public class GameSessionService {
                 "Game session not found", URI.create("about:blank")));
     }
 
-    public GameSession addConnectedUser(UUID gameSessionId, Long userId) {
+    public GameSession addConnectedPlayer(UUID gameSessionId, UUID playerId) {
         GameSession gameSession = findById(gameSessionId);
-        if (userId != null) {
-            if (!gameSession.getConnectedUserIds().contains(userId) && gameSession.getConnectedUserIds().size() >= 2) {
+        if (playerId != null) {
+            if (!gameSession.getConnectedPlayerIds().contains(playerId) && gameSession.getConnectedPlayerIds().size() >= 2) {
                 throw new ProblemDetailException(HttpStatus.BAD_REQUEST, "Game session already has 2 players",
                         URI.create("about:blank"));
             }
-            gameSession.getConnectedUserIds().add(userId);
+            gameSession.getConnectedPlayerIds().add(playerId);
         }
         return gameRepository.save(gameSession);
     }
 
-    public void removeConnectedUser(UUID gameSessionId, Long userId) {
+    public void removeConnectedPlayer(UUID gameSessionId, UUID playerId) {
         Optional<GameSession> gameSessionOpt = gameRepository.findById(gameSessionId);
         if (gameSessionOpt.isEmpty()) {
-            log.debug("Game session {} not found when removing connected user {}", gameSessionId, userId);
+            log.debug("Game session {} not found when removing connected player {}", gameSessionId, playerId);
             return;
         }
         GameSession gameSession = gameSessionOpt.get();
-        if (userId != null) {
-            gameSession.getConnectedUserIds().remove(userId);
+        if (playerId != null) {
+            gameSession.getConnectedPlayerIds().remove(playerId);
+        }
+        if (gameSession.getConnectedPlayerCount() == 0) {
+            gameRepository.delete(gameSession);
+            lobbyRepository.findAll().stream()
+                    .filter(l -> gameSessionId.equals(l.getGameSessionId()))
+                    .findFirst()
+                    .ifPresent(lobbyRepository::delete);
+            log.info("Deleted game session {} and its lobby after all players disconnected", gameSessionId);
+            return;
         }
         gameRepository.save(gameSession);
     }
 
-    private MoveIntentRequestPayload extractMovePayload(OnlinePlayerIntentRequestDto<?> intent) {
-        if (intent == null || intent.payload() == null) {
-            return null;
-        }
-        if (intent.payload() instanceof MoveIntentRequestPayload move) {
-            return move;
-        }
-        if (intent.payload() instanceof java.util.Map<?, ?> map) {
-            Object dirObj = map.get("direction");
-            if (dirObj instanceof Number num) {
-                return new MoveIntentRequestPayload(num.intValue());
-            }
-        }
-        return null;
-    }
-
-    private AimIntentRequestPayload extractAimPayload(OnlinePlayerIntentRequestDto<?> intent) {
-        if (intent == null || intent.payload() == null) {
-            return null;
-        }
-        if (intent.payload() instanceof AimIntentRequestPayload aim) {
-            return aim;
-        }
-        if (intent.payload() instanceof java.util.Map<?, ?> map) {
-            Object angleObj = map.get("angle");
-            Object powerObj = map.get("power");
-            if (angleObj instanceof Number angleNum && powerObj instanceof Number powerNum) {
-                return new AimIntentRequestPayload(angleNum.doubleValue(), powerNum.doubleValue());
-            }
-        }
-        return null;
-    }
-
-    private FireIntentIntentRequestPayload extractFirePayload(OnlinePlayerIntentRequestDto<?> intent) {
-        if (intent == null || intent.payload() == null) {
-            return null;
-        }
-        if (intent.payload() instanceof FireIntentIntentRequestPayload fire) {
-            return fire;
-        }
-        if (intent.payload() instanceof java.util.Map<?, ?> map) {
-            Object angleObj = map.get("angle");
-            Object powerObj = map.get("power");
-            if (angleObj instanceof Number angleNum && powerObj instanceof Number powerNum) {
-                return new FireIntentIntentRequestPayload(angleNum.doubleValue(), powerNum.doubleValue());
-            }
-        }
-        return null;
-    }
-
-    private SelectProjectileIntentRequestPayload extractSelectProjectileSlotPayload(OnlinePlayerIntentRequestDto<?> intent) {
-        if (intent == null || intent.payload() == null) {
-            return null;
-        }
-        if (intent.payload() instanceof SelectProjectileIntentRequestPayload select) {
-            return select;
-        }
-        if (intent.payload() instanceof java.util.Map<?, ?> map) {
-            Object slotObj = map.get("slot");
-            if (slotObj instanceof Number slotNum) {
-                return new SelectProjectileIntentRequestPayload(slotNum.intValue());
-            }
-        }
-        return null;
-    }
-
     private IntentRejectionReason rejectionReason(
             GameSession gameSession,
-            String username,
+            UUID playerUuid,
             OnlinePlayerIntentRequestDto<?> intent) {
         if (!GameSessionState.STARTED.equals(gameSession.getState())
                 || !gameSession.getId().toString().equals(intent.gameSessionId())
@@ -399,12 +320,9 @@ public class GameSessionService {
             return IntentRejectionReason.INVALID_PAYLOAD;
         }
 
-        if (!playerUsername(gameSession, intent.playerId()).equals(username)
+        UUID expectedUuid = playerUuid(gameSession, intent.playerId());
+        if (expectedUuid == null || !expectedUuid.equals(playerUuid)
                 || !isActivePlayer(gameSession, intent.playerId())) {
-            return IntentRejectionReason.NOT_ACTIVE_PLAYER;
-        }
-
-        if (gameSession.getPendingTurnTransitionAtServerTick() > 0) {
             return IntentRejectionReason.NOT_ACTIVE_PLAYER;
         }
 
@@ -413,16 +331,10 @@ public class GameSessionService {
             return IntentRejectionReason.STALE_BASE_STATE;
         }
 
-        if (intent.type() == OnlinePlayerIntentRequestType.MOVE) {
-            MoveIntentRequestPayload move = extractMovePayload(intent);
-            if (move != null) {
-                IntentRejectionReason movementRejection = movementRejectionReason(
-                        gameSession,
-                        intent.playerId(),
-                        move);
-                if (movementRejection != null) {
-                    return movementRejection;
-                }
+        if (intent.type() == OnlinePlayerIntentRequestType.MOVE && intent.payload() instanceof MoveIntentRequestPayload move) {
+            IntentRejectionReason movementRejection = movementRejectionReason(gameSession, intent.playerId(), move);
+            if (movementRejection != null) {
+                return movementRejection;
             }
         }
 
@@ -430,30 +342,27 @@ public class GameSessionService {
     }
 
     private boolean validPayload(GameSession gameSession, OnlinePlayerIntentRequestDto<?> intent) {
-        if (intent.intentId() == null || intent.intentId().isBlank() || intent.type() == null) {
+        if (intent.intentId() == null || intent.intentId().isBlank() || intent.type() == null || intent.payload() == null) {
             return false;
         }
 
-        if (intent.type() == OnlinePlayerIntentRequestType.MOVE) {
-            MoveIntentRequestPayload move = extractMovePayload(intent);
-            return move != null && (move.getDirection() == -1 || move.getDirection() == 1);
+        if (intent.type() == OnlinePlayerIntentRequestType.MOVE && intent.payload() instanceof MoveIntentRequestPayload move) {
+            return move.getDirection() == -1 || move.getDirection() == 1;
         }
-        if (intent.type() == OnlinePlayerIntentRequestType.AIM) {
-            AimIntentRequestPayload aim = extractAimPayload(intent);
-            if (aim == null) return false;
+        if (intent.type() == OnlinePlayerIntentRequestType.AIM && intent.payload() instanceof AimIntentRequestPayload aim) {
             var validation = contentCatalog.require(gameSession.getGameContentVersion()).validation();
             return aim.getPower() >= validation.minFirePower() && aim.getPower() <= validation.maxFirePower()
                     && aim.getAngle() >= -Math.PI && aim.getAngle() <= 0.0;
         }
-        if (intent.type() == OnlinePlayerIntentRequestType.SELECT_PROJECTILE_SLOT) {
-            SelectProjectileIntentRequestPayload select = extractSelectProjectileSlotPayload(intent);
-            return select != null;
+        if (intent.type() == OnlinePlayerIntentRequestType.SELECT_PROJECTILE_SLOT
+                && intent.payload() instanceof SelectProjectileIntentRequestPayload select) {
+            var tank = gameSession.getWorld().requireTankByPlayer(intent.playerId());
+            var content = contentCatalog.require(gameSession.getGameContentVersion());
+            var tankDef = content.requireTank(tank.definitionId());
+            int slot = select.getSlot();
+            return slot >= 0 && slot < tankDef.loadout().size();
         }
-        if (intent.type() == OnlinePlayerIntentRequestType.FIRE) {
-            FireIntentIntentRequestPayload fire = extractFirePayload(intent);
-            if (fire == null) {
-                return false;
-            }
+        if (intent.type() == OnlinePlayerIntentRequestType.FIRE && intent.payload() instanceof FireIntentRequestPayload fire) {
             var validation = contentCatalog.require(gameSession.getGameContentVersion()).validation();
             return fire.getPower() >= validation.minFirePower() && fire.getPower() <= validation.maxFirePower()
                     && fire.getAngle() >= -Math.PI && fire.getAngle() <= 0.0;
@@ -466,21 +375,24 @@ public class GameSessionService {
         return gameSession.getWorld().match().activePlayerId() == playerId;
     }
 
-    private String playerUsername(GameSession gameSession, long playerId) {
-        if (playerId == 1) {
-            return gameSession.getPlayerA();
+    private UUID playerUuid(GameSession gameSession, long playerId) {
+        if (playerId == PLAYER_A_ID && gameSession.getPlayerA() != null) {
+            return gameSession.getPlayerA().id();
         }
-        if (playerId == 2) {
-            return gameSession.getPlayerB();
+        if (playerId == PLAYER_B_ID && gameSession.getPlayerB() != null) {
+            return gameSession.getPlayerB().id();
         }
-        return "";
+        return null;
     }
 
     private void publishIntentRejection(
             GameSession gameSession,
             OnlinePlayerIntentRequestDto<?> intent,
             IntentRejectionReason reason) {
-        String username = playerUsername(gameSession, intent.playerId());
+        UUID playerUuid = playerUuid(gameSession, intent.playerId());
+        if (playerUuid == null) {
+            return;
+        }
         long sequence = gameSession.getNextDiffSequence();
         gameSession.setNextDiffSequence(sequence + 1);
         gameSession.setLastDiffServerTick(gameSession.getServerTick());
@@ -489,7 +401,7 @@ public class GameSessionService {
                 .gameSessionId(gameSession.getId().toString())
                 .sequence(sequence)
                 .serverTick(gameSession.getServerTick())
-                    .type(OnlineStateDiffResponseType.INTENT_REJECTION)
+                .type(OnlineStateDiffResponseType.INTENT_REJECTION)
                 .intentId(intent.intentId())
                 .payload(IntentRejection.builder()
                         .playerId(intent.playerId())
@@ -501,7 +413,7 @@ public class GameSessionService {
 
         eventPublisher.publishEvent(new OnlineGameplayEvent(
                 this,
-                username,
+                playerUuid.toString(),
                 "/queue/replies",
                 dto));
     }
@@ -552,7 +464,7 @@ public class GameSessionService {
     public void publishShotOutcomeBatch(
             GameSession gameSession,
             OnlinePlayerIntentRequestDto<?> intent,
-            FireIntentIntentRequestPayload fire) {
+            FireIntentRequestPayload fire) {
         long firingPlayerId = intent.playerId();
         var firingTank = gameSession.getWorld().requireTankByPlayer(firingPlayerId);
         firingTank.aimAngle(fire.getAngle());
@@ -564,7 +476,6 @@ public class GameSessionService {
 
         List<OnlineDiffResponseDto> diffs = new ArrayList<>();
 
-        // 1. PROJECTILE_RESOLUTION
         diffs.add(createDiffDto(
                 gameSession,
                 OnlineStateDiffResponseType.PROJECTILE_RESOLUTION,
@@ -572,7 +483,6 @@ public class GameSessionService {
                 gameSession.getServerTick(),
                 projectile));
 
-        // 2. TERRAIN_PATCH
         diffs.add(createDiffDto(
                 gameSession,
                 OnlineStateDiffResponseType.TERRAIN_PATCH,
@@ -581,7 +491,6 @@ public class GameSessionService {
                 gameSimulation.deformTerrain(content, gameSession.getWorld(), gameSession.getTerrainModel(),
                         projectile.projectileDefinitionId(), projectile.impact())));
 
-        // 3. MOVEMENT_SEGMENT (settlements)
         for (var settlement : gameSimulation.settleUnsupportedTanks(content, gameSession.getWorld(),
                 gameSession.getTerrainModel(), gameSession.getServerTick())) {
             diffs.add(createDiffDto(
@@ -592,9 +501,8 @@ public class GameSessionService {
                     settlement));
         }
 
-        // 4. TURN_TRANSITION or TERMINAL_GAME
-        com.tanks.server.websocket.gameplay.world.TankState tank1 = gameSession.getWorld().requireTankByPlayer(1L);
-        com.tanks.server.websocket.gameplay.world.TankState tank2 = gameSession.getWorld().requireTankByPlayer(2L);
+        TankState tank1 = gameSession.getWorld().requireTankByPlayer(1L);
+        TankState tank2 = gameSession.getWorld().requireTankByPlayer(2L);
 
         boolean tank1Alive = tank1 != null && tank1.alive();
         boolean tank2Alive = tank2 != null && tank2.alive();
@@ -690,8 +598,8 @@ public class GameSessionService {
     }
 
     public void finalizeDamageTrailKills(GameSession gameSession) {
-        com.tanks.server.websocket.gameplay.world.TankState tank1 = gameSession.getWorld().requireTankByPlayer(1L);
-        com.tanks.server.websocket.gameplay.world.TankState tank2 = gameSession.getWorld().requireTankByPlayer(2L);
+        TankState tank1 = gameSession.getWorld().requireTankByPlayer(1L);
+        TankState tank2 = gameSession.getWorld().requireTankByPlayer(2L);
 
         boolean tank1Alive = tank1 != null && tank1.alive();
         boolean tank2Alive = tank2 != null && tank2.alive();
@@ -735,29 +643,16 @@ public class GameSessionService {
         }
     }
 
-    public void executePendingTurnTransition(GameSession gameSession) {
-        if (gameSession.getPendingTurnTransitionAtServerTick() <= 0) {
-            return;
-        }
-        gameSession.setPendingTurnTransitionAtServerTick(0);
-        String intentId = gameSession.getPendingTurnTransitionIntentId();
-        gameSession.setPendingTurnTransitionIntentId(null);
-
-        long previousPlayerId = gameSession.getWorld().match().activePlayerId();
-        long activePlayerId = previousPlayerId == 1 ? 2 : 1;
-        publishTurnStartBatch(gameSession, previousPlayerId, activePlayerId);
-    }
-
-    public void forfeitGame(UUID gameId, String forfeitingUsername) {
+    public void forfeitGame(UUID gameId, UUID forfeitingPlayerUuid) {
         GameSession gameSession = gameRepository.findById(gameId).orElse(null);
         if (gameSession == null || gameSession.getState() != GameSessionState.STARTED) {
             return;
         }
 
-        Long winnerPlayerId = null;
-        if (forfeitingUsername.equals(gameSession.getPlayerA())) {
+        Long winnerPlayerId;
+        if (gameSession.getPlayerA() != null && forfeitingPlayerUuid.equals(gameSession.getPlayerA().id())) {
             winnerPlayerId = 2L;
-        } else if (forfeitingUsername.equals(gameSession.getPlayerB())) {
+        } else if (gameSession.getPlayerB() != null && forfeitingPlayerUuid.equals(gameSession.getPlayerB().id())) {
             winnerPlayerId = 1L;
         } else {
             return;
@@ -774,66 +669,23 @@ public class GameSessionService {
                         .reason(TerminalGameReason.FORFEIT)
                         .finalState(initialStateFactory.createStateSnapshot(gameSession))
                         .build());
-        log.debug("Game {} forfeited by {}: winner={}", gameId, forfeitingUsername, winnerPlayerId);
+        log.debug("Game {} forfeited by {}: winner={}", gameId, forfeitingPlayerUuid, winnerPlayerId);
     }
 
     private void finalizeDrawResult(GameSession gameSession) {
         OffsetDateTime endedAt = OffsetDateTime.now();
-        User playerA = userByUsername(gameSession.getPlayerA());
-        User playerB = userByUsername(gameSession.getPlayerB());
-
-        gameResultRepository.save(GameResult.builder()
-                .playerA(playerA)
-                .playerB(playerB)
-                .winner(null)
-                .outcome(GameOutcome.DRAW)
-                .gameStartedAt(gameStartedAt(gameSession, endedAt))
-                .gameEndedAt(endedAt)
-                .build());
-
         gameSession.setEndedAt(endedAt);
         gameSession.setState(GameSessionState.ENDED);
         gameSession.getWorld().match().winnerPlayerId(null);
-        log.debug("Game ended in DRAW: {} vs {}", playerA.getUsername(), playerB.getUsername());
+        log.debug("Game ended in DRAW: {}", gameSession.getId());
     }
 
     private void finalizeWinResult(GameSession gameSession, long winnerPlayerId) {
         OffsetDateTime endedAt = OffsetDateTime.now();
-        User playerA = userByUsername(gameSession.getPlayerA());
-        User playerB = userByUsername(gameSession.getPlayerB());
-        User winner = winnerPlayerId == 1 ? playerA : playerB;
-
-        gameResultRepository.save(GameResult.builder()
-                .playerA(playerA)
-                .playerB(playerB)
-                .winner(winner)
-                .outcome(GameOutcome.WIN)
-                .gameStartedAt(gameStartedAt(gameSession, endedAt))
-                .gameEndedAt(endedAt)
-                .build());
-
         gameSession.setEndedAt(endedAt);
         gameSession.setState(GameSessionState.ENDED);
         gameSession.getWorld().match().winnerPlayerId(winnerPlayerId);
-        log.debug("Game ended: {} vs {}", playerA, playerB);
-    }
-
-    private User userByUsername(String username) {
-        return userRepository.findByUsername(username)
-                .orElseThrow(() -> new ProblemDetailException(
-                        HttpStatus.NOT_FOUND,
-                        "Game result participant not found.",
-                        URI.create("about:blank")));
-    }
-
-    private OffsetDateTime gameStartedAt(GameSession gameSession, OffsetDateTime endedAt) {
-        if (gameSession.getStartedAt() != null) {
-            return gameSession.getStartedAt();
-        }
-        if (gameSession.getCreatedAt() != null) {
-            return gameSession.getCreatedAt();
-        }
-        return endedAt;
+        log.debug("Game ended: {}, winner={}", gameSession.getId(), winnerPlayerId);
     }
 
     private OnlineDiffResponseDto createCrateSpawnDiff(GameSession gameSession) {
@@ -843,15 +695,15 @@ public class GameSessionService {
         var content = contentCatalog.require(gameSession.getGameContentVersion());
         double minX = 100.0;
         double maxX = content.world().width() - 100.0;
-        double dropX = Math.round((minX + java.util.concurrent.ThreadLocalRandom.current().nextDouble() * (maxX - minX)) * 1000.0) / 1000.0;
+        double dropX = Math.round((minX + ThreadLocalRandom.current().nextDouble() * (maxX - minX)) * 1000.0) / 1000.0;
         double targetY = gameSession.getTerrainModel().surfaceY(dropX);
 
         String[] crateTypes = {"hp", "fuel", "ammo"};
-        String crateType = crateTypes[java.util.concurrent.ThreadLocalRandom.current().nextInt(crateTypes.length)];
+        String crateType = crateTypes[ThreadLocalRandom.current().nextInt(crateTypes.length)];
         int value = "hp".equals(crateType) ? 25 : 50;
         String crateId = "crate-" + UUID.randomUUID().toString().substring(0, 8);
 
-        com.tanks.server.websocket.gameplay.world.LootCrateState crateState = com.tanks.server.websocket.gameplay.world.LootCrateState.builder()
+        LootCrateState crateState = LootCrateState.builder()
                 .crateId(crateId)
                 .crateType(crateType)
                 .x(dropX)
@@ -878,19 +730,12 @@ public class GameSessionService {
                         .build());
     }
 
-    public void spawnLootCrate(GameSession gameSession) {
-        OnlineDiffResponseDto crateDiff = createCrateSpawnDiff(gameSession);
-        if (crateDiff != null) {
-            eventPublisher.publishEvent(new OnlineGameplayEvent(
-                    this,
-                    null,
-                    "/topic/game/" + gameSession.getId(),
-                    crateDiff));
-        }
-    }
-
     public void finalizeMatchTimeExpired(GameSession gameSession, Long winnerPlayerId) {
-        finalizeWinResult(gameSession, winnerPlayerId != null ? winnerPlayerId : 0);
+        if (winnerPlayerId == null) {
+            finalizeDrawResult(gameSession);
+        } else {
+            finalizeWinResult(gameSession, winnerPlayerId);
+        }
         publishDiff(
                 gameSession,
                 OnlineStateDiffResponseType.TERMINAL_GAME,

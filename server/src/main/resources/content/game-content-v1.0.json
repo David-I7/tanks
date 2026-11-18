@@ -1,6 +1,7 @@
 {
   "version": "v1.0",
   "world": {
+    "biome": "forest",
     "width": 2400,
     "height": 768,
     "tickRateHz": 30,
@@ -23,6 +24,7 @@
     "vanguard-cyber": {
       "id": "vanguard-cyber",
       "name": "Vanguard Cyber",
+      "description": "Futuristic tank with advanced cybernetic enhancements and advanced firepower.",
       "maxHealth": 100,
       "maxFuel": 240,
       "movementQuantum": 8,
@@ -47,6 +49,7 @@
     "heavy-armor": {
       "id": "heavy-armor",
       "name": "Heavy Armor",
+      "description": "A heavily armored tank with exceptional durability and firepower.",
       "maxHealth": 100,
       "maxFuel": 180,
       "movementQuantum": 8,
@@ -71,6 +74,7 @@
     "desert-striker": {
       "id": "desert-striker",
       "name": "Desert Striker",
+      "description": "A tank with a unique design and advanced firepower.",
       "maxHealth": 100,
       "maxFuel": 280,
       "movementQuantum": 8,
@@ -94,6 +98,7 @@
     },
     "specter": {
       "id": "specter",
+      "description": "A mysterious tank with a haunting presence and devastating firepower.",
       "name": "Specter",
       "maxHealth": 100,
       "maxFuel": 240,
@@ -124,8 +129,8 @@
       "label": "BS",
       "radius": 4,
       "baseVelocity": 1,
-      "gravityScale": 0,
-      "drag": 1,
+      "gravityScale": 1.0,
+      "drag": 0,
       "terrainEffect": { "type": "CRATER", "radius": 46 },
       "damageEffect": { "type": "RADIAL", "radius": 46, "damage": 48 }
     },
@@ -196,7 +201,7 @@
       "damageEffect": { "type": "RADIAL", "radius": 30, "damage": 25 },
       "subMunitions": {
         "count": 3,
-        "projectileDefinitionId": "basicShell",
+        "projectileId": "basicShell",
         "spreadAngleDegrees": 30.0,
         "velocityScale": 0.5
       }
@@ -262,7 +267,7 @@
       "damageEffect": { "type": "RADIAL", "radius": 78, "damage": 30 },
       "subMunitions": {
         "count": 3,
-        "projectileDefinitionId": "basicShell",
+        "projectileId": "basicShell",
         "spreadAngleDegrees": 30.0,
         "velocityScale": 0.5
       }

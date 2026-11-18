@@ -2,23 +2,18 @@ import { ArrowLeft } from "lucide-react";
 import Button from "../../components/buttons/Button";
 import IconButton from "../../components/buttons/IconButton";
 import H1 from "../../components/headings/H1";
-import Surface from "../../components/layouts/Surface";
 import TankSelector from "../../components/game/TankSelector";
 import { useScreenStack } from "../../context/ScreenStack";
 import type { HomeScreenStack } from "./HomePage";
-import { useUserStatusQuery } from "../../hooks/useUserStatusQuery";
-import UiError from "../../errors/UiError";
+import { usePlayerStore } from "../../store/usePlayerStore";
 
 export default function OnlineMenu() {
   const { popScreen, pushScreen } = useScreenStack<HomeScreenStack>();
-  const checked = useCheckUserStatus();
-
-  if (checked === false) {
-    return null;
-  }
+  const player = usePlayerStore((state) => state.player);
+  const setNickname = usePlayerStore((state) => state.setNickname);
 
   return (
-    <Surface className="px-8 py-8 w-full max-w-md flex flex-col gap-5 text-center relative pt-14">
+    <section>
       <div className="absolute top-4 left-4">
         <IconButton
           onClick={() => popScreen()}
@@ -26,9 +21,24 @@ export default function OnlineMenu() {
         />
       </div>
       <H1 className="text-center mb-1">Online Mode</H1>
-
+      <div className="flex flex-col gap-1.5 text-left">
+        <label
+          htmlFor="nickname"
+          className="text-xs font-semibold uppercase tracking-wider text-neutral-400"
+        >
+          Nickname
+        </label>
+        <input
+          id="nickname"
+          type="text"
+          value={player.nickname}
+          maxLength={20}
+          onChange={(e) => setNickname(e.target.value)}
+          placeholder="Enter nickname..."
+          className="w-full px-3 py-2 bg-neutral-800/80 border border-neutral-700 rounded-lg text-sm text-neutral-100 focus:outline-none focus:border-amber-500 transition-colors"
+        />
+      </div>
       <TankSelector label="Select Your Tank" />
-
       <div className="flex flex-col gap-3 mt-2">
         <Button color="primary" onClick={() => pushScreen("quickMatchLobby")}>
           Play Quick Match
@@ -37,25 +47,6 @@ export default function OnlineMenu() {
           Create Private Room
         </Button>
       </div>
-    </Surface>
+    </section>
   );
-}
-
-function useCheckUserStatus() {
-  const { data: userStatus, isFetching } = useUserStatusQuery();
-
-  if (isFetching) {
-    return false;
-  }
-
-  if (userStatus == null) return true;
-
-  if (userStatus.state === "IN_LOBBY") {
-    throw new UiError({
-      description: "You are currently in a lobby in another tab or window.",
-      heading: "In a lobby",
-    });
-  }
-
-  return true;
 }

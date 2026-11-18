@@ -19,7 +19,7 @@ public record WorldDefinitionResponseDto(
 
     public static WorldDefinitionResponseDto from(WorldDefinition value) {
         return new WorldDefinitionResponseDto(
-                value.biome() != null ? value.biome() : "forest",
+                value.biome(),
                 value.width(),
                 value.height(),
                 value.tickRateHz(),

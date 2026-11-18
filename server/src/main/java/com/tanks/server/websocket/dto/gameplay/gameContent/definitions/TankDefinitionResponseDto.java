@@ -1,12 +1,14 @@
 package com.tanks.server.websocket.dto.gameplay.gameContent.definitions;
 
-import java.util.List;
 import com.tanks.server.websocket.gameplay.content.definitions.TankDefinition;
 import com.tanks.server.websocket.gameplay.content.definitions.TankVisual;
+
+import java.util.List;
 
 public record TankDefinitionResponseDto(
         String id,
         String name,
+        String description,
         int maxHealth,
         int maxFuel,
         int movementQuantum,
@@ -21,6 +23,7 @@ public record TankDefinitionResponseDto(
         return new TankDefinitionResponseDto(
                 value.id(),
                 value.name(),
+                value.description(),
                 value.maxHealth(),
                 value.maxFuel(),
                 value.movementQuantum(),

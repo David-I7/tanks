@@ -6,15 +6,15 @@ export abstract class TanksRequest<Data> {
   abstract getPath(): string;
   abstract getMethod(): Method;
 
-  getHeaders(): Record<string, any> | undefined {
+  getHeaders(): Record<string, string> | undefined {
     return undefined;
   }
 
-  getBody(): any {
+  getBody(): unknown {
     return undefined;
   }
 
-  getParams(): Record<string, any> | undefined {
+  getParams(): Record<string, unknown> | undefined {
     return undefined;
   }
 }

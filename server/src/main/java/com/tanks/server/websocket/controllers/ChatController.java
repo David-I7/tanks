@@ -3,11 +3,8 @@ package com.tanks.server.websocket.controllers;
 import com.tanks.server.websocket.dto.chat.ChatEventRequestDto;
 import com.tanks.server.websocket.dto.chat.ChatEventResponseDto;
 import com.tanks.server.websocket.dto.chat.ChatMessagePayload;
-import com.tanks.server.websocket.exceptions.ProblemDetailException;
-import com.tanks.server.websocket.security.services.LobbyAuthorizationService;
+import com.tanks.server.websocket.security.entities.WebSocketPrincipal;
 import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
@@ -15,8 +12,6 @@ import org.springframework.messaging.handler.annotation.SendTo;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
-
-import java.net.URI;
 
 @Controller
 public class ChatController {
@@ -27,14 +22,13 @@ public class ChatController {
     public ChatEventResponseDto sendMessage(
             @DestinationVariable String id,
             @Valid @Payload ChatEventRequestDto chatMessage,
-            Authentication authentication){
+            Authentication authentication) {
+        WebSocketPrincipal principal = (WebSocketPrincipal) authentication.getPrincipal();
 
-        ChatEventResponseDto responseDto = ChatEventResponseDto.builder()
+        return ChatEventResponseDto.builder()
                 .type(chatMessage.getType())
-                .payload(new ChatMessagePayload(chatMessage.getMessage(), authentication.getName()))
+                .payload(new ChatMessagePayload(chatMessage.getMessage(), principal.getNickname()))
                 .build();
-
-        return responseDto;
     }
 
 }

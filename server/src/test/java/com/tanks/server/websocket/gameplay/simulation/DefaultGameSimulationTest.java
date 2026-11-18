@@ -1,10 +1,7 @@
 package com.tanks.server.websocket.gameplay.simulation;
 
-import org.junit.jupiter.api.Test;
-import static org.junit.jupiter.api.Assertions.*;
-
 import com.tanks.server.websocket.dto.gameplay.OnlineVec2Dto;
-import com.tanks.server.websocket.dto.gameplay.playerIntent.payloads.FireIntentIntentRequestPayload;
+import com.tanks.server.websocket.dto.gameplay.playerIntent.payloads.FireIntentRequestPayload;
 import com.tanks.server.websocket.gameplay.content.GameContent;
 import com.tanks.server.websocket.gameplay.content.definitions.ProjectileDefinition;
 import com.tanks.server.websocket.gameplay.content.definitions.TankDefinition;
@@ -12,11 +9,14 @@ import com.tanks.server.websocket.gameplay.content.definitions.WorldDefinition;
 import com.tanks.server.websocket.gameplay.world.TankState;
 import com.tanks.server.websocket.gameplay.world.TerrainModel;
 import com.tanks.server.websocket.gameplay.world.World;
+import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DefaultGameSimulationTest {
 
@@ -25,7 +25,7 @@ class DefaultGameSimulationTest {
         DefaultGameSimulation simulation = new DefaultGameSimulation();
 
         TankDefinition tankDef = new TankDefinition(
-                "cyber", "Cyber", 100, 200, 8, 1, 5, 32, 16, null, List.of("basicShell")
+                "cyber", "Cyber", "Cyber tank", 100, 200, 8, 1, 5, 32, 16, null, List.of("basicShell")
         );
 
         ProjectileDefinition projDef = new ProjectileDefinition(
@@ -48,7 +48,7 @@ class DefaultGameSimulationTest {
                 .playerId(1L)
                 .definitionId("cyber")
                 .position(new OnlineVec2Dto(500, 400))
-                .facing(1) // Facing right
+                .facing(1)
                 .aimAngle(-Math.PI / 4)
                 .power(1.0)
                 .selectedProjectileSlotId("basicShell")
@@ -65,7 +65,7 @@ class DefaultGameSimulationTest {
                 .playerId(2L)
                 .definitionId("cyber")
                 .position(new OnlineVec2Dto(500, 400))
-                .facing(-1) // Facing left
+                .facing(-1)
                 .aimAngle(-Math.PI / 4)
                 .power(1.0)
                 .selectedProjectileSlotId("basicShell")
@@ -77,12 +77,11 @@ class DefaultGameSimulationTest {
         worldLeft.match().activePlayerId(2L);
         worldLeft.tanks().put(2L, tankLeft);
 
-        FireIntentIntentRequestPayload fireRightAim = new FireIntentIntentRequestPayload(-Math.PI / 4, 1.0);
+        FireIntentRequestPayload fireRightAim = new FireIntentRequestPayload(-Math.PI / 4, 1.0);
 
         var resRightFacing = simulation.fire(content, worldRight, terrain, "intent-1", 100L, 1L, fireRightAim);
         var resLeftFacing = simulation.fire(content, worldLeft, terrain, "intent-2", 101L, 2L, fireRightAim);
 
-        // First step after launch in trajectory must move right (+x) and up (-y) for BOTH facing directions
         assertTrue(resRightFacing.trajectory().get(1).x() > resRightFacing.launch().x(), "Facing 1: x should increase when aiming -PI/4");
         assertTrue(resRightFacing.trajectory().get(1).y() < resRightFacing.launch().y(), "Facing 1: y should decrease (upward) when aiming -PI/4");
 

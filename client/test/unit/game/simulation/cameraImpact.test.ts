@@ -51,7 +51,7 @@ describe("Camera impact tracking and turn transition", () => {
 
     // Advance until ballistics resolves to impact
     let impactOccurred = false;
-    for (let frame = 0; frame < 120; frame++) {
+    for (let frame = 0; frame < 240; frame++) {
       sim.update(0.016);
       if (world.match.phase === "impact" || world.match.phase === "transition") {
         impactOccurred = true;

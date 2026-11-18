@@ -1,5 +1,5 @@
 import { useAssetQuery, type TankAsset } from "../../hooks/useAssetQuery";
-import { useAssetStore } from "../../store/useAssetStore";
+import { usePlayerStore } from "../../store/usePlayerStore";
 
 type TankSelectorProps = {
   onTankSelect?: (tank: TankAsset) => void;
@@ -11,8 +11,8 @@ export default function TankSelector({
   label = "Select Your Tank",
 }: TankSelectorProps) {
   const { data: tanks, isLoading } = useAssetQuery();
-  const selectedTankId = useAssetStore((state) => state.selectedTankId);
-  const selectTank = useAssetStore((state) => state.setSelectedTank);
+  const selectedTankId = usePlayerStore((state) => state.player.tankId);
+  const selectTank = usePlayerStore((state) => state.setTankId);
 
   if (isLoading || !tanks) {
     return <div className="text-xs text-text-body-muted">Loading tanks...</div>;
@@ -40,7 +40,8 @@ export default function TankSelector({
               type="button"
               onClick={() => {
                 selectTank(tank.id);
-                onTankSelect && onTankSelect(tank);
+                const selectedTank = tanks.find((t) => t.id === tank.id);
+                onTankSelect && onTankSelect(selectedTank!);
               }}
               className={`flex flex-col items-center p-2 rounded-lg border transition-all duration-200 cursor-pointer ${
                 isSelected
@@ -88,21 +89,18 @@ export default function TankSelector({
               <div
                 key={proj.id}
                 className="flex flex-col items-center p-1.5 rounded border border-border-main bg-background-high/90 text-center shadow-sm"
-                title={`${proj.name} (${proj.type})`}
+                title={`${proj.name}`}
               >
                 <div className="w-9 h-7 flex items-center justify-center p-0.5 bg-background/70 rounded border border-border-main mb-1">
                   <div
                     className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white shadow-sm"
-                    style={{ backgroundColor: proj.color || "#38bdf8" }}
+                    style={{ backgroundColor: "#38bdf8" }}
                   >
                     {proj.label}
                   </div>
                 </div>
                 <span className="text-[10px] font-bold truncate w-full text-text-body-high">
                   {proj.name}
-                </span>
-                <span className="text-[8px] text-text-body-muted truncate w-full">
-                  {proj.type}
                 </span>
               </div>
             ))}

@@ -2,10 +2,10 @@ package com.tanks.server.websocket.config;
 
 import com.tanks.server.websocket.exceptions.StompErrorHandler;
 import com.tanks.server.websocket.security.interceptors.AuthorizationInterceptor;
-import com.tanks.server.websocket.security.interceptors.JwtAuthenticationInterceptor;
+import com.tanks.server.websocket.security.interceptors.LobbyHandshakeHandler;
+import com.tanks.server.websocket.security.interceptors.LobbyHandshakeInterceptor;
 import com.tanks.server.websocket.security.interceptors.StompReceiptInterceptor;
-import com.tanks.server.websocket.security.interceptors.UserSessionReloadInterceptor;
-import lombok.AllArgsConstructor;
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.simp.config.ChannelRegistration;
@@ -18,27 +18,23 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 
 @Configuration
 @EnableWebSocketMessageBroker
-@AllArgsConstructor
+@RequiredArgsConstructor
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
-    private final JwtAuthenticationInterceptor jwtAuthenticationInterceptor;
-
-    private final UserSessionReloadInterceptor userSessionReloadInterceptor;
-
+    private final LobbyHandshakeInterceptor lobbyHandshakeInterceptor;
+    private final LobbyHandshakeHandler lobbyHandshakeHandler;
     private final AuthorizationInterceptor authorizationInterceptor;
-
     private final StompReceiptInterceptor stompReceiptInterceptor;
-
     private final StompErrorHandler stompErrorHandler;
 
     @Override
     public void configureClientInboundChannel(ChannelRegistration registration) {
-        registration.interceptors(jwtAuthenticationInterceptor, userSessionReloadInterceptor, authorizationInterceptor, stompReceiptInterceptor);
+        registration.interceptors(authorizationInterceptor, stompReceiptInterceptor);
     }
 
     @Override
     public void configureMessageBroker(MessageBrokerRegistry config) {
-        config.enableSimpleBroker("/topic","/queue")
+        config.enableSimpleBroker("/topic", "/queue")
                 .setHeartbeatValue(new long[] {10000, 10000}) // 10s
                 .setTaskScheduler(webSocketHeartbeatTaskScheduler());
         config.setUserDestinationPrefix("/user");
@@ -48,6 +44,8 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         registry.addEndpoint("/ws")
+                .addInterceptors(lobbyHandshakeInterceptor)
+                .setHandshakeHandler(lobbyHandshakeHandler)
                 .setAllowedOriginPatterns("*");
         registry.setErrorHandler(stompErrorHandler);
     }
@@ -60,5 +58,4 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         scheduler.initialize();
         return scheduler;
     }
-
 }

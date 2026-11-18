@@ -1,6 +1,6 @@
 package com.tanks.server.websocket.exceptions;
 
-import com.tanks.server.dto.validation.ConstraintValidationDto;
+import com.tanks.server.dto.response.ConstraintValidationDto;
 import com.tanks.server.mappers.validation.ObjectErrorToConstraintValidationDto;
 import com.tanks.server.utils.ProblemDetailWriter;
 import lombok.extern.slf4j.Slf4j;

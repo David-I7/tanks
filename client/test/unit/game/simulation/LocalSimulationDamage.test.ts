@@ -41,7 +41,7 @@ describe("LocalSimulation damage calculation", () => {
     const sim = new LocalSimulation(world, terrain, localGameContent);
 
     const initialHealth = world.tanks.get(tank1Id)!.health;
-    expect(initialHealth).toBe(130);
+    expect(initialHealth).toBe(100);
 
     const fired = sim.submitPlayerAction(0, {
       type: "fire",
@@ -117,6 +117,6 @@ describe("LocalSimulation damage calculation", () => {
 
     const finalHealth = world.tanks.get(tank1Id)!.health;
     // basicShell damage is 48
-    expect(finalHealth).toBe(130 - 48);
+    expect(finalHealth).toBe(100 - 48);
   });
 });

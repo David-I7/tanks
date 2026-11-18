@@ -1,16 +1,17 @@
 import { ArrowLeft } from "lucide-react";
 import { useEffect, useMemo, useRef } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
 import {
   createLocalGameManager,
   GameEngine,
-  ResourceManager,
+  localGameContent,
   type MatchSetup,
-} from "../../game";
+  type TankDefinitionIds,
+} from "../../features/game";
 import IconButton from "../../components/buttons/IconButton";
-import type { TankDefinitionIds } from "../../game/rendering/ResourceManager";
+import { useScreenStack } from "../../context/ScreenStack";
+import type { HomeScreenStack } from "../home/HomePage";
 
-type LocationState = {
+export type LocalGameLocationState = {
   mode: "localTwoPlayer";
   player1Config: {
     name: string;
@@ -22,32 +23,34 @@ type LocationState = {
   };
 };
 
-function isValidLocationState(state: any): state is LocationState {
+function isValidLocationState(state: unknown): state is LocalGameLocationState {
   return (
-    state &&
+    Boolean(state) &&
     typeof state === "object" &&
-    state.mode === "localTwoPlayer" &&
-    typeof state.player1Config === "object" &&
-    typeof state.player2Config === "object" &&
-    "name" in state.player1Config &&
-    "tankId" in state.player1Config &&
-    "name" in state.player2Config &&
-    "tankId" in state.player2Config
+    state !== null &&
+    "mode" in state &&
+    (state as { mode: unknown }).mode === "localTwoPlayer" &&
+    "player1Config" in state &&
+    "player2Config" in state
   );
 }
 
-export default function LocalGamePage() {
-  const navigate = useNavigate();
+export default function LocalGameScreen() {
+  const { popScreen, state } = useScreenStack<HomeScreenStack>();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const engineRef = useRef<GameEngine | null>(null);
-  const location = useLocation();
-  const state = location.state as LocationState | null;
 
-  if (!state || !isValidLocationState(state)) {
-    throw new Error("Invalid state for local game setup");
-  }
+  const fallbackState: LocalGameLocationState = useMemo(
+    () => ({
+      mode: "localTwoPlayer",
+      player1Config: { name: "Player 1", tankId: "heavy-armor" },
+      player2Config: { name: "Player 2", tankId: "desert-striker" },
+    }),
+    [],
+  );
 
-  const { mode, player1Config, player2Config } = state;
+  const activeConfig = isValidLocationState(state) ? state : fallbackState;
+  const { mode, player1Config, player2Config } = activeConfig;
 
   const matchSetup = useMemo<MatchSetup>(
     () => ({
@@ -79,7 +82,7 @@ export default function LocalGamePage() {
       canvas,
       mode,
       setup: matchSetup,
-      content: ResourceManager.getInstance().getGameContent(),
+      content: localGameContent,
     });
     const engine = new GameEngine({
       canvas,
@@ -101,20 +104,18 @@ export default function LocalGamePage() {
         engineRef.current = null;
       }
     };
-  }, [matchSetup]);
-
-  const modeLabel = "Local Two-Player";
+  }, [matchSetup, mode]);
 
   return (
-    <main className="relative z-10 flex min-h-screen flex-col bg-background p-4 text-text-body-high">
+    <main className="relative z-10 flex min-h-screen w-full flex-col bg-background p-4 text-text-body-high">
       <header className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <IconButton
-            onClick={() => navigate("/")}
+            onClick={() => popScreen()}
             icon={<ArrowLeft size={16} />}
           />
           <h1 className="font-heading text-xl font-bold tracking-wide text-primary">
-            {modeLabel}
+            Local Two-Player
           </h1>
         </div>
         <div className="text-sm font-medium text-text-body-muted">

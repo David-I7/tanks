@@ -1,7 +1,7 @@
 package com.tanks.server.mappers.validation;
 
-import com.tanks.server.dto.validation.ConstraintValidationDto;
-import com.tanks.server.dto.validation.ConstraintValidationType;
+import com.tanks.server.dto.response.ConstraintValidationDto;
+import com.tanks.server.dto.response.ConstraintValidationType;
 import org.springframework.validation.FieldError;
 import org.springframework.validation.ObjectError;
 

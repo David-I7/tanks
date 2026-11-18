@@ -1,32 +1,27 @@
 import { create } from "zustand";
-import TanksWSClient, {
+import WebSocketClient, {
   type EndpointSubscription,
   type PublishParams,
   type SubscriptionCleanup,
-} from "../api/ws/TanksWebSocketClient";
-import { useAuthStore } from "./useAuthStore";
+  WebSocketClientBuilder,
+} from "../api/ws/WebSocketClient";
 import WebSocketError from "../errors/WebSocketError";
-import InvalidStateError from "../errors/InvalidStateError";
 import type { WebSocketEventResponseDto } from "../api/ws/dto/WebSocketEventResponseDto";
+import StompError from "../errors/StompError";
 
-export type ConnectionStatus =
-  | "connecting"
-  | "reconnecting"
-  | "connected"
-  | "disconnected";
+export type ConnectionStatus = "connecting" | "connected" | "disconnected";
 
 export type DisconnectReason =
   | "stompError"
   | "manualDisconnect"
-  | "invalidAccessToken"
   | "browserDisconnect"
   | null;
 
 interface WebSocketState {
   status: ConnectionStatus;
-  error: WebSocketError | null;
+  error: StompError | null;
   disconnectReason: DisconnectReason;
-  connect: () => void;
+  connect: (lobbyId: string, playerId: string) => void;
   disconnect: () => void;
   send: (params: PublishParams) => void;
   subscribe: <Data = WebSocketEventResponseDto>(
@@ -35,75 +30,47 @@ interface WebSocketState {
 }
 
 export const useWebSocketStore = create<WebSocketState>((set, get) => {
-  let client: TanksWSClient | null = null;
+  let client: WebSocketClient | null = null;
   let disconnectReason: DisconnectReason = null;
 
-  // Subscribe to useAuthStore to handle token updates and logout
-  useAuthStore.subscribe((authState) => {
-    const { disconnect } = get();
-    if (client) {
-      if (authState.user === null) {
-        // User logged out or token invalidated, disconnect
-        disconnectReason = "invalidAccessToken";
-        disconnect();
-      } else {
-        // Token updated, update client
-        client.setAccessToken(authState.accessToken);
-        client.setRefreshHandler(authState.refresh);
-      }
-    }
-  });
-
-  function createClient() {
-    const { accessToken, refresh, user } = useAuthStore.getState();
-
-    if (user === null) {
-      throw new InvalidStateError(
-        "User must be authenticated to connect to WebSockets",
-      );
-    }
-
-    client = new TanksWSClient(accessToken!, refresh);
-
-    set({ status: "connecting" });
-
-    client.onConnect(() => {
-      set({ status: "connected", error: null, disconnectReason: null });
-    });
-
-    client.onWebSocketClose(() => {
-      if (disconnectReason === null) {
-        disconnectReason = "browserDisconnect";
-        set({ status: "reconnecting", error: null, disconnectReason });
-      } else {
+  function createClient(lobbyId: string, playerId: string) {
+    client = new WebSocketClientBuilder()
+      .brokerURL(
+        `${import.meta.env.VITE_WS_BROKER_URL}?lobbyId=${lobbyId}&playerId=${playerId}`,
+      )
+      .reconnectDelay(0)
+      .debug(import.meta.env.DEV)
+      .onConnect(() => {
+        set({ status: "connected", error: null, disconnectReason: null });
+      })
+      .onWebSocketClose(() => {
+        if (disconnectReason === null) {
+          disconnectReason = "browserDisconnect";
+        }
         set({ status: "disconnected", disconnectReason });
-      }
-    });
+      })
+      .onStompError((err) => {
+        disconnectReason = "stompError";
+        set({ error: new StompError(err) });
+        disconnect();
+      })
+      .build();
 
-    client.onStompError((err) => {
-      disconnectReason = "stompError";
-      set({ error: new WebSocketError(err) });
-      disconnect();
-    });
+    set({ status: "connecting", error: null, disconnectReason: null });
 
     client.activate();
-    client = client;
   }
 
-  const connect = () => {
+  const connect = (lobbyId: string, playerId: string) => {
     const { status } = get();
 
     if (status !== "disconnected") {
-      disconnect();
+      throw new WebSocketError(
+        "Client must be disconnected before connecting to a lobby",
+      );
     }
 
-    if (client === null) {
-      createClient();
-    } else {
-      set({ status: "connecting", error: null, disconnectReason: null });
-      client.activate();
-    }
-    disconnectReason = null;
+    createClient(lobbyId, playerId);
   };
 
   const disconnect = () => {
