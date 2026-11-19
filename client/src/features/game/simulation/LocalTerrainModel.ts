@@ -1,5 +1,16 @@
 import type { TerrainEffect, TerrainSnapshot } from "../types";
 
+const TERRAIN_BASELINE_RATIO = 0.64;
+const TERRAIN_FREQ_1 = 0.009;
+const TERRAIN_AMP_1 = 58;
+const TERRAIN_FREQ_2 = 0.024;
+const TERRAIN_AMP_2 = 22;
+const CIRCLE_INTERSECTION_SAMPLES = 16;
+const SMOOTH_PADDING = 8;
+const STEP_LIMIT_PADDING = 10;
+const MAX_ADJACENT_STEP = 5;
+const SMOOTH_PASSES = 2;
+
 export class LocalTerrainModel {
   readonly surface: number[];
 
@@ -8,7 +19,11 @@ export class LocalTerrainModel {
     readonly height: number,
   ) {
     this.surface = Array.from({ length: width }, (_, x) =>
-      Math.floor(height * 0.64 + Math.sin(x * 0.009) * 58 + Math.sin(x * 0.024) * 22),
+      Math.floor(
+        height * TERRAIN_BASELINE_RATIO +
+          Math.sin(x * TERRAIN_FREQ_1) * TERRAIN_AMP_1 +
+          Math.sin(x * TERRAIN_FREQ_2) * TERRAIN_AMP_2,
+      ),
     );
   }
 
@@ -23,9 +38,8 @@ export class LocalTerrainModel {
   }
 
   intersectsCircle(cx: number, cy: number, radius: number): boolean {
-    const samples = 16;
-    for (let i = 0; i < samples; i += 1) {
-      const angle = (i / samples) * Math.PI * 2;
+    for (let i = 0; i < CIRCLE_INTERSECTION_SAMPLES; i += 1) {
+      const angle = (i / CIRCLE_INTERSECTION_SAMPLES) * Math.PI * 2;
       if (this.isSolid(cx + Math.cos(angle) * radius, cy + Math.sin(angle) * radius)) {
         return true;
       }
@@ -35,7 +49,28 @@ export class LocalTerrainModel {
 
   applyTerrainEffect(cx: number, cy: number, effect: TerrainEffect): void {
     if (effect.type === "drill") {
-      return this.deform(cx, cy + effect.depth, effect.radius);
+      const radius = effect.radius;
+      const depth = effect.depth;
+      const startX = Math.max(0, Math.floor(cx - radius));
+      const endX = Math.min(this.width - 1, Math.ceil(cx + radius));
+
+      for (let x = startX; x <= endX; x += 1) {
+        const dx = x - cx;
+        const remaining = radius * radius - dx * dx;
+        if (remaining < 0) continue;
+
+        const drillBottomY = Math.floor(cy + depth + Math.sqrt(remaining));
+        this.surface[x] = Math.min(
+          this.height,
+          Math.max(this.surface[x] ?? this.height, drillBottomY),
+        );
+      }
+
+      this.smoothRange(
+        Math.max(0, startX - SMOOTH_PADDING),
+        Math.min(this.width - 1, endX + SMOOTH_PADDING),
+      );
+      return;
     }
 
     return this.deform(cx, cy, effect.radius);
@@ -54,18 +89,19 @@ export class LocalTerrainModel {
       this.surface[x] = Math.min(this.height, Math.max(this.surface[x] ?? this.height, craterBottomY));
     }
 
-    this.smoothRange(Math.max(0, startX - 8), Math.min(this.width - 1, endX + 8));
+    this.smoothRange(Math.max(0, startX - SMOOTH_PADDING), Math.min(this.width - 1, endX + SMOOTH_PADDING));
     this.limitAdjacentStep(
-      Math.max(0, startX - 10),
-      Math.min(this.width - 1, endX + 10),
-      5,
+      Math.max(0, startX - STEP_LIMIT_PADDING),
+      Math.min(this.width - 1, endX + STEP_LIMIT_PADDING),
+      MAX_ADJACENT_STEP,
     );
   }
 
-  getSlopeAngle(x: number): number {
-    const left = this.getSurfaceY(x - 3);
-    const right = this.getSurfaceY(x + 3);
-    return Math.atan2(right - left, 6);
+  getSlopeAngle(x: number, tankWidth = 44): number {
+    const halfWidth = Math.max(1, Math.floor(tankWidth / 2));
+    const left = this.getSurfaceY(x - halfWidth);
+    const right = this.getSurfaceY(x + halfWidth);
+    return Math.atan2(right - left, halfWidth * 2);
   }
 
   cloneSurface(): number[] {
@@ -77,7 +113,7 @@ export class LocalTerrainModel {
       kind: "heightmap",
       width: this.width,
       height: this.height,
-      surface: this.cloneSurface(),
+      surface: this.surface,
     };
   }
 
@@ -93,7 +129,7 @@ export class LocalTerrainModel {
   }
 
   private smoothRange(startX: number, endX: number): void {
-    for (let pass = 0; pass < 2; pass += 1) {
+    for (let pass = 0; pass < SMOOTH_PASSES; pass += 1) {
       const next = [...this.surface];
       for (let x = startX; x <= endX; x += 1) {
         const left = this.surface[Math.max(0, x - 1)] ?? this.height;
@@ -111,15 +147,21 @@ export class LocalTerrainModel {
     for (let x = startX + 1; x <= endX; x += 1) {
       const previous = this.surface[x - 1] ?? this.height;
       const current = this.surface[x] ?? this.height;
-      if (current > previous + maxStep) this.surface[x] = previous + maxStep;
-      if (current < previous - maxStep) this.surface[x] = previous - maxStep;
+      if (current - previous > maxStep) {
+        this.surface[x] = previous + maxStep;
+      } else if (previous - current > maxStep) {
+        this.surface[x] = previous - maxStep;
+      }
     }
 
     for (let x = endX - 1; x >= startX; x -= 1) {
       const next = this.surface[x + 1] ?? this.height;
       const current = this.surface[x] ?? this.height;
-      if (current > next + maxStep) this.surface[x] = next + maxStep;
-      if (current < next - maxStep) this.surface[x] = next - maxStep;
+      if (current - next > maxStep) {
+        this.surface[x] = next + maxStep;
+      } else if (next - current > maxStep) {
+        this.surface[x] = next - maxStep;
+      }
     }
   }
 }

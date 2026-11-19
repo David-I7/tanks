@@ -1,19 +1,81 @@
 import { describe, it, expect, vi } from "vitest";
 import { createOnlineGameManager } from "../../../../src/game/authority/OnlineGameManager";
+import { IntentThrottler } from "../../../../src/game/online/IntentThrottler";
 import type { OnlineGameplayTransport } from "../../../../src/game/online/OnlineGameplayTransport";
 import type { OnlineDiffResponseDto, OnlineGameStateSnapshotResponse } from "../../../../src/api/ws/dto/gameplay/onlineGameplayProtocol";
-import { localGameContent } from "../../../../src/game/content/localGameContent";
+import { createInitialDiff, testGameContent } from "./mockOnlineTestState";
 
 function createMockInitialStateDiff(): OnlineDiffResponseDto {
   const mockSnapshot: OnlineGameStateSnapshotResponse = {
     gameContentVersion: "v1.0",
     gameContent: {
-      ...localGameContent,
+      version: testGameContent.version,
       world: {
-        ...localGameContent.world,
-        width: 2400,
+        biomes: testGameContent.world.biomes,
+        width: testGameContent.world.width,
+        height: testGameContent.world.height,
+        tickRateHz: testGameContent.world.tickRateHz,
+        gravity: testGameContent.world.gravity,
+        deltaTime: testGameContent.world.projectileTimeStepSeconds,
+        maxProjectileSteps: testGameContent.world.maxProjectileSteps,
+        movementSegmentDurationTicks: testGameContent.world.movementSegmentDurationTicks,
+        playerASpawnRegion: { minX: 240, maxX: 800 },
+        playerBSpawnRegion: { minX: 1600, maxX: 2160 },
+        minWind: testGameContent.world.minWind,
+        maxWind: testGameContent.world.maxWind,
+        turnDurationSeconds: testGameContent.world.turnDurationSeconds,
+        matchDurationSeconds: testGameContent.world.matchDurationSeconds,
+        postImpactDelaySeconds: testGameContent.world.postImpactDelaySeconds,
+        lootCrates: testGameContent.world.lootCrates,
       },
-    } as any,
+      tanks: Object.fromEntries(
+        Object.entries(testGameContent.tanks).map(([id, tank]) => [
+          id,
+          {
+            id: tank.id,
+            name: tank.name,
+            maxHealth: tank.maxHealth,
+            maxFuel: tank.maxFuel,
+            movementQuantum: tank.movementQuantum,
+            fuelRate: tank.fuelRate,
+            climbCapability: tank.climbCapability,
+            width: tank.width,
+            height: tank.height,
+            barrelLength: tank.barrelLength,
+            turretYOffset: tank.turretYOffset,
+            visual: {
+              fillStyle: tank.visual.fill,
+              strokeStyle: tank.visual.stroke,
+              accentColor: tank.visual.accent,
+              label: tank.visual.label,
+            },
+            loadout: tank.loadout,
+          },
+        ]),
+      ),
+      projectiles: Object.fromEntries(
+        Object.entries(testGameContent.projectiles).map(([id, proj]) => [
+          id,
+          {
+            id: proj.id,
+            name: proj.name,
+            label: proj.label,
+            radius: proj.radius,
+            baseVelocity: proj.baseVelocity,
+            gravityScale: proj.gravityScale,
+            isDefault: proj.isDefault,
+            terrainEffectType: proj.terrainEffectType,
+            terrainRadius: proj.terrainRadius,
+            terrainDepth: proj.terrainDepth,
+            damageEffectType: proj.damageEffectType,
+            damageRadius: proj.damageRadius,
+            damage: proj.damage,
+            subMunitions: proj.subMunitions,
+            damageTrail: proj.damageTrail,
+          },
+        ]),
+      ),
+    },
     match: {
       phase: "AIMING",
       activePlayerId: 1,
@@ -21,7 +83,7 @@ function createMockInitialStateDiff(): OnlineDiffResponseDto {
       turnNumber: 1,
       turnTimeRemainingTicks: 900,
       winnerPlayerId: null,
-      matchTimeRemainingTicks: 5400,
+      matchEndsAtServerTick: 5400,
       wind: 0,
       biome: "forest",
     },
@@ -36,35 +98,35 @@ function createMockInitialStateDiff(): OnlineDiffResponseDto {
         entityId: 10,
         playerId: 1,
         displayName: "Player 1",
-        tankDefinitionId: "vanguard-cyber",
-        width: 32,
-        height: 16,
-        visual: { fillStyle: "#3b82f6", strokeStyle: "#1d4ed8", accentColor: "#60a5fa", label: "P1" },
-        position: { x: 200, y: 400 },
+        tankDefinitionId: "ignis",
+        width: 44,
+        height: 28,
+        visual: { fillStyle: "#ef4444", strokeStyle: "#991b1b", accentColor: "#facc15", label: "IG" },
+        position: { x: 200, y: 388 },
         facing: 1,
         aimAngle: 45,
         power: 300,
-        selectedProjectileSlotId: "basicShell",
-        loadout: ["basicShell"],
+        selectedProjectileSlotId: "standardKaboom",
+        loadout: ["standardKaboom"],
         health: 100,
         maxHealth: 100,
         fuel: 240,
         alive: true,
       },
       {
-        entityId: 20,
+        entityId: 11,
         playerId: 2,
         displayName: "Player 2",
-        tankDefinitionId: "vanguard-cyber",
-        width: 32,
-        height: 16,
-        visual: { fillStyle: "#ef4444", strokeStyle: "#b91c1c", accentColor: "#f87171", label: "P2" },
-        position: { x: 1800, y: 400 },
+        tankDefinitionId: "glacies",
+        width: 44,
+        height: 28,
+        visual: { fillStyle: "#38bdf8", strokeStyle: "#0284c7", accentColor: "#bae6fd", label: "GL" },
+        position: { x: 1800, y: 388 },
         facing: -1,
-        aimAngle: 135,
+        aimAngle: 45,
         power: 300,
-        selectedProjectileSlotId: "basicShell",
-        loadout: ["basicShell"],
+        selectedProjectileSlotId: "standardKaboom",
+        loadout: ["standardKaboom"],
         health: 100,
         maxHealth: 100,
         fuel: 240,
@@ -83,8 +145,8 @@ function createMockInitialStateDiff(): OnlineDiffResponseDto {
     type: "INITIAL_STATE",
     intentId: null,
     payload: {
-      expectedNextDiffSequence: 2,
       localPlayerId: 1,
+      expectedNextDiffSequence: 2,
       state: mockSnapshot,
     },
   };
@@ -106,12 +168,13 @@ describe("OnlineGameManager Playback Pipeline", () => {
     const ctx = {
       clock: () => clockMs,
       generateIntentId: () => "intent-1",
-      gameContent: localGameContent,
+      gameContent: testGameContent,
     };
 
     const manager = createOnlineGameManager({
       transport: mockTransport,
       ctx,
+      throttler: new IntentThrottler({ aimIntervalMs: 80, moveIntervalMs: 100 }),
     });
 
     // 1. Initial State arrives
@@ -133,9 +196,9 @@ describe("OnlineGameManager Playback Pipeline", () => {
       payload: {
         projectileEntityId: 99,
         ownerPlayerId: 1,
-        projectileDefinitionId: "basicShell",
+        projectileDefinitionId: "standardKaboom",
         impact: { x: 1200, y: 400 },
-        damagedTanks: [{ tankEntityId: 20, damage: 30, remainingHealth: 70 }],
+        damagedTanks: [{ entityId: 11, playerId: 2, damageDealt: 30, healthAfter: 70 }],
         trajectory: [
           { x: 200, y: 400 },
           { x: 700, y: 200 },
@@ -216,5 +279,113 @@ describe("OnlineGameManager Playback Pipeline", () => {
     expect(endState.particles.length).toBeGreaterThan(0);
     // Turn transition applied (active player is now 2)
     expect(endState.match.activePlayerId).toBe(2);
+  });
+
+  it("applies crater and health immediately upon impact in 60 FPS steps while deferring turn transition for postImpactDelay", () => {
+    let diffListener: (diff: OnlineDiffResponseDto) => void = () => {};
+    const mockTransport: OnlineGameplayTransport = {
+      sendPlayerIntent: vi.fn(),
+      requestResyncState: vi.fn(),
+      subscribeToStateDiffs: vi.fn((listener) => {
+        diffListener = listener;
+        return () => {};
+      }),
+    };
+
+    let clockMs = 1000;
+    const ctx = {
+      clock: () => clockMs,
+      generateIntentId: () => "intent-1",
+      gameContent: testGameContent,
+    };
+
+    const manager = createOnlineGameManager({
+      transport: mockTransport,
+      ctx,
+      throttler: new IntentThrottler({ aimIntervalMs: 80, moveIntervalMs: 100 }),
+    });
+
+    diffListener(createMockInitialStateDiff());
+
+    const projDiff: OnlineDiffResponseDto = {
+      gameSessionId: "test-session-123",
+      sequence: 2,
+      serverTick: 10,
+      type: "PROJECTILE_RESOLUTION",
+      intentId: "intent-fire-1",
+      payload: {
+        projectileEntityId: 99,
+        ownerPlayerId: 1,
+        projectileDefinitionId: "standardKaboom",
+        impact: { x: 1200, y: 400 },
+        damagedTanks: [{ entityId: 11, playerId: 2, damageDealt: 30, healthAfter: 70 }],
+        trajectory: [
+          { x: 200, y: 400 },
+          { x: 700, y: 200 },
+          { x: 1200, y: 400 },
+        ],
+      },
+    };
+
+    const terrainDiff: OnlineDiffResponseDto = {
+      gameSessionId: "test-session-123",
+      sequence: 3,
+      serverTick: 11,
+      type: "TERRAIN_PATCH",
+      intentId: null,
+      payload: {
+        patches: [
+          {
+            kind: "HEIGHTMAP_RANGE",
+            startX: 1180,
+            surface: new Array(40).fill(450),
+          },
+        ],
+      },
+    };
+
+    const turnDiff: OnlineDiffResponseDto = {
+      gameSessionId: "test-session-123",
+      sequence: 4,
+      serverTick: 12,
+      type: "TURN_TRANSITION",
+      intentId: null,
+      payload: {
+        phase: "AIMING",
+        activePlayerId: 2,
+        turnNumber: 2,
+        turnEndsAtServerTick: 900,
+        matchEndsAtServerTick: 5400,
+        wind: 5,
+      },
+    };
+
+    diffListener(projDiff);
+    diffListener(terrainDiff);
+    diffListener(turnDiff);
+
+    // Step 1: Step until flight ends (trajectory is ~0.3s)
+    // Advance by 320ms in 16ms frames
+    for (let i = 0; i < 20; i++) {
+      clockMs += 16;
+      manager.update(0.016);
+    }
+
+    // At exact moment of impact (frame 20):
+    const impactState = manager.getState();
+    expect(impactState.projectiles.length).toBe(0); // flight completed
+    expect(impactState.terrain.surface[1200]).toBe(450); // Crater applied IMMEDIATELY on impact frame!
+    expect(impactState.tanks.find((t) => t.playerId === 2)!.health).toBe(70); // Health updated IMMEDIATELY!
+    expect(impactState.match.activePlayerId).toBe(1); // Turn transition is DEFERRED during 0.55s delay!
+
+    // Step 2: Step through the 0.55s post-impact delay (35 frames * 16ms = 560ms)
+    for (let i = 0; i < 35; i++) {
+      clockMs += 16;
+      manager.update(0.016);
+    }
+
+    // Now post-impact delay has expired:
+    const postDelayState = manager.getState();
+    expect(postDelayState.match.activePlayerId).toBe(2); // Turn transitioned cleanly to player 2!
   });
 });

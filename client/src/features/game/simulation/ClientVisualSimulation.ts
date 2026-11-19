@@ -28,9 +28,15 @@ export type ClientVisualState = {
   aimTargets: Map<number, { angle: number; power: number }>;
 };
 
+export const DEFAULT_EXPLOSION_PALETTE: readonly string[] = [
+  "#fbbf24",
+  "#f97316",
+  "#ef4444",
+  "#78716c",
+  "#44403c",
+];
+
 const CAMERA_SMOOTHING_SPEED = 10;
-export const DEFAULT_TERRAIN_WIDTH = 2400;
-export const DEFAULT_VIEWPORT_WIDTH = 960;
 
 export class ClientVisualSimulation {
   private cameraX: number;
@@ -43,7 +49,7 @@ export class ClientVisualSimulation {
   private aimTargets = new Map<number, { angle: number; power: number }>();
   private terrainWidth: number;
 
-  constructor(initialCameraX = 0, terrainWidth = DEFAULT_TERRAIN_WIDTH) {
+  constructor(initialCameraX: number, terrainWidth: number) {
     this.cameraX = initialCameraX;
     this.isCameraLocked = true;
     this.terrainWidth = terrainWidth;
@@ -96,6 +102,34 @@ export class ClientVisualSimulation {
     return this.decors;
   }
 
+  destroyDecorsNear(x: number, y: number, radius: number): void {
+    for (const decor of this.decors) {
+      if (!decor.destroyed && Math.hypot(decor.x - x, decor.y - y) <= radius * 1.2) {
+        decor.destroyed = true;
+      }
+    }
+  }
+
+  updateDecorsTerrain(surface: number[]): void {
+    const terrainWidth = surface.length;
+    for (const decor of this.decors) {
+      if (decor.destroyed) continue;
+      const clampedX = Math.max(0, Math.min(terrainWidth - 1, decor.x));
+      const currentY = surface[clampedX] ?? decor.y;
+      if (Math.abs(currentY - decor.y) > 12) {
+        decor.destroyed = true;
+      } else {
+        decor.y = currentY;
+        const leftX = Math.max(0, clampedX - 8);
+        const rightX = Math.min(terrainWidth - 1, clampedX + 8);
+        decor.rotation = Math.atan2(
+          (surface[rightX] ?? 0) - (surface[leftX] ?? 0),
+          rightX - leftX,
+        );
+      }
+    }
+  }
+
   /** Set the target aim state for a remote player (for interpolation). */
   setAimTarget(playerId: number, angle: number, power: number): void {
     this.aimTargets.set(playerId, { angle, power });
@@ -132,41 +166,25 @@ export class ClientVisualSimulation {
     };
   }
 
-  panCamera(
-    deltaX: number,
-    viewportWidth: number = DEFAULT_VIEWPORT_WIDTH,
-    terrainWidth: number = this.terrainWidth,
-  ): void {
-    const maxCameraX = Math.max(0, terrainWidth - viewportWidth);
+  panCamera(deltaX: number): void {
     this.isCameraLocked = false;
-    this.cameraX = Math.max(0, Math.min(maxCameraX, this.cameraX + deltaX));
+    this.cameraX = Math.max(0, Math.min(this.terrainWidth, this.cameraX + deltaX));
   }
 
   relockCamera(): void {
     this.isCameraLocked = true;
   }
 
-  setCameraPosition(
-    x: number,
-    viewportWidth: number = DEFAULT_VIEWPORT_WIDTH,
-    terrainWidth: number = this.terrainWidth,
-  ): void {
-    const maxCameraX = Math.max(0, terrainWidth - viewportWidth);
-    this.cameraX = Math.max(0, Math.min(maxCameraX, x));
+  setCameraPosition(x: number): void {
+    this.cameraX = Math.max(0, Math.min(this.terrainWidth, x));
   }
 
-  updateCamera(
-    dt: number,
-    focusX: number | null,
-    viewportWidth: number = DEFAULT_VIEWPORT_WIDTH,
-    terrainWidth: number = this.terrainWidth,
-  ): void {
+  updateCamera(dt: number, focusX: number | null): void {
     if (!this.isCameraLocked || focusX === null) return;
-    const maxCameraX = Math.max(0, terrainWidth - viewportWidth);
-    const targetCameraX = Math.max(0, Math.min(maxCameraX, focusX - viewportWidth * 0.5));
+    const target = Math.max(0, Math.min(this.terrainWidth, focusX));
     const lerpFactor = 1 - Math.exp(-CAMERA_SMOOTHING_SPEED * dt);
-    this.cameraX += (targetCameraX - this.cameraX) * lerpFactor;
-    this.cameraX = Math.max(0, Math.min(maxCameraX, this.cameraX));
+    this.cameraX += (target - this.cameraX) * lerpFactor;
+    this.cameraX = Math.max(0, Math.min(this.terrainWidth, this.cameraX));
   }
 
   updateLootCrates(dt: number, crates: LootCrate[]): void {
@@ -237,8 +255,7 @@ export class ClientVisualSimulation {
     return { position, velocity };
   }
 
-  spawnExplosionParticles(x: number, y: number, colors?: string[]): void {
-    const palette = colors ?? ["#fbbf24", "#f97316", "#ef4444", "#78716c", "#44403c"];
+  spawnExplosionParticles(x: number, y: number, colors: readonly string[]): void {
     for (let i = 0; i < 18; i += 1) {
       const angle = Math.random() * Math.PI * 2;
       const speed = 40 + Math.random() * 160;
@@ -248,7 +265,7 @@ export class ClientVisualSimulation {
         y,
         vx: Math.cos(angle) * speed,
         vy: Math.sin(angle) * speed - 60,
-        color: palette[Math.floor(Math.random() * palette.length)] ?? "#fbbf24",
+        color: colors[Math.floor(Math.random() * colors.length)] ?? "#fbbf24",
         size: 2 + Math.random() * 3,
         life: 1.0,
         maxLife: 1.0,

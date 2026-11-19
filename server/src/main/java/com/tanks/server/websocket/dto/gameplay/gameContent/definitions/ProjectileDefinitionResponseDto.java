@@ -9,8 +9,9 @@ import com.tanks.server.websocket.gameplay.content.terrain.TerrainEffect;
 public record ProjectileDefinitionResponseDto(
         String id,
         String name,
-        String label,
-        double radius,
+        String description,
+        String intendedUse,
+        ProjectileVisual visual,
         double baseVelocity,
         double gravityScale,
         double drag,
@@ -23,8 +24,9 @@ public record ProjectileDefinitionResponseDto(
         return new ProjectileDefinitionResponseDto(
                 value.id(),
                 value.name(),
-                value.label(),
-                value.radius(),
+                value.description(),
+                value.intendedUse(),
+                value.visual(),
                 value.baseVelocity(),
                 value.gravityScale(),
                 value.drag(),

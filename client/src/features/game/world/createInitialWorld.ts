@@ -1,15 +1,12 @@
 import { LocalWorld } from "./LocalWorld";
 import { LocalTerrainModel } from "../simulation/LocalTerrainModel";
-import type { GameContent } from "../content/localGameContent";
+import type { GameContent } from "../rendering/ResourceManager";
 import {
-  type ControllerKind,
   type GameMode,
   type MatchSetup,
   type DecorType,
   type MapBiome,
-  MAX_TURN_SECONDS,
 } from "../types";
-import type { GameViewport } from "./worldSizing";
 
 export type LocalInitialWorld = {
   world: LocalWorld;
@@ -17,57 +14,43 @@ export type LocalInitialWorld = {
   content: GameContent;
 };
 
-export function getPlayerMatchConfig(
-  mode: GameMode,
-  playerId: number,
-): {
-  displayName: string;
-  controllerKind: ControllerKind;
-} {
-  if (mode === "online") {
-    return {
-      displayName: playerId === 0 ? "Player 1" : "Player 2",
-      controllerKind: playerId === 0 ? "human" : "remote",
-    };
-  }
-  return {
-    displayName: playerId === 0 ? "Player 1" : "Player 2",
-    controllerKind: "human",
-  };
-}
-
 export function createDefaultMatchSetup(
-  mode: GameMode = "localTwoPlayer",
+  mode: GameMode,
 ): MatchSetup {
   return {
     mode,
     players: [
       {
         id: 0,
-        ...getPlayerMatchConfig(mode, 0),
-        tankSelection: { tankDefinitionId: "vanguard-cyber" },
+        displayName: "Player 1",
+        controllerKind: "human",
+        tankSelection: { tankDefinitionId: "ignis" },
       },
       {
         id: 1,
-        ...getPlayerMatchConfig(mode, 1),
-        tankSelection: { tankDefinitionId: "specter" },
+        displayName: "Player 2",
+        controllerKind: "human",
+        tankSelection: { tankDefinitionId: "glacies" },
       },
     ],
   };
 }
 
-
 export function createLocalInitialWorld(
   setup: MatchSetup,
   content: GameContent,
-  initialGameViewport: GameViewport,
-  overrideBiome?: MapBiome,
 ): LocalInitialWorld {
-  const terrainSize = deriveLocalTerrainSize(initialGameViewport);
-  const terrain = new LocalTerrainModel(terrainSize.width, terrainSize.height);
-  const initialWind = Math.round((Math.random() * 14 - 7) * 10) / 10;
-  const biomes: MapBiome[] = ["forest", "desert", "ice"];
-  const biome = overrideBiome ?? biomes[Math.floor(Math.random() * biomes.length)];
+  const terrain = new LocalTerrainModel(
+    content.world.width,
+    content.world.height,
+  );
+  const minWind = content.world.minWind;
+  const maxWind = content.world.maxWind;
+  const rawWind = minWind + Math.random() * (maxWind - minWind);
+  const initialWind = Math.round(rawWind * 10) / 10;
+  const biome: MapBiome = content.world.biomes[
+    Math.floor(Math.random() * content.world.biomes.length)
+  ];
 
   const world = new LocalWorld({
     mode: setup.mode,
@@ -75,8 +58,11 @@ export function createLocalInitialWorld(
     activePlayerId: setup.players[0]?.id ?? 0,
     playerCount: setup.players.length,
     turnNumber: 1,
-    turnTimeRemaining: MAX_TURN_SECONDS,
-    matchTimeRemaining: 180,
+    turnTimeRemaining: Math.min(
+      content.world.turnDurationSeconds,
+      content.world.matchDurationSeconds,
+    ),
+    matchTimeRemaining: content.world.matchDurationSeconds,
     wind: initialWind,
     winnerPlayerId: null,
     biome,
@@ -91,19 +77,36 @@ export function createLocalInitialWorld(
         `Missing tank definition "${player.tankSelection.tankDefinitionId}"`,
       );
     }
-    const x =
-      setup.players.length === 1
-        ? Math.floor(terrain.width * 0.25)
-        : Math.floor(
-            140 + (terrain.width * 0.62 * index) / (setup.players.length - 1),
-          );
-    world.createTank(player, tankDefinition, x, terrain.getSurfaceY(x));
+    const region =
+      index === 0
+        ? content.world.playerASpawnRegion
+        : content.world.playerBSpawnRegion;
+    const x = Math.floor(
+      region.minX + Math.random() * (region.maxX - region.minX + 1),
+    );
+    world.createTank(
+      player,
+      tankDefinition,
+      x,
+      terrain.getSurfaceY(x) - tankDefinition.height / 2,
+      content.projectiles,
+    );
   });
+
+  const initialActiveTankId = world.tankEntitiesByPlayer.get(
+    world.match.activePlayerId,
+  );
+  if (initialActiveTankId !== undefined) {
+    const initialPos = world.positions.get(initialActiveTankId);
+    if (initialPos) {
+      world.match.cameraX = initialPos.x;
+    }
+  }
 
   for (const [entityId, tank] of world.tanks) {
     const position = world.positions.get(entityId);
     if (position) {
-      tank.bodyAngle = terrain.getSlopeAngle(position.x);
+      tank.bodyAngle = terrain.getSlopeAngle(position.x, tank.width);
     }
   }
 
@@ -138,14 +141,4 @@ export function createLocalInitialWorld(
   }
 
   return { world, terrain, content };
-}
-
-export function deriveLocalTerrainSize(initialGameViewport: GameViewport): {
-  width: number;
-  height: number;
-} {
-  return {
-    width: Math.max(800, Math.floor(initialGameViewport.width * 2.5)),
-    height: Math.max(420, initialGameViewport.height),
-  };
 }

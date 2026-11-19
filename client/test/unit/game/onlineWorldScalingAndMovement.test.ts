@@ -1,22 +1,80 @@
 import { describe, it, expect } from "vitest";
 import { onlineSnapshotToGameState } from "../../../src/game/online/onlineGameState";
 import { initializeOnlineConfirmedState, applyOnlineStateDiffResponse, projectOnlineRenderState } from "../../../src/game/online/onlineConfirmedState";
-import { localGameContent } from "../../../src/game/content/localGameContent";
-import { defaultWorldCoordinateMapper } from "../../../src/game/online/onlineWorldMapper";
+import { testGameContent } from "./online/mockOnlineTestState";
 import type { OnlineDiffResponseDto, OnlineGameStateSnapshotResponse } from "../../../src/api/ws/dto/gameplay/onlineGameplayProtocol";
-
-const mockOnlineGameContent = {
-  ...localGameContent,
-  world: {
-    ...localGameContent.world,
-    width: 2400,
-  },
-};
 
 function createMockInitialStateDiff(): OnlineDiffResponseDto {
   const mockSnapshot: OnlineGameStateSnapshotResponse = {
     gameContentVersion: "v1.0",
-    gameContent: mockOnlineGameContent as any,
+    gameContent: {
+      version: testGameContent.version,
+      world: {
+        biomes: testGameContent.world.biomes,
+        width: testGameContent.world.width,
+        height: testGameContent.world.height,
+        tickRateHz: testGameContent.world.tickRateHz,
+        gravity: testGameContent.world.gravity,
+        deltaTime: testGameContent.world.projectileTimeStepSeconds,
+        maxProjectileSteps: testGameContent.world.maxProjectileSteps,
+        movementSegmentDurationTicks: testGameContent.world.movementSegmentDurationTicks,
+        playerASpawnRegion: { minX: 240, maxX: 800 },
+        playerBSpawnRegion: { minX: 1600, maxX: 2160 },
+        minWind: testGameContent.world.minWind,
+        maxWind: testGameContent.world.maxWind,
+        turnDurationSeconds: testGameContent.world.turnDurationSeconds,
+        matchDurationSeconds: testGameContent.world.matchDurationSeconds,
+        postImpactDelaySeconds: testGameContent.world.postImpactDelaySeconds,
+        lootCrates: testGameContent.world.lootCrates,
+      },
+      tanks: Object.fromEntries(
+        Object.entries(testGameContent.tanks).map(([id, tank]) => [
+          id,
+          {
+            id: tank.id,
+            name: tank.name,
+            maxHealth: tank.maxHealth,
+            maxFuel: tank.maxFuel,
+            movementQuantum: tank.movementQuantum,
+            fuelRate: tank.fuelRate,
+            climbCapability: tank.climbCapability,
+            width: tank.width,
+            height: tank.height,
+            barrelLength: tank.barrelLength,
+            turretYOffset: tank.turretYOffset,
+            visual: {
+              fillStyle: tank.visual.fill,
+              strokeStyle: tank.visual.stroke,
+              accentColor: tank.visual.accent,
+              label: tank.visual.label,
+            },
+            loadout: tank.loadout,
+          },
+        ]),
+      ),
+      projectiles: Object.fromEntries(
+        Object.entries(testGameContent.projectiles).map(([id, proj]) => [
+          id,
+          {
+            id: proj.id,
+            name: proj.name,
+            label: proj.label,
+            radius: proj.radius,
+            baseVelocity: proj.baseVelocity,
+            gravityScale: proj.gravityScale,
+            isDefault: proj.isDefault,
+            terrainEffectType: proj.terrainEffectType,
+            terrainRadius: proj.terrainRadius,
+            terrainDepth: proj.terrainDepth,
+            damageEffectType: proj.damageEffectType,
+            damageRadius: proj.damageRadius,
+            damage: proj.damage,
+            subMunitions: proj.subMunitions,
+            damageTrail: proj.damageTrail,
+          },
+        ]),
+      ),
+    },
     match: {
       phase: "AIMING",
       activePlayerId: 1,
@@ -39,16 +97,16 @@ function createMockInitialStateDiff(): OnlineDiffResponseDto {
         entityId: 10,
         playerId: 1,
         displayName: "Player 1",
-        tankDefinitionId: "vanguard-cyber",
-        width: 32,
-        height: 16,
-        visual: { fillStyle: "#3b82f6", strokeStyle: "#1d4ed8", accentColor: "#60a5fa", label: "VC" },
-        position: { x: 200, y: 400 },
+        tankDefinitionId: "ignis",
+        width: 44,
+        height: 28,
+        visual: { fillStyle: "#ef4444", strokeStyle: "#991b1b", accentColor: "#facc15", label: "IG" },
+        position: { x: 200, y: 386 },
         facing: 1,
         aimAngle: 45,
         power: 300,
-        selectedProjectileSlotId: "basicShell",
-        loadout: ["basicShell"],
+        selectedProjectileSlotId: "standardKaboom",
+        loadout: ["standardKaboom"],
         health: 100,
         maxHealth: 100,
         fuel: 240,
@@ -58,16 +116,16 @@ function createMockInitialStateDiff(): OnlineDiffResponseDto {
         entityId: 11,
         playerId: 2,
         displayName: "Player 2",
-        tankDefinitionId: "specter",
-        width: 32,
-        height: 16,
-        visual: { fillStyle: "#8b5cf6", strokeStyle: "#6d28d9", accentColor: "#a78bfa", label: "S" },
-        position: { x: 1800, y: 400 },
+        tankDefinitionId: "glacies",
+        width: 44,
+        height: 28,
+        visual: { fillStyle: "#38bdf8", strokeStyle: "#0284c7", accentColor: "#bae6fd", label: "GL" },
+        position: { x: 1800, y: 386 },
         facing: -1,
         aimAngle: 45,
         power: 300,
-        selectedProjectileSlotId: "basicShell",
-        loadout: ["basicShell"],
+        selectedProjectileSlotId: "standardKaboom",
+        loadout: ["standardKaboom"],
         health: 100,
         maxHealth: 100,
         fuel: 240,
@@ -106,11 +164,11 @@ describe("Online World Scaling, Slope Angles & Movement Consistency", () => {
     const ctx = {
       clock: () => 1000,
       generateIntentId: () => "test-intent",
-      gameContent: mockOnlineGameContent as any,
+      gameContent: testGameContent,
     };
 
     const confirmed = initializeOnlineConfirmedState(diff);
-    const gameState = onlineSnapshotToGameState(confirmed.state, 1, [], ctx);
+    const gameState = onlineSnapshotToGameState(confirmed.state, 1, [], ctx, null, null);
 
     const tank1 = gameState.tanks.find((t) => t.playerId === 1);
     expect(tank1).toBeDefined();
@@ -123,11 +181,11 @@ describe("Online World Scaling, Slope Angles & Movement Consistency", () => {
     const ctx = {
       clock: () => 1000,
       generateIntentId: () => "test-intent",
-      gameContent: mockOnlineGameContent as any,
+      gameContent: testGameContent,
     };
 
     const confirmed = initializeOnlineConfirmedState(diff);
-    const gameState = onlineSnapshotToGameState(confirmed.state, 1, [], ctx);
+    const gameState = onlineSnapshotToGameState(confirmed.state, 1, [], ctx, null, null);
 
     expect(gameState.terrain.width).toBe(2400);
     // Server position 200 should map 1:1 to client position 200
@@ -141,7 +199,7 @@ describe("Online World Scaling, Slope Angles & Movement Consistency", () => {
     const ctx = {
       clock: () => clockMs,
       generateIntentId: () => "test-intent",
-      gameContent: mockOnlineGameContent as any,
+      gameContent: testGameContent,
     };
 
     let confirmed = initializeOnlineConfirmedState(diff);
@@ -178,7 +236,7 @@ describe("Online World Scaling, Slope Angles & Movement Consistency", () => {
     // Midway through interpolation (250ms into 500ms duration)
     clockMs = 1250;
     const renderSnapshot = projectOnlineRenderState(confirmed, ctx);
-    const midState = onlineSnapshotToGameState(renderSnapshot, 1, [], ctx);
+    const midState = onlineSnapshotToGameState(renderSnapshot, 1, [], ctx, null, null);
     const p2Tank = midState.tanks.find((t) => t.playerId === 2);
     
     // Position should be smoothly interpolated in client coordinates (server 1800 -> 1750, mid ~1775)

@@ -21,7 +21,7 @@ export default function IconButton({
     <button
       type={type}
       className={twMerge(
-        "cursor-pointer h-10 w-10 grid place-content-center rounded-lg border border-border-main text-text-body-high bg-surface-main hover:bg-surface-high transition-colors duration-normal active:scale-95",
+        "cursor-pointer h-10 w-10 grid place-content-center rounded-lg border border-border-main text-text-body-high bg-surface-main hover:bg-surface-high hover:-translate-y-0.5 hover:shadow-md hover:border-border-high hover:brightness-105 transition-all duration-200 active:scale-95 active:translate-y-0",
         className,
       )}
       onClick={onClick}

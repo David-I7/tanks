@@ -3,13 +3,80 @@ import { createOnlineGameManager } from "../../../../src/game/authority/OnlineGa
 import { IntentThrottler } from "../../../../src/game/online/IntentThrottler";
 import type { OnlineGameplayTransport } from "../../../../src/game/online/OnlineGameplayTransport";
 import type { OnlineDiffResponseDto, OnlineGameStateSnapshotResponse } from "../../../../src/api/ws/dto/gameplay/onlineGameplayProtocol";
-import { localGameContent } from "../../../../src/game/content/localGameContent";
+import { testGameContent } from "./mockOnlineTestState";
 import { clampAimAngle } from "../../../../src/game/simulation/ballistics";
 
 function createMockInitialStateDiff(): OnlineDiffResponseDto {
   const mockSnapshot: OnlineGameStateSnapshotResponse = {
     gameContentVersion: "v1.0",
-    gameContent: localGameContent as any,
+    gameContent: {
+      version: testGameContent.version,
+      world: {
+        biomes: testGameContent.world.biomes,
+        width: testGameContent.world.width,
+        height: testGameContent.world.height,
+        tickRateHz: testGameContent.world.tickRateHz,
+        gravity: testGameContent.world.gravity,
+        deltaTime: testGameContent.world.projectileTimeStepSeconds,
+        maxProjectileSteps: testGameContent.world.maxProjectileSteps,
+        movementSegmentDurationTicks: testGameContent.world.movementSegmentDurationTicks,
+        playerASpawnRegion: { minX: 240, maxX: 800 },
+        playerBSpawnRegion: { minX: 1600, maxX: 2160 },
+        minWind: testGameContent.world.minWind,
+        maxWind: testGameContent.world.maxWind,
+        turnDurationSeconds: testGameContent.world.turnDurationSeconds,
+        matchDurationSeconds: testGameContent.world.matchDurationSeconds,
+        postImpactDelaySeconds: testGameContent.world.postImpactDelaySeconds,
+        lootCrates: testGameContent.world.lootCrates,
+      },
+      tanks: Object.fromEntries(
+        Object.entries(testGameContent.tanks).map(([id, tank]) => [
+          id,
+          {
+            id: tank.id,
+            name: tank.name,
+            maxHealth: tank.maxHealth,
+            maxFuel: tank.maxFuel,
+            movementQuantum: tank.movementQuantum,
+            fuelRate: tank.fuelRate,
+            climbCapability: tank.climbCapability,
+            width: tank.width,
+            height: tank.height,
+            barrelLength: tank.barrelLength,
+            turretYOffset: tank.turretYOffset,
+            visual: {
+              fillStyle: tank.visual.fill,
+              strokeStyle: tank.visual.stroke,
+              accentColor: tank.visual.accent,
+              label: tank.visual.label,
+            },
+            loadout: tank.loadout,
+          },
+        ]),
+      ),
+      projectiles: Object.fromEntries(
+        Object.entries(testGameContent.projectiles).map(([id, proj]) => [
+          id,
+          {
+            id: proj.id,
+            name: proj.name,
+            label: proj.label,
+            radius: proj.radius,
+            baseVelocity: proj.baseVelocity,
+            gravityScale: proj.gravityScale,
+            isDefault: proj.isDefault,
+            terrainEffectType: proj.terrainEffectType,
+            terrainRadius: proj.terrainRadius,
+            terrainDepth: proj.terrainDepth,
+            damageEffectType: proj.damageEffectType,
+            damageRadius: proj.damageRadius,
+            damage: proj.damage,
+            subMunitions: proj.subMunitions,
+            damageTrail: proj.damageTrail,
+          },
+        ]),
+      ),
+    },
     match: {
       phase: "AIMING",
       activePlayerId: 1,
@@ -32,16 +99,16 @@ function createMockInitialStateDiff(): OnlineDiffResponseDto {
         entityId: 10,
         playerId: 1,
         displayName: "Player 1",
-        tankDefinitionId: "vanguard-cyber",
-        width: 32,
-        height: 16,
-        visual: { fillStyle: "#3b82f6", strokeStyle: "#1d4ed8", accentColor: "#60a5fa", label: "VC" },
-        position: { x: 200, y: 400 },
+        tankDefinitionId: "ignis",
+        width: 44,
+        height: 28,
+        visual: { fillStyle: "#ef4444", strokeStyle: "#991b1b", accentColor: "#facc15", label: "IG" },
+        position: { x: 200, y: 386 },
         facing: 1,
         aimAngle: 45,
         power: 300,
-        selectedProjectileSlotId: "basicShell",
-        loadout: ["basicShell"],
+        selectedProjectileSlotId: "standardKaboom",
+        loadout: ["standardKaboom"],
         health: 100,
         maxHealth: 100,
         fuel: 240,
@@ -88,7 +155,7 @@ describe("OnlineGameManager Throttling Integration", () => {
         let count = 0;
         return () => `intent-${++count}`;
       })(),
-      gameContent: localGameContent,
+      gameContent: testGameContent,
     };
 
     const throttler = new IntentThrottler({ aimIntervalMs: 80, moveIntervalMs: 180 });
@@ -138,7 +205,7 @@ describe("OnlineGameManager Throttling Integration", () => {
         let count = 0;
         return () => `intent-${++count}`;
       })(),
-      gameContent: localGameContent,
+      gameContent: testGameContent,
     };
 
     const throttler = new IntentThrottler({ aimIntervalMs: 80, moveIntervalMs: 180 });
@@ -182,12 +249,13 @@ describe("OnlineGameManager Throttling Integration", () => {
         let count = 0;
         return () => `intent-${++count}`;
       })(),
-      gameContent: localGameContent,
+      gameContent: testGameContent,
     };
 
     const manager = createOnlineGameManager({
       transport: transportMock,
       ctx: ctx as any,
+      throttler: new IntentThrottler({ aimIntervalMs: 80, moveIntervalMs: 100 }),
     });
 
     diffSubscriber!(createMockInitialStateDiff());
@@ -198,5 +266,169 @@ describe("OnlineGameManager Throttling Integration", () => {
     expect(sentIntents.length).toBe(2);
     expect(sentIntents[0].type).toBe("SELECT_PROJECTILE_SLOT");
     expect(sentIntents[1].type).toBe("SELECT_PROJECTILE_SLOT");
+  });
+
+  it("does not send AIM intent if aim angle and power have not changed since last sent", () => {
+    let diffSubscriber: ((diff: OnlineDiffResponseDto) => void) | null = null;
+    const sentIntents: any[] = [];
+    const transportMock: OnlineGameplayTransport = {
+      subscribeToStateDiffs: (cb) => {
+        diffSubscriber = cb;
+        return () => {};
+      },
+      requestResyncState: vi.fn(),
+      sendPlayerIntent: vi.fn((dto) => {
+        sentIntents.push(dto);
+      }),
+    };
+
+    let clock = 1000;
+    const ctx = {
+      clock: () => clock,
+      generateIntentId: (() => {
+        let count = 0;
+        return () => `intent-${++count}`;
+      })(),
+      gameContent: testGameContent,
+    };
+
+    const throttler = new IntentThrottler({ aimIntervalMs: 80, moveIntervalMs: 100 });
+    const manager = createOnlineGameManager({
+      transport: transportMock,
+      ctx: ctx as any,
+      throttler,
+    });
+
+    diffSubscriber!(createMockInitialStateDiff());
+
+    // 1. First aim action sends intent
+    manager.submitAction({ type: "aim", angle: 45, power: 300 });
+    expect(sentIntents.length).toBe(1);
+
+    // 2. Advance clock past throttle interval (100ms later), but keep exact same angle and power
+    clock += 100;
+    const res = manager.submitAction({ type: "aim", angle: 45, power: 300 });
+    expect(res).toBe(true);
+    expect(sentIntents.length).toBe(1); // STILL 1, no duplicate intent sent!
+
+    // 3. Change angle -> intent is sent
+    clock += 100;
+    manager.submitAction({ type: "aim", angle: 50, power: 300 });
+    expect(sentIntents.length).toBe(2);
+  });
+
+  it("does not send MOVE intent if tank has zero fuel or move produces no movement", () => {
+    let diffSubscriber: ((diff: OnlineDiffResponseDto) => void) | null = null;
+    const sentIntents: any[] = [];
+    const transportMock: OnlineGameplayTransport = {
+      subscribeToStateDiffs: (cb) => {
+        diffSubscriber = cb;
+        return () => {};
+      },
+      requestResyncState: vi.fn(),
+      sendPlayerIntent: vi.fn((dto) => {
+        sentIntents.push(dto);
+      }),
+    };
+
+    let clock = 1000;
+    const ctx = {
+      clock: () => clock,
+      generateIntentId: (() => {
+        let count = 0;
+        return () => `intent-${++count}`;
+      })(),
+      gameContent: testGameContent,
+    };
+
+    const throttler = new IntentThrottler({ aimIntervalMs: 80, moveIntervalMs: 100 });
+    const manager = createOnlineGameManager({
+      transport: transportMock,
+      ctx: ctx as any,
+      throttler,
+    });
+
+    const initDiff = createMockInitialStateDiff();
+    // Set tank fuel to 0
+    (initDiff.payload as any).state.tanks[0].fuel = 0;
+    diffSubscriber!(initDiff);
+
+    // Attempt to move with 0 fuel
+    const res = manager.submitAction({ type: "move", direction: 1 });
+    expect(res).toBe(false);
+    expect(sentIntents.length).toBe(0); // Zero intents sent!
+  });
+
+  it("allows continuous movement intents when holding down key across multiple throttle intervals", () => {
+    let diffSubscriber: ((diff: OnlineDiffResponseDto) => void) | null = null;
+    const sentIntents: any[] = [];
+    const transportMock: OnlineGameplayTransport = {
+      subscribeToStateDiffs: (cb) => {
+        diffSubscriber = cb;
+        return () => {};
+      },
+      requestResyncState: vi.fn(),
+      sendPlayerIntent: vi.fn((dto) => {
+        sentIntents.push(dto);
+      }),
+    };
+
+    let clock = 1000;
+    const ctx = {
+      clock: () => clock,
+      generateIntentId: (() => {
+        let count = 0;
+        return () => `intent-${++count}`;
+      })(),
+      gameContent: testGameContent,
+    };
+
+    const throttler = new IntentThrottler({ aimIntervalMs: 80, moveIntervalMs: 100 });
+    const manager = createOnlineGameManager({
+      transport: transportMock,
+      ctx: ctx as any,
+      throttler,
+    });
+
+    diffSubscriber!(createMockInitialStateDiff());
+
+    // Move 1 (t=1000)
+    const res1 = manager.submitAction({ type: "move", direction: 1 });
+    expect(res1).toBe(true);
+    expect(sentIntents.length).toBe(1);
+
+    // Simulate server diff arriving for Move 1
+    diffSubscriber!({
+      gameSessionId: "test-session-123",
+      sequence: 2,
+      serverTick: 1,
+      type: "MOVEMENT_SEGMENT",
+      intentId: sentIntents[0].intentId,
+      payload: {
+        playerId: 1,
+        tankEntityId: 10,
+        from: { x: 200, y: 388 },
+        to: { x: 215, y: 388 },
+        fuelBefore: 240,
+        fuelAfter: 225,
+        fuelSpent: 15,
+        partial: false,
+        startedServerTick: 0,
+        endedServerTick: 1,
+        durationTicks: 3,
+      },
+    });
+
+    // Move 2 (t=1120, key still held down)
+    clock += 120;
+    const res2 = manager.submitAction({ type: "move", direction: 1 });
+    expect(res2).toBe(true);
+    expect(sentIntents.length).toBe(2); // Successfully sends Move 2!
+
+    // Move 3 (t=1250, key still held down)
+    clock += 130;
+    const res3 = manager.submitAction({ type: "move", direction: 1 });
+    expect(res3).toBe(true);
+    expect(sentIntents.length).toBe(3); // Successfully sends Move 3!
   });
 });

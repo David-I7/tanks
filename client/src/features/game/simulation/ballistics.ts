@@ -1,8 +1,8 @@
 import type { GameState } from "../types";
+import { ResourceManager } from "../rendering/ResourceManager";
 
-export const GRAVITY = 500;
-export const MUZZLE_OFFSET = 18;
-export const MUZZLE_Y_OFFSET = -12;
+export const BARREL_LENGTH = 28;
+export const TURRET_Y_OFFSET = -14;
 
 export function clampAimAngle(angle: number): number {
   if (Math.abs(angle) > 2 * Math.PI) {
@@ -32,23 +32,27 @@ export type TrajectoryPoint = {
 export function getMuzzlePosition(
   tankX: number,
   tankY: number,
-  _angle: number,
-  facing: 1 | -1 = 1,
-  width = 36,
-  height = 24,
+  aimAngle: number,
+  bodyAngle: number,
+  turretYOffset: number,
+  barrelLength: number,
 ): TrajectoryPoint {
-  const muzzleForwardOffset = width / 2.0;
-  const muzzleVerticalOffset = height / 2.0;
-  return {
-    x: tankX + facing * muzzleForwardOffset,
-    y: tankY - muzzleVerticalOffset,
-  };
+  // Pivot point around which the turret rotates, shifted by the tank body tilt
+  const pivotX = tankX - turretYOffset * Math.sin(bodyAngle);
+  const pivotY = tankY + turretYOffset * Math.cos(bodyAngle);
+
+  // Muzzle endpoint calculated along the launch angle (body tilt + relative aim angle)
+  const launchAngle = bodyAngle + aimAngle;
+  const muzzleX = pivotX + Math.cos(launchAngle) * barrelLength;
+  const muzzleY = pivotY + Math.sin(launchAngle) * barrelLength;
+
+  return { x: muzzleX, y: muzzleY };
 }
 
 export function simulateTrajectoryPreview(
   snapshot: GameState,
   playerId: number,
-  maxPoints = 180,
+  maxPoints: number,
 ): TrajectoryPoint[] {
   const activeTank = snapshot.tanks.find(
     (entry) => entry.playerId === playerId && entry.alive,
@@ -56,44 +60,56 @@ export function simulateTrajectoryPreview(
   if (!activeTank) return [];
 
   const slotId =
-    activeTank.loadout.find(
-      (id) => id === activeTank.selectedProjectileSlotId,
-    ) || activeTank.loadout[0];
+    activeTank.selectedProjectileSlotId || activeTank.loadout[0];
 
   const projectileDef = slotId
     ? snapshot.projectileDefinitions[slotId]
-    : null;
+    : undefined;
 
-  const gravityScale = projectileDef?.gravityScale ?? 1;
-  const drag = projectileDef?.drag ?? 0;
-
-  const facing = activeTank.facing ?? 1;
-  const muzzleForwardOffset = activeTank.width ? activeTank.width / 2.0 : 18;
-  const muzzleVerticalOffset = activeTank.height ? activeTank.height / 2.0 : 12;
-
-  const launchX = activeTank.position.x + facing * muzzleForwardOffset;
-  const launchY = activeTank.position.y - muzzleVerticalOffset;
+  const gravityScale = projectileDef ? projectileDef.gravityScale : 1;
+  const baseVelocity = projectileDef ? projectileDef.baseVelocity : 1.0;
 
   const rawAngle = activeTank.aimAngle;
   const angleRad = clampAimAngle(rawAngle);
 
-  // In local mode, power is the velocity magnitude directly (120-680).
-  // In online mode, power is raw (0-1000) and the server multiplies by baseVelocity.
-  // The preview reads activeTank.power which matches the local convention.
-  const speed = activeTank.power;
-  let currVx = speed * Math.cos(angleRad);
-  let currVy = speed * Math.sin(angleRad);
+  let barrelLength = BARREL_LENGTH;
+  let turretYOffset = TURRET_Y_OFFSET;
+  let worldGravity = 260;
+  let dt = 1 / 30;
 
-  const g = GRAVITY * gravityScale;
-  const wind = snapshot.match.wind ?? 0;
-  const dt = 1 / 30;
+  if (ResourceManager.getInstance().isLoaded()) {
+    const content = ResourceManager.getInstance().getGameContent();
+    const tankDef = content.tanks[activeTank.tankDefinitionId];
+    if (tankDef) {
+      barrelLength = tankDef.barrelLength;
+      turretYOffset = tankDef.turretYOffset;
+    }
+    worldGravity = content.world.gravity;
+    dt = content.world.projectileTimeStepSeconds;
+  }
 
-  const points: TrajectoryPoint[] = [{ x: launchX, y: launchY }];
-  let currX = launchX;
-  let currY = launchY;
+  const muzzle = getMuzzlePosition(
+    activeTank.position.x,
+    activeTank.position.y,
+    angleRad,
+    activeTank.bodyAngle,
+    turretYOffset,
+    barrelLength,
+  );
 
-  const width =
-    snapshot.terrain.kind === "heightmap" ? snapshot.terrain.width : 2400;
+  const launchAngle = activeTank.bodyAngle + angleRad;
+  const speed = activeTank.power * baseVelocity;
+  let currVx = speed * Math.cos(launchAngle);
+  let currVy = speed * Math.sin(launchAngle);
+
+  const g = worldGravity * gravityScale;
+  const wind = snapshot.match.wind;
+
+  const points: TrajectoryPoint[] = [{ x: muzzle.x, y: muzzle.y }];
+  let currX = muzzle.x;
+  let currY = muzzle.y;
+
+  const width = snapshot.terrain.width;
 
   for (let step = 0; step < maxPoints; step++) {
     currX += currVx * dt;
@@ -101,20 +117,13 @@ export function simulateTrajectoryPreview(
     currVx += wind * dt;
     currVy += g * dt;
 
-    if (drag > 0) {
-      currVx *= 1 - drag * dt;
-      currVy *= 1 - drag * dt;
-    }
-
     if (currX < 0 || currX >= width) break;
 
     if (snapshot.terrain.kind === "heightmap") {
-      const surfaceY =
-        snapshot.terrain.surface[
-          Math.max(0, Math.min(width - 1, Math.floor(currX)))
-        ] ?? Infinity;
-      if (currY >= surfaceY) {
-        points.push({ x: currX, y: Math.min(surfaceY, currY) });
+      const clampedX = Math.max(0, Math.min(width - 1, Math.floor(currX)));
+      const surfaceY = snapshot.terrain.surface[clampedX];
+      if (surfaceY !== undefined && currY >= surfaceY) {
+        points.push({ x: currX, y: surfaceY });
         break;
       }
     }

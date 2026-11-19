@@ -16,13 +16,8 @@ export type CanvasSizing = {
   domCanvasRect: DomCanvasRect;
 };
 
-export function readDomCanvasRect(canvas?: HTMLCanvasElement): DomCanvasRect {
-  const rect = canvas?.getBoundingClientRect?.() ?? {
-    left: 0,
-    top: 0,
-    width: 960,
-    height: 560,
-  };
+export function readDomCanvasRect(canvas: HTMLCanvasElement): DomCanvasRect {
+  const rect = canvas.getBoundingClientRect();
   return {
     left: rect.left,
     top: rect.top,
@@ -34,18 +29,38 @@ export function readDomCanvasRect(canvas?: HTMLCanvasElement): DomCanvasRect {
 export function createCanvasSizing(input: {
   domCanvasRect: DomCanvasRect;
   devicePixelRatio: number;
+  worldWidth: number;
+  worldHeight: number;
 }): CanvasSizing {
-  const gameViewport = {
-    width: Math.max(320, Math.floor(input.domCanvasRect.width)),
-    height: Math.max(240, Math.floor(input.domCanvasRect.height)),
+  const domWidth = Math.max(1, input.domCanvasRect.width);
+  const domHeight = Math.max(1, input.domCanvasRect.height);
+  const domAspect = domWidth / domHeight;
+
+  const targetHeight = input.worldHeight;
+  const computedWidth = targetHeight * domAspect;
+  const maxViewportWidth = input.worldWidth * 0.75;
+
+  let viewportWidth: number;
+  let viewportHeight: number;
+
+  if (computedWidth > maxViewportWidth) {
+    viewportWidth = maxViewportWidth;
+    viewportHeight = viewportWidth / domAspect;
+  } else {
+    viewportWidth = computedWidth;
+    viewportHeight = targetHeight;
+  }
+
+  const gameViewport: GameViewport = {
+    width: Math.round(viewportWidth),
+    height: Math.round(viewportHeight),
   };
-  const ratio = Math.max(1, input.devicePixelRatio || 1);
 
   return {
     gameViewport,
     dpiViewport: {
-      width: Math.max(320, Math.floor(gameViewport.width * ratio)),
-      height: Math.max(240, Math.floor(gameViewport.height * ratio)),
+      width: Math.round(domWidth * input.devicePixelRatio),
+      height: Math.round(domHeight * input.devicePixelRatio),
     },
     domCanvasRect: input.domCanvasRect,
   };

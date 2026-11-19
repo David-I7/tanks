@@ -11,7 +11,8 @@ import {
   type CanvasSizing,
 } from "./world/worldSizing";
 
-const MAX_DELTA_TIME_SECONDS = 0.033; // ~30 Hz cap
+const FIXED_TIMESTEP_SECONDS = 1 / 60; // 60 Hz fixed simulation step
+const MAX_DELTA_TIME_SECONDS = 0.05; // 50ms clamp to prevent spiral of death
 const FALLBACK_DELTA_TIME_SECONDS = 0.016; // ~60 Hz fallback
 const MS_PER_SECOND = 1000;
 
@@ -27,6 +28,7 @@ export class GameEngine {
   private readonly stateListeners = new Set<(state: GameState) => void>();
   private animationFrameId: number | null = null;
   private lastTimestamp = 0;
+  private accumulator = 0;
   private latestState: GameState;
   private sizing: CanvasSizing;
   private inputLayout: CanvasInputLayout;
@@ -48,6 +50,14 @@ export class GameEngine {
     this.localInput = new CanvasInputSource(options.canvas, this.inputLayout);
 
     this.unsubscribeGameManager = this.gameManager.subscribe((state) => {
+      const prevTerrain = this.latestState.terrain;
+      this.latestState = state;
+      if (
+        prevTerrain.width !== state.terrain.width ||
+        prevTerrain.height !== state.terrain.height
+      ) {
+        this.resize();
+      }
       this.publishState(state);
     });
   }
@@ -55,6 +65,7 @@ export class GameEngine {
   start(): void {
     if (this.animationFrameId !== null) return;
     this.lastTimestamp = performance.now();
+    this.accumulator = 0;
     this.animationFrameId = requestAnimationFrame(this.tick);
   }
 
@@ -98,30 +109,35 @@ export class GameEngine {
   }
 
   private readonly tick = (timestamp: number) => {
-    const dt = Math.min(
+    const elapsed = Math.min(
       MAX_DELTA_TIME_SECONDS,
       (timestamp - this.lastTimestamp) / MS_PER_SECOND ||
         FALLBACK_DELTA_TIME_SECONDS,
     );
     this.lastTimestamp = timestamp;
+    this.accumulator += elapsed;
 
-    this.update(dt);
+    while (this.accumulator >= FIXED_TIMESTEP_SECONDS) {
+      const stateBeforeInput = this.gameManager.getState();
+      const actions = this.localInput.poll(
+        this.renderer.getCameraX(),
+        stateBeforeInput,
+      );
+      this.submitActions(actions);
+
+      this.gameManager.update(FIXED_TIMESTEP_SECONDS);
+      this.accumulator -= FIXED_TIMESTEP_SECONDS;
+    }
+
+    const state = this.gameManager.getState();
+    const hoverTarget = this.localInput.getHoverTarget(state);
+    this.renderer.setHoverTarget(hoverTarget);
+    this.renderer.setIsWeaponDrawerOpen(this.localInput.getIsWeaponDrawerOpen());
+    this.renderer.render(state);
+    this.publishState(state);
 
     this.animationFrameId = requestAnimationFrame(this.tick);
   };
-
-  private update(dt: number): void {
-    const stateBeforeInput = this.gameManager.getState();
-
-    this.submitActions(
-      this.localInput.poll(this.renderer.getCameraX(), stateBeforeInput),
-    );
-
-    this.gameManager.update(dt);
-    const state = this.gameManager.getState();
-    this.renderer.render(state);
-    this.publishState(state);
-  }
 
   private submitActions(actions: GameAction[]): void {
     for (const action of actions) {
@@ -141,9 +157,12 @@ export class GameEngine {
     inputLayout: CanvasInputLayout;
   } {
     const domCanvasRect = readDomCanvasRect(this.options.canvas);
+    const terrain = this.latestState.terrain;
     const sizing = createCanvasSizing({
       domCanvasRect,
-      devicePixelRatio: window.devicePixelRatio || 1,
+      devicePixelRatio: typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1,
+      worldWidth: terrain.width,
+      worldHeight: terrain.height,
     });
 
     return {

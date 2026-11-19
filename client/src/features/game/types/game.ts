@@ -59,9 +59,41 @@ export type MatchSetup = {
   players: MatchSetupPlayer[];
 };
 
-export type PositionComponent = Vec2;
+export type MatchState = {
+  mode: GameMode;
+  phase: TurnPhase;
+  activePlayerId: number;
+  playerCount: number;
+  turnNumber: number;
+  turnTimeRemaining: number;
+  matchTimeRemaining: number;
+  wind: number;
+  winnerPlayerId: number | null;
+  biome: MapBiome;
+  isCameraLocked: boolean;
+  cameraX: number;
+};
 
-export type VelocityComponent = Vec2;
+// ============================================================================
+// 4. Player Actions & User Intents
+// ============================================================================
+
+export type GameAction =
+  | { type: "move"; direction: -1 | 1 }
+  | { type: "aim"; angle: number; power: number }
+  | { type: "selectProjectileSlot"; projectileSlotId: string }
+  | {
+      type: "fire";
+      angle: number;
+      power: number;
+      projectileSlotId: string;
+    }
+  | { type: "panCamera"; deltaX: number }
+  | { type: "relockCamera" };
+
+// ============================================================================
+// 5. Entity Components & World Objects
+// ============================================================================
 
 export type TankComponent = {
   playerId: number;
@@ -71,6 +103,8 @@ export type TankComponent = {
   tankName: string;
   width: number;
   height: number;
+  barrelLength?: number;
+  turretYOffset?: number;
   loadout: string[];
   selectedProjectileSlotId: string;
   weaponAmmo: Record<string, number>;
@@ -93,6 +127,11 @@ export type ProjectilePhysics = {
   drag: number;
 };
 
+export type TankEntity = TankComponent & {
+  entityId: EntityId;
+  position: PositionComponent;
+};
+
 export type ProjectileComponent = {
   ownerPlayerId: string;
   projectileId: string;
@@ -104,6 +143,13 @@ export type ProjectileComponent = {
   damageEffect: DamageEffect;
   position: Vec2;
   velocity: Vec2;
+  remainingBounces?: number;
+};
+
+export type ProjectileEntity = ProjectileComponent & {
+  entityId: EntityId;
+  position: PositionComponent;
+  velocity: VelocityComponent;
 };
 
 export type DamageTrail = {
@@ -124,10 +170,6 @@ export type ImpactEvent = {
   visual: Visual;
 };
 
-export type LifetimeComponent = {
-  active: boolean;
-};
-
 export type LootCrateType = "hp" | "fuel" | "ammo";
 
 export type LootCrate = {
@@ -139,6 +181,22 @@ export type LootCrate = {
   isLanding: boolean;
   collected: boolean;
   value: number;
+};
+
+// ============================================================================
+// 6. Environment & Visual Cosmetics
+// ============================================================================
+
+export type DecorType = "tree" | "rock" | "bunker" | "grass";
+
+export type DecorObject = {
+  id: string;
+  type: DecorType;
+  x: number;
+  y: number;
+  scale: number;
+  rotation: number;
+  destroyed: boolean;
 };
 
 export type Particle = {
@@ -162,20 +220,6 @@ export type FloatingText = {
   vy: number;
   life: number;
   maxLife: number;
-};
-
-export type MapBiome = "forest" | "desert" | "ice";
-
-export type DecorType = "tree" | "rock" | "bunker" | "grass";
-
-export type DecorObject = {
-  id: string;
-  type: DecorType;
-  x: number;
-  y: number;
-  scale: number;
-  rotation: number;
-  destroyed: boolean;
 };
 
 export type Cloud = {
@@ -210,7 +254,11 @@ export type HeightmapTerrainSnapshot = {
 
 export type TerrainSnapshot = HeightmapTerrainSnapshot;
 
-type DeepReadonly<T> = T extends (...args: never[]) => unknown
+// ============================================================================
+// 8. Aggregated Game & Simulation State Snapshots
+// ============================================================================
+
+export type DeepReadonly<T> = T extends (...args: never[]) => unknown
   ? T
   : T extends readonly (infer U)[]
     ? readonly DeepReadonly<U>[]
@@ -218,20 +266,24 @@ type DeepReadonly<T> = T extends (...args: never[]) => unknown
       ? { readonly [K in keyof T]: DeepReadonly<T[K]> }
       : T;
 
+export type LocalSimulationTankEntry = {
+  entityId: EntityId;
+  position: PositionComponent;
+  tank: TankComponent;
+};
+
+export type LocalSimulationProjectileEntry = {
+  entityId: EntityId;
+  position: PositionComponent;
+  velocity: VelocityComponent;
+  projectile: ProjectileComponent;
+};
+
 export type LocalSimulationState = DeepReadonly<{
   match: MatchState;
   terrain: TerrainSnapshot;
-  tanks: Array<{
-    entityId: EntityId;
-    position: PositionComponent;
-    tank: TankComponent;
-  }>;
-  projectiles: Array<{
-    entityId: EntityId;
-    position: PositionComponent;
-    velocity: VelocityComponent;
-    projectile: ProjectileComponent;
-  }>;
+  tanks: LocalSimulationTankEntry[];
+  projectiles: LocalSimulationProjectileEntry[];
   impactEvents: ImpactEvent[];
   damageTrails: DamageTrail[];
   lootCrates: LootCrate[];
@@ -272,7 +324,3 @@ export type GameContext = {
   generateIntentId: () => string;
   gameContent: GameContent;
 };
-
-export const MAX_TURN_SECONDS = 30;
-export const MAX_TANK_FUEL = 240;
-export const MOVE_FUEL_COST = 1;

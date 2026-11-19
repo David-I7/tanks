@@ -1,6 +1,7 @@
 package com.tanks.server.websocket.dto.gameplay.snapshots;
 
 import java.util.List;
+import java.util.Map;
 import com.tanks.server.websocket.dto.gameplay.OnlineVec2Dto;
 import com.tanks.server.websocket.gameplay.content.definitions.TankVisual;
 import lombok.Builder;
@@ -20,8 +21,10 @@ public record OnlineTankSnapshotResponseDto(
                 double power,
                 String selectedProjectileSlotId,
                 List<String> loadout,
+                Map<String, Integer> weaponAmmo,
                 int health,
                 int maxHealth,
                 int fuel,
+                int maxFuel,
                 boolean alive) {
 }

@@ -1,6 +1,5 @@
 import {
   type EntityId,
-  type LifetimeComponent,
   type MatchState,
   type PositionComponent,
   type ProjectileDefinition,
@@ -13,6 +12,7 @@ import {
   type DecorObject,
   type Cloud,
 } from "../types";
+import { createInitialWeaponAmmo } from "../rendering/ResourceManager";
 
 export class LocalWorld {
   private nextEntityId = 1;
@@ -20,7 +20,6 @@ export class LocalWorld {
   readonly velocities = new Map<EntityId, VelocityComponent>();
   readonly tanks = new Map<EntityId, TankComponent>();
   readonly projectiles = new Map<EntityId, ProjectileComponent>();
-  readonly lifetimes = new Map<EntityId, LifetimeComponent>();
   readonly impactEvents = new Map<number, ImpactEvent>();
 
   readonly tankEntitiesByPlayer = new Map<number, EntityId>();
@@ -41,7 +40,6 @@ export class LocalWorld {
     this.velocities.delete(entityId);
     this.tanks.delete(entityId);
     this.projectiles.delete(entityId);
-    this.lifetimes.delete(entityId);
 
     for (const [playerId, tankEntityId] of this.tankEntitiesByPlayer) {
       if (tankEntityId === entityId) {
@@ -55,6 +53,7 @@ export class LocalWorld {
     tankDefinition: TankDefinition,
     x: number,
     y: number,
+    projectiles: Record<string, ProjectileDefinition>,
   ): EntityId {
     const entityId = this.createEntity();
     this.positions.set(entityId, { x, y });
@@ -64,7 +63,10 @@ export class LocalWorld {
         `Tank definition "${tankDefinition.id}" has no loadout slots`,
       );
     }
-    //const weaponAmmo = createInitialWeaponAmmo(tankDefinition.loadout);
+    const weaponAmmo = createInitialWeaponAmmo(
+      tankDefinition.loadout,
+      projectiles,
+    );
     this.tanks.set(entityId, {
       playerId: player.id,
       displayName: player.displayName,
@@ -73,10 +75,12 @@ export class LocalWorld {
       tankName: tankDefinition.name,
       width: tankDefinition.width,
       height: tankDefinition.height,
+      barrelLength: tankDefinition.barrelLength,
+      turretYOffset: tankDefinition.turretYOffset,
       visual: { ...tankDefinition.visual },
       loadout: [...tankDefinition.loadout],
       selectedProjectileSlotId: defaultSlot,
-      weaponAmmo: {},
+      weaponAmmo,
       maxHealth: tankDefinition.maxHealth,
       health: tankDefinition.maxHealth,
       facing: player.id === 0 ? 1 : -1,
@@ -108,11 +112,13 @@ export class LocalWorld {
       projectileDefinitionId: projectileDefinition.id,
       name: projectileDefinition.name,
       power,
-      radius: projectileDefinition.radius,
+      radius: projectileDefinition.visual?.radius ?? 4.0,
+      remainingBounces: projectileDefinition.bouncer
+        ? Math.max(0, projectileDefinition.bouncer.bounceCount - 1)
+        : 0,
       physics: {
-        radius: projectileDefinition.radius,
+        radius: projectileDefinition.visual?.radius ?? 4.0,
         gravityScale: projectileDefinition.gravityScale,
-        drag: projectileDefinition.drag,
         muzzleVelocityScale: 1,
       },
       terrainEffect: {
@@ -148,7 +154,6 @@ export class LocalWorld {
       position: { x, y },
       velocity: { x: vx, y: vy },
     });
-    this.lifetimes.set(entityId, { active: true });
     return entityId;
   }
 
@@ -169,7 +174,6 @@ export class LocalWorld {
         fill: "#f97316",
         stroke: "#c2410c",
         accent: "#fed7aa",
-        label: "!",
       },
     });
   }

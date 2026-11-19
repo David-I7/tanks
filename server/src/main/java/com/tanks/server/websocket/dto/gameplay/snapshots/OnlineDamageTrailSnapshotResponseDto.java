@@ -10,5 +10,7 @@ public record OnlineDamageTrailSnapshotResponseDto(
         OnlineVec2Dto position,
         double radius,
         double damagePerSecond,
-        double durationSeconds) {
+        double durationSeconds,
+        String hazardType) {
 }
+

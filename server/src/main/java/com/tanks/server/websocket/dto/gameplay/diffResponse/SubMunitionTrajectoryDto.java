@@ -11,5 +11,7 @@ public record SubMunitionTrajectoryDto(
         OnlineVec2Dto launch,
         List<OnlineVec2Dto> trajectory,
         OnlineVec2Dto impact,
-        List<OnlineTankDamageResponseDto> damagedTanks) {
+        List<OnlineTankDamageResponseDto> damagedTanks,
+        Double delaySeconds) {
 }
+

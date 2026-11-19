@@ -36,7 +36,7 @@ public class InitialWorldFactory {
                 definition.playerASpawnRegion());
         addTank(world, terrain, content, random, 11, 2, playerB, tankDefB, -1,
                 definition.playerBSpawnRegion());
-        world.match().activePlayerId(1);
+        world.match().activePlayerId(PLAYER_A_ID);
         world.match().turnNumber(1);
         world.match().turnEndsAtServerTick(definition.tickRateHz() * 30L);
         world.match().biome(definition.biome());
@@ -56,6 +56,12 @@ public class InitialWorldFactory {
             SpawnRegion region) {
         int x = random.nextInt(region.minX(), region.maxX() + 1);
         var definition = content.requireTank(definitionId);
+        Map<String, Integer> weaponAmmo = new HashMap<>();
+        for (String slotId : definition.loadout()) {
+            var projDef = content.requireProjectile(slotId);
+            int startingAmmo = projDef.isDefault() ? -1 : (projDef.initialAmmo() != null && projDef.initialAmmo() > 0 ? projDef.initialAmmo() : 1);
+            weaponAmmo.put(slotId, startingAmmo);
+        }
         world.tanks().put(entityId, TankState.builder()
                 .entityId(entityId)
                 .playerId(playerId)
@@ -63,9 +69,12 @@ public class InitialWorldFactory {
                 .definitionId(definitionId)
                 .position(new OnlineVec2Dto(x, terrain.surfaceY(x) - definition.trackGroundOffset()))
                 .facing(facing)
+                .aimAngle(facing == 1 ? -Math.PI / 4 : -Math.PI * 0.75)
+                .power(360.0)
                 .selectedProjectileSlotId(definition.loadout().getFirst())
                 .health(definition.maxHealth())
                 .fuel(definition.maxFuel())
+                .weaponAmmo(weaponAmmo)
                 .build());
     }
 }

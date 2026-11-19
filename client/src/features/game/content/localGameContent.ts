@@ -1,5 +1,6 @@
 export function createInitialWeaponAmmo(
   loadout: string[],
+  projectiles: Record<string, ProjectileDefinition>,
 ): Record<string, number> {
   const weaponAmmo: Record<string, number> = {};
   for (const slotId of loadout) {

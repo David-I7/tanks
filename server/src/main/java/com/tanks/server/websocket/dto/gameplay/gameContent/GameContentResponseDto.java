@@ -12,7 +12,8 @@ public record GameContentResponseDto(
         String version,
         WorldDefinitionResponseDto world,
         Map<String, TankDefinitionResponseDto> tanks,
-        Map<String, ProjectileDefinitionResponseDto> projectiles) {
+        Map<String, ProjectileDefinitionResponseDto> projectiles,
+        ValidationRulesResponseDto validation) {
 
     public static GameContentResponseDto from(GameContent content) {
         return new GameContentResponseDto(

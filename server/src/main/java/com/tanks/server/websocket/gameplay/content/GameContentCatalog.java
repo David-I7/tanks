@@ -28,13 +28,16 @@ public class GameContentCatalog {
             Map<String, GameContent> map = new HashMap<>();
             for (Resource resource : resources) {
                 try (InputStream is = resource.getInputStream()) {
-                    GameContent content = objectMapper.readValue(is, GameContent.class);
+                    RawGameContent raw = objectMapper.readValue(is, RawGameContent.class);
+                    GameContent content = raw.toGameContent();
                     map.put(content.version(), content);
                 }
             }
             this.versions = Map.copyOf(map);
-            this.current = versions.getOrDefault("v1.0", versions.values().stream().findFirst().orElseThrow(
-                    () -> new IllegalStateException("No game content JSON definitions found in classpath:content/")));
+            this.current = versions.get("v1.0");
+            if (this.current == null) {
+                throw new IllegalStateException("Required game content version 'v1.0' not found in classpath:content/");
+            }
         } catch (Exception e) {
             throw new IllegalStateException("Failed to load game content definitions from JSON", e);
         }

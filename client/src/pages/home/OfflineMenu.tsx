@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { ArrowLeft } from "lucide-react";
+import { useState, useMemo } from "react";
+import { ArrowLeft, Bug } from "lucide-react";
 import Button from "../../components/buttons/Button";
 import IconButton from "../../components/buttons/IconButton";
 import H1 from "../../components/headings/H1";
@@ -35,10 +35,6 @@ export default function OfflineMenu() {
     });
   };
 
-  if (!tanks) {
-    return "Loading tanks...";
-  }
-
   return (
     <section>
       <div className="absolute top-4 left-4">
@@ -47,6 +43,23 @@ export default function OfflineMenu() {
           icon={<ArrowLeft size={16} />}
         />
       </div>
+
+      <div className="absolute top-4 right-4 flex items-center gap-1.5">
+        <button
+          type="button"
+          onClick={() => setDebugMode((prev) => !prev)}
+          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold border transition-colors cursor-pointer ${
+            debugMode
+              ? "bg-amber-500/20 border-amber-500/50 text-amber-300 shadow-sm"
+              : "bg-background-high border-border-main text-text-body-muted hover:text-text-body-high"
+          }`}
+          title="Toggle Weapon Debug Descriptions"
+        >
+          <Bug size={13} />
+          <span>Debug</span>
+        </button>
+      </div>
+
       <H1 className="text-center mb-1">Offline Setup</H1>
 
       {/* Player 1 Configuration */}
@@ -72,7 +85,9 @@ export default function OfflineMenu() {
           onTankSelect={(tank) =>
             setPlayer1Config({ ...player1Config, tankId: tank.id })
           }
+          selectedTankId={player1Config.tankId}
           label="Tank Choice"
+          debugMode={debugMode}
         />
       </div>
 
@@ -99,13 +114,21 @@ export default function OfflineMenu() {
           onTankSelect={(tank) =>
             setPlayer2Config({ ...player2Config, tankId: tank.id })
           }
+          selectedTankId={player2Config.tankId}
           label="Tank Choice"
+          debugMode={debugMode}
         />
       </div>
 
       <Button
         color="primary"
         onClick={handleStartGame}
+        disabled={
+          !player1Config.name ||
+          !player1Config.tankId ||
+          !player2Config.name ||
+          !player2Config.tankId
+        }
         className="w-full font-black text-sm tracking-widest mt-2"
       >
         Start Game
