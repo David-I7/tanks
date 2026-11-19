@@ -1,22 +1,23 @@
 package com.tanks.server.websocket.gameplay.world;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Random;
-import org.springframework.stereotype.Service;
 import com.tanks.server.websocket.dto.gameplay.OnlineVec2Dto;
 import com.tanks.server.websocket.gameplay.content.GameContent;
 import com.tanks.server.websocket.gameplay.content.definitions.SpawnRegion;
+import org.springframework.stereotype.Service;
+
+import java.util.ArrayList;
+import java.util.Random;
 
 @Service
 public class InitialWorldFactory {
-    public static final long PLAYER_A_ENTITY_ID = 10L;
-    public static final long PLAYER_B_ENTITY_ID = 11L;
-    public static final long PLAYER_A_ID = 1L;
-    public static final long PLAYER_B_ID = 2L;
 
-    public InitialWorld create(GameContent content, long seed, String playerA, String playerB, String tankDefA, String tankDefB) {
+    public InitialWorld create(
+            GameContent content,
+            long seed,
+            String playerA,
+            String playerB,
+            String tankDefA,
+            String tankDefB) {
         Random random = new Random(seed);
         var definition = content.world();
         var surface = new ArrayList<Integer>(definition.width());
@@ -31,19 +32,28 @@ public class InitialWorldFactory {
         TerrainModel terrain = new TerrainModel(definition, surface);
         World world = new World();
 
-        addTank(world, terrain, content, random, PLAYER_A_ENTITY_ID, PLAYER_A_ID, playerA, tankDefA, 1,
+        addTank(world, terrain, content, random, 10, 1, playerA, tankDefA, 1,
                 definition.playerASpawnRegion());
-        addTank(world, terrain, content, random, PLAYER_B_ENTITY_ID, PLAYER_B_ID, playerB, tankDefB, -1,
+        addTank(world, terrain, content, random, 11, 2, playerB, tankDefB, -1,
                 definition.playerBSpawnRegion());
         world.match().activePlayerId(PLAYER_A_ID);
         world.match().turnNumber(1);
-        world.match().turnEndsAtServerTick((long) definition.tickRateHz() * definition.turnDurationSeconds());
-        world.match().biome(definition.selectBiome());
+        world.match().turnEndsAtServerTick(definition.tickRateHz() * 30L);
+        world.match().biome(definition.biome());
         return new InitialWorld(world, terrain);
     }
 
-    private static void addTank(World world, TerrainModel terrain, GameContent content, Random random,
-            long entityId, long playerId, String displayName, String definitionId, int facing, SpawnRegion region) {
+    private static void addTank(
+            World world,
+            TerrainModel terrain,
+            GameContent content,
+            Random random,
+            long entityId,
+            long playerId,
+            String displayName,
+            String definitionId,
+            int facing,
+            SpawnRegion region) {
         int x = random.nextInt(region.minX(), region.maxX() + 1);
         var definition = content.requireTank(definitionId);
         Map<String, Integer> weaponAmmo = new HashMap<>();

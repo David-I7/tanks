@@ -15,7 +15,6 @@ import org.springframework.security.messaging.access.intercept.MessageMatcherDel
 @RequiredArgsConstructor
 public class WebSocketSecurityConfig {
 
-
     @Bean
     AuthorizationManager<Message<?>> authorizationManager(MessageMatcherDelegatingAuthorizationManager.Builder messages) {
         messages

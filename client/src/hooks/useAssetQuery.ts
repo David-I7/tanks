@@ -1,47 +1,48 @@
 import { useQuery } from "@tanstack/react-query";
-import ResourceManager, {
-  type TankDefinition,
-  type TankProjectileDefinition,
-} from "../game/rendering/ResourceManager";
-import TanksClient from "../api/http/TanksClient";
-import { GetGameContentRequest } from "../api/http/requests/game/GetGameContentRequest";
-import { onlineGameContentFromResponse } from "../game/online/onlineGameContent";
+import HttpClient from "../api/http/HttpClient";
+import AssetsRequest from "../api/http/requests/AssetsRequest";
+import { type GameContent } from "../features/game/types/content";
 
-type ProjectileAsset = TankProjectileDefinition;
+export type ProjectileAsset = {
+  id: string;
+  name: string;
+  label: string;
+};
 
-export type TankAsset = Omit<TankDefinition, "projectiles"> & {
+export type TankAsset = {
+  id: string;
+  name: string;
+  description: string;
+  color: string;
   projectiles: ProjectileAsset[];
 };
 
-export async function fetchAssets(): Promise<TankAsset[]> {
-  const resourceManager = ResourceManager.getInstance();
-  if (!resourceManager.isLoaded()) {
-    const client = new TanksClient();
-    const contentDto = await client.send(new GetGameContentRequest());
-    const content = onlineGameContentFromResponse(contentDto);
-    resourceManager.setGameContent(content);
-  }
+export function toTankAssets(content: GameContent): TankAsset[] {
+  return Object.values(content.tanks).map((tank) => ({
+    id: tank.id,
+    name: tank.name,
+    description: tank.description,
+    color: tank.visual.fillStyle,
+    projectiles: tank.loadout.map((projectileId) => {
+      const proj = content.projectiles[projectileId];
+      return {
+        id: projectileId,
+        name: proj.name,
+        label: proj.label,
+      };
+    }),
+  }));
+}
 
-  const resources = resourceManager.getTankDefinitions();
-  const tankAssets: TankAsset[] = Object.entries(resources).map(([_, tank]) => {
-    const projectiles: ProjectileAsset[] = tank.projectiles;
-
-    return {
-      id: tank.id,
-      name: tank.name,
-      description: tank.description,
-      color: tank.color,
-      projectiles,
-    };
-  });
-
-  return tankAssets;
+async function getAssets(): Promise<TankAsset[]> {
+  const content = await new HttpClient().send(new AssetsRequest());
+  return toTankAssets(content);
 }
 
 export function useAssetQuery() {
-  return useQuery({
+  return useQuery<TankAsset[]>({
     queryKey: ["gameAssets"],
-    queryFn: fetchAssets,
+    queryFn: getAssets,
     staleTime: Infinity,
     gcTime: Infinity,
   });

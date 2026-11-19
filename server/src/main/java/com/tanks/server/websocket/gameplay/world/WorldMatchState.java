@@ -18,6 +18,7 @@ public class WorldMatchState {
     public WorldMatchState(WorldMatchState other) {
         this(other.activePlayerId, other.turnNumber, other.turnEndsAtServerTick, other.winnerPlayerId, other.wind, other.biome);
     }
+
     public long activePlayerId() { return activePlayerId; }
     public void activePlayerId(long value) { activePlayerId = value; }
     public int turnNumber() { return turnNumber; }

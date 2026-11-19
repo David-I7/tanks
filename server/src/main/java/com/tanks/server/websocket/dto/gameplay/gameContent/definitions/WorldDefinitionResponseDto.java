@@ -24,7 +24,7 @@ public record WorldDefinitionResponseDto(
 
     public static WorldDefinitionResponseDto from(WorldDefinition value) {
         return new WorldDefinitionResponseDto(
-                value.biomes(),
+                value.biome(),
                 value.width(),
                 value.height(),
                 value.tickRateHz(),

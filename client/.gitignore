@@ -9,13 +9,12 @@ lerna-debug.log*
 
 
 node_modules
+.npm
 dist
 dist-ssr
 old_src
 *.local
 .tmp
-tmp.md
-.npm
 
 # Editor directories and files
 .vscode/*

@@ -1,6 +1,5 @@
 package com.tanks.server.websocket.gameplay.content.definitions;
 
-import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
 public record WorldDefinition(

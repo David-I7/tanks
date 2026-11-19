@@ -1,18 +1,17 @@
 package com.tanks.server.websocket.services;
 
-import com.tanks.server.utils.IdFactory;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.tanks.server.domain.Lobby;
+import com.tanks.server.domain.LobbyState;
+import com.tanks.server.domain.LobbyType;
+import com.tanks.server.domain.Player;
+import com.tanks.server.dto.response.LobbyActionResponseDto;
+import com.tanks.server.repositories.LobbyRepository;
 import com.tanks.server.websocket.dto.lobby.LobbyEventPayload;
 import com.tanks.server.websocket.dto.lobby.LobbyEventResponseDto;
 import com.tanks.server.websocket.dto.lobby.LobbyEventType;
-import com.tanks.server.websocket.entities.lobby.Lobby;
-import com.tanks.server.websocket.entities.lobby.LobbyPlayerConfig;
-import com.tanks.server.websocket.entities.lobby.LobbyStatus;
-import com.tanks.server.websocket.entities.lobby.LobbyType;
-import com.tanks.server.websocket.entities.userSession.UserSession;
 import com.tanks.server.websocket.events.LobbyEvent;
 import com.tanks.server.websocket.exceptions.ProblemDetailException;
-import com.tanks.server.websocket.repositories.LobbyRepository;
-import lombok.AllArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
@@ -28,161 +27,199 @@ import java.util.UUID;
 @Slf4j
 public class LobbyService {
 
+    private static final String TOPIC_LOBBY_PREFIX = "/topic/lobby/";
+
     private final LobbyRepository lobbyRepository;
     private final QuickMatchService quickMatchService;
-    private final UserSessionService userSessionService;
     private final ApplicationEventPublisher eventPublisher;
-    private Object JOIN_LOCK = new Object();
+    private final Cache<UUID, Lobby> pendingLobbiesCache;
+    private final Cache<UUID, Player> pendingPlayerJoinLobbiesCache;
+    private final Object joinPrivateLobbyLock = new Object();
+    private final Object joinPublicLobbyLock = new Object();
 
-    public Lobby create(UserSession userSession, LobbyType type, String tankDefinitionId) {
-        UserSession originalUserSession = new UserSession(userSession);
-        UUID uuid = IdFactory.randomUUID();
+    public LobbyActionResponseDto createPendingLobby(String nickname, String tankDefinitionId, LobbyType type) {
+        UUID lobbyId = UUID.randomUUID();
+        UUID playerId = UUID.randomUUID();
+
+        Player host = new Player(playerId, nickname, tankDefinitionId);
         Lobby lobby = Lobby.builder()
-                .host(LobbyPlayerConfig.builder()
-                        .id(userSession.getId())
-                        .username(userSession.getUsername())
-                        .tankDefinitionId(tankDefinitionId)
-                        .build())
+                .id(lobbyId)
                 .type(type)
-                .status(LobbyStatus.WAITING_FOR_OPPONENT)
-                .id(uuid)
+                .state(LobbyState.CREATED)
+                .host(host)
                 .build();
 
-        try {
-            lobbyRepository.save(lobby);
-            if (lobby.getType() == LobbyType.QUICK_MATCH) {
-                quickMatchService.create(lobby);
-            }
+        pendingLobbiesCache.put(lobbyId, lobby);
+        log.info("Created pending {} lobby {} for host {} ({})", type, lobbyId, nickname, playerId);
 
-            userSessionService.transitionToLobby(userSession, uuid);
-            userSessionService.save(userSession);
-
-            eventPublisher.publishEvent(new LobbyEvent(this, userSession.getUsername(), "/queue/replies",
-                    new LobbyEventResponseDto(LobbyEventType.LOBBY_CREATED, new LobbyEventPayload(uuid, userSession.getId(),userSession.getUsername()))));
-        } catch (RuntimeException ex) {
-            restoreUserSession(originalUserSession);
-            cleanupLobby(lobby);
-            throw ex;
-        }
-
-        return lobby;
+        return new LobbyActionResponseDto(lobbyId, playerId);
     }
 
-    public void join(UUID lobbyId, UserSession userSession, String tankDefinitionId) {
-        synchronized (JOIN_LOCK) {
+    public LobbyActionResponseDto join(UUID lobbyId, String nickname, String tankDefinitionId) {
+        synchronized (joinPrivateLobbyLock) {
             Lobby lobby = findById(lobbyId);
-            LobbyPlayerConfig originalOpponent = lobby.getOpponent();
-            LobbyStatus originalStatus = lobby.getStatus();
-            UserSession originalUserSession = new UserSession(userSession);
 
-            if (isFullLobby(lobby)) {
-                throw new ProblemDetailException(HttpStatus.BAD_REQUEST, "Lobby is full.", URI.create("/lobby/join/private/" + lobbyId));
+            if (lobby.isFull() || lobby.getState() != LobbyState.WAITING_FOR_PLAYERS) {
+                throw new ProblemDetailException(HttpStatus.BAD_REQUEST, "Lobby is full or not accepting players.", URI.create("/api/v1/lobbies/" + lobbyId + "/join"));
             }
 
-            try {
-                // New user has joined
-                lobby.setOpponent(LobbyPlayerConfig.builder()
-                        .id(userSession.getId())
-                        .username(userSession.getUsername())
-                        .tankDefinitionId(tankDefinitionId)
-                        .build());
-                lobby.setStatus(LobbyStatus.READY);
-                lobbyRepository.save(lobby);
-
-                userSessionService.transitionToLobby(userSession, lobbyId);
-                userSessionService.save(userSession);
-
-                eventPublisher.publishEvent(new LobbyEvent(this, userSession.getUsername(), "/queue/replies",
-                        new LobbyEventResponseDto(LobbyEventType.LOBBY_JOINED, new LobbyEventPayload(lobbyId, lobby.getHost().getId(), userSession.getUsername()))));
-            } catch (RuntimeException ex) {
-                restoreUserSession(originalUserSession);
-                restoreLobby(lobby, originalOpponent, originalStatus);
-                throw ex;
+            Player joiningPlayer = pendingPlayerJoinLobbiesCache.getIfPresent(lobbyId);
+            if (joiningPlayer != null) {
+                throw new ProblemDetailException(HttpStatus.CONFLICT, "Another player is currently joining this lobby.", URI.create("/api/v1/lobbies/" + lobbyId + "/join"));
             }
+
+            UUID playerId = UUID.randomUUID();
+            Player opponent = new Player(playerId, nickname, tankDefinitionId);
+            pendingPlayerJoinLobbiesCache.put(lobbyId, opponent);
+
+            log.info("Player {} ({}) is joining lobby {}", nickname, playerId, lobbyId);
+            return new LobbyActionResponseDto(lobbyId, playerId);
         }
     }
 
-    public void joinQuickMatch(UserSession userSession, String tankDefinitionId) {
-        Optional<Lobby> lobbyOpt = popBestQuickMatch();
+    public LobbyActionResponseDto joinQuickMatch(String nickname, String tankDefinitionId) {
+        synchronized (joinPublicLobbyLock) {
+            Optional<UUID> lobbyId = quickMatchService.getBestQuickMatchNotInCache();
 
-        if (lobbyOpt.isPresent()) {
-            Lobby quickMatchLobby = lobbyOpt.get();
-            join(quickMatchLobby.getId(), userSession, tankDefinitionId);
-        } else {
-            create(userSession, LobbyType.QUICK_MATCH, tankDefinitionId);
+            if (lobbyId.isPresent()) {
+                UUID playerId = UUID.randomUUID();
+                Player opponent = new Player(playerId, nickname, tankDefinitionId);
+                pendingPlayerJoinLobbiesCache.put(lobbyId.get(), opponent);
+
+                log.info("Player {} ({}) quick-matched into lobby {}", nickname, playerId, lobbyId.get());
+                return new LobbyActionResponseDto(lobbyId.get(), playerId);
+            }
+
+            return createPendingLobby(nickname, tankDefinitionId, LobbyType.PUBLIC);
         }
     }
 
-    public void removeUser(UserSession userSession) {
-        UUID lobbyId = userSession.getLobbyId();
-        Lobby lobby = findById(lobbyId);
+    public Lobby confirmLobbyCreation(UUID lobbyId, UUID playerId) {
+        Lobby pendingLobby = pendingLobbiesCache.getIfPresent(lobbyId);
+        if (pendingLobby != null && pendingLobby.getHost() != null && pendingLobby.getHost().id().equals(playerId)) {
+            pendingLobbiesCache.invalidate(lobbyId);
+            pendingLobby.setState(LobbyState.WAITING_FOR_PLAYERS);
+            lobbyRepository.save(pendingLobby);
 
-        if (!isConnectedUser(lobby, userSession.getId()))
-            throw new IllegalStateException("The provided user is not connected to the lobby " + lobbyId);
-
-        if (lobby.getOpponent() == null) {
-            delete(lobby);
-        } else {
-            if (lobby.getHost().getId().equals(userSession.getId())) {
-                lobby.setHost(lobby.getOpponent());
+            if (pendingLobby.getType() == LobbyType.PUBLIC) {
+                quickMatchService.create(pendingLobby.getId());
             }
 
-            lobby.setOpponent(null);
-            lobby.setStatus(LobbyStatus.WAITING_FOR_OPPONENT);
+            log.info("Confirmed lobby creation for {}", lobbyId);
+            return pendingLobby;
+        }
+
+        throw new ProblemDetailException(HttpStatus.BAD_REQUEST, "This lobby does not exist.");
+    }
+
+    public Lobby confirmPlayerJoin(UUID lobbyId, UUID playerId) {
+        Player pendingPlayer = pendingPlayerJoinLobbiesCache.getIfPresent(lobbyId);
+        if (pendingPlayer != null && pendingPlayer.id().equals(playerId)) {
+            pendingPlayerJoinLobbiesCache.invalidate(lobbyId);
+
+            Lobby lobby = findById(lobbyId);
+            lobby.setOpponent(pendingPlayer);
+            lobby.setState(LobbyState.READY_TO_START);
             lobbyRepository.save(lobby);
 
-            eventPublisher.publishEvent(new LobbyEvent(this, null,
-                    "/topic/lobby/" + userSession.getLobbyId(),
+            if (lobby.getType() == LobbyType.PUBLIC) {
+                quickMatchService.delete(lobbyId);
+            }
+
+            log.info("Confirmed player join for {}", lobbyId);
+            return lobby;
+        }
+        throw new ProblemDetailException(HttpStatus.BAD_REQUEST, "This player is not pending in the specified lobby.");
+    }
+
+    public Optional<Lobby> findActiveOrPendingLobby(UUID lobbyId) {
+        Optional<Lobby> active = lobbyRepository.findById(lobbyId);
+        if (active.isPresent()) {
+            return active;
+        }
+        return Optional.ofNullable(pendingLobbiesCache.getIfPresent(lobbyId));
+    }
+
+
+    public Lobby findById(UUID lobbyId) {
+        return lobbyRepository.findById(lobbyId)
+                .orElseThrow(() -> new ProblemDetailException(
+                        HttpStatus.NOT_FOUND,
+                        "The lobby with the provided id does not exist.",
+                        URI.create("/api/v1/lobbies/" + lobbyId)));
+    }
+
+    public void removePlayer(UUID lobbyId, UUID playerId) {
+        synchronized (this) {
+            Optional<Lobby> lobbyOpt = lobbyRepository.findById(lobbyId);
+            if (lobbyOpt.isEmpty()) {
+                return;
+            }
+
+            Lobby lobby = lobbyOpt.get();
+            if (!lobby.hasPlayer(playerId)) {
+                return;
+            }
+
+            Player opponent = lobby.getOpponent();
+            Player host = lobby.getHost();
+
+            if (lobby.getState() == LobbyState.IN_GAME) {
+                eventPublisher.publishEvent(new LobbyEvent(
+                        this,
+                        null,
+                        TOPIC_LOBBY_PREFIX + lobbyId,
+                        new LobbyEventResponseDto(
+                                LobbyEventType.LOBBY_DISCONNECT,
+                                new LobbyEventPayload(lobbyId, host != null ? host.id() : playerId, playerId)
+                        )
+                ));
+                log.info("Player {} disconnected from active in-game lobby {}", playerId, lobbyId);
+                return;
+            }
+
+            if (opponent == null) {
+                delete(lobby);
+                log.info("Lobby {} deleted after sole player {} left", lobbyId, playerId);
+                return;
+            }
+
+            String disconnectedNickname = host.id().equals(playerId) ? host.nickname() : opponent.nickname();
+
+            if (host.id().equals(playerId)) {
+                lobby.setHost(opponent);
+                lobby.setOpponent(null);
+            } else {
+                lobby.setOpponent(null);
+            }
+
+            lobby.setState(LobbyState.WAITING_FOR_PLAYERS);
+            lobbyRepository.save(lobby);
+
+            if (lobby.getType() == LobbyType.PUBLIC) {
+                quickMatchService.create(lobby.getId());
+            }
+
+            eventPublisher.publishEvent(new LobbyEvent(
+                    this,
+                    null,
+                    TOPIC_LOBBY_PREFIX + lobbyId,
                     new LobbyEventResponseDto(
                             LobbyEventType.LOBBY_DISCONNECT,
-                            new LobbyEventPayload(userSession.getLobbyId(), lobby.getHost().getId(),userSession.getUsername())
+                            new LobbyEventPayload(lobbyId, lobby.getHost().id(), playerId)
                     )
             ));
+
+            log.info("Player {} left lobby {}. New host is {}", disconnectedNickname, lobbyId, lobby.getHost().nickname());
         }
     }
 
     public void delete(Lobby lobby) {
         lobbyRepository.delete(lobby);
-        if (lobby.getType() == LobbyType.QUICK_MATCH) {
-            quickMatchService.delete(lobby);
+        pendingLobbiesCache.invalidate(lobby.getId());
+        pendingPlayerJoinLobbiesCache.invalidate(lobby.getId());
+        if (lobby.getType() == LobbyType.PUBLIC) {
+            quickMatchService.delete(lobby.getId());
         }
     }
-
-    public Optional<Lobby> popBestQuickMatch() {
-        return quickMatchService.popBestQuickMatch();
-    }
-
-    public Lobby findById(UUID lobbyId) {
-        Lobby lobby = lobbyRepository.findById(lobbyId)
-                .orElseThrow(() -> new ProblemDetailException(HttpStatus.NOT_FOUND, "The lobby with the provided id does not exist.", URI.create("about:blank")));
-
-        return lobby;
-    }
-
-    private boolean isFullLobby(Lobby lobby) {
-        return (lobby.getHost() != null)
-                && (lobby.getOpponent() != null);
-    }
-
-    private boolean isConnectedUser(Lobby lobby, Long userId) {
-        LobbyPlayerConfig opponent = lobby.getOpponent();
-        LobbyPlayerConfig host = lobby.getHost();
-        return userId.equals(opponent != null ? opponent.getId() : null)
-                || userId.equals(host != null ? host.getId() : null);
-    }
-
-    private void cleanupLobby(Lobby lobby) {
-        delete(lobby);
-    }
-
-    private void restoreLobby(Lobby lobby, LobbyPlayerConfig opponent, LobbyStatus status) {
-        lobby.setOpponent(opponent);
-        lobby.setStatus(status);
-        lobbyRepository.save(lobby);
-    }
-
-    private void restoreUserSession(UserSession original) {
-        userSessionService.save(original);
-    }
-
 }

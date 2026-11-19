@@ -1,19 +1,6 @@
 name: tanks-dev
-
 services:
-  postgres:
-    image: postgres:18-alpine3.23
-    container_name: postgres
-    env_file:
-      - ../server/.env.database
-    ports:
-      - "127.0.0.1:5432:5432"
-    networks:
-      - backend
-
   tanks:
-    depends_on:
-      - postgres
     build:
       context: ../server
       dockerfile: Dockerfile
@@ -25,6 +12,8 @@ services:
         target: /app
       - type: volume
         target: /root/.m2
+      - type: volume
+        target: /app/target
     networks:
       - backend
 
@@ -44,7 +33,6 @@ services:
       - "5173:5173"
     networks:
       - frontend
-
   nginx:
     depends_on:
       - tanks

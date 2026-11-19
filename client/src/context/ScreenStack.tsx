@@ -6,10 +6,10 @@ import React, {
 } from "react";
 
 type ScreenStackContextType<Keys extends string> = {
-  pushScreen: (screen: keyof Screens<Keys>, currentScreenState?: any) => void;
+  pushScreen: (screen: keyof Screens<Keys>, currentScreenState?: unknown) => void;
   popScreen: () => void;
   screen: React.ReactElement;
-  state: any;
+  state: unknown;
 };
 
 type Screens<Keys extends string> = {
@@ -24,22 +24,22 @@ type ScreenStackProviderProps<Keys extends string> = {
 };
 
 export const ScreenStackContext = createContext<
-  ScreenStackContextType<any> | undefined
+  ScreenStackContextType<string> | undefined
 >(undefined);
 
 function useInitScreenStack<Keys extends string>(
   screens: Screens<Keys>,
 ): ScreenStackContextType<Keys> {
-  const [history, setHistory] = useState<[React.ReactElement, any][]>([]);
+  const [history, setHistory] = useState<[React.ReactElement, unknown][]>([]);
   const [currentScreen, setCurrentScreen] = useState<React.ReactElement>(
     screens.root,
   );
-  const [currentState, setCurrentState] = useState<any>(null);
+  const [currentState, setCurrentState] = useState<unknown>(null);
 
-  function pushScreen(screen: keyof Screens<Keys>, currentState?: any) {
-    setHistory([...history, [currentScreen, currentState ?? null]]);
+  function pushScreen(screen: keyof Screens<Keys>, state?: unknown) {
+    setHistory([...history, [currentScreen, currentState]]);
     setCurrentScreen(screens[screen]);
-    setCurrentState(null);
+    setCurrentState(state ?? null);
   }
 
   function popScreen() {
@@ -60,20 +60,26 @@ function useInitScreenStack<Keys extends string>(
   };
 }
 
-export function useScreenStack<Keys extends string>() {
-  const ctx = useContext(ScreenStackContext);
-  if (ctx === undefined)
-    throw new Error("You must call this hook inside a ScreenStackProvider");
-  return ctx as ScreenStackContextType<Keys>;
-}
-
-export default function ScreenStackProvider<Keys extends string>({
+export function ScreenStackProvider<Keys extends string>({
   screens,
   children,
 }: ScreenStackProviderProps<Keys>) {
+  const value = useInitScreenStack(screens);
   return (
-    <ScreenStackContext.Provider value={useInitScreenStack(screens)}>
+    <ScreenStackContext.Provider
+      value={value as unknown as ScreenStackContextType<string>}
+    >
       {children}
     </ScreenStackContext.Provider>
   );
+}
+
+export default ScreenStackProvider;
+
+export function useScreenStack<Keys extends string>() {
+  const context = useContext(ScreenStackContext);
+  if (!context) {
+    throw new Error("useScreenStack must be used within a ScreenStackProvider");
+  }
+  return context as ScreenStackContextType<Keys>;
 }

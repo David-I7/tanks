@@ -1,179 +1,180 @@
-import { Menu } from "lucide-react";
-import { Navigate, useNavigate, useParams } from "react-router-dom";
+import { ArrowLeft } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import Loader from "../../components/misc/Loader";
-import { GameEngine, type GameState } from "../../game";
+import { GameEngine } from "../../features/game";
 import IconButton from "../../components/buttons/IconButton";
 import useGameSession from "./useGameSession";
-import UiError from "../../errors/UiError";
-import { useUserStatusQuery } from "../../hooks/useUserStatusQuery";
 import GameOverOverlay from "../../components/game/GameOverOverlay";
-import BattleMenuModal from "../../components/game/BattleMenuModal";
+import { useScreenStack } from "../../context/ScreenStack";
+import type { HomeScreenStack } from "../home/HomePage";
 
-export default function GamePage() {
-  const { id } = useParams();
-  const checked = useCheckValidGameSession({ id });
+export default function OnlineGameScreen() {
+  const { state, popScreen } = useScreenStack<HomeScreenStack>();
+  const gameSessionId = (state as { gameSessionId?: string } | null)
+    ?.gameSessionId;
 
-  if (checked === false) {
-    return null;
-  } else if (checked !== true) {
-    return checked;
+  if (!gameSessionId) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] text-neutral-100">
+        <p className="text-sm text-neutral-400 mb-4">
+          No active game session found.
+        </p>
+        <button
+          onClick={() => popScreen()}
+          className="px-4 py-2 bg-neutral-700 text-white font-semibold rounded hover:bg-neutral-600 text-xs"
+        >
+          Back
+        </button>
+      </div>
+    );
   }
 
-  return <GameView gameSessionId={id!} />;
+  return <GameView gameSessionId={gameSessionId} onLeaveLobby={popScreen} />;
 }
 
-function useCheckValidGameSession({ id }: { id: string | undefined }) {
-  const { data: userStatus, isFetching } = useUserStatusQuery();
+type GameOverInfo = {
+  isGameOver: boolean;
+  winnerName: string | null;
+  isDraw: boolean;
+};
 
-  if (isFetching) return false;
+export type GameViewProps = {
+  gameSessionId: string;
+  onReturnToLobby?: () => void;
+  onLeaveLobby: () => void;
+};
 
-  if (userStatus == undefined || userStatus.state === "IDLE") {
-    throw new UiError({
-      description:
-        "You are not currently in a game. Please join a game session first.",
-      heading: "Not in a game session",
-    });
-  } else if (userStatus.state === "IN_LOBBY") {
-    throw new UiError({
-      description:
-        "You are currently in a lobby. Please join a game session from the lobby.",
-      heading: "In a lobby",
-    });
-  }
-
-  if (userStatus.gameId !== id) {
-    return <Navigate to={`/game/${userStatus.gameId}`} replace={true} />;
-  }
-
-  return true;
-}
-
-function GameView({ gameSessionId }: { gameSessionId: string }) {
-  const navigate = useNavigate();
-  const { sessionStatus, opponentDisconnected, gameManager, forfeitGame } =
-    useGameSession(gameSessionId);
+export function GameView({
+  gameSessionId,
+  onReturnToLobby,
+  onLeaveLobby,
+}: GameViewProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const engineRef = useRef<GameEngine | null>(null);
-  const [gameState, setGameState] = useState<GameState | null>(null);
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [gameOverInfo, setGameOverInfo] = useState<GameOverInfo | null>(null);
 
-  useEffect(() => {
-    if (!gameManager) return;
-    setGameState(gameManager.getState());
-    const unsubscribe = gameManager.subscribe((state) => {
-      setGameState(state);
-    });
-    return unsubscribe;
-  }, [gameManager]);
-
-  const isGameActive =
-    sessionStatus === "in_game" || sessionStatus === "game_over";
+  const {
+    sessionStatus,
+    opponentDisconnected,
+    gameManager,
+    error,
+    forfeitGame,
+    retryJoin,
+  } = useGameSession(gameSessionId);
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || !isGameActive || !gameManager) return;
+    if (!canvas || !gameManager) return;
 
-    engineRef.current?.stop();
     const engine = new GameEngine({
       canvas,
       gameManager,
     });
-
     engineRef.current = engine;
+
+    const unsubscribe = engine.subscribe((state) => {
+      if (state.match.phase === "gameOver") {
+        const winnerId = state.match.winnerPlayerId;
+        const winnerName =
+          winnerId !== null && winnerId !== undefined
+            ? `Player ${winnerId}`
+            : null;
+        setGameOverInfo((prev) => {
+          if (prev?.isGameOver) return prev;
+          return {
+            isGameOver: true,
+            winnerName,
+            isDraw: winnerId === null || winnerId === undefined,
+          };
+        });
+      }
+    });
+
     engine.start();
 
-    const resizeObserver = new ResizeObserver(() => {
-      engine.resize();
-    });
-    resizeObserver.observe(canvas);
+    const handleResize = () => engine.resize();
+    window.addEventListener("resize", handleResize);
 
     return () => {
-      resizeObserver.disconnect();
+      window.removeEventListener("resize", handleResize);
+      unsubscribe();
       engine.stop();
-      if (engineRef.current === engine) {
-        engineRef.current = null;
-      }
+      engineRef.current = null;
     };
-  }, [isGameActive, gameManager]);
+  }, [gameManager]);
 
-  const currentState =
-    gameState ?? engineRef.current?.getState() ?? gameManager?.getState();
-  const winnerPlayerId = currentState?.match.winnerPlayerId ?? null;
-  const isDraw = winnerPlayerId === null;
-  const winnerTank = currentState?.tanks.find(
-    (t) => t.playerId === winnerPlayerId,
-  );
-  const winnerName = winnerTank
-    ? winnerTank.displayName
-    : winnerPlayerId !== null
-      ? `Player ${winnerPlayerId + 1}`
-      : null;
+  const handleLeaveGame = () => {
+    onLeaveLobby();
+  };
+
+  const handleForfeit = () => {
+    forfeitGame();
+  };
+
+  if (
+    sessionStatus === "connecting_to_game" ||
+    sessionStatus === "starting_game"
+  ) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] text-neutral-100">
+        <Loader />
+        <p className="mt-4 text-sm text-neutral-400">Loading Game Session...</p>
+      </div>
+    );
+  }
+
+  if (sessionStatus === "error" || error) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] text-neutral-100">
+        <h2 className="text-xl font-bold text-red-500 mb-2">
+          Connection Error
+        </h2>
+        <p className="text-neutral-400 mb-4 text-xs max-w-md text-center">
+          {error?.message || "Failed to connect to game session."}
+        </p>
+        <div className="flex gap-4">
+          <button
+            onClick={retryJoin}
+            className="px-4 py-2 bg-amber-500 text-black font-semibold rounded hover:bg-amber-400 text-xs"
+          >
+            Retry
+          </button>
+          <button
+            onClick={handleLeaveGame}
+            className="px-4 py-2 bg-neutral-700 text-white font-semibold rounded hover:bg-neutral-600 text-xs"
+          >
+            Back
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <main className="fixed inset-0 w-screen h-screen overflow-hidden bg-background text-text-body-high">
-      {/* Top-Left Circular Frosted Menu Button */}
-      <div className="absolute top-3 left-3 z-30">
-        <IconButton
-          onClick={() => setIsMenuOpen(true)}
-          icon={<Menu size={18} />}
-          className="rounded-full shadow-lg bg-zinc-900/80 border-zinc-700/70 hover:bg-zinc-800 text-white backdrop-blur-md"
-          aria-label="Open Battle Menu"
-        />
+    <div className="relative w-full h-screen overflow-hidden bg-neutral-950">
+      <div className="absolute top-4 left-4 z-20 flex gap-2">
+        <IconButton icon={<ArrowLeft size={18} />} onClick={handleForfeit} />
       </div>
 
-      <BattleMenuModal
-        isOpen={isMenuOpen}
-        onClose={() => setIsMenuOpen(false)}
-        mode="online"
-        onForfeit={forfeitGame}
-        onExitToMenu={() => navigate("/")}
-      />
-
-      {opponentDisconnected && sessionStatus === "in_game" && (
-        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-30 rounded bg-amber-500/20 backdrop-blur-md border border-amber-500/40 px-4 py-1.5 text-center text-xs font-semibold text-amber-300 animate-pulse shadow-md">
-          Opponent disconnected! Waiting for them to reconnect (Match clock
-          continues running...)
+      {opponentDisconnected && (
+        <div className="absolute top-4 right-16 z-20 px-3 py-1 bg-amber-900/80 border border-amber-600/50 rounded text-xs text-amber-200">
+          Opponent reconnecting...
         </div>
       )}
 
-      <div className="relative w-full h-full overflow-hidden">
-        {(sessionStatus === "connecting_to_game" ||
-          sessionStatus === "reconnecting_to_game" ||
-          sessionStatus === "starting_game") && (
-          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-background/80 gap-3 backdrop-blur-sm">
-            {sessionStatus === "connecting_to_game" && (
-              <p className="text-lg font-medium text-text-body-muted">
-                Connecting to game...
-              </p>
-            )}
-            {sessionStatus === "reconnecting_to_game" && (
-              <p className="text-lg font-medium text-text-body-muted">
-                Reconnecting to game...
-              </p>
-            )}
-            {sessionStatus === "starting_game" && (
-              <p className="text-lg font-medium text-text-body-muted">
-                Starting game...
-              </p>
-            )}
-            <Loader />
-          </div>
-        )}
+      <canvas
+        ref={canvasRef}
+        className="w-full h-full block cursor-crosshair"
+      />
 
-        {sessionStatus === "game_over" && (
-          <GameOverOverlay
-            winnerName={winnerName}
-            isDraw={isDraw}
-            onReturnHome={() => navigate("/")}
-          />
-        )}
-
-        <canvas
-          ref={canvasRef}
-          className="w-full h-full block bg-black touch-none select-none"
+      {gameOverInfo?.isGameOver && (
+        <GameOverOverlay
+          winnerName={gameOverInfo.winnerName}
+          isDraw={gameOverInfo.isDraw}
+          onReturnToLobby={onReturnToLobby}
+          onReturnHome={handleLeaveGame}
         />
-      </div>
-    </main>
+      )}
+    </div>
   );
 }

@@ -9,7 +9,7 @@ export type LobbyEventType =
 
 export type LobbyEventPayload = {
   id: string;
-  hostId: number;
+  hostId: string;
   triggeredBy: string;
 };
 

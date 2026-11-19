@@ -3,11 +3,11 @@ import { ArrowLeft, Bug } from "lucide-react";
 import Button from "../../components/buttons/Button";
 import IconButton from "../../components/buttons/IconButton";
 import H1 from "../../components/headings/H1";
-import Surface from "../../components/layouts/Surface";
 import TankSelector from "../../components/game/TankSelector";
 import { useScreenStack } from "../../context/ScreenStack";
-import { useNavigate } from "react-router-dom";
-import type { TankAsset } from "../../hooks/useAssetQuery";
+import type { HomeScreenStack } from "./HomePage";
+import { useAssetQuery, type TankAsset } from "../../hooks/useAssetQuery";
+import randInt from "../../utils/random";
 
 type PlayerConfig = {
   name: string;
@@ -15,39 +15,28 @@ type PlayerConfig = {
 };
 
 export default function OfflineMenu() {
-  const { popScreen } = useScreenStack();
-  const navigate = useNavigate();
-
-  const isDebugInitial = useMemo(() => {
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get("debug") === "true") return true;
-    }
-    return (
-      import.meta.env.DEV ||
-      import.meta.env.VITE_DEBUG_TESTS === "true"
-    );
-  }, []);
-
-  const [debugMode, setDebugMode] = useState<boolean>(isDebugInitial);
+  const { popScreen, pushScreen } = useScreenStack<HomeScreenStack>();
+  const { data: tanks } = useAssetQuery();
 
   const [player1Config, setPlayer1Config] = useState<PlayerConfig>({
     name: "Player 1",
-    tankId: "",
+    tankId: !tanks ? "heavy-armor" : tanks[randInt(0, tanks.length - 1)].id,
   });
   const [player2Config, setPlayer2Config] = useState<PlayerConfig>({
     name: "Player 2",
-    tankId: "",
+    tankId: !tanks ? "desert-striker" : tanks[randInt(0, tanks.length - 1)].id,
   });
 
   const handleStartGame = () => {
-    navigate(`/game/local`, {
-      state: { mode: "localTwoPlayer", player1Config, player2Config },
+    pushScreen("offlineGame", {
+      mode: "localTwoPlayer",
+      player1Config,
+      player2Config,
     });
   };
 
   return (
-    <Surface className="px-6 py-6 w-full max-w-lg flex flex-col gap-5 text-center relative pt-14 max-h-[90vh] overflow-y-auto">
+    <section>
       <div className="absolute top-4 left-4">
         <IconButton
           onClick={() => popScreen()}
@@ -144,6 +133,6 @@ export default function OfflineMenu() {
       >
         Start Game
       </Button>
-    </Surface>
+    </section>
   );
 }

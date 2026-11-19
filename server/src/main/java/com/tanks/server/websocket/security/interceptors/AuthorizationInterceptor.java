@@ -1,14 +1,11 @@
 package com.tanks.server.websocket.security.interceptors;
 
-import com.tanks.server.websocket.entities.userSession.UserSession;
-import com.tanks.server.websocket.entities.userSession.UserSessionState;
 import com.tanks.server.websocket.exceptions.ProblemDetailException;
-import com.tanks.server.websocket.security.entites.WebSocketAuthentication;
-import com.tanks.server.websocket.security.entites.WebSocketPrincipal;
+import com.tanks.server.websocket.security.entities.WebSocketAuthentication;
+import com.tanks.server.websocket.security.entities.WebSocketPrincipal;
 import com.tanks.server.websocket.security.services.GameAuthorizationService;
 import com.tanks.server.websocket.security.services.LobbyAuthorizationService;
 import com.tanks.server.websocket.services.ClaimService;
-import com.tanks.server.websocket.services.UserSessionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
@@ -21,8 +18,8 @@ import org.springframework.messaging.support.ChannelInterceptor;
 import org.springframework.messaging.support.MessageHeaderAccessor;
 import org.springframework.stereotype.Component;
 
-import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.locks.ReentrantLock;
 
 @Component
@@ -31,15 +28,10 @@ import java.util.concurrent.locks.ReentrantLock;
 public class AuthorizationInterceptor implements ChannelInterceptor {
 
     private static final String TOPIC_LOBBY = "/topic/lobby/";
-
     private static final String TOPIC_GAME = "/topic/game/";
 
-    private final UserSessionService userSessionService;
-
     private final LobbyAuthorizationService lobbyAuthorizationService;
-
     private final GameAuthorizationService gameAuthorizationService;
-
     private final ClaimService claimService;
 
     @Override
@@ -65,7 +57,6 @@ public class AuthorizationInterceptor implements ChannelInterceptor {
 
     @Override
     public @Nullable Message<?> preSend(Message<?> message, MessageChannel channel) {
-
         StompHeaderAccessor accessor = MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
 
         if (accessor == null) {
@@ -85,23 +76,20 @@ public class AuthorizationInterceptor implements ChannelInterceptor {
         }
 
         WebSocketAuthentication authentication = (WebSocketAuthentication) accessor.getUser();
-        if (authentication == null)
+        if (authentication == null) {
             return message;
+        }
 
         WebSocketPrincipal principal = (WebSocketPrincipal) authentication.getPrincipal();
-        UserSession userSession = principal.getUserSession();
-        if (userSession == null)
-            return message;
+        UUID playerId = principal.getPlayerId();
 
-        ReentrantLock lock = claimService.getSocketLock(userSession.getId());
-
+        ReentrantLock lock = claimService.getSocketLock(playerId);
         if (lock == null) {
             if (StompCommand.DISCONNECT.equals(accessor.getCommand())) {
-                log.debug("Ignoring DISCONNECT for already disconnected user {}", userSession.getUsername());
+                log.debug("Ignoring DISCONNECT for already disconnected player {}", principal.getNickname());
                 return message;
             }
-
-            throw new ProblemDetailException(HttpStatus.BAD_REQUEST, "User disconnected");
+            throw new ProblemDetailException(HttpStatus.BAD_REQUEST, "Player disconnected");
         }
 
         lock.lock();
@@ -110,15 +98,13 @@ public class AuthorizationInterceptor implements ChannelInterceptor {
             sessionAttributes.put("socketLock", lock);
         }
 
-        // If a disconnect event happened while acquiring the lock, the user is already
-        // disconnected, so there is no need to fulfil this request
-        ReentrantLock activeSocketLock = claimService.getSocketLock(userSession.getId());
+        ReentrantLock activeSocketLock = claimService.getSocketLock(playerId);
         if (activeSocketLock == null) {
             lock.unlock();
             if (StompCommand.DISCONNECT.equals(accessor.getCommand())) {
                 return message;
             }
-            throw new ProblemDetailException(HttpStatus.BAD_REQUEST, "User disconnected");
+            throw new ProblemDetailException(HttpStatus.BAD_REQUEST, "Player disconnected");
         }
 
         if (StompCommand.SUBSCRIBE.equals(accessor.getCommand())) {
@@ -131,50 +117,32 @@ public class AuthorizationInterceptor implements ChannelInterceptor {
     }
 
     private void handleConnect(StompHeaderAccessor accessor) {
-        WebSocketPrincipal principal = (WebSocketPrincipal) ((WebSocketAuthentication) accessor.getUser())
-                .getPrincipal();
+        if (!(accessor.getUser() instanceof WebSocketAuthentication authentication)) {
+            throw new ProblemDetailException(HttpStatus.UNAUTHORIZED, "Unauthenticated connection");
+        }
+
+        WebSocketPrincipal principal = (WebSocketPrincipal) authentication.getPrincipal();
         String sessionId = accessor.getSessionId();
-        Long userId = principal.getUserDto().id();
+        UUID playerId = principal.getPlayerId();
 
-        try {
-            if (!claimService.claimSocket(userId, sessionId)) {
-                log.debug("User {} is already connected", principal.getUserDto().username());
-                throw new ProblemDetailException(HttpStatus.BAD_REQUEST, "User is already connected");
-            }
-
-            UserSession userSession = userSessionService.findById(userId);
-            userSession.setSocketSessionId(sessionId);
-            userSessionService.save(userSession);
-            principal.setUserSession(userSession);
-        } catch (ProblemDetailException ex) {
-            // user is connecting for the first time
-            if (ex.getStatus().equals(HttpStatus.NOT_FOUND)) {
-                UserSession userSession = UserSession.builder()
-                        .id(principal.getUserDto().id())
-                        .username(principal.getUserDto().username())
-                        .state(UserSessionState.IDLE)
-                        .socketSessionId(sessionId)
-                        .build();
-
-                principal.setUserSession(userSession);
-                userSessionService.save(userSession);
-            } else
-                throw ex;
-        } catch (Exception e) {
-            claimService.releaseSocket(userId, sessionId);
-            throw e;
+        if (!claimService.claimSocket(playerId, sessionId)) {
+            log.debug("Player {} is already connected", principal.getNickname());
+            throw new ProblemDetailException(HttpStatus.BAD_REQUEST, "Player is already connected");
         }
     }
 
     private void handlePreSubscribe(WebSocketAuthentication authentication, StompHeaderAccessor accessor) {
         WebSocketPrincipal principal = (WebSocketPrincipal) authentication.getPrincipal();
-        UserSession userSession = principal.getUserSession();
-        Map<String, String> topicSubscriptions = userSession.getTopicSubscriptions();
+        Map<String, String> topicSubscriptions = principal.getTopicSubscriptions();
         String destination = accessor.getDestination();
 
-        if (topicSubscriptions != null && topicSubscriptions.containsKey(destination)) {
-            log.debug("User {} is already subscribed to this topic", principal.getUserDto().username());
-            throw new ProblemDetailException(HttpStatus.BAD_REQUEST, "User is already subscribed to this topic");
+        if (destination == null) {
+            return;
+        }
+
+        if (topicSubscriptions.containsKey(destination)) {
+            log.debug("Player {} is already subscribed to this topic", principal.getNickname());
+            throw new ProblemDetailException(HttpStatus.BAD_REQUEST, "Player is already subscribed to this topic");
         }
 
         if (destination.startsWith(TOPIC_LOBBY)) {
@@ -183,18 +151,11 @@ public class AuthorizationInterceptor implements ChannelInterceptor {
             gameAuthorizationService.canJoinTopic(authentication, destination);
         }
 
-        if (topicSubscriptions == null) {
-            topicSubscriptions = new HashMap<>();
-        }
-
         topicSubscriptions.put(destination, accessor.getSubscriptionId());
-        userSession.setTopicSubscriptions(topicSubscriptions);
-        userSessionService.save(userSession);
     }
 
     private void handlePreSend(WebSocketAuthentication authentication, StompHeaderAccessor accessor) {
         String destination = accessor.getDestination();
-        log.debug("User {} is sending a request to {}", authentication.getName(), destination);
+        log.debug("Player {} is sending a request to {}", authentication.getName(), destination);
     }
-
 }

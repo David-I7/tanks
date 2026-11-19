@@ -1,12 +1,14 @@
 package com.tanks.server.websocket.gameplay.content.definitions;
 
-import java.util.List;
 import lombok.Builder;
+
+import java.util.List;
 
 @Builder
 public record TankDefinition(
         String id,
         String name,
+        String description,
         int maxHealth,
         int maxFuel,
         int movementQuantum,

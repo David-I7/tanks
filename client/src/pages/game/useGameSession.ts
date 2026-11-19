@@ -2,16 +2,14 @@ import { useEffect, useState } from "react";
 import { ApiError } from "../../errors/ApiError";
 import type WebSocketError from "../../errors/WebSocketError";
 import { useWebSocketStore } from "../../store/useWebSocketStore";
-import type ProblemDetailDto from "../../api/http/dto/ProblemDetailDto";
+import type ProblemDetailDto from "../../api/dto/ProblemDetailDto";
 import {
   createOnlineGameManager,
   createOnlineGameplayTransport,
-  IntentThrottler,
   type GameManager,
   type OnlineGameplayTransport,
-  ResourceManager,
-} from "../../game";
-import { useAssetQuery } from "../../hooks/useAssetQuery";
+  localGameContent,
+} from "../../features/game";
 
 export type SessionStatus =
   | "connecting_to_game"
@@ -22,7 +20,6 @@ export type SessionStatus =
   | "error";
 
 export default function useGameSession(gameSessionId: string) {
-  const { data: assets, isLoading: isAssetsLoading } = useAssetQuery();
   const {
     send,
     subscribe,
@@ -78,9 +75,7 @@ export default function useGameSession(gameSessionId: string) {
 
   useEffect(() => {
     const isConnected = webSocketStatus === "connected";
-    if (!isConnected || isAssetsLoading || !assets || !ResourceManager.getInstance().isLoaded()) {
-      return;
-    }
+    if (!isConnected) return;
 
     const transport = createOnlineGameplayTransport({
       client: { send, subscribe },
@@ -89,7 +84,6 @@ export default function useGameSession(gameSessionId: string) {
 
     const manager = createOnlineGameManager({
       transport,
-      throttler: new IntentThrottler({ aimIntervalMs: 80, moveIntervalMs: 100 }),
       ctx: {
         clock: () => performance.now(),
         generateIntentId: () =>
@@ -97,7 +91,7 @@ export default function useGameSession(gameSessionId: string) {
           typeof crypto.randomUUID === "function"
             ? crypto.randomUUID()
             : `intent-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-        gameContent: ResourceManager.getInstance().getGameContent(),
+        gameContent: localGameContent,
       },
     });
 
@@ -139,7 +133,7 @@ export default function useGameSession(gameSessionId: string) {
       setGameManager(null);
       setGameplayTransport(null);
     };
-  }, [webSocketStatus === "connected", gameSessionId, isAssetsLoading, Boolean(assets)]);
+  }, [webSocketStatus === "connected", gameSessionId]);
 
   return {
     sessionStatus,

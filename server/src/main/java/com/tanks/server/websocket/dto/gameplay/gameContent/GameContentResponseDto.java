@@ -1,12 +1,12 @@
 package com.tanks.server.websocket.dto.gameplay.gameContent;
 
-import java.util.Map;
-import java.util.stream.Collectors;
 import com.tanks.server.websocket.dto.gameplay.gameContent.definitions.ProjectileDefinitionResponseDto;
 import com.tanks.server.websocket.dto.gameplay.gameContent.definitions.TankDefinitionResponseDto;
-import com.tanks.server.websocket.dto.gameplay.gameContent.definitions.ValidationRulesResponseDto;
 import com.tanks.server.websocket.dto.gameplay.gameContent.definitions.WorldDefinitionResponseDto;
 import com.tanks.server.websocket.gameplay.content.GameContent;
+
+import java.util.Map;
+import java.util.stream.Collectors;
 
 public record GameContentResponseDto(
         String version,
@@ -22,7 +22,6 @@ public record GameContentResponseDto(
                 content.tanks().entrySet().stream().collect(Collectors.toUnmodifiableMap(
                         Map.Entry::getKey, entry -> TankDefinitionResponseDto.from(entry.getValue()))),
                 content.projectiles().entrySet().stream().collect(Collectors.toUnmodifiableMap(
-                        Map.Entry::getKey, entry -> ProjectileDefinitionResponseDto.from(entry.getValue()))),
-                ValidationRulesResponseDto.from(content.validation()));
+                        Map.Entry::getKey, entry -> ProjectileDefinitionResponseDto.from(entry.getValue()))));
     }
 }

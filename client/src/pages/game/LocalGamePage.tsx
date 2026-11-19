@@ -1,19 +1,17 @@
-import { Menu } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { ArrowLeft } from "lucide-react";
+import { useEffect, useMemo, useRef } from "react";
 import {
   createLocalGameManager,
   GameEngine,
-  ResourceManager,
+  localGameContent,
   type MatchSetup,
-} from "../../game";
+  type TankDefinitionIds,
+} from "../../features/game";
 import IconButton from "../../components/buttons/IconButton";
-import Loader from "../../components/misc/Loader";
-import { useAssetQuery } from "../../hooks/useAssetQuery";
-import type { TankDefinitionIds } from "../../game/rendering/ResourceManager";
-import BattleMenuModal from "../../components/game/BattleMenuModal";
+import { useScreenStack } from "../../context/ScreenStack";
+import type { HomeScreenStack } from "../home/HomePage";
 
-type LocationState = {
+export type LocalGameLocationState = {
   mode: "localTwoPlayer";
   player1Config: {
     name: string;
@@ -25,71 +23,66 @@ type LocationState = {
   };
 };
 
-function isValidLocationState(state: any): state is LocationState {
+function isValidLocationState(state: unknown): state is LocalGameLocationState {
   return (
-    state &&
+    Boolean(state) &&
     typeof state === "object" &&
-    state.mode === "localTwoPlayer" &&
-    typeof state.player1Config === "object" &&
-    typeof state.player2Config === "object" &&
-    "name" in state.player1Config &&
-    "tankId" in state.player1Config &&
-    "name" in state.player2Config &&
-    "tankId" in state.player2Config
+    state !== null &&
+    "mode" in state &&
+    (state as { mode: unknown }).mode === "localTwoPlayer" &&
+    "player1Config" in state &&
+    "player2Config" in state
   );
 }
 
-export default function LocalGamePage() {
-  const navigate = useNavigate();
+export default function LocalGameScreen() {
+  const { popScreen, state } = useScreenStack<HomeScreenStack>();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const engineRef = useRef<GameEngine | null>(null);
-  const location = useLocation();
-  const state = location.state as LocationState | null;
-  const { data: assets, isLoading: isAssetsLoading } = useAssetQuery();
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [matchKey, setMatchKey] = useState(0);
 
-  useEffect(() => {
-    if (!state || !isValidLocationState(state)) {
-      navigate("/");
-    }
-  }, [state, navigate]);
+  const fallbackState: LocalGameLocationState = useMemo(
+    () => ({
+      mode: "localTwoPlayer",
+      player1Config: { name: "Player 1", tankId: "heavy-armor" },
+      player2Config: { name: "Player 2", tankId: "desert-striker" },
+    }),
+    [],
+  );
 
-  const matchSetup = useMemo<MatchSetup | null>(() => {
-    if (!state || !isValidLocationState(state)) {
-      return null;
-    }
-    return {
-      mode: state.mode,
+  const activeConfig = isValidLocationState(state) ? state : fallbackState;
+  const { mode, player1Config, player2Config } = activeConfig;
+
+  const matchSetup = useMemo<MatchSetup>(
+    () => ({
+      mode,
       players: [
         {
           id: 0,
-          displayName: state.player1Config.name,
+          displayName: player1Config.name,
           controllerKind: "human",
-          tankSelection: { tankDefinitionId: state.player1Config.tankId },
+          tankSelection: { tankDefinitionId: player1Config.tankId },
         },
         {
           id: 1,
-          displayName: state.player2Config.name,
+          displayName: player2Config.name,
           controllerKind: "human",
-          tankSelection: { tankDefinitionId: state.player2Config.tankId },
+          tankSelection: { tankDefinitionId: player2Config.tankId },
         },
       ],
-    };
-  }, [state, matchKey]);
-
-  const isReady =
-    !isAssetsLoading && Boolean(assets) && ResourceManager.getInstance().isLoaded();
+    }),
+    [mode, player1Config, player2Config],
+  );
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || !isReady || !matchSetup) return;
+    if (!canvas) return;
 
     engineRef.current?.stop();
     const gameManager = createLocalGameManager({
-      mode: "localTwoPlayer",
+      canvas,
+      mode,
       setup: matchSetup,
-      content: ResourceManager.getInstance().getGameContent(),
+      content: localGameContent,
     });
     const engine = new GameEngine({
       canvas,
@@ -111,42 +104,29 @@ export default function LocalGamePage() {
         engineRef.current = null;
       }
     };
-  }, [matchSetup, isReady, matchKey]);
+  }, [matchSetup, mode]);
 
   return (
-    <main className="fixed inset-0 w-screen h-screen overflow-hidden bg-background text-text-body-high">
-      {/* Top-Left Circular Frosted Menu Button */}
-      <div className="absolute top-3 left-3 z-30">
-        <IconButton
-          onClick={() => setIsMenuOpen(true)}
-          icon={<Menu size={18} />}
-          className="rounded-full shadow-lg bg-zinc-900/80 border-zinc-700/70 hover:bg-zinc-800 text-white backdrop-blur-md"
-          aria-label="Open Battle Menu"
-        />
-      </div>
+    <main className="relative z-10 flex min-h-screen w-full flex-col bg-background p-4 text-text-body-high">
+      <header className="mb-4 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <IconButton
+            onClick={() => popScreen()}
+            icon={<ArrowLeft size={16} />}
+          />
+          <h1 className="font-heading text-xl font-bold tracking-wide text-primary">
+            Local Two-Player
+          </h1>
+        </div>
+        <div className="text-sm font-medium text-text-body-muted">
+          Offline Mode
+        </div>
+      </header>
 
-      <BattleMenuModal
-        isOpen={isMenuOpen}
-        onClose={() => setIsMenuOpen(false)}
-        mode="local"
-        onRestart={() => setMatchKey((prev) => prev + 1)}
-        onExitToMenu={() => navigate("/")}
+      <canvas
+        ref={canvasRef}
+        className="min-h-[560px] min-w-[320px] flex-1 rounded border border-border-main bg-background-high shadow-lg"
       />
-
-      <div className="relative w-full h-full overflow-hidden">
-        {!isReady && (
-          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-background/80 gap-3 backdrop-blur-sm">
-            <Loader />
-            <p className="text-sm font-medium text-text-body-muted">
-              Loading game assets...
-            </p>
-          </div>
-        )}
-        <canvas
-          ref={canvasRef}
-          className="w-full h-full block bg-black touch-none select-none"
-        />
-      </div>
     </main>
   );
 }

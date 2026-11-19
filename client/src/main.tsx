@@ -7,15 +7,10 @@ import { RouterProvider } from "react-router-dom";
 
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./query/queryClient";
-import InitializeAuth from "./components/auth/IntializeAuth";
 
 const root = createRoot(document.querySelector<HTMLDivElement>("#app")!);
 root.render(
-  //<React.StrictMode>
   <QueryClientProvider client={queryClient}>
-    <InitializeAuth/>
     <RouterProvider router={router} />
   </QueryClientProvider>,
-
-  //</React.StrictMode>,
 );

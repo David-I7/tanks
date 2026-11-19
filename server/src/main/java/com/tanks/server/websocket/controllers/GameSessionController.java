@@ -1,10 +1,9 @@
 package com.tanks.server.websocket.controllers;
 
+import com.tanks.server.domain.Lobby;
 import com.tanks.server.websocket.dto.gameplay.diffResponse.enums.ResyncReason;
 import com.tanks.server.websocket.dto.gameplay.playerIntent.OnlinePlayerIntentRequestDto;
-import com.tanks.server.websocket.entities.lobby.Lobby;
-import com.tanks.server.websocket.entities.userSession.UserSession;
-import com.tanks.server.websocket.security.entites.WebSocketPrincipal;
+import com.tanks.server.websocket.security.entities.WebSocketPrincipal;
 import com.tanks.server.websocket.services.GameSessionService;
 import com.tanks.server.websocket.services.LobbyService;
 import lombok.RequiredArgsConstructor;
@@ -22,42 +21,41 @@ import java.util.UUID;
 public class GameSessionController {
 
     private final GameSessionService gameSessionService;
-
     private final LobbyService lobbyService;
 
     @MessageMapping("/game/{id}/intent")
-    @PreAuthorize("@gameAuthorizationService.canSendIntent(authentication, #id, #intent)")
+    @PreAuthorize("@gameAuthorizationService.canSendMessageToTopic(authentication, '/topic/game/' + #id)")
     public void acceptPlayerIntent(
             @DestinationVariable UUID id,
             @Payload OnlinePlayerIntentRequestDto<?> intent,
             Authentication authentication) {
-        gameSessionService.acceptPlayerIntent(id, intent);
+        WebSocketPrincipal wsPrincipal = (WebSocketPrincipal) authentication.getPrincipal();
+        gameSessionService.acceptPlayerIntent(wsPrincipal.getPlayerId(), id, intent);
     }
 
     @MessageMapping("/game/{id}/resync")
-    @PreAuthorize("@gameAuthorizationService.canRequestResync(authentication, #id)")
+    @PreAuthorize("@gameAuthorizationService.canSendMessageToTopic(authentication, '/topic/game/' + #id)")
     public void requestResyncState(
             @DestinationVariable UUID id,
             Authentication authentication) {
-        gameSessionService.sendResyncStateToPlayer(id, authentication.getName(), ResyncReason.MISSED_DIFF);
+        WebSocketPrincipal wsPrincipal = (WebSocketPrincipal) authentication.getPrincipal();
+        gameSessionService.sendResyncStateToPlayer(id, wsPrincipal.getPlayerId(), ResyncReason.MISSED_DIFF);
     }
 
     @MessageMapping("/game/{id}/forfeit")
-    @PreAuthorize("@gameAuthorizationService.canForfeitGame(authentication, #id)")
+    @PreAuthorize("@gameAuthorizationService.canSendMessageToTopic(authentication, '/topic/game/' + #id)")
     public void forfeitGame(
             @DestinationVariable UUID id,
             Authentication authentication) {
-        gameSessionService.forfeitGame(id, authentication.getName());
+        WebSocketPrincipal wsPrincipal = (WebSocketPrincipal) authentication.getPrincipal();
+        gameSessionService.forfeitGame(id, wsPrincipal.getPlayerId());
     }
 
     @MessageMapping("/game/create")
     @PreAuthorize("@gameAuthorizationService.canCreateGame(authentication, '/game/create')")
-    public void createGame(Authentication authentication){
+    public void createGame(Authentication authentication) {
         WebSocketPrincipal wsPrincipal = (WebSocketPrincipal) authentication.getPrincipal();
-        UserSession host = wsPrincipal.getUserSession();
-
-        Lobby lobby = lobbyService.findById(host.getLobbyId());
+        Lobby lobby = lobbyService.findById(wsPrincipal.getLobbyId());
         gameSessionService.create(lobby);
     }
-
 }

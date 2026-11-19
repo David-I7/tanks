@@ -1,16 +1,18 @@
-import { Trophy, Swords, Home } from "lucide-react";
+import { Trophy, Swords, Home, RotateCcw } from "lucide-react";
 import "./GameOverOverlay.css";
 
 export type GameOverOverlayProps = {
   winnerName: string | null;
   isDraw: boolean;
   onReturnHome: () => void;
+  onReturnToLobby?: () => void;
 };
 
 export default function GameOverOverlay({
   winnerName,
   isDraw,
   onReturnHome,
+  onReturnToLobby,
 }: GameOverOverlayProps) {
   return (
     <div className="game-over-overlay">
@@ -36,14 +38,27 @@ export default function GameOverOverlay({
 
         {isDraw && <p className="game-over-draw-text">Match ended in a draw!</p>}
 
-        <button
-          type="button"
-          onClick={onReturnHome}
-          className="game-over-button"
-        >
-          <Home size={18} />
-          <span>Return to Home</span>
-        </button>
+        <div className="flex flex-col gap-2 w-full">
+          {onReturnToLobby && (
+            <button
+              type="button"
+              onClick={onReturnToLobby}
+              className="game-over-button"
+            >
+              <RotateCcw size={18} />
+              <span>Return to Lobby</span>
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={onReturnHome}
+            className="game-over-button"
+          >
+            <Home size={18} />
+            <span>Return to Home</span>
+          </button>
+        </div>
       </div>
     </div>
   );

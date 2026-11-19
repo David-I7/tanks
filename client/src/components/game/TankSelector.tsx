@@ -1,7 +1,5 @@
 import { useAssetQuery, type TankAsset } from "../../hooks/useAssetQuery";
-import { useAssetStore } from "../../store/useAssetStore";
-import TankImage from "./visuals/TankImage";
-import ProjectileImage from "./visuals/ProjectileImage";
+import { usePlayerStore } from "../../store/usePlayerStore";
 
 type TankSelectorProps = {
   onTankSelect?: (tank: TankAsset) => void;
@@ -17,13 +15,8 @@ export default function TankSelector({
   debugMode = false,
 }: TankSelectorProps) {
   const { data: tanks, isLoading } = useAssetQuery();
-  const storeSelectedTankId = useAssetStore((state) => state.selectedTankId);
-  const setStoreSelectedTank = useAssetStore((state) => state.setSelectedTank);
-
-  const selectedTankId =
-    explicitSelectedTankId !== undefined
-      ? explicitSelectedTankId
-      : storeSelectedTankId;
+  const selectedTankId = usePlayerStore((state) => state.player.tankId);
+  const selectTank = usePlayerStore((state) => state.setTankId);
 
   if (isLoading || !tanks) {
     return <div className="text-xs text-text-body-muted">Loading tanks...</div>;
@@ -56,8 +49,9 @@ export default function TankSelector({
               key={tank.id}
               type="button"
               onClick={() => {
-                setStoreSelectedTank(tank.id);
-                onTankSelect?.(tank);
+                selectTank(tank.id);
+                const selectedTank = tanks.find((t) => t.id === tank.id);
+                onTankSelect && onTankSelect(selectedTank!);
               }}
               className={`flex flex-col items-center p-2.5 rounded-xl border transition-all duration-200 cursor-pointer hover:-translate-y-1 hover:shadow-lg ${
                 isSelected
@@ -99,19 +93,17 @@ export default function TankSelector({
             {selectedTank.description}
           </p>
 
-          {/* Normal Mode: Grid of 5 Projectiles with Full Name and Image */}
-          {!debugMode && (
-            <div className="grid grid-cols-1 sm:grid-cols-5 gap-2 mt-1">
-              {selectedTank.projectiles.map((proj) => {
-                const ammoText =
-                  proj.initialAmmo === -1 || proj.initialAmmo === undefined
-                    ? "∞"
-                    : `${proj.initialAmmo}`;
-
-                return (
+          <div className="grid grid-cols-5 gap-1.5">
+            {selectedTank.projectiles.map((proj) => (
+              <div
+                key={proj.id}
+                className="flex flex-col items-center p-1.5 rounded border border-border-main bg-background-high/90 text-center shadow-sm"
+                title={`${proj.name}`}
+              >
+                <div className="w-9 h-7 flex items-center justify-center p-0.5 bg-background/70 rounded border border-border-main mb-1">
                   <div
-                    key={proj.id}
-                    className="flex sm:flex-col items-center gap-2 sm:gap-1 p-2 rounded-lg border border-border-main bg-background-high/90 text-left sm:text-center shadow-sm hover:border-primary/50 transition-colors"
+                    className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white shadow-sm"
+                    style={{ backgroundColor: "#38bdf8" }}
                   >
                     <div className="w-10 h-10 shrink-0 flex items-center justify-center p-1 bg-background/80 rounded-md border border-border-main">
                       <ProjectileImage projectileId={proj.id} size={32} />
@@ -128,16 +120,10 @@ export default function TankSelector({
                       </div>
                     </div>
                   </div>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Debug Mode: Detailed Projectile Breakdown with Brief Description and Intended Actions */}
-          {debugMode && (
-            <div className="flex flex-col gap-2 mt-1">
-              <div className="text-[11px] font-bold text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
-                <span>⚡ Weapon Debug Specification & Intended Behaviors</span>
+                </div>
+                <span className="text-[10px] font-bold truncate w-full text-text-body-high">
+                  {proj.name}
+                </span>
               </div>
               <div className="grid grid-cols-1 gap-2">
                 {selectedTank.projectiles.map((proj) => {

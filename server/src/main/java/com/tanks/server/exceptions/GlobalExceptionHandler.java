@@ -1,15 +1,17 @@
 package com.tanks.server.exceptions;
 
-import com.tanks.server.dto.validation.ConstraintValidationDto;
+import com.tanks.server.dto.response.ConstraintValidationDto;
 import com.tanks.server.mappers.validation.ObjectErrorToConstraintValidationDto;
+import com.tanks.server.utils.ProblemDetailWriter;
+import com.tanks.server.websocket.exceptions.ProblemDetailException;
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
-import org.springframework.web.bind.MissingRequestCookieException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.server.ResponseStatusException;
@@ -19,10 +21,12 @@ import java.util.List;
 
 @RestControllerAdvice
 @Order(0)
+@RequiredArgsConstructor
 @Slf4j
 public class GlobalExceptionHandler {
 
-    private ObjectErrorToConstraintValidationDto constraintValidationDtoMapper = new ObjectErrorToConstraintValidationDto();
+    private final ObjectErrorToConstraintValidationDto constraintValidationDtoMapper = new ObjectErrorToConstraintValidationDto();
+    private final ProblemDetailWriter problemDetailWriter;
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ProblemDetail> handleValidationException(HttpServletRequest request,
@@ -33,7 +37,7 @@ public class GlobalExceptionHandler {
         problemDetail.setTitle(HttpStatus.BAD_REQUEST.toString());
 
         List<ConstraintValidationDto> validationDtos = e.getAllErrors().stream()
-                .map(objectError -> constraintValidationDtoMapper.apply(objectError))
+                .map(constraintValidationDtoMapper::apply)
                 .toList();
 
         problemDetail.setProperty("errors", validationDtos);
@@ -41,29 +45,20 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(problemDetail.getStatus()).body(problemDetail);
     }
 
-    @ExceptionHandler(MissingRequestCookieException.class)
-    public ResponseEntity<ProblemDetail> handleMissingRefreshTokenException(HttpServletRequest request,
-            MissingRequestCookieException e) {
-        ProblemDetail problemDetail;
-
-        if (request.getRequestURI().startsWith("/api/v1/auth/refresh")) {
-            problemDetail = ProblemDetail.forStatus(HttpStatus.UNAUTHORIZED);
-            problemDetail.setTitle(HttpStatus.UNAUTHORIZED.getReasonPhrase());
-        } else {
-            problemDetail = ProblemDetail.forStatus(HttpStatus.BAD_REQUEST);
-            problemDetail.setTitle(HttpStatus.BAD_REQUEST.getReasonPhrase());
+    @ExceptionHandler(ProblemDetailException.class)
+    public ResponseEntity<ProblemDetail> handleProblemDetailException(
+            HttpServletRequest request,
+            ProblemDetailException e) {
+        ProblemDetail problemDetail = problemDetailWriter.createProblemDetail(e);
+        if (problemDetail.getInstance() == null || "about:blank".equals(problemDetail.getInstance().toString())) {
+            problemDetail.setInstance(URI.create(request.getRequestURI()));
         }
-
-        problemDetail.setInstance(URI.create(request.getRequestURI()));
-        problemDetail.setType(URI.create("about:blank"));
-        problemDetail.setDetail(e.getBody().getDetail());
-
         return ResponseEntity.status(problemDetail.getStatus()).body(problemDetail);
     }
 
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<ProblemDetail> handleResponseStatusExceptions(HttpServletRequest request,
-                                                                        ResponseStatusException e) {
+            ResponseStatusException e) {
         return ResponseEntity.status(e.getStatusCode()).body(e.getBody());
     }
 

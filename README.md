@@ -1,21 +1,3 @@
 # Tanks
 
-Tanks is a multiplayer artillery game with a React/TypeScript client and a Java Spring server. The project supports local play on one machine and is being shaped around server-authoritative online play over WebSockets.
-
-## Startup dev server
-
-```bash
-# Initial launch
-docker compose -f docker/docker-compose.dev.yml up --build
-
-# Subsequent launches
-docker compose -f docker/docker-compose.dev.yml stop
-
-# Remove resources
-docker compose -f docker/docker-compose.dev.yml down
-
-docker volume prune
-
-## Stop containers
-docker compose -f docker/docker-compose.dev.yml stop
-```
+Tanks is a turn-based artillery game inspired by Pocket Tanks, where players control tanks and compete against each other using a variety of weapons. Players must adjust their aim, shooting angle, and power to hit opponents while accounting for terrain and projectile trajectories.
